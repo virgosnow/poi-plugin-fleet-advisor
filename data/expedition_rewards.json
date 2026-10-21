@@ -1,0 +1,777 @@
+{
+  "source": "WikiWiki expedition rewards and mechanics",
+  "url": "https://wikiwiki.jp/kancolle/%E9%81%A0%E5%BE%81",
+  "sources": [
+    {
+      "page": "遠征",
+      "url": "https://wikiwiki.jp/kancolle/%E9%81%A0%E5%BE%81",
+      "retrievedAt": "2026-10-21T09:43:36+00:00",
+      "sha256": "46cbb7b33a34457a6342227840a426e5d8f97b7ab992a739ceea7f050be061da"
+    },
+    {
+      "page": "遠征/詳細一覧表",
+      "url": "https://wikiwiki.jp/kancolle/%E9%81%A0%E5%BE%81/%E8%A9%B3%E7%B4%B0%E4%B8%80%E8%A6%A7%E8%A1%A8",
+      "retrievedAt": "2026-10-21T09:44:33+00:00",
+      "sha256": "7f88917468df1fb865cbe2c46c629efff69ef8112db6ddd5a232b0253c0cb3d3"
+    },
+    {
+      "page": "特大発動艇",
+      "url": "https://wikiwiki.jp/kancolle/%E7%89%B9%E5%A4%A7%E7%99%BA%E5%8B%95%E8%89%87",
+      "retrievedAt": "2026-10-21T09:43:37+00:00",
+      "sha256": "09c9dd3525310de791442fc2a8daf3e220b70ef524029637a5cb34bcaed1a367"
+    },
+    {
+      "page": "ケッコンカッコカリ",
+      "url": "https://wikiwiki.jp/kancolle/%E3%82%B1%E3%83%83%E3%82%B3%E3%83%B3%E3%82%AB%E3%83%83%E3%82%B3%E3%82%AB%E3%83%AA",
+      "retrievedAt": "2026-10-21T09:43:38+00:00",
+      "sha256": "d322bee283118fda5895ee68b46081db916aa628748a15ef1434e05fd147d713"
+    }
+  ],
+  "rules": {
+    "equipmentRates": {
+      "68": 0.05,
+      "166": 0.02,
+      "408": 0.02,
+      "449": 0.02,
+      "436": 0.02,
+      "409": 0.03,
+      "576": 0.03,
+      "193": 0.05,
+      "167": 0.01,
+      "525": 0.04,
+      "526": 0.05
+    },
+    "innateShipRates": {
+      "487": 0.05
+    },
+    "baseCap": 0.2,
+    "improvementFactor": 0.01,
+    "specialSynergy": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0.02,
+        0.02,
+        0.02,
+        0.02,
+        0.02
+      ],
+      [
+        0.04,
+        0.04,
+        0.04,
+        0.04,
+        0.04
+      ],
+      [
+        0.05,
+        0.05,
+        0.052,
+        0.054,
+        0.054
+      ],
+      [
+        0.054,
+        0.056,
+        0.058,
+        0.059,
+        0.06
+      ]
+    ],
+    "marriageSupplyFactor": 0.85,
+    "rounding": "Floor ordinary-plus-improvement rewards and special synergy rewards separately, then add.",
+    "greatSuccess": {
+      "ordinary": {
+        "basePercent": 20,
+        "perSparkledPercent": 15,
+        "basis": "Linear reference consistent with Wiki approximate 80% / 95% for four / five all-sparkled ships; six ships guarantee great success."
+      },
+      "drum": {
+        "minimum": [
+          5,
+          20,
+          35,
+          50,
+          65,
+          80,
+          95
+        ],
+        "full": [
+          40,
+          55,
+          70,
+          85,
+          101,
+          116,
+          131
+        ]
+      },
+      "flagship": {
+        "basePercent": 16,
+        "perSparkledPercent": 15,
+        "sqrtLevelFactor": 1,
+        "linearLevelFactor": 0.1
+      }
+    }
+  },
+  "missions": {
+    "1": {
+      "resources": [
+        0,
+        30,
+        0,
+        0
+      ],
+      "wikiId": "1"
+    },
+    "2": {
+      "resources": [
+        0,
+        100,
+        30,
+        0
+      ],
+      "wikiId": "2"
+    },
+    "3": {
+      "resources": [
+        30,
+        30,
+        40,
+        0
+      ],
+      "wikiId": "3"
+    },
+    "4": {
+      "resources": [
+        0,
+        70,
+        0,
+        0
+      ],
+      "wikiId": "4"
+    },
+    "5": {
+      "resources": [
+        200,
+        200,
+        20,
+        20
+      ],
+      "wikiId": "5"
+    },
+    "6": {
+      "resources": [
+        0,
+        0,
+        0,
+        80
+      ],
+      "wikiId": "6"
+    },
+    "7": {
+      "resources": [
+        0,
+        0,
+        50,
+        30
+      ],
+      "wikiId": "7"
+    },
+    "8": {
+      "resources": [
+        50,
+        100,
+        50,
+        50
+      ],
+      "wikiId": "8"
+    },
+    "9": {
+      "resources": [
+        350,
+        0,
+        0,
+        0
+      ],
+      "wikiId": "9"
+    },
+    "10": {
+      "resources": [
+        0,
+        50,
+        0,
+        40
+      ],
+      "wikiId": "10"
+    },
+    "11": {
+      "resources": [
+        0,
+        0,
+        0,
+        250
+      ],
+      "wikiId": "11"
+    },
+    "12": {
+      "resources": [
+        50,
+        250,
+        200,
+        50
+      ],
+      "wikiId": "12"
+    },
+    "13": {
+      "resources": [
+        240,
+        300,
+        0,
+        0
+      ],
+      "wikiId": "13"
+    },
+    "14": {
+      "resources": [
+        0,
+        280,
+        200,
+        30
+      ],
+      "wikiId": "14"
+    },
+    "15": {
+      "resources": [
+        0,
+        0,
+        300,
+        400
+      ],
+      "wikiId": "15"
+    },
+    "16": {
+      "resources": [
+        500,
+        500,
+        200,
+        200
+      ],
+      "wikiId": "16"
+    },
+    "17": {
+      "resources": [
+        70,
+        90,
+        50,
+        0
+      ],
+      "wikiId": "17"
+    },
+    "18": {
+      "resources": [
+        0,
+        0,
+        300,
+        150
+      ],
+      "wikiId": "18"
+    },
+    "19": {
+      "resources": [
+        400,
+        50,
+        50,
+        30
+      ],
+      "wikiId": "19"
+    },
+    "20": {
+      "resources": [
+        0,
+        0,
+        150,
+        0
+      ],
+      "wikiId": "20"
+    },
+    "21": {
+      "resources": [
+        320,
+        270,
+        0,
+        0
+      ],
+      "wikiId": "21"
+    },
+    "22": {
+      "resources": [
+        0,
+        10,
+        0,
+        0
+      ],
+      "wikiId": "22"
+    },
+    "23": {
+      "resources": [
+        0,
+        50,
+        0,
+        130
+      ],
+      "wikiId": "23"
+    },
+    "24": {
+      "resources": [
+        500,
+        0,
+        0,
+        150
+      ],
+      "wikiId": "24"
+    },
+    "25": {
+      "resources": [
+        900,
+        0,
+        500,
+        0
+      ],
+      "wikiId": "25"
+    },
+    "26": {
+      "resources": [
+        0,
+        0,
+        0,
+        900
+      ],
+      "wikiId": "26"
+    },
+    "27": {
+      "resources": [
+        0,
+        0,
+        800,
+        0
+      ],
+      "wikiId": "27"
+    },
+    "28": {
+      "resources": [
+        0,
+        0,
+        900,
+        350
+      ],
+      "wikiId": "28"
+    },
+    "29": {
+      "resources": [
+        0,
+        50,
+        0,
+        100
+      ],
+      "wikiId": "29"
+    },
+    "30": {
+      "resources": [
+        0,
+        50,
+        0,
+        100
+      ],
+      "wikiId": "30"
+    },
+    "31": {
+      "resources": [
+        0,
+        30,
+        0,
+        0
+      ],
+      "wikiId": "31"
+    },
+    "32": {
+      "resources": [
+        50,
+        50,
+        50,
+        50
+      ],
+      "wikiId": "32"
+    },
+    "33": {
+      "resources": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "wikiId": "33"
+    },
+    "34": {
+      "resources": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "wikiId": "34"
+    },
+    "35": {
+      "resources": [
+        0,
+        0,
+        240,
+        280
+      ],
+      "wikiId": "35"
+    },
+    "36": {
+      "resources": [
+        480,
+        0,
+        200,
+        200
+      ],
+      "wikiId": "36"
+    },
+    "37": {
+      "resources": [
+        0,
+        380,
+        270,
+        0
+      ],
+      "wikiId": "37"
+    },
+    "38": {
+      "resources": [
+        420,
+        0,
+        200,
+        0
+      ],
+      "wikiId": "38"
+    },
+    "39": {
+      "resources": [
+        0,
+        0,
+        300,
+        0
+      ],
+      "wikiId": "39"
+    },
+    "40": {
+      "resources": [
+        300,
+        300,
+        0,
+        100
+      ],
+      "wikiId": "40"
+    },
+    "41": {
+      "resources": [
+        100,
+        0,
+        0,
+        20
+      ],
+      "wikiId": "41"
+    },
+    "42": {
+      "resources": [
+        800,
+        0,
+        0,
+        200
+      ],
+      "wikiId": "42"
+    },
+    "43": {
+      "resources": [
+        2000,
+        0,
+        0,
+        400
+      ],
+      "wikiId": "43"
+    },
+    "44": {
+      "resources": [
+        0,
+        200,
+        0,
+        800
+      ],
+      "wikiId": "44"
+    },
+    "45": {
+      "resources": [
+        40,
+        0,
+        0,
+        220
+      ],
+      "wikiId": "45"
+    },
+    "46": {
+      "resources": [
+        300,
+        0,
+        150,
+        380
+      ],
+      "wikiId": "46"
+    },
+    "100": {
+      "resources": [
+        45,
+        45,
+        0,
+        0
+      ],
+      "wikiId": "A1"
+    },
+    "101": {
+      "resources": [
+        70,
+        40,
+        0,
+        10
+      ],
+      "wikiId": "A2"
+    },
+    "102": {
+      "resources": [
+        120,
+        0,
+        60,
+        60
+      ],
+      "wikiId": "A3"
+    },
+    "103": {
+      "resources": [
+        80,
+        120,
+        0,
+        100
+      ],
+      "wikiId": "A4"
+    },
+    "104": {
+      "resources": [
+        0,
+        300,
+        0,
+        100
+      ],
+      "wikiId": "A5"
+    },
+    "105": {
+      "resources": [
+        100,
+        500,
+        100,
+        200
+      ],
+      "wikiId": "A6"
+    },
+    "110": {
+      "resources": [
+        0,
+        0,
+        20,
+        30
+      ],
+      "wikiId": "B1"
+    },
+    "111": {
+      "resources": [
+        300,
+        200,
+        100,
+        0
+      ],
+      "wikiId": "B2"
+    },
+    "112": {
+      "resources": [
+        0,
+        100,
+        100,
+        180
+      ],
+      "wikiId": "B3"
+    },
+    "113": {
+      "resources": [
+        0,
+        0,
+        1200,
+        650
+      ],
+      "wikiId": "B4"
+    },
+    "114": {
+      "resources": [
+        500,
+        500,
+        1000,
+        750
+      ],
+      "wikiId": "B5"
+    },
+    "115": {
+      "resources": [
+        600,
+        1000,
+        600,
+        600
+      ],
+      "wikiId": "B6"
+    },
+    "131": {
+      "resources": [
+        0,
+        20,
+        20,
+        100
+      ],
+      "wikiId": "D1"
+    },
+    "132": {
+      "resources": [
+        0,
+        0,
+        400,
+        800
+      ],
+      "wikiId": "D2"
+    },
+    "133": {
+      "resources": [
+        0,
+        800,
+        500,
+        400
+      ],
+      "wikiId": "D3"
+    },
+    "141": {
+      "resources": [
+        0,
+        600,
+        600,
+        1000
+      ],
+      "wikiId": "E1"
+    },
+    "142": {
+      "resources": [
+        0,
+        480,
+        0,
+        0
+      ],
+      "wikiId": "E2"
+    }
+  },
+  "incomeReference": {
+    "basis": "Ordinary success, fixed reference supply costs; no great-success, landing-craft or marriage bonuses. Independent of player roster and selected goal. Reference formations describe costs only, not executable recommendations.",
+    "checked": "2026-10-16",
+    "ratesSource": "KanColle api_mst_mission: api_time, api_use_fuel, api_use_bull",
+    "formationSource": "First listed expedition type structure plus ordinary destroyers to the minimum count; fixed type-cost presets, not player-owned ships.",
+    "typeSupplyPresets": {
+      "DD": [15, 20],
+      "DE": [10, 10],
+      "CL": [25, 35],
+      "CT": [30, 20],
+      "CVE": [30, 30],
+      "CVL": [40, 45],
+      "CVLike": [40, 45],
+      "BBV": [95, 105],
+      "SSLike": [10, 20],
+      "CA": [35, 55],
+      "AV": [35, 35],
+      "AS": [30, 20],
+      "DDorDE": [15, 20]
+    },
+    "missions": {
+      "1": {"minutes": 15, "fuelCost": 8, "ammoCost": 0, "formation": {"DD": 2}},
+      "2": {"minutes": 30, "fuelCost": 28, "ammoCost": 0, "formation": {"DD": 4}},
+      "3": {"minutes": 20, "fuelCost": 12, "ammoCost": 12, "formation": {"DD": 3}},
+      "4": {"minutes": 50, "fuelCost": 26, "ammoCost": 0, "formation": {"CL": 1, "DDorDE": 2}},
+      "5": {"minutes": 90, "fuelCost": 33, "ammoCost": 0, "formation": {"CL": 1, "DDorDE": 2, "DD": 1}},
+      "6": {"minutes": 40, "fuelCost": 16, "ammoCost": 16, "formation": {"DD": 4}},
+      "7": {"minutes": 60, "fuelCost": 42, "ammoCost": 0, "formation": {"DD": 6}},
+      "8": {"minutes": 180, "fuelCost": 42, "ammoCost": 24, "formation": {"DD": 6}},
+      "9": {"minutes": 240, "fuelCost": 33, "ammoCost": 0, "formation": {"CL": 1, "DDorDE": 2, "DD": 1}},
+      "10": {"minutes": 90, "fuelCost": 18, "ammoCost": 0, "formation": {"CL": 2, "DD": 1}},
+      "11": {"minutes": 300, "fuelCost": 28, "ammoCost": 0, "formation": {"DDorDE": 2, "DD": 2}},
+      "12": {"minutes": 480, "fuelCost": 28, "ammoCost": 0, "formation": {"DDorDE": 2, "DD": 2}},
+      "13": {"minutes": 240, "fuelCost": 47, "ammoCost": 54, "formation": {"CL": 1, "DD": 5}},
+      "14": {"minutes": 360, "fuelCost": 47, "ammoCost": 0, "formation": {"CL": 1, "DD": 5}},
+      "15": {"minutes": 720, "fuelCost": 68, "ammoCost": 68, "formation": {"CVLike": 2, "DD": 4}},
+      "16": {"minutes": 900, "fuelCost": 47, "ammoCost": 54, "formation": {"CL": 1, "DD": 5}},
+      "17": {"minutes": 45, "fuelCost": 27, "ammoCost": 54, "formation": {"CL": 1, "DD": 5}},
+      "18": {"minutes": 300, "fuelCost": 81, "ammoCost": 39, "formation": {"CVLike": 3, "DD": 3}},
+      "19": {"minutes": 360, "fuelCost": 122, "ammoCost": 116, "formation": {"BBV": 2, "DD": 4}},
+      "20": {"minutes": 120, "fuelCost": 17, "ammoCost": 22, "formation": {"SSLike": 1, "CL": 1}},
+      "21": {"minutes": 140, "fuelCost": 68, "ammoCost": 80, "formation": {"CL": 1, "DD": 4}},
+      "22": {"minutes": 180, "fuelCost": 96, "ammoCost": 118, "formation": {"CA": 1, "CL": 1, "DD": 4}},
+      "23": {"minutes": 240, "fuelCost": 200, "ammoCost": 232, "formation": {"BBV": 2, "DD": 4}},
+      "24": {"minutes": 500, "fuelCost": 87, "ammoCost": 81, "formation": {"CL": 1, "DDorDE": 4, "DD": 1}},
+      "25": {"minutes": 2400, "fuelCost": 48, "ammoCost": 120, "formation": {"CA": 2, "DD": 2}},
+      "26": {"minutes": 4800, "fuelCost": 76, "ammoCost": 96, "formation": {"CVLike": 1, "CL": 1, "DD": 2}},
+      "27": {"minutes": 1200, "fuelCost": 16, "ammoCost": 32, "formation": {"SSLike": 2}},
+      "28": {"minutes": 1500, "fuelCost": 24, "ammoCost": 48, "formation": {"SSLike": 3}},
+      "29": {"minutes": 1440, "fuelCost": 27, "ammoCost": 24, "formation": {"SSLike": 3}},
+      "30": {"minutes": 2880, "fuelCost": 36, "ammoCost": 56, "formation": {"SSLike": 4}},
+      "31": {"minutes": 120, "fuelCost": 20, "ammoCost": 0, "formation": {"SSLike": 4}},
+      "32": {"minutes": 1440, "fuelCost": 53, "ammoCost": 18, "formation": {"CT": 1, "DD": 2}},
+      "33": {"minutes": 15, "fuelCost": 14, "ammoCost": 32, "formation": {"DD": 2}},
+      "34": {"minutes": 30, "fuelCost": 14, "ammoCost": 32, "formation": {"DD": 2}},
+      "35": {"minutes": 420, "fuelCost": 128, "ammoCost": 164, "formation": {"CVLike": 2, "CA": 1, "DD": 3}},
+      "36": {"minutes": 540, "fuelCost": 112, "ammoCost": 132, "formation": {"AV": 2, "CL": 1, "DD": 3}},
+      "37": {"minutes": 165, "fuelCost": 80, "ammoCost": 108, "formation": {"CL": 1, "DD": 5}},
+      "38": {"minutes": 175, "fuelCost": 72, "ammoCost": 96, "formation": {"DD": 6}},
+      "39": {"minutes": 1800, "fuelCost": 63, "ammoCost": 90, "formation": {"AS": 1, "SSLike": 4}},
+      "40": {"minutes": 410, "fuelCost": 112, "ammoCost": 114, "formation": {"CL": 1, "AV": 2, "DD": 3}},
+      "41": {"minutes": 60, "fuelCost": 21, "ammoCost": 30, "formation": {"DDorDE": 3}},
+      "42": {"minutes": 480, "fuelCost": 56, "ammoCost": 61, "formation": {"CL": 1, "DD": 3}},
+      "43": {"minutes": 720, "fuelCost": 107, "ammoCost": 139, "formation": {"CVE": 1, "DD": 4, "CVL": 1}},
+      "44": {"minutes": 600, "fuelCost": 136, "ammoCost": 80, "formation": {"CVLike": 2, "AV": 1, "CL": 1, "DDorDE": 2}},
+      "45": {"minutes": 200, "fuelCost": 60, "ammoCost": 50, "formation": {"CVL": 1, "DDorDE": 4}},
+      "46": {"minutes": 210, "fuelCost": 92, "ammoCost": 175, "formation": {"CA": 2, "CL": 1, "DD": 2}},
+      "100": {"minutes": 25, "fuelCost": 20, "ammoCost": 0, "formation": {"DDorDE": 3, "DD": 1}},
+      "101": {"minutes": 55, "fuelCost": 28, "ammoCost": 16, "formation": {"DDorDE": 4}},
+      "102": {"minutes": 135, "fuelCost": 52, "ammoCost": 40, "formation": {"CL": 1, "DDorDE": 3, "DD": 1}},
+      "103": {"minutes": 110, "fuelCost": 62, "ammoCost": 69, "formation": {"CL": 1, "DD": 4}},
+      "104": {"minutes": 180, "fuelCost": 68, "ammoCost": 86, "formation": {"CL": 1, "DD": 4}},
+      "105": {"minutes": 210, "fuelCost": 87, "ammoCost": 128, "formation": {"CL": 1, "DD": 5}},
+      "110": {"minutes": 35, "fuelCost": 50, "ammoCost": 22, "formation": {"AV": 1, "CL": 1, "DDorDE": 2, "DD": 2}},
+      "111": {"minutes": 520, "fuelCost": 96, "ammoCost": 109, "formation": {"CA": 1, "CL": 1, "DD": 4}},
+      "112": {"minutes": 170, "fuelCost": 74, "ammoCost": 120, "formation": {"AV": 1, "CL": 1, "DD": 4}},
+      "113": {"minutes": 450, "fuelCost": 111, "ammoCost": 172, "formation": {"CA": 2, "CL": 1, "DD": 2, "SSLike": 1}},
+      "114": {"minutes": 390, "fuelCost": 105, "ammoCost": 142, "formation": {"AV": 1, "CL": 1, "DD": 4}},
+      "115": {"minutes": 350, "fuelCost": 93, "ammoCost": 128, "formation": {"CL": 1, "DD": 5}},
+      "131": {"minutes": 120, "fuelCost": 70, "ammoCost": 57, "formation": {"AV": 1, "DD": 4}},
+      "132": {"minutes": 600, "fuelCost": 67, "ammoCost": 90, "formation": {"AS": 1, "SSLike": 3, "DD": 1}},
+      "133": {"minutes": 720, "fuelCost": 67, "ammoCost": 95, "formation": {"AS": 1, "SSLike": 3, "DD": 1}},
+      "141": {"minutes": 450, "fuelCost": 112, "ammoCost": 143, "formation": {"CA": 1, "CL": 1, "DD": 4}},
+      "142": {"minutes": 185, "fuelCost": 65, "ammoCost": 95, "formation": {"DD": 5}}
+    }
+  }
+}

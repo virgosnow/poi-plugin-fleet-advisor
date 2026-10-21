@@ -1,0 +1,78 @@
+{
+  "name": "poi-plugin-fleet-advisor",
+  "version": "1.0.0",
+  "license": "MIT",
+  "bundledDependencies": true,
+  "description": "Fleet Advisor for poi: fleet composition, equipment planning, normal maps, expeditions and local MCP tools",
+  "homepage": "https://github.com/virgosnow/poi-plugin-fleet-advisor#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/virgosnow/poi-plugin-fleet-advisor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/virgosnow/poi-plugin-fleet-advisor/issues"
+  },
+  "keywords": [
+    "poi",
+    "poi-plugin",
+    "kancolle",
+    "fleet",
+    "automation",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "main": "index.js",
+  "files": [
+    "LICENSE",
+    "THIRD_PARTY.md",
+    "index.js",
+    "src/",
+    "data/org_sort_ship.json",
+    "data/org_sort_new.json",
+    "data/org_sort_level.json",
+    "data/org_clear_escorts.json",
+    "data/page_digits_v2.json",
+    "data/resample_variants.json",
+    "data/equip_icon_index.json",
+    "data/equip_categories.json",
+    "data/equip_borrow.json",
+    "data/equip_clear_all.json",
+    "data/equipment_rules.json",
+    "data/asw_bonuses.json",
+    "data/combat_bonuses.json",
+    "data/installation_effects.json",
+    "data/level_digits.json",
+    "data/icons/t3/",
+    "data/icons/items/",
+    "data/icons/material/",
+    "README.md",
+    "data/expedition_requirements.json",
+    "data/normal_routes/",
+    "data/normal_route_guides.json",
+    "data/sortie/",
+    "data/expedition_rewards.json",
+    "docs/ARCHITECTURE.md",
+    "docs/MCP_API.md"
+  ],
+  "scripts": {
+    "test": "node tools/test.cjs",
+    "test:equipment": "node --test tests/execution/equipment.test.js"
+  },
+  "poiPlugin": {
+    "id": "poi-plugin-fleet-advisor",
+    "title": "舰队参谋",
+    "description": "编成与换装",
+    "icon": [
+      "fas",
+      "paa-fleet-advisor"
+    ],
+    "windowMode": true,
+    "priority": 10
+  },
+  "dependencies": {
+    "pngjs": "7.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

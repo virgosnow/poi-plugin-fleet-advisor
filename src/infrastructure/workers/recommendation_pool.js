@@ -1,0 +1,102 @@
+'use strict';
+const {parallelism}=require('../../config/computation_settings');
+const {Worker,isMainThread,parentPort,workerData}=require('worker_threads');
+const {withEquipmentIndexCache}=require('../../domain/fleet/equipment_planner');
+
+// Leave CPU capacity for poi/game rendering. The coordinator only dispatches
+// while these workers run; dependent search stages still use one thread.
+
+if(!isMainThread&&workerData?.kind==='recommendation-batch'){
+  const {store,cacheDirectory,version,cacheMaxBytes}=workerData,indexes=new Map();
+  const {CalculationCache,withCalculationCache}=require('../../shared/calculation_cache');
+  const {RecommendationCache}=require('../cache/recommendation_cache');
+  // Only the coordinator persists tables: token dictionaries must never be
+  // overwritten by a sibling worker's independently allocated token numbers.
+  const storage=cacheDirectory?new RecommendationCache(cacheDirectory,{version,maxBytes:cacheMaxBytes}):null;
+  if(storage)storage.write=()=>{};
+  const cache=storage?new CalculationCache(storage):null;
+  const run=fn=>cache?withCalculationCache(cache,fn,{flush:false}):fn();
+  const calculate=require('../../recommendation/index').recommendationBatch;
+  parentPort.on('message',({id,batch})=>{
+    try{
+      const result=batch.kind==='cache'?{equipment:cache?.equipmentEntries()||[],hulls:cache?.hullEntries()||[]}:
+        run(()=>withEquipmentIndexCache(store,()=>calculate(store,batch),indexes));
+      parentPort.postMessage({id,result});
+    }catch(e){parentPort.postMessage({id,error:{message:e.message,code:e.code,stack:e.stack}});}
+  });
+}
+
+class RecommendationPool {
+  constructor(store,{size=parallelism(),cacheDirectory,version,cacheMaxBytes,mergeEquipmentEntries,mergeHullEntries,createWorker=(file,options)=>new Worker(file,options)}={}){
+    // Explicit resource settings may use eight; the automatic cap stays six.
+    this.store=store;this.size=Math.max(1,Math.min(8,Math.floor(size)||1));
+    this.cacheDirectory=cacheDirectory;this.version=version;this.createWorker=createWorker;
+    this.cacheMaxBytes=cacheMaxBytes;
+    this.mergeEquipmentEntries=mergeEquipmentEntries;this.mergeHullEntries=mergeHullEntries;
+    this.workers=[];this.closed=false;this.nextId=0;
+  }
+  spawn(){
+    const worker=this.createWorker(__filename,{workerData:{kind:'recommendation-batch',store:this.store,
+      cacheDirectory:this.cacheDirectory,version:this.version,cacheMaxBytes:this.cacheMaxBytes}});
+    const slot={worker,pending:null,failure:null};
+    const fail=error=>{slot.failure=error;const pending=slot.pending;slot.pending=null;pending?.reject(error);};
+    worker.on('error',fail);
+    worker.on('exit',code=>fail(Error(`候选计算线程已退出（${code}）`)));
+    worker.on('message',message=>{
+      const pending=slot.pending;if(!pending||pending.id!==message.id)return;
+      slot.pending=null;
+      if(message.error)pending.reject(Object.assign(Error(message.error.message),message.error));
+      else pending.resolve(message.result);
+    });
+    this.workers.push(slot);return slot;
+  }
+  execute(slot,batch){
+    if(slot.failure)return Promise.reject(slot.failure);
+    return new Promise((resolve,reject)=>{
+      const id=++this.nextId;slot.pending={id,resolve,reject};
+      try{slot.worker.postMessage({id,batch});}catch(e){slot.pending=null;reject(e);}
+    });
+  }
+  async run(batch,fallback){
+    if(this.closed)throw Error('候选计算线程池已关闭');
+    // Tiny inputs cost less to calculate locally than to clone/start workers.
+    const hulls=batch.kind==='hulls',fitting=['path-fit','los-fit','combat','refinement','speed-fit','speed-refit'].includes(batch.kind);
+    // Finalists are few but expensive. Reuse already warm workers for small
+    // fitting batches; a tiny map should not start a pool just for this stage.
+    const minimum=fitting&&this.workers.length?4:24;
+    if(this.size===1||(hulls?batch.estimatedWork<2000:batch.items.length<minimum))return fallback();
+    const count=hulls?this.size:Math.min(this.size,Math.max(
+      Math.ceil(batch.items.length/(fitting?2:24)),
+      batch.kind==='gear'?Math.min(this.workers.length,Math.ceil(batch.items.length/2)):0));
+    // Fleet sizes are uneven workloads. Give every worker an interleaved part
+    // of the SAME bounded enumeration, including its expensive six-ship leaves.
+    if(hulls)batch={...batch,items:Array.from({length:count},(_,index)=>({index,count}))};
+    // Larger combat batches get multiple waves, without rebuilding evaluation
+    // context for every two fleets; each task takes at least two fleets.
+    const chunkSize=hulls?1:batch.kind==='combat'?Math.max(2,Math.min(12,Math.ceil(batch.items.length/(count*2)))):
+      fitting||batch.kind==='gear'?2:batch.kind==='seeds'?24:6,results=new Array(batch.items.length);
+    let next=0;
+    try{
+      while(this.workers.length<count)this.spawn();
+      await Promise.all(this.workers.slice(0,count).map(async slot=>{
+        while(next<batch.items.length){
+          const start=next;next+=chunkSize;
+          const rows=await this.execute(slot,{...batch,items:batch.items.slice(start,start+chunkSize)});
+          for(let i=0;i<rows.length;i++)results[start+i]=rows[i];
+        }
+      }));
+      return results;
+    }catch(e){await this.dispose();throw e;}
+  }
+  async dispose(){
+    this.closed=true;
+    await Promise.all(this.workers.map(slot=>slot.worker.terminate()));
+    this.workers=[];
+  }
+  async flush(){
+    if((!this.mergeEquipmentEntries&&!this.mergeHullEntries)||this.closed)return;
+    const results=await Promise.all(this.workers.map(slot=>this.execute(slot,{kind:'cache'})));
+    for(const records of results){this.mergeEquipmentEntries?.(records.equipment);this.mergeHullEntries?.(records.hulls);}
+  }
+}
+module.exports={RecommendationPool,parallelism};

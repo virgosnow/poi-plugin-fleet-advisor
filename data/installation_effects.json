@@ -1,0 +1,29 @@
+{
+  "source": "https://wikiwiki.jp/kancolle/対地攻撃#AllBonusTable",
+  "checked": "2026-10-15",
+  "groundBombers": ["彗星一二型(六三四空／三号爆弾搭載機)","彗星一二型(三一号光電管爆弾搭載機)","九九式艦爆二二型","九九式艦爆二二型(熟練)","試製南山","FM-2","F4U-1D","F4U-4","SB2C-3","SB2C-5","Ju87C改","Ju87C改二(KMX搭載機)","Ju87C改二(KMX搭載機／熟練)","試製 明星(増加試作機)","明星改","SBD(Yellow Wings)","SBD VB-2(爆撃飛行隊)","九九式練爆二二型改(夜間装備実験機)"],
+  "targets": {
+    "soft": {"label":"软皮设施（港湾／北方）","shell":2.5,"wg":[1.3,1.82],"rocket":[1.25,1.875],"mortar":[1.2,1.56],"landing":1.4,"large":1.15,"army":1.5,"armyExtra":1.3,"m4":1.1,"support":1.1,"supportExtra":1.1,"katsu":1.2,"kami":[1.5,1.8],"ap":1,"seaplane":1.2,"bomber":[1,1]},
+    "pillbox": {"label":"炮台小鬼","shell":1,"wg":[1.6,2.72],"rocket":[1.5,2.7],"mortar":[1.3,1.95],"landing":1.8,"large":1.15,"army":1.5,"armyExtra":1.4,"m4":2,"support":1.3,"supportExtra":1.2,"katsu":1.35,"kami":[2.4,3.24],"ap":1.85,"seaplane":1.5,"bomber":[1.5,3]},
+    "island": {"label":"离岛栖姬","shell":1.75,"wg":[1.4,2.1],"rocket":[1.3,2.145],"mortar":[1.2,1.68],"landing":1.8,"large":1.15,"army":1.2,"armyExtra":1.4,"m4":1.8,"support":1.3,"supportExtra":1.1,"katsu":1.35,"kami":[2.4,3.24],"ap":1,"seaplane":1,"bomber":[1.4,2.45]},
+    "supply": {"label":"集积地栖姬","pre":"soft","post":{"wg":[1.25,1.625],"rocket":[1.2,1.68],"mortar":[1.15,1.38],"landing":1.7,"large":1.2,"army":1.3,"armyExtra":1.6,"m4":1.2,"support":1.5,"supportExtra":1.1,"katsu":1.5,"kami":[1.7,2.55]}}
+  },
+  "equipment": {
+    "三式弾":["shell"],"三式弾改":["shell"],"三式弾改二":["shell"],
+    "WG42(Wurfgerat42)":["wg"],"WG42(Wurfgerät42)":["wg"],
+    "艦載型四式20cm対地噴進砲":["rocket"],"四式20cm対地噴進砲集中配備":["rocketConcentrated"],
+    "二式12cm迫撃砲改":["mortar"],"二式12cm迫撃砲改集中配備":["mortarConcentrated"],
+    "大発動艇":["landing"],"特大発動艇":["landing","large"],
+    "大発動艇(八九式中戦車＆陸戦隊)":["landing","army"],
+    "大発動艇(II号戦車／北アフリカ仕様)":["landing","africa2"],
+    "特大発動艇＋III号戦車(北アフリカ仕様)":["landing","large","army","regiment"],
+    "特大発動艇＋III号戦車J型":["landing","large","army","m4","regiment"],
+    "特大発動艇＋戦車第11連隊":["landing","regiment"],
+    "特大発動艇＋一式砲戦車":["landing","army","regiment","honi"],
+    "M4A1DD":["landing","m4","sherman"],
+    "特大発動艇＋チハ":["landing","chiha"],"特大発動艇＋チハ改":["landing","m4","chihaKai"],
+    "武装大発":["landing","armed","support"],"装甲艇(AB艇)":["landing","ab","support"],
+    "特二式内火艇":["kami"],"特四式内火艇":["katsu"],"特四式内火艇改":["katsu","katsuKai"]
+  },
+  "additions": {"wg":[0,75,110,140,160],"rocket":[0,55,115,160,190],"rocketConcentrated":[0,80,170,230,260],"mortar":[0,30,55,75,90],"mortarConcentrated":[0,60,110,150,180]}
+}

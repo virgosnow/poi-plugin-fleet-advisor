@@ -1,0 +1,635 @@
+{
+  "area": "3-5",
+  "source": {
+    "url": "https://zh.kcwiki.cn/wiki/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-5",
+    "branchSectionSha256": "3b56e16f271877580ca3d6a04ccbd603be18eac342dd344e44fc784a42c68b67",
+    "previousUrl": "https://wikiwiki.jp/kancolle/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-5",
+    "authority": "nga-16820397",
+    "postUrl": "https://bbs.nga.cn/read.php?pid=330615814",
+    "threadUrl": "https://bbs.nga.cn/read.php?tid=16820397",
+    "postId": 330615814,
+    "capturedDate": "2026-10-13",
+    "bodySha256": "d0408c0ddf000a63929ec240e30438d7ed37ab81cbbbb4436514e04df2076bd8",
+    "snapshotSha256": "34ede676cbe1f4a8f2dade1a6bcbfa3bcb8f8b9d59757c6f391aa2932bccdc2a"
+  },
+  "bossNodes": [
+    "K"
+  ],
+  "terminalNodes": [],
+  "branchPoints": [
+    {
+      "from": "start",
+      "destinations": [
+        "B",
+        "F"
+      ],
+      "clauses": [
+        "• CV系>=1 去B\n• BB系>=2 去B\n• BB系+CA系>=3 去B\n• SS系>=3 去B\n• CLT>=1 去B\n• DD>=5 去F\n• DD=4：25%去B，75%去F\n• DD<=3：50%去B，50%去F"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330615814"
+    },
+    {
+      "from": "B",
+      "destinations": [
+        "A",
+        "D",
+        "E",
+        "C"
+      ],
+      "clauses": [
+        "• BB系+CV系>=5 去A\n• CV系>=4 去A\n• SS系>=4 去A\n• BB系+CV系+CA系>=5 去D\n• BB系>=3 去D\n• CV系>=2 去D\n• CLT>=2 去D\n• CV系=0 且 CL=1 且 DD>=2 去E\n• 其余去C"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330615814"
+    },
+    {
+      "from": "E",
+      "destinations": [
+        "H"
+      ],
+      "clauses": [
+        "固定"
+      ]
+    },
+    {
+      "from": "F",
+      "destinations": [
+        "E",
+        "G"
+      ],
+      "clauses": [
+        "• BB系+CV系>=1 去E \n• LHA>=1 去E\n• CL+CLT>=4 去E\n• CA系>=2 去E\n• CA系=1：25%去E，75%去G\n• CA系=0\n• CL<=2 去G\n• CL=3：15%去E，85%去G"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330615814"
+    },
+    {
+      "from": "G",
+      "destinations": [
+        "I",
+        "K"
+      ],
+      "clauses": [
+        "• 分歧点系数=4\n索敌>=28 去K(司令部系数0.35，索敌>=34)\n索敌23~28 随机去I/K，索敌越高去K概率越高\n索敌<23 去I"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330615814"
+    },
+    {
+      "from": "H",
+      "destinations": [
+        "J",
+        "K"
+      ],
+      "clauses": [
+        "• BB系+CV系>=4 去J\n• BB系+CV系>=2 且 LHA>=1 去J\n• 分歧点系数=4\n索敌>=40 去K(司令部系数0.35，索敌>=46)\n索敌35?~40 随机去J/K\n索敌<35? 去J"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330615814"
+    }
+  ],
+  "evaluation": "reviewed",
+  "machineRules": {
+    "start": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              13,
+              14
+            ],
+            "min": 3
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 3-5 start · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "battleship"
+            ],
+            "min": 2
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 3-5 start · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "battleship",
+              "heavyCruiser"
+            ],
+            "min": 3
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 3-5 start · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "any": [
+            {
+              "count": {
+                "groups": [
+                  "carrier"
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  4
+                ],
+                "min": 1
+              }
+            }
+          ]
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 3-5 start · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              2
+            ],
+            "min": 5
+          }
+        },
+        "to": "F",
+        "note": "NGA 地图配置2.0 · 3-5 start · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              2
+            ],
+            "exact": 4
+          }
+        },
+        "choices": [
+          {
+            "to": "B",
+            "weight": 0.25
+          },
+          {
+            "to": "F",
+            "weight": 0.75
+          }
+        ],
+        "note": "NGA 地图配置2.0 · 3-5 start · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": "otherwise",
+        "choices": [
+          {
+            "to": "B",
+            "weight": 0.5
+          },
+          {
+            "to": "F",
+            "weight": 0.5
+          }
+        ],
+        "note": "NGA 地图配置2.0 · 3-5 start · https://bbs.nga.cn/read.php?pid=330615814"
+      }
+    ],
+    "B": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              13,
+              14
+            ],
+            "min": 4
+          }
+        },
+        "to": "A",
+        "note": "NGA 地图配置2.0 · 3-5 B · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "carrier"
+            ],
+            "min": 4
+          }
+        },
+        "to": "A",
+        "note": "NGA 地图配置2.0 · 3-5 B · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "carrier",
+              "battleship"
+            ],
+            "min": 5
+          }
+        },
+        "to": "A",
+        "note": "NGA 地图配置2.0 · 3-5 B · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              4
+            ],
+            "min": 2
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 3-5 B · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "carrier"
+            ],
+            "min": 2
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 3-5 B · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "battleship"
+            ],
+            "min": 3
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 3-5 B · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "carrier",
+              "battleship",
+              "heavyCruiser"
+            ],
+            "min": 5
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 3-5 B · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "groups": [
+                  "carrier"
+                ],
+                "exact": 0
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  3
+                ],
+                "exact": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  2
+                ],
+                "min": 2
+              }
+            }
+          ]
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 3-5 B · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": "otherwise",
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 3-5 B · https://bbs.nga.cn/read.php?pid=330615814"
+      }
+    ],
+    "E": [
+      {
+        "when": true,
+        "to": "H",
+        "note": "固定"
+      }
+    ],
+    "F": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              17
+            ],
+            "groups": [
+              "carrier",
+              "battleship"
+            ],
+            "min": 1
+          }
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 3-5 F · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              3,
+              4
+            ],
+            "min": 4
+          }
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 3-5 F · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "heavyCruiser"
+            ],
+            "min": 2
+          }
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 3-5 F · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "heavyCruiser"
+            ],
+            "exact": 1
+          }
+        },
+        "choices": [
+          {
+            "to": "E",
+            "weight": 0.25
+          },
+          {
+            "to": "G",
+            "weight": 0.75
+          }
+        ],
+        "note": "NGA 地图配置2.0 · 3-5 F · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "groups": [
+                  "heavyCruiser"
+                ],
+                "exact": 0
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  3
+                ],
+                "exact": 3
+              }
+            }
+          ]
+        },
+        "choices": [
+          {
+            "to": "E",
+            "weight": 0.15
+          },
+          {
+            "to": "G",
+            "weight": 0.85
+          }
+        ],
+        "note": "NGA 地图配置2.0 · 3-5 F · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": "otherwise",
+        "to": "G",
+        "note": "NGA 地图配置2.0 · 3-5 F · https://bbs.nga.cn/read.php?pid=330615814"
+      }
+    ],
+    "G": [
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "lt": 23
+          }
+        },
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 3-5 G · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "lt": 28,
+            "gte": 23
+          }
+        },
+        "choices": [
+          {
+            "to": "I"
+          },
+          {
+            "to": "K"
+          }
+        ],
+        "note": "NGA 地图配置2.0 · 3-5 G · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "gte": 28
+          }
+        },
+        "to": "K",
+        "note": "NGA 地图配置2.0 · 3-5 G · https://bbs.nga.cn/read.php?pid=330615814"
+      }
+    ],
+    "H": [
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "carrier",
+              "battleship"
+            ],
+            "min": 4
+          }
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 3-5 H · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12,
+                  7,
+                  11,
+                  18
+                ],
+                "min": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  17
+                ],
+                "min": 1
+              }
+            }
+          ]
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 3-5 H · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "lt": 35
+          }
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 3-5 H · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "lt": 40,
+            "gte": 35
+          }
+        },
+        "choices": [
+          {
+            "to": "J"
+          },
+          {
+            "to": "K"
+          }
+        ],
+        "note": "NGA 地图配置2.0 · 3-5 H · https://bbs.nga.cn/read.php?pid=330615814"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "gte": 40
+          }
+        },
+        "to": "K",
+        "note": "NGA 地图配置2.0 · 3-5 H · https://bbs.nga.cn/read.php?pid=330615814"
+      }
+    ]
+  },
+  "graphComplete": true,
+  "fixedEdges": {
+    "C": "F",
+    "D": "H",
+    "E": "H"
+  },
+  "deadEnds": [
+    "A",
+    "I",
+    "J"
+  ],
+  "airControl": {
+    "source": "user-provided-quick-reference-2026-09-24",
+    "coverage": "quickReferenceNotExhaustive",
+    "profiles": [
+      {
+        "id": "upperNormal",
+        "label": "上路门神：磨血",
+        "superiority": 332,
+        "supremacy": 663,
+        "route": "upper",
+        "bossState": "normal"
+      },
+      {
+        "id": "upperFinal",
+        "label": "上路门神：斩杀及斩后",
+        "superiority": 381,
+        "supremacy": 762,
+        "route": "upper",
+        "bossState": "finalOrCleared"
+      },
+      {
+        "id": "lowerNormal",
+        "label": "下路门神：磨血",
+        "superiority": 0,
+        "supremacy": 0,
+        "route": "lower",
+        "bossState": "normal"
+      },
+      {
+        "id": "lowerFinal",
+        "label": "下路门神：斩杀及斩后",
+        "superiority": 35,
+        "supremacy": 69,
+        "route": "lower",
+        "bossState": "finalOrCleared"
+      },
+      {
+        "id": "boss",
+        "label": "Boss",
+        "superiority": 0,
+        "supremacy": 0
+      }
+    ]
+  },
+  "horizontalReview": {
+    "date": "2026-10-13",
+    "sources": [
+      "https://zh.kcwiki.cn/wiki/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-5"
+    ],
+    "nodes": [
+      "H"
+    ]
+  },
+  "ngaReview": {
+    "date": "2026-10-13",
+    "priority": "用户指定为带路条件主来源，覆盖此前中日文差异取舍",
+    "changedNodes": [
+      "H"
+    ],
+    "referenceNotes": [],
+    "supplementaryNodes": [
+      "E"
+    ]
+  }
+}

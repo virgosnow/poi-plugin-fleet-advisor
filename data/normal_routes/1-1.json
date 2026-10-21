@@ -1,0 +1,93 @@
+{
+  "area": "1-1",
+  "source": {
+    "url": "https://zh.kcwiki.cn/wiki/%E9%95%87%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-1",
+    "branchSectionSha256": "356e8d73c529fe058d998cbf447d09df449b9b1cce31bfd947e21e2142b1a18a",
+    "previousUrl": "https://wikiwiki.jp/kancolle/%E9%8E%AE%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-1",
+    "authority": "nga-16820397",
+    "postUrl": "https://bbs.nga.cn/read.php?pid=330613251",
+    "threadUrl": "https://bbs.nga.cn/read.php?tid=16820397",
+    "postId": 330613251,
+    "capturedDate": "2026-10-13",
+    "bodySha256": "c2491e13b6e9ab47612705dc1d87c8223d9279db7eb98ddc684ab05ad9ee994f",
+    "snapshotSha256": "34ede676cbe1f4a8f2dade1a6bcbfa3bcb8f8b9d59757c6f391aa2932bccdc2a"
+  },
+  "bossNodes": [
+    "C"
+  ],
+  "terminalNodes": [],
+  "branchPoints": [
+    {
+      "from": "A",
+      "destinations": [
+        "B",
+        "C"
+      ],
+      "clauses": [
+        "• \n 舰队船数 去B概率 去C概率"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330613251"
+    }
+  ],
+  "evaluation": "reviewed",
+  "machineRules": {
+    "A": [
+      {
+        "when": true,
+        "choices": [
+          {
+            "to": "B",
+            "weightByShipCount": {
+              "1": 0.2,
+              "2": 0.25,
+              "4": 0.35,
+              "5": 0.4,
+              "6": 0.45
+            }
+          },
+          {
+            "to": "C",
+            "weightByShipCount": {
+              "1": 0.8,
+              "2": 0.75,
+              "4": 0.65,
+              "5": 0.6,
+              "6": 0.55
+            }
+          }
+        ],
+        "note": "NGA 地图配置2.0 · 1-1 A · https://bbs.nga.cn/read.php?pid=330613251"
+      }
+    ]
+  },
+  "graphComplete": true,
+  "fixedEdges": {
+    "start": "A"
+  },
+  "deadEnds": [
+    "B"
+  ],
+  "airControl": {
+    "source": "user-provided-quick-reference-2026-09-24",
+    "coverage": "quickReferenceNotExhaustive",
+    "profiles": [
+      {
+        "id": "overview",
+        "label": "全图敌制空为 0",
+        "superiority": 0,
+        "supremacy": 0
+      }
+    ]
+  },
+  "ngaReview": {
+    "date": "2026-10-13",
+    "priority": "用户指定为带路条件主来源，覆盖此前中日文差异取舍",
+    "changedNodes": [
+      "A"
+    ],
+    "referenceNotes": [
+      "原表未列3舰概率，按用户未知随机比例口径使用50%参考，不沿用旧表70%。"
+    ],
+    "supplementaryNodes": []
+  }
+}

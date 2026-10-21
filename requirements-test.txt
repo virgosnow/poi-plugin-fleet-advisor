@@ -1,0 +1,2 @@
+# Asset regression tests only; the poi plugin does not require Python.
+Pillow==12.3.0

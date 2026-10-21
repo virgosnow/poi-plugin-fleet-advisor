@@ -1,0 +1,5191 @@
+{
+  "version": 1,
+  "titlePolicy": "攻略流派或实际路径特征＋流；完整节点另列。方位按显示地图核对；舰种、指定舰和速力称谓不得仅依据示例编成；阶段由界面统一添加。",
+  "maps": {
+    "1-3": {
+      "source": "https://zh.kcwiki.cn/wiki/%E9%95%87%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-3",
+      "retrievedAt": "2026-09-28T04:29:09+00:00",
+      "sourceSha256": "ab2e3629d4fe07bfd93110a79eea9050c5cee7c345dd298118d8dbe0415ff23c",
+      "routes": [
+        {
+          "nodes": [
+            "C",
+            "F",
+            "J"
+          ],
+          "name": "下路轻量流"
+        },
+        {
+          "nodes": [
+            "A",
+            "E",
+            "F",
+            "J"
+          ],
+          "name": "上路迂回流"
+        }
+      ],
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "previousSource": "https://wikiwiki.jp/kancolle/%E9%8E%AE%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-3",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330614957"
+    },
+    "1-6": {
+      "source": "https://zh.kcwiki.cn/wiki/%E9%95%87%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-6",
+      "retrievedAt": "2026-09-28T04:29:17+00:00",
+      "sourceSha256": "50f55fd4bd5231a8c9ee442fc0999d7a94f3bdd911351548a1e6092a01bd0e05",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "E",
+            "G",
+            "F",
+            "B",
+            "N"
+          ],
+          "name": "下路护航流"
+        },
+        {
+          "nodes": [
+            "C",
+            "H",
+            "K",
+            "M",
+            "J",
+            "D",
+            "N"
+          ],
+          "name": "上路迂回流"
+        },
+        {
+          "nodes": [
+            "C",
+            "H",
+            "K",
+            "M",
+            "L",
+            "I",
+            "D",
+            "N"
+          ],
+          "name": "中路迂回流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E9%8E%AE%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-6",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615304",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "2-1": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-1",
+      "retrievedAt": "2026-09-28T04:30:07+00:00",
+      "sourceSha256": "024bda9750f02b6efd31cf60551232d48b2eb0ac3c8a6739d04f09eaa1e8e9af",
+      "routes": [
+        {
+          "nodes": [
+            "C",
+            "E",
+            "H"
+          ],
+          "name": "水母轻量流",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                16
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "nodes": [
+            "C",
+            "D",
+            "H"
+          ],
+          "name": "下路迎击流"
+        },
+        {
+          "nodes": [
+            "C",
+            "E",
+            "D",
+            "H"
+          ],
+          "name": "E点迂回流"
+        }
+      ],
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-1",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615338"
+    },
+    "2-2": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-2",
+      "retrievedAt": "2026-09-28T04:30:26+00:00",
+      "sourceSha256": "62ca1c6a9c57ba6398183c49453c0ca354b4201d8e6451588598cf7a200a7bb1",
+      "routes": [
+        {
+          "nodes": [
+            "C",
+            "E",
+            "K"
+          ],
+          "name": "水母直达流",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                16
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "nodes": [
+            "C",
+            "E",
+            "F",
+            "H",
+            "K"
+          ],
+          "name": "海防护航流",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                1
+              ],
+              "min": 2
+            }
+          }
+        },
+        {
+          "nodes": [
+            "C",
+            "E",
+            "G",
+            "H",
+            "K"
+          ],
+          "name": "中路迂回流"
+        }
+      ],
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-2",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615386"
+    },
+    "2-4": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-4",
+      "retrievedAt": "2026-09-28T04:30:49+00:00",
+      "sourceSha256": "e1bb01f900f20123df9aca2356c532382105058c4ea2bd2e801a615edbb11e70",
+      "routes": [
+        {
+          "nodes": [
+            "B",
+            "G",
+            "H",
+            "L",
+            "P"
+          ],
+          "name": "中央轻量流"
+        },
+        {
+          "nodes": [
+            "B",
+            "C",
+            "F",
+            "J",
+            "L",
+            "P"
+          ],
+          "name": "上路大船流",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                18
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "nodes": [
+            "B",
+            "G",
+            "H",
+            "I",
+            "K",
+            "L",
+            "P"
+          ],
+          "name": "下路推进流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-4",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615536",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "2-5": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-5",
+      "retrievedAt": "2026-09-28T02:09:05+00:00",
+      "sourceSha256": "677751a0fe414f621b564bbe0c042409effd3222a71581c0d1d0f9481733de8c",
+      "routes": [
+        {
+          "nodes": [
+            "C",
+            "E",
+            "I",
+            "O"
+          ],
+          "name": "下路空母流",
+          "templates": [
+            [
+              [
+                7
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ],
+            [
+              [
+                7
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ],
+            [
+              [
+                7
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                7,
+                11,
+                18
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "nodes": [
+            "B",
+            "F",
+            "J",
+            "O"
+          ],
+          "name": "上路大船流",
+          "templates": [
+            [
+              [
+                6
+              ],
+              [
+                6
+              ],
+              [
+                9,
+                10
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ],
+            [
+              [
+                6
+              ],
+              [
+                6
+              ],
+              [
+                9,
+                10
+              ],
+              [
+                8,
+                9,
+                10
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                18
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "nodes": [
+            "B",
+            "F",
+            "E",
+            "I",
+            "O"
+          ],
+          "name": "上转下轻量流",
+          "templates": [
+            [
+              [
+                5,
+                6
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ]
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-5",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615601",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "3-1": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-1",
+      "retrievedAt": "2026-09-28T04:30:52+00:00",
+      "sourceSha256": "54f08d71fcad7236f2e3a3068a223b666a50b10f1931115c1ee39aa45d593d5a",
+      "routes": [
+        {
+          "nodes": [
+            "C",
+            "F",
+            "G"
+          ],
+          "name": "下路直达流"
+        },
+        {
+          "nodes": [
+            "C",
+            "D",
+            "F",
+            "G"
+          ],
+          "name": "上路迂回流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-1",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615632",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "3-2": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-2",
+      "retrievedAt": "2026-09-28T04:31:12+00:00",
+      "sourceSha256": "4b7da46d98979adac9467daf35f2fe5b24e3982429501b2430d1301bcf61b7e6",
+      "routes": [
+        {
+          "nodes": [
+            "C",
+            "E",
+            "F",
+            "L"
+          ],
+          "name": "水雷提速流",
+          "strategy": {
+            "minimumSpeed": "fastPlus",
+            "radarCarriers": 1,
+            "paths": [
+              [
+                "C",
+                "E",
+                "F",
+                "L"
+              ],
+              [
+                "C",
+                "G",
+                "F",
+                "L"
+              ]
+            ],
+            "pathLabel": "C→E/G→F→L",
+            "allowedStypes": [
+              2,
+              3,
+              22
+            ],
+            "arrivalNote": "两战到 Boss；{branches}，均在 F 汇合"
+          }
+        },
+        {
+          "nodes": [
+            "C",
+            "G",
+            "H",
+            "F",
+            "L"
+          ],
+          "name": "H点迂回流"
+        },
+        {
+          "id": "fastest",
+          "name": "最速直达流",
+          "nodes": [
+            "C",
+            "E",
+            "F",
+            "L"
+          ],
+          "templates": [
+            [
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ],
+            [
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "allStypes": [
+                  2,
+                  3,
+                  22
+                ]
+              }
+            ]
+          },
+          "strategy": {
+            "minimumSpeed": "fastest",
+            "paths": [
+              [
+                "C",
+                "E",
+                "F",
+                "L"
+              ]
+            ],
+            "radarCarriers": 4,
+            "allowedStypes": [
+              2,
+              3,
+              22
+            ],
+            "arrivalNote": "避开 H 战舰点与 G 漩涡，两战到 Boss"
+          },
+          "guideSource": "https://zh.kcwiki.cn/wiki/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-2"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-2",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615675",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "speedGuideReview": {
+        "date": "2026-10-14",
+        "basis": "独立速力流派；整队实际配装达到目标速力后，按现行 NGA 规则复核整条路线。"
+      },
+      "mergedBranchReview": {
+        "date": "2026-10-14",
+        "basis": "同一流派内临时分岔后汇合的路径合并展示；括号节点表示可能经由。概率按同一编成的互斥完整路径计算，保留各分支规则与制空参考。"
+      }
+    },
+    "3-3": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-3",
+      "retrievedAt": "2026-09-28T04:31:15+00:00",
+      "sourceSha256": "59270b3f2f1b4f101fdb5286f4ddb074bfb7a8767af6ce710146dcab56375710",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "C",
+            "G",
+            "M"
+          ],
+          "name": "上路空母流",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                7,
+                11,
+                18
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "nodes": [
+            "A",
+            "B",
+            "F",
+            "J",
+            "M"
+          ],
+          "name": "下路推进流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-3",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615719",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "3-4": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-4",
+      "retrievedAt": "2026-09-28T04:31:35+00:00",
+      "sourceSha256": "336939e3246d2705f7fa588c71a2c924e06815291981729f44b099d9573cf027",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "C",
+            "E",
+            "G",
+            "J",
+            "P"
+          ],
+          "name": "空母水母流",
+          "fleetRequirement": {
+            "all": [
+              {
+                "count": {
+                  "stypes": [
+                    7,
+                    11,
+                    18
+                  ],
+                  "min": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    16
+                  ],
+                  "min": 1
+                }
+              }
+            ]
+          }
+        },
+        {
+          "nodes": [
+            "D",
+            "H",
+            "L",
+            "J",
+            "P"
+          ],
+          "name": "下路轻量流"
+        },
+        {
+          "nodes": [
+            "A",
+            "C",
+            "F",
+            "J",
+            "P"
+          ],
+          "name": "上路速攻流"
+        },
+        {
+          "id": "fastPlus",
+          "name": "空母提速流",
+          "nodes": [
+            "A",
+            "C",
+            "F",
+            "J",
+            "P"
+          ],
+          "templates": [
+            [
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                7
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    11,
+                    18
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    7
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    3
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "exact": 2
+                }
+              }
+            ]
+          },
+          "strategy": {
+            "minimumSpeed": "fastPlus",
+            "paths": [
+              [
+                "A",
+                "C",
+                "F",
+                "J",
+                "P"
+              ]
+            ]
+          },
+          "guideSource": "https://zh.kcwiki.cn/wiki/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-4"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-4",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615762",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "speedGuideReview": {
+        "date": "2026-10-14",
+        "basis": "独立速力流派；整队实际配装达到目标速力后，按现行 NGA 规则复核整条路线。"
+      }
+    },
+    "3-5": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-5",
+      "retrievedAt": "2026-09-28T04:31:39+00:00",
+      "sourceSha256": "d0c421cdb747e833ad3260e3523c3887930c9481543a5be0424ed7f2138bbe6c",
+      "routes": [
+        {
+          "nodes": [
+            "F",
+            "G",
+            "K"
+          ],
+          "name": "下路小船流"
+        },
+        {
+          "nodes": [
+            "B",
+            "D",
+            "H",
+            "K"
+          ],
+          "name": "上路大船流",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                18
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "id": "semi-lower",
+          "name": "准下路混编流",
+          "nodes": [
+            "B",
+            "C",
+            "F",
+            "G",
+            "K"
+          ],
+          "templates": [
+            [
+              [
+                3
+              ],
+              [
+                3
+              ],
+              [
+                4
+              ],
+              [
+                13,
+                14
+              ],
+              [
+                13,
+                14
+              ],
+              [
+                13,
+                14
+              ]
+            ],
+            [
+              [
+                3
+              ],
+              [
+                3
+              ],
+              [
+                4
+              ],
+              [
+                16
+              ],
+              [
+                16
+              ],
+              [
+                22
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    3
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    4
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "any": [
+                  {
+                    "count": {
+                      "stypes": [
+                        13,
+                        14
+                      ],
+                      "exact": 3
+                    }
+                  },
+                  {
+                    "all": [
+                      {
+                        "count": {
+                          "stypes": [
+                            16
+                          ],
+                          "exact": 2
+                        }
+                      },
+                      {
+                        "count": {
+                          "stypes": [
+                            22
+                          ],
+                          "exact": 1
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/北方海域/3-5"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-5",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615814",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "backupGuideReview": {
+        "date": "2026-10-14",
+        "basis": "Wiki 明列备用编成；路径与判定优先级按现行 NGA 数据复核，保留原主路线优先级。"
+      }
+    },
+    "4-1": {
+      "source": "https://zh.kcwiki.cn/wiki/%E8%A5%BF%E6%96%B9%E6%B5%B7%E5%9F%9F/4-1",
+      "retrievedAt": "2026-09-28T04:31:58+00:00",
+      "sourceSha256": "0025864c6c9644a25283bffc96171ecd269cc996774de996da793b1857fce460",
+      "routes": [
+        {
+          "nodes": [
+            "C",
+            "F",
+            "H",
+            "J"
+          ],
+          "name": "H点汇合流",
+          "paths": [
+            [
+              "C",
+              "F",
+              "H",
+              "J"
+            ],
+            [
+              "A",
+              "B",
+              "D",
+              "H",
+              "J"
+            ]
+          ],
+          "pathLabel": "(C→F / A→B→D)→H→J"
+        },
+        {
+          "nodes": [
+            "A",
+            "B",
+            "D",
+            "G",
+            "J"
+          ],
+          "name": "下路混编流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E8%A5%BF%E6%96%B9%E6%B5%B7%E5%9F%9F/4-1",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615882",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "mergedBranchReview": {
+        "date": "2026-10-14",
+        "basis": "同编成随机分岔后在途中汇合，合并展示并以完整互斥路径计算；不合并仅在 Boss 汇合或不同舰种导致的固定分流。"
+      }
+    },
+    "4-2": {
+      "source": "https://zh.kcwiki.cn/wiki/%E8%A5%BF%E6%96%B9%E6%B5%B7%E5%9F%9F/4-2",
+      "retrievedAt": "2026-09-28T04:32:02+00:00",
+      "sourceSha256": "b89d69fc62e6e6268806bb56fe0c445d7519be4e7ad9eddbe208bf2386b50401",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "C",
+            "L"
+          ],
+          "name": "C点汇合流",
+          "paths": [
+            [
+              "A",
+              "C",
+              "L"
+            ],
+            [
+              "B",
+              "D",
+              "C",
+              "L"
+            ]
+          ],
+          "pathLabel": "(A / B→D)→C→L"
+        },
+        {
+          "nodes": [
+            "A",
+            "E",
+            "G",
+            "L"
+          ],
+          "name": "补给点经由流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E8%A5%BF%E6%96%B9%E6%B5%B7%E5%9F%9F/4-2",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615927",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "mergedBranchReview": {
+        "date": "2026-10-14",
+        "basis": "同编成随机分岔后在途中汇合，合并展示并以完整互斥路径计算；不合并仅在 Boss 汇合或不同舰种导致的固定分流。"
+      }
+    },
+    "4-3": {
+      "source": "https://zh.kcwiki.cn/wiki/%E8%A5%BF%E6%96%B9%E6%B5%B7%E5%9F%9F/4-3",
+      "retrievedAt": "2026-09-28T04:32:21+00:00",
+      "sourceSha256": "bbff19278b85fe5587b9bb6a2643cca827e96e258bcf752bdddfc79119de58fc",
+      "routes": [
+        {
+          "nodes": [
+            "D",
+            "H",
+            "N"
+          ],
+          "name": "中央对地流"
+        },
+        {
+          "nodes": [
+            "C",
+            "D",
+            "H",
+            "N"
+          ],
+          "name": "下转中对地流"
+        },
+        {
+          "nodes": [
+            "C",
+            "F",
+            "K",
+            "L",
+            "N"
+          ],
+          "name": "下路迂回流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E8%A5%BF%E6%96%B9%E6%B5%B7%E5%9F%9F/4-3",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615993",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "4-4": {
+      "source": "https://zh.kcwiki.cn/wiki/%E8%A5%BF%E6%96%B9%E6%B5%B7%E5%9F%9F/4-4",
+      "retrievedAt": "2026-09-28T04:32:25+00:00",
+      "sourceSha256": "2dafe7d1e534065504b29df16a7121220eee5636339844082d76fbc3fadbb748",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "E",
+            "I",
+            "K"
+          ],
+          "name": "中央空母流",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                7,
+                11,
+                18
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "id": "light-carriers",
+          "name": "三轻空母流",
+          "nodes": [
+            "A",
+            "E",
+            "I",
+            "K"
+          ],
+          "templates": [
+            [
+              [
+                7
+              ],
+              [
+                7
+              ],
+              [
+                7
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    7
+                  ],
+                  "exact": 3
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    3
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "exact": 2
+                }
+              }
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/西方海域/4-4"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E8%A5%BF%E6%96%B9%E6%B5%B7%E5%9F%9F/4-4",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330616044",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "backupGuideReview": {
+        "date": "2026-10-14",
+        "basis": "Wiki 明列备用编成；路径与判定优先级按现行 NGA 数据复核，保留原主路线优先级。"
+      }
+    },
+    "4-5": {
+      "source": "https://zh.kcwiki.cn/wiki/%E8%A5%BF%E6%96%B9%E6%B5%B7%E5%9F%9F/4-5",
+      "retrievedAt": "2026-09-28T04:32:44+00:00",
+      "sourceSha256": "f28e75599d8b2608857fea842699b7e14bd70ace78d42a9bf0b88feb02c77f4f",
+      "routes": [
+        {
+          "nodes": [
+            "C",
+            "D",
+            "H",
+            "T"
+          ],
+          "name": "中央直达流",
+          "paths": [
+            [
+              "C",
+              "D",
+              "H",
+              "T"
+            ],
+            [
+              "A",
+              "D",
+              "H",
+              "T"
+            ]
+          ],
+          "pathLabel": "A/C→D→H→T"
+        },
+        {
+          "nodes": [
+            "C",
+            "D",
+            "H",
+            "K",
+            "T"
+          ],
+          "name": "K点迂回流",
+          "paths": [
+            [
+              "C",
+              "D",
+              "H",
+              "K",
+              "T"
+            ],
+            [
+              "A",
+              "D",
+              "H",
+              "K",
+              "T"
+            ]
+          ],
+          "pathLabel": "A/C→D→H→K→T"
+        },
+        {
+          "id": "fastPlus",
+          "name": "重舰提速流",
+          "nodes": [
+            "C",
+            "D",
+            "H",
+            "T"
+          ],
+          "templates": [
+            [
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ],
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ],
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12,
+                    7,
+                    11,
+                    18
+                  ],
+                  "min": 3,
+                  "max": 4
+                }
+              }
+            ]
+          },
+          "strategy": {
+            "minimumSpeed": "fastPlus",
+            "paths": [
+              [
+                "C",
+                "D",
+                "H",
+                "T"
+              ],
+              [
+                "A",
+                "D",
+                "H",
+                "T"
+              ]
+            ],
+            "pathLabel": "A/C→D→H→T",
+            "arrivalNote": "A、C 出发均在 D 汇合，避开 K 点"
+          },
+          "guideSource": "https://zh.kcwiki.cn/wiki/%E8%A5%BF%E6%96%B9%E6%B5%B7%E5%9F%9F/4-5"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E8%A5%BF%E6%96%B9%E6%B5%B7%E5%9F%9F/4-5",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330616096",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "speedGuideReview": {
+        "date": "2026-10-14",
+        "basis": "独立速力流派；整队实际配装达到目标速力后，按现行 NGA 规则复核整条路线。"
+      },
+      "mergedBranchReview": {
+        "date": "2026-10-14",
+        "basis": "同一流派内临时分岔后汇合的路径合并展示；括号节点表示可能经由。概率按同一编成的互斥完整路径计算，保留各分支规则与制空参考。"
+      }
+    },
+    "5-1": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-1",
+      "retrievedAt": "2026-09-28T04:33:04+00:00",
+      "sourceSha256": "e2e930181fd89e993d80d2e54e508eb6808473732931164d797152917407fbc4",
+      "routes": [
+        {
+          "nodes": [
+            "B",
+            "C",
+            "F",
+            "J"
+          ],
+          "name": "上路混编流"
+        },
+        {
+          "id": "fastPlus",
+          "name": "三战舰提速流",
+          "nodes": [
+            "B",
+            "E",
+            "G",
+            "J"
+          ],
+          "templates": [
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                3
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12
+                  ],
+                  "exact": 3
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    5,
+                    6
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    3
+                  ],
+                  "exact": 1
+                }
+              }
+            ]
+          },
+          "strategy": {
+            "minimumSpeed": "fastPlus",
+            "paths": [
+              [
+                "B",
+                "E",
+                "G",
+                "J"
+              ]
+            ]
+          },
+          "guideSource": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-1"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-1",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330616140",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "speedGuideReview": {
+        "date": "2026-10-14",
+        "basis": "独立速力流派；整队实际配装达到目标速力后，按现行 NGA 规则复核整条路线。"
+      }
+    },
+    "5-2": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-2",
+      "retrievedAt": "2026-09-28T04:33:08+00:00",
+      "sourceSha256": "4352b4f4e9ee33c1321d536da3eab106fc311d6b0ac1531ca7e5e7ea92e2de0c",
+      "routes": [
+        {
+          "nodes": [
+            "B",
+            "C",
+            "D",
+            "F",
+            "O"
+          ],
+          "name": "空母护航流",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                7,
+                11,
+                18
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "name": "战舰空母流",
+          "nodes": [
+            "B",
+            "C",
+            "E",
+            "F",
+            "O"
+          ],
+          "templates": [
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    11,
+                    18
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    5,
+                    6
+                  ],
+                  "exact": 2
+                }
+              }
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/南方海域/5-2"
+        },
+        {
+          "id": "shokaku-zuikaku",
+          "name": "五航战战舰流",
+          "nodes": [
+            "B",
+            "C",
+            "D",
+            "F",
+            "O"
+          ],
+          "templates": [
+            [
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                8
+              ],
+              [
+                8
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "shipName": {
+                  "prefixes": [
+                    "翔鶴"
+                  ]
+                }
+              },
+              {
+                "shipName": {
+                  "prefixes": [
+                    "瑞鶴"
+                  ]
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    11,
+                    18
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "exact": 2
+                }
+              }
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/南方海域/5-2"
+        },
+        {
+          "id": "yubari",
+          "name": "夕张轻空母流",
+          "nodes": [
+            "B",
+            "C",
+            "D",
+            "F",
+            "O"
+          ],
+          "templates": [
+            [
+              [
+                3
+              ],
+              [
+                7
+              ],
+              [
+                7
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "shipName": {
+                  "prefixes": [
+                    "夕張"
+                  ]
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    3
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    7
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    5,
+                    6
+                  ],
+                  "exact": 3
+                }
+              }
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/南方海域/5-2"
+        },
+        {
+          "id": "shoho",
+          "name": "祥凤巡洋流",
+          "nodes": [
+            "B",
+            "C",
+            "D",
+            "F",
+            "O"
+          ],
+          "templates": [
+            [
+              [
+                7
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                3
+              ]
+            ],
+            [
+              [
+                7
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "shipName": {
+                  "prefixes": [
+                    "祥鳳"
+                  ]
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    7
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    3,
+                    5,
+                    6
+                  ],
+                  "exact": 5
+                }
+              }
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/南方海域/5-2"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-2",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330616164",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "backupGuideReview": {
+        "date": "2026-10-14",
+        "basis": "Wiki 明列备用编成；路径与判定优先级按现行 NGA 数据复核，保留原主路线优先级。"
+      }
+    },
+    "5-3": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-3",
+      "retrievedAt": "2026-09-28T04:33:27+00:00",
+      "sourceSha256": "2d99086938c49a42b79f6122c4195fc6672151eac8ec34b52196a54f12e046c9",
+      "routes": [
+        {
+          "nodes": [
+            "D",
+            "G",
+            "I",
+            "O",
+            "K",
+            "E",
+            "Q"
+          ],
+          "name": "夜战突进流"
+        },
+        {
+          "nodes": [
+            "D",
+            "G",
+            "J",
+            "L",
+            "O",
+            "K",
+            "E",
+            "Q"
+          ],
+          "name": "漩涡夜战流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-3",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330616217",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "5-4": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-4",
+      "retrievedAt": "2026-09-28T04:33:31+00:00",
+      "sourceSha256": "a0e5829a95a66fddb99041f9d9e945372b3d862d7fb4ebcc9d5e756df929725c",
+      "routes": [
+        {
+          "nodes": [
+            "B",
+            "C",
+            "G",
+            "L",
+            "P"
+          ],
+          "name": "上路空母流",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                7,
+                11,
+                18
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "nodes": [
+            "B",
+            "E",
+            "H",
+            "I",
+            "J",
+            "M",
+            "P"
+          ],
+          "name": "中央夜战流"
+        },
+        {
+          "nodes": [
+            "A",
+            "D",
+            "E",
+            "H",
+            "I",
+            "J",
+            "M",
+            "P"
+          ],
+          "name": "中央漩涡流"
+        },
+        {
+          "id": "fastPlus",
+          "name": "上路空母提速流",
+          "nodes": [
+            "B",
+            "C",
+            "G",
+            "L",
+            "P"
+          ],
+          "templates": [
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    11,
+                    18
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    5,
+                    6
+                  ],
+                  "exact": 2
+                }
+              }
+            ]
+          },
+          "strategy": {
+            "minimumSpeed": "fastPlus",
+            "paths": [
+              [
+                "B",
+                "C",
+                "G",
+                "L",
+                "P"
+              ]
+            ]
+          },
+          "guideSource": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-4"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-4",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330616330",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "speedGuideReview": {
+        "date": "2026-10-14",
+        "basis": "独立速力流派；整队实际配装达到目标速力后，按现行 NGA 规则复核整条路线。"
+      }
+    },
+    "5-5": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-5",
+      "retrievedAt": "2026-09-28T02:09:09+00:00",
+      "sourceSha256": "a38837da8a5b97a85999b7038420ea3098e99330eeb8fa377a28102fdf3286ff",
+      "routes": [
+        {
+          "nodes": [
+            "B",
+            "K",
+            "P",
+            "S"
+          ],
+          "name": "上路大船流",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                18
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "nodes": [
+            "B",
+            "F",
+            "D",
+            "H",
+            "N",
+            "O",
+            "S"
+          ],
+          "name": "中转下混编流"
+        },
+        {
+          "nodes": [
+            "A",
+            "C",
+            "E",
+            "G",
+            "I",
+            "M",
+            "O",
+            "S"
+          ],
+          "name": "下路驱逐流"
+        },
+        {
+          "id": "fastPlus",
+          "name": "重舰提速流",
+          "nodes": [
+            "B",
+            "K",
+            "P",
+            "S"
+          ],
+          "templates": [
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ]
+            ],
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12,
+                    7,
+                    11,
+                    18
+                  ],
+                  "exact": 5
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    5,
+                    6
+                  ],
+                  "exact": 1
+                }
+              }
+            ]
+          },
+          "strategy": {
+            "minimumSpeed": "fastPlus",
+            "paths": [
+              [
+                "B",
+                "K",
+                "P",
+                "S"
+              ]
+            ]
+          },
+          "guideSource": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-5"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-5",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330616376",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "speedGuideReview": {
+        "date": "2026-10-14",
+        "basis": "独立速力流派；整队实际配装达到目标速力后，按现行 NGA 规则复核整条路线。"
+      }
+    },
+    "6-1": {
+      "source": "https://zh.kcwiki.cn/wiki/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-1",
+      "retrievedAt": "2026-09-28T04:33:51+00:00",
+      "sourceSha256": "a968e094c3c15b505286b3fa5ecbd1537856e9c0f986f3f678e01a9c2720f69a",
+      "routes": [
+        {
+          "nodes": [
+            "C",
+            "F",
+            "G",
+            "H",
+            "K"
+          ],
+          "name": "中路潜水流"
+        },
+        {
+          "nodes": [
+            "A",
+            "F",
+            "G",
+            "H",
+            "K"
+          ],
+          "name": "潜水母舰护航流"
+        },
+        {
+          "nodes": [
+            "A",
+            "D",
+            "F",
+            "G",
+            "H",
+            "K"
+          ],
+          "name": "潜水舰队流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-1",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330616454",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "6-2": {
+      "source": "https://zh.kcwiki.cn/wiki/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-2",
+      "retrievedAt": "2026-09-28T04:34:10+00:00",
+      "sourceSha256": "f2ecf565f5dc4e4c91261962aed0cbacaecd8e0d746bbadbdaccb3f9f8360d8e",
+      "routes": [
+        {
+          "nodes": [
+            "C",
+            "E",
+            "J",
+            "K"
+          ],
+          "name": "南路索敌流"
+        },
+        {
+          "nodes": [
+            "C",
+            "E",
+            "I",
+            "K"
+          ],
+          "name": "南路控索敌流"
+        },
+        {
+          "nodes": [
+            "B",
+            "D",
+            "H",
+            "K"
+          ],
+          "name": "北路轻量流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-2",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330616554",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "6-4": {
+      "source": "https://zh.kcwiki.cn/wiki/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-4",
+      "retrievedAt": "2026-09-28T04:34:33+00:00",
+      "sourceSha256": "4eb7ed97da4e3f31dea5fdf331ee5030e5a83a43e32ac20a0fa4e85c75849a8c",
+      "routes": [
+        {
+          "nodes": [
+            "B",
+            "D",
+            "C",
+            "F",
+            "N"
+          ],
+          "name": "左路高速流"
+        },
+        {
+          "nodes": [
+            "A",
+            "D",
+            "C",
+            "F",
+            "N"
+          ],
+          "name": "左路混编流"
+        },
+        {
+          "name": "右路扬陆流",
+          "nodes": [
+            "M",
+            "K",
+            "J",
+            "N"
+          ],
+          "templates": [
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                17
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    11,
+                    18
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    17
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    3
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "exact": 2
+                }
+              }
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/中部海域/6-4"
+        },
+        {
+          "name": "右路航巡流",
+          "nodes": [
+            "M",
+            "K",
+            "J",
+            "I",
+            "N"
+          ],
+          "templates": [
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                6
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    11,
+                    18
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    6
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    3
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "exact": 2
+                }
+              }
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/中部海域/6-4"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-4",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330616685",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "backupGuideReview": {
+        "date": "2026-10-14",
+        "basis": "Wiki 明列备用编成；路径与判定优先级按现行 NGA 数据复核，保留原主路线优先级。"
+      }
+    },
+    "6-5": {
+      "source": "https://zh.kcwiki.cn/wiki/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-5",
+      "retrievedAt": "2026-09-28T02:09:12+00:00",
+      "sourceSha256": "e44ed21358eccf6e2ba9532eb0c5f4aa5f9a2985cdd17c87e0171c69bc28c984",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "C",
+            "D",
+            "G",
+            "M"
+          ],
+          "name": "上路空母流",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                7,
+                11,
+                18
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "nodes": [
+            "B",
+            "F",
+            "I",
+            "J",
+            "M"
+          ],
+          "name": "下路夜战流"
+        },
+        {
+          "nodes": [
+            "B",
+            "C",
+            "D",
+            "G",
+            "M"
+          ],
+          "name": "下转上混编流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-5",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330616746",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "7-1": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-1",
+      "retrievedAt": "2026-09-28T04:34:37+00:00",
+      "sourceSha256": "514df513267fff4271f1933e356bcfce1a490e59e024c5c3f77204252085f05d",
+      "routes": [
+        {
+          "nodes": [
+            "D",
+            "E",
+            "G",
+            "H",
+            "K"
+          ],
+          "name": "五舰对潜流",
+          "fleetRequirement": {
+            "shipCount": {
+              "exact": 5
+            }
+          }
+        },
+        {
+          "nodes": [
+            "F",
+            "G",
+            "H",
+            "K"
+          ],
+          "name": "四舰对潜流",
+          "templates": [
+            [
+              [
+                2
+              ],
+              [
+                1
+              ],
+              [
+                1
+              ],
+              [
+                1
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "shipCount": {
+              "exact": 4
+            }
+          }
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-1",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330619711",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "7-2:gauge1": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-2",
+      "retrievedAt": "2026-09-28T04:34:56+00:00",
+      "sourceSha256": "17f987c71c39aa85b3496b7e5369ad5cefcf83759bf49887f1121bef15caa97c",
+      "routes": [
+        {
+          "nodes": [
+            "C",
+            "E",
+            "G"
+          ],
+          "name": "海防护航流",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                1
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "nodes": [
+            "B",
+            "C",
+            "E",
+            "G"
+          ],
+          "name": "混编对潜流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-2",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330619813",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "7-2:gauge2": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-2",
+      "retrievedAt": "2026-09-28T04:34:56+00:00",
+      "sourceSha256": "17f987c71c39aa85b3496b7e5369ad5cefcf83759bf49887f1121bef15caa97c",
+      "routes": [
+        {
+          "nodes": [
+            "B",
+            "C",
+            "D",
+            "I",
+            "M"
+          ],
+          "name": "I点直达流"
+        },
+        {
+          "nodes": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "I",
+            "M"
+          ],
+          "name": "漩涡经由流"
+        },
+        {
+          "nodes": [
+            "B",
+            "C",
+            "D",
+            "H",
+            "I",
+            "M"
+          ],
+          "name": "H点迂回流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-2",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330619813",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "7-3:gauge1": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-3",
+      "retrievedAt": "2026-09-28T04:35:16+00:00",
+      "sourceSha256": "921173675d6dfd909d6f23b39ae4c841dc10d5e938712db30f5175a241a14702",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "C",
+            "E"
+          ],
+          "name": "轻量直达流"
+        },
+        {
+          "name": "巡洋绕行流",
+          "nodes": [
+            "A",
+            "C",
+            "D",
+            "E"
+          ],
+          "templates": [
+            [
+              [
+                5
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ],
+            [
+              [
+                5
+              ],
+              [
+                2
+              ],
+              [
+                5
+              ],
+              [
+                3,
+                4,
+                16
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 4
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    3,
+                    4,
+                    5,
+                    6
+                  ],
+                  "min": 1
+                }
+              }
+            ]
+          },
+          "guideSource": "https://zh.kcwiki.cn/wiki/南西海域/7-3"
+        },
+        {
+          "name": "B点轻量流",
+          "nodes": [
+            "A",
+            "B",
+            "C",
+            "E"
+          ],
+          "templates": [
+            [
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ],
+            [
+              [
+                3,
+                4,
+                6,
+                16,
+                13,
+                14
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "any": [
+              {
+                "all": [
+                  {
+                    "shipCount": {
+                      "exact": 4
+                    }
+                  },
+                  {
+                    "count": {
+                      "stypes": [
+                        2
+                      ],
+                      "exact": 4
+                    }
+                  },
+                  {
+                    "shipName": {
+                      "prefixes": [
+                        "神風"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "all": [
+                  {
+                    "shipCount": {
+                      "exact": 2
+                    }
+                  },
+                  {
+                    "count": {
+                      "stypes": [
+                        2
+                      ],
+                      "exact": 1
+                    }
+                  },
+                  {
+                    "count": {
+                      "stypes": [
+                        3,
+                        4,
+                        6,
+                        16,
+                        13,
+                        14
+                      ],
+                      "exact": 1
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "guideSource": "https://zh.kcwiki.cn/wiki/南西海域/7-3"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-3",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=453499314",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "backupGuideReview": {
+        "date": "2026-10-14",
+        "basis": "Wiki 明列备用编成；路径与判定优先级按现行 NGA 数据复核，保留原主路线优先级。"
+      }
+    },
+    "7-3:gauge2": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-3",
+      "retrievedAt": "2026-09-28T04:35:16+00:00",
+      "sourceSha256": "921173675d6dfd909d6f23b39ae4c841dc10d5e938712db30f5175a241a14702",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "C",
+            "D",
+            "G",
+            "P"
+          ],
+          "name": "史实巡洋流"
+        },
+        {
+          "nodes": [
+            "A",
+            "C",
+            "D",
+            "G",
+            "J",
+            "P"
+          ],
+          "name": "无神风流",
+          "templates": [
+            [
+              [
+                5
+              ],
+              [
+                5
+              ],
+              [
+                6
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipName": {
+                  "prefixes": [
+                    "羽黒"
+                  ]
+                }
+              },
+              {
+                "shipName": {
+                  "prefixes": [
+                    "足柄"
+                  ]
+                }
+              },
+              {
+                "not": {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              },
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "exact": 3
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    5
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    6
+                  ],
+                  "exact": 1
+                }
+              }
+            ]
+          }
+        },
+        {
+          "nodes": [
+            "A",
+            "C",
+            "D",
+            "G",
+            "I",
+            "M",
+            "P"
+          ],
+          "name": "羽黑足柄水母流",
+          "templates": [
+            [
+              [
+                5
+              ],
+              [
+                5
+              ],
+              [
+                16
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipName": {
+                  "prefixes": [
+                    "羽黒"
+                  ]
+                }
+              },
+              {
+                "shipName": {
+                  "prefixes": [
+                    "足柄"
+                  ]
+                }
+              },
+              {
+                "not": {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              },
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "exact": 3
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    5
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    16
+                  ],
+                  "exact": 1
+                }
+              }
+            ]
+          }
+        },
+        {
+          "nodes": [
+            "A",
+            "C",
+            "I",
+            "L",
+            "M",
+            "P"
+          ],
+          "name": "无史实五舰流",
+          "templates": [
+            [
+              [
+                5
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "not": {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒",
+                      "足柄",
+                      "神風"
+                    ]
+                  }
+                }
+              },
+              {
+                "shipCount": {
+                  "exact": 5
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    5
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    3
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "exact": 3
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-3",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=453499314",
+      "guideReviewedAt": "2026-10-14",
+      "guideSources": [
+        "https://zh.kcwiki.cn/wiki/南西海域/7-3",
+        "https://wikiwiki.jp/kancolle/南西海域/7-3"
+      ],
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "7-4": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-4",
+      "retrievedAt": "2026-09-28T04:35:20+00:00",
+      "sourceSha256": "0436bd00635207fe5bcb29fbb909ae476c78ea4d7c6e98f7288eee8ca553cc21",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "B",
+            "E",
+            "J",
+            "L",
+            "P"
+          ],
+          "name": "护航混编流"
+        },
+        {
+          "name": "五舰护航流",
+          "nodes": [
+            "A",
+            "B",
+            "E",
+            "J",
+            "P"
+          ],
+          "templates": [
+            [
+              [
+                21
+              ],
+              [
+                1
+              ],
+              [
+                1
+              ],
+              [
+                1
+              ],
+              [
+                7
+              ]
+            ],
+            [
+              [
+                21
+              ],
+              [
+                1
+              ],
+              [
+                1
+              ],
+              [
+                1
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 5
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    21
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    1
+                  ],
+                  "exact": 3
+                }
+              },
+              {
+                "any": [
+                  {
+                    "count": {
+                      "stypes": [
+                        2
+                      ],
+                      "exact": 1
+                    }
+                  },
+                  {
+                    "count": {
+                      "prefixes": [
+                        "春日丸",
+                        "大鷹",
+                        "八幡丸",
+                        "雲鷹",
+                        "冲鷹"
+                      ],
+                      "exact": 1
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/南西海域/7-4"
+        },
+        {
+          "name": "双轻巡系航战流",
+          "nodes": [
+            "C",
+            "E",
+            "J",
+            "L",
+            "P"
+          ],
+          "templates": [
+            [
+              [
+                3,
+                4,
+                21
+              ],
+              [
+                3,
+                4,
+                21
+              ],
+              [
+                10
+              ],
+              [
+                1
+              ],
+              [
+                1
+              ],
+              [
+                1
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    3,
+                    4,
+                    21
+                  ],
+                  "exact": 2
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    10
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    1
+                  ],
+                  "exact": 3
+                }
+              }
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/南西海域/7-4"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-4",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=577131071",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "backupGuideReview": {
+        "date": "2026-10-14",
+        "basis": "Wiki 明列备用编成；路径与判定优先级按现行 NGA 数据复核，保留原主路线优先级。"
+      }
+    },
+    "1-2": {
+      "source": "https://zh.kcwiki.cn/wiki/%E9%95%87%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-2",
+      "retrievedAt": "2026-09-28T04:29:05+00:00",
+      "sourceSha256": "3399902f7aacf5ea4b50603d075454f0b940e85a5eca784d266a3fce250ba663",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "E"
+          ],
+          "name": "轻装直达流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E9%8E%AE%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-2",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330614658",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "1-4": {
+      "source": "https://zh.kcwiki.cn/wiki/%E9%95%87%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-4",
+      "retrievedAt": "2026-09-28T04:29:13+00:00",
+      "sourceSha256": "7d75603a24cf0895708648d9ee5958fc6b38f0d2d9e16ff988d6384af1355b82",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "D",
+            "E",
+            "H",
+            "L"
+          ],
+          "name": "D点转中流",
+          "paths": [
+            [
+              "A",
+              "D",
+              "E",
+              "H",
+              "L"
+            ],
+            [
+              "B",
+              "D",
+              "E",
+              "H",
+              "L"
+            ]
+          ],
+          "pathLabel": "A/B→D→E→H→L"
+        },
+        {
+          "nodes": [
+            "B",
+            "C",
+            "F",
+            "E",
+            "H",
+            "L"
+          ],
+          "name": "上路护航流",
+          "paths": [
+            [
+              "B",
+              "C",
+              "F",
+              "E",
+              "H",
+              "L"
+            ],
+            [
+              "B",
+              "C",
+              "F",
+              "H",
+              "L"
+            ]
+          ],
+          "pathLabel": "B→C→F→(E)→H→L"
+        },
+        {
+          "nodes": [
+            "A",
+            "D",
+            "G",
+            "J",
+            "L"
+          ],
+          "name": "D点转下流",
+          "paths": [
+            [
+              "A",
+              "D",
+              "G",
+              "J",
+              "L"
+            ],
+            [
+              "B",
+              "D",
+              "G",
+              "J",
+              "L"
+            ]
+          ],
+          "pathLabel": "A/B→D→G→J→L"
+        },
+        {
+          "nodes": [
+            "B",
+            "C",
+            "F",
+            "I",
+            "L"
+          ],
+          "name": "上路绕行流"
+        }
+      ],
+      "arrivalMode": "boss",
+      "routeCoverageNote": "保留攻略推荐优先顺序，并列出已校订的其余Boss路径；最终到达率按同一编成的完整分歧图计算，所选路径概率单独显示。",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "previousSource": "https://wikiwiki.jp/kancolle/%E9%8E%AE%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-4",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615176",
+      "mergedBranchReview": {
+        "date": "2026-10-14",
+        "basis": "同编成随机分岔后在途中汇合，合并展示并以完整互斥路径计算；不合并仅在 Boss 汇合或不同舰种导致的固定分流。"
+      }
+    },
+    "1-5": {
+      "source": "https://zh.kcwiki.cn/wiki/%E9%95%87%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-5",
+      "retrievedAt": "2026-09-28T02:09:01+00:00",
+      "sourceSha256": "3e3f2258bb470a235b0baeee122a095e0bb9a6dcb4271774815e80f19a4263dd",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "D",
+            "E",
+            "J"
+          ],
+          "name": "近海对潜流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E9%8E%AE%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-5",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615239",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "2-3": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-3",
+      "retrievedAt": "2026-09-28T04:30:30+00:00",
+      "sourceSha256": "3ca1fa204b61bccb0c5261ef3c0494ff341203439fbf3062f6256b29306475bb",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "D",
+            "G",
+            "K",
+            "N"
+          ],
+          "name": "下路水母流",
+          "fleetRequirement": {
+            "all": [
+              {
+                "count": {
+                  "stypes": [
+                    16
+                  ],
+                  "min": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "min": 2
+                }
+              }
+            ]
+          },
+          "templates": [
+            [
+              [
+                16
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ],
+            [
+              [
+                7,
+                11,
+                18
+              ],
+              [
+                7,
+                11,
+                18
+              ],
+              [
+                16
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "nameSource": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-3#攻略要点",
+          "paths": [
+            [
+              "A",
+              "D",
+              "G",
+              "K",
+              "N"
+            ],
+            [
+              "A",
+              "D",
+              "G",
+              "I",
+              "K",
+              "N"
+            ]
+          ],
+          "pathLabel": "A→D→G→(I)→K→N"
+        },
+        {
+          "nodes": [
+            "B",
+            "E",
+            "F",
+            "J",
+            "N"
+          ],
+          "name": "上路轻巡流",
+          "fleetRequirement": {
+            "all": [
+              {
+                "count": {
+                  "stypes": [
+                    3
+                  ],
+                  "min": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "min": 4
+                }
+              }
+            ]
+          },
+          "templates": [
+            [
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                16,
+                18
+              ]
+            ]
+          ],
+          "nameSource": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-3#攻略要点"
+        },
+        {
+          "nodes": [
+            "B",
+            "E",
+            "F",
+            "G",
+            "K",
+            "N"
+          ],
+          "name": "上转下轻巡流",
+          "fleetRequirement": {
+            "all": [
+              {
+                "count": {
+                  "stypes": [
+                    3
+                  ],
+                  "min": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "min": 4
+                }
+              }
+            ]
+          },
+          "templates": [
+            [
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                16,
+                18
+              ]
+            ]
+          ],
+          "nameSource": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-3#攻略要点",
+          "paths": [
+            [
+              "B",
+              "E",
+              "F",
+              "G",
+              "K",
+              "N"
+            ],
+            [
+              "B",
+              "E",
+              "F",
+              "G",
+              "I",
+              "K",
+              "N"
+            ]
+          ],
+          "pathLabel": "B→E→F→G→(I)→K→N"
+        },
+        {
+          "nodes": [
+            "A",
+            "D",
+            "F",
+            "J",
+            "N"
+          ],
+          "name": "D点转上流",
+          "nameBasis": "实际节点路径，非攻略流派名称"
+        },
+        {
+          "nodes": [
+            "C",
+            "F",
+            "J",
+            "N"
+          ],
+          "name": "潜水舰队流",
+          "nameSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-3#tactics3",
+          "paths": [
+            [
+              "C",
+              "F",
+              "J",
+              "N"
+            ],
+            [
+              "C",
+              "D",
+              "F",
+              "J",
+              "N"
+            ]
+          ],
+          "pathLabel": "C→(D)→F→J→N"
+        },
+        {
+          "nodes": [
+            "C",
+            "D",
+            "G",
+            "K",
+            "N"
+          ],
+          "name": "潜水舰队流",
+          "nameSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-3#tactics3",
+          "paths": [
+            [
+              "C",
+              "D",
+              "G",
+              "K",
+              "N"
+            ],
+            [
+              "C",
+              "D",
+              "G",
+              "I",
+              "K",
+              "N"
+            ]
+          ],
+          "pathLabel": "C→D→G→(I)→K→N"
+        },
+        {
+          "nodes": [
+            "C",
+            "F",
+            "G",
+            "K",
+            "N"
+          ],
+          "name": "潜水舰队流",
+          "nameSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-3#tactics3",
+          "paths": [
+            [
+              "C",
+              "F",
+              "G",
+              "K",
+              "N"
+            ],
+            [
+              "C",
+              "F",
+              "G",
+              "I",
+              "K",
+              "N"
+            ]
+          ],
+          "pathLabel": "C→F→G→(I)→K→N"
+        },
+        {
+          "nodes": [
+            "A",
+            "D",
+            "F",
+            "G",
+            "K",
+            "N"
+          ],
+          "name": "D点迂回流",
+          "nameBasis": "实际节点路径，非攻略流派名称",
+          "paths": [
+            [
+              "A",
+              "D",
+              "F",
+              "G",
+              "K",
+              "N"
+            ],
+            [
+              "A",
+              "D",
+              "F",
+              "G",
+              "I",
+              "K",
+              "N"
+            ]
+          ],
+          "pathLabel": "A→D→F→G→(I)→K→N"
+        },
+        {
+          "nodes": [
+            "C",
+            "D",
+            "F",
+            "G",
+            "K",
+            "N"
+          ],
+          "name": "潜水舰队流",
+          "nameSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-3#tactics3",
+          "paths": [
+            [
+              "C",
+              "D",
+              "F",
+              "G",
+              "K",
+              "N"
+            ],
+            [
+              "C",
+              "D",
+              "F",
+              "G",
+              "I",
+              "K",
+              "N"
+            ]
+          ],
+          "pathLabel": "C→D→F→G→(I)→K→N"
+        }
+      ],
+      "arrivalMode": "boss",
+      "routeCoverageNote": "优先显示 Wiki 攻略要点明确列出的水母＋驱逐、轻巡＋驱逐路径；其余路径以舰种或实际经由点描述。推荐数量受设置上限约束，总体到达率仍按完整分歧图计算。",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-3",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615494",
+      "mergedBranchReview": {
+        "date": "2026-10-14",
+        "basis": "同一流派内临时分岔后汇合的路径合并展示；括号节点表示可能经由。概率按同一编成的互斥完整路径计算，保留各分支规则与制空参考。"
+      }
+    },
+    "6-3": {
+      "source": "https://zh.kcwiki.cn/wiki/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-3",
+      "retrievedAt": "2026-09-28T04:34:13+00:00",
+      "sourceSha256": "d6877d4d9b93ac066e03cb42f765aa64c621f0d65b5973360471f305b6e3aaa9",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "C",
+            "E",
+            "G",
+            "H",
+            "J"
+          ],
+          "name": "G点侦察流"
+        },
+        {
+          "nodes": [
+            "A",
+            "C",
+            "E",
+            "F",
+            "H",
+            "J"
+          ],
+          "name": "F点迂回流"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-3",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330616602",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      }
+    },
+    "7-5:gauge1": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-5",
+      "retrievedAt": "2026-09-28T02:09:16+00:00",
+      "sourceSha256": "c4a676d1fa3e69bfedd0a17d9645253e04ed304a187a5c1b6eeea1b5763c49d2",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "B",
+            "D",
+            "F",
+            "G",
+            "H",
+            "K"
+          ],
+          "name": "G点推进流"
+        },
+        {
+          "id": "fastest",
+          "name": "重舰最速流",
+          "nodes": [
+            "A",
+            "B",
+            "D",
+            "F",
+            "G",
+            "H",
+            "K"
+          ],
+          "templates": [
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ],
+            [
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ],
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12,
+                    11,
+                    18
+                  ],
+                  "min": 1
+                }
+              }
+            ]
+          },
+          "strategy": {
+            "minimumSpeed": "fastest",
+            "paths": [
+              [
+                "A",
+                "B",
+                "D",
+                "F",
+                "G",
+                "H",
+                "K"
+              ]
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/南西海域/7-5"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-5",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=667878880",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "speedGuideReview": {
+        "date": "2026-10-14",
+        "basis": "独立速力流派；整队实际配装达到目标速力后，按现行 NGA 规则复核整条路线。"
+      }
+    },
+    "7-5:gauge2": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-5",
+      "retrievedAt": "2026-09-28T02:09:16+00:00",
+      "sourceSha256": "c4a676d1fa3e69bfedd0a17d9645253e04ed304a187a5c1b6eeea1b5763c49d2",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "B",
+            "D",
+            "F",
+            "J",
+            "O",
+            "Q"
+          ],
+          "name": "对地攻略流"
+        },
+        {
+          "id": "fastest",
+          "name": "重舰最速流",
+          "nodes": [
+            "A",
+            "B",
+            "D",
+            "F",
+            "J",
+            "O",
+            "Q"
+          ],
+          "templates": [
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ],
+            [
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ],
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12,
+                    11,
+                    18
+                  ],
+                  "min": 1
+                }
+              }
+            ]
+          },
+          "strategy": {
+            "minimumSpeed": "fastest",
+            "paths": [
+              [
+                "A",
+                "B",
+                "D",
+                "F",
+                "J",
+                "O",
+                "Q"
+              ]
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/南西海域/7-5"
+        },
+        {
+          "id": "battleship-light-carrier",
+          "name": "战舰轻空母流",
+          "nodes": [
+            "A",
+            "B",
+            "D",
+            "F",
+            "J",
+            "O",
+            "Q"
+          ],
+          "templates": [
+            [
+              [
+                8
+              ],
+              [
+                7
+              ],
+              [
+                6
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    7
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    6
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    3
+                  ],
+                  "exact": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "exact": 2
+                }
+              }
+            ]
+          },
+          "guideSource": "https://zh.kcwiki.cn/wiki/南西海域/7-5"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-5",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=667878880",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "speedGuideReview": {
+        "date": "2026-10-14",
+        "basis": "独立速力流派；整队实际配装达到目标速力后，按现行 NGA 规则复核整条路线。"
+      },
+      "backupGuideReview": {
+        "date": "2026-10-14",
+        "basis": "Wiki 明列备用编成；路径与判定优先级按现行 NGA 数据复核，保留原主路线优先级。"
+      }
+    },
+    "7-5:gauge3": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-5",
+      "retrievedAt": "2026-09-28T02:09:16+00:00",
+      "sourceSha256": "c4a676d1fa3e69bfedd0a17d9645253e04ed304a187a5c1b6eeea1b5763c49d2",
+      "routes": [
+        {
+          "nodes": [
+            "A",
+            "B",
+            "D",
+            "F",
+            "J",
+            "O",
+            "P",
+            "T"
+          ],
+          "name": "决战推进流"
+        },
+        {
+          "id": "fastest",
+          "name": "重舰最速流",
+          "nodes": [
+            "A",
+            "B",
+            "D",
+            "F",
+            "J",
+            "O",
+            "P",
+            "T"
+          ],
+          "templates": [
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ],
+            [
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ]
+            ],
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                5,
+                6
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12,
+                    11,
+                    18
+                  ],
+                  "min": 1
+                }
+              }
+            ]
+          },
+          "strategy": {
+            "minimumSpeed": "fastest",
+            "paths": [
+              [
+                "A",
+                "B",
+                "D",
+                "F",
+                "J",
+                "O",
+                "P",
+                "T"
+              ]
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/南西海域/7-5"
+        }
+      ],
+      "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-5",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=667878880",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "speedGuideReview": {
+        "date": "2026-10-14",
+        "basis": "独立速力流派；整队实际配装达到目标速力后，按现行 NGA 规则复核整条路线。"
+      }
+    },
+    "5-6:gauge1": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-6",
+      "retrievedAt": "2026-10-14",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=869961817",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "中文Wiki推荐配置、NGA带路规则与游戏实际坐标；按血条阶段和舰种/经由点命名。"
+      },
+      "routes": [
+        {
+          "name": "轻型运输流",
+          "nodes": [
+            "A",
+            "C2",
+            "D",
+            "E",
+            "G"
+          ],
+          "templates": [
+            [
+              [
+                16
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ],
+            [
+              [
+                6
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ]
+        },
+        {
+          "name": "航战运输流",
+          "nodes": [
+            "A",
+            "B",
+            "C2",
+            "D",
+            "E",
+            "G"
+          ],
+          "templates": [
+            [
+              [
+                10
+              ],
+              [
+                10
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                10
+              ],
+              "exact": 2
+            }
+          }
+        }
+      ]
+    },
+    "5-6:gauge2": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-6",
+      "retrievedAt": "2026-10-14",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=869961817",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "中文Wiki推荐配置、NGA带路规则与游戏实际坐标；按血条阶段和舰种/经由点命名。"
+      },
+      "routes": [
+        {
+          "name": "高速空母流",
+          "nodes": [
+            "I",
+            "J",
+            "K",
+            "L",
+            "N"
+          ],
+          "templates": [
+            [
+              [
+                11
+              ],
+              [
+                11
+              ],
+              [
+                6
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ],
+            [
+              [
+                11
+              ],
+              [
+                7
+              ],
+              [
+                6
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                7,
+                11,
+                18
+              ],
+              "min": 1
+            }
+          }
+        },
+        {
+          "name": "潜艇迂回流",
+          "nodes": [
+            "I",
+            "J",
+            "K1",
+            "K",
+            "K2",
+            "L",
+            "N"
+          ],
+          "templates": [
+            [
+              [
+                13,
+                14
+              ],
+              [
+                13,
+                14
+              ],
+              [
+                13,
+                14
+              ],
+              [
+                13,
+                14
+              ],
+              [
+                13,
+                14
+              ],
+              [
+                13,
+                14
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "allStypes": [
+                  13,
+                  14
+                ]
+              }
+            ]
+          },
+          "guideSource": "https://wikiwiki.jp/kancolle/南方海域/5-6"
+        }
+      ],
+      "backupGuideReview": {
+        "date": "2026-10-14",
+        "basis": "Wiki 明列备用编成；路径与判定优先级按现行 NGA 数据复核，保留原主路线优先级。"
+      }
+    },
+    "5-6:gauge3": {
+      "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-6",
+      "retrievedAt": "2026-10-14",
+      "routingSource": "https://bbs.nga.cn/read.php?pid=869961817",
+      "nameReview": {
+        "date": "2026-10-14",
+        "basis": "中文Wiki推荐配置、NGA带路规则与游戏实际坐标；按血条阶段和舰种/经由点命名。"
+      },
+      "routes": [
+        {
+          "name": "U点推进流",
+          "nodes": [
+            "I",
+            "O",
+            "Q",
+            "U",
+            "X",
+            "Z"
+          ],
+          "templates": [
+            [
+              [
+                8
+              ],
+              [
+                11
+              ],
+              [
+                5
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ],
+            [
+              [
+                8
+              ],
+              [
+                8
+              ],
+              [
+                11
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ]
+        },
+        {
+          "name": "轻巡驱逐流",
+          "nodes": [
+            "I",
+            "O",
+            "Q",
+            "W",
+            "X",
+            "Z"
+          ],
+          "templates": [
+            [
+              [
+                8
+              ],
+              [
+                11
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ],
+            [
+              [
+                11
+              ],
+              [
+                11
+              ],
+              [
+                3
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "count": {
+                  "stypes": [
+                    3
+                  ],
+                  "min": 1
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    2
+                  ],
+                  "min": 3
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "fastPlus",
+          "name": "空母提速流",
+          "nodes": [
+            "I",
+            "O",
+            "Q",
+            "W",
+            "X",
+            "Z"
+          ],
+          "templates": [
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ]
+            ],
+            [
+              [
+                8,
+                9,
+                10,
+                12
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ]
+            ]
+          ],
+          "fleetRequirement": {
+            "all": [
+              {
+                "shipCount": {
+                  "exact": 6
+                }
+              },
+              {
+                "allStypes": [
+                  8,
+                  9,
+                  10,
+                  12,
+                  11,
+                  18
+                ]
+              },
+              {
+                "count": {
+                  "stypes": [
+                    11,
+                    18
+                  ],
+                  "min": 4
+                }
+              },
+              {
+                "count": {
+                  "stypes": [
+                    8,
+                    9,
+                    10,
+                    12
+                  ],
+                  "min": 1
+                }
+              }
+            ]
+          },
+          "strategy": {
+            "minimumSpeed": "fastPlus",
+            "paths": [
+              [
+                "I",
+                "O",
+                "Q",
+                "W",
+                "X",
+                "Z"
+              ]
+            ]
+          },
+          "guideSource": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-6"
+        }
+      ],
+      "speedGuideReview": {
+        "date": "2026-10-14",
+        "basis": "独立速力流派；整队实际配装达到目标速力后，按现行 NGA 规则复核整条路线。"
+      }
+    }
+  }
+}

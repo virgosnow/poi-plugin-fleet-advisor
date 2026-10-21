@@ -1,0 +1,3499 @@
+{
+  "area": "5-4",
+  "schemaVersion": 2,
+  "source": {
+    "url": "https://wikiwiki.jp/kancolle/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-4",
+    "sourceUrl": "https://wikiwiki.jp/kancolle/::cmd/source?page=%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F%2F5-4",
+    "retrievedAt": "2026-09-28T04:33:31+00:00",
+    "sha256": "a0e5829a95a66fddb99041f9d9e945372b3d862d7fb4ebcc9d5e756df929725c",
+    "enemySectionSha256": "cd4129aeafb33271d7ea84c92083c7378b5c71f9c03f974b2f896b178a797af4",
+    "tableColumns": [
+      "~出現場所",
+      "~パターン",
+      "~EXP",
+      "~出現艦船",
+      "~陣形",
+      "~[[敵制空値>航空戦#AirSupremacy]]",
+      "~優勢",
+      "~確保"
+    ]
+  },
+  "operationName": "東京急行",
+  "gauges": [
+    {
+      "label": "戦力HPゲージ",
+      "raw": "ボス艦隊旗艦の撃沈で20%減少（与ダメージでは減少しない）\n5回撃沈で海域クリア",
+      "killsToClear": 5,
+      "mechanism": "bossSunk",
+      "bossNode": "P",
+      "bossNodeSource": "normal_routes唯一bossNodes回退"
+    }
+  ],
+  "sortieRequirement": null,
+  "remarksRaw": "ゲージ破壊後のボス編成はパターン1or2のランダム|CENTER:[[【目次】へ▲>#Contents]]\n\n[[＜ 前の海域へ>#area3]]・・・・・[[次の海域へ ＞>#area5]]\n\n[[ドロップへ▽>#drop4]]・・・[[攻略情報へ▼>#tactics4]]・・・[[情報提供へ▽>#comment4]]",
+  "bossNodes": [
+    "P"
+  ],
+  "nodes": {
+    "A": {
+      "node": "A",
+      "kind": "noBattle",
+      "kindRaw": "A：戦闘なし",
+      "fleetName": null,
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {},
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": {
+        "raw": "敵影を見ず。"
+      }
+    },
+    "B": {
+      "node": "B",
+      "kind": "noBattle",
+      "kindRaw": "B：戦闘なし",
+      "fleetName": null,
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {},
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": {
+        "raw": "敵影を見ず。"
+      }
+    },
+    "C": {
+      "node": "C",
+      "kind": "battle",
+      "kindRaw": "C： 敵南方増援部隊 前方警戒艦隊",
+      "fleetName": "敵南方増援部隊 前方警戒艦隊",
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {
+        "base": {
+          "patterns": [
+            {
+              "pattern": 1,
+              "rowRef": 4,
+              "enemyShips": [
+                {
+                  "name": "軽巡ヘ級flagship",
+                  "raw": "[[軽巡ヘ級flagship]]",
+                  "wikiTarget": "軽巡ヘ級flagship",
+                  "apiId": 1555,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級",
+                  "raw": "[[軽巡ツ級]]",
+                  "wikiTarget": "軽巡ツ級",
+                  "apiId": 1591,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "単縦",
+                "梯形"
+              ],
+              "formationStatus": "verified",
+              "exp": 200,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 2,
+              "rowRef": 5,
+              "enemyShips": [
+                {
+                  "name": "軽巡ヘ級flagship",
+                  "raw": "[[軽巡ヘ級flagship]]",
+                  "wikiTarget": "軽巡ヘ級flagship",
+                  "apiId": 1555,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級",
+                  "raw": "[[軽巡ツ級]]",
+                  "wikiTarget": "軽巡ツ級",
+                  "apiId": 1591,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "潜水カ級elite",
+                  "raw": "[[潜水カ級elite]]",
+                  "wikiTarget": "潜水カ級elite",
+                  "apiId": 1532,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "単縦",
+                "梯形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 220,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 3,
+              "rowRef": 6,
+              "enemyShips": [
+                {
+                  "name": "軽巡ヘ級flagship",
+                  "raw": "[[軽巡ヘ級flagship]]",
+                  "wikiTarget": "軽巡ヘ級flagship",
+                  "apiId": 1555,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級",
+                  "raw": "[[軽巡ツ級]]",
+                  "wikiTarget": "軽巡ツ級",
+                  "apiId": 1591,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "潜水カ級elite",
+                  "raw": "[[潜水カ級elite]]",
+                  "wikiTarget": "潜水カ級elite",
+                  "apiId": 1532,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "潜水カ級elite",
+                  "raw": "[[潜水カ級elite]]",
+                  "wikiTarget": "潜水カ級elite",
+                  "apiId": 1532,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "単縦",
+                "梯形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 240,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            }
+          ]
+        }
+      },
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": null
+    },
+    "D": {
+      "node": "D",
+      "kind": "whirlpool",
+      "kindRaw": "D：[[うずしお>資材#Whirlpool]]",
+      "fleetName": null,
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {},
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": {
+        "raw": "うずしお（燃料）基本喪失割合:30%（喪失上限値:確認不可能((このマスを通れる燃料の消費量が最大の[[武蔵改二]](電探搭載艦0、未ケッコン)で-82される。))）\n（電探0:-30%, 電探1:-22.5%, 電探2:-18%, 電探3:-15%, 電探4:-13.5%, 電探5:-12.6%, 電探6:-12%）"
+      }
+    },
+    "E": {
+      "node": "E",
+      "kind": "battle",
+      "kindRaw": "E： 敵鉄底海峡哨戒隊",
+      "fleetName": "敵鉄底海峡哨戒隊",
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {
+        "base": {
+          "patterns": [
+            {
+              "pattern": 1,
+              "rowRef": 8,
+              "enemyShips": [
+                {
+                  "name": "軽巡ホ級flagship",
+                  "raw": "[[軽巡ホ級flagship]]",
+                  "wikiTarget": "軽巡ホ級flagship",
+                  "apiId": 1554,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級",
+                  "raw": "[[軽巡ツ級]]",
+                  "wikiTarget": "軽巡ツ級",
+                  "apiId": 1591,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "単縦",
+                "複縦"
+              ],
+              "formationStatus": "verified",
+              "exp": 200,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 2,
+              "rowRef": 9,
+              "enemyShips": [
+                {
+                  "name": "軽巡ヘ級flagship",
+                  "raw": "[[軽巡ヘ級flagship]]",
+                  "wikiTarget": "軽巡ヘ級flagship",
+                  "apiId": 1555,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ホ級elite",
+                  "raw": "[[軽巡ホ級elite]]",
+                  "wikiTarget": "軽巡ホ級elite",
+                  "apiId": 1518,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級",
+                  "raw": "[[軽巡ツ級]]",
+                  "wikiTarget": "軽巡ツ級",
+                  "apiId": 1591,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "単縦",
+                "複縦"
+              ],
+              "formationStatus": "inherited",
+              "exp": 220,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 3,
+              "rowRef": 10,
+              "enemyShips": [
+                {
+                  "name": "軽巡ヘ級flagship",
+                  "raw": "[[軽巡ヘ級flagship]]",
+                  "wikiTarget": "軽巡ヘ級flagship",
+                  "apiId": 1555,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ホ級elite",
+                  "raw": "[[軽巡ホ級elite]]",
+                  "wikiTarget": "軽巡ホ級elite",
+                  "apiId": 1518,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級elite",
+                  "raw": "[[軽巡ツ級elite]]",
+                  "wikiTarget": "軽巡ツ級elite",
+                  "apiId": 1592,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "単縦",
+                "複縦"
+              ],
+              "formationStatus": "inherited",
+              "exp": 240,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            }
+          ]
+        }
+      },
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": null
+    },
+    "F": {
+      "node": "F",
+      "kind": "nightBattle",
+      "kindRaw": "F：夜戦 深海水上打撃群",
+      "fleetName": "深海水上打撃群",
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {
+        "base": {
+          "patterns": [
+            {
+              "pattern": 1,
+              "rowRef": 11,
+              "enemyShips": [
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡リ級elite",
+                  "raw": "[[重巡リ級elite]]",
+                  "wikiTarget": "重巡リ級elite",
+                  "apiId": 1522,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡リ級elite",
+                  "raw": "[[重巡リ級elite]]",
+                  "wikiTarget": "重巡リ級elite",
+                  "apiId": 1522,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級elite",
+                  "raw": "[[軽巡ツ級elite]]",
+                  "wikiTarget": "軽巡ツ級elite",
+                  "apiId": 1592,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "単縦",
+                "複縦",
+                "梯形"
+              ],
+              "formationStatus": "verified",
+              "exp": 330,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 2,
+              "rowRef": 12,
+              "enemyShips": [
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡リ級elite",
+                  "raw": "[[重巡リ級elite]]",
+                  "wikiTarget": "重巡リ級elite",
+                  "apiId": 1522,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級elite",
+                  "raw": "[[軽巡ツ級elite]]",
+                  "wikiTarget": "軽巡ツ級elite",
+                  "apiId": 1592,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "単縦",
+                "複縦",
+                "梯形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 360,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            }
+          ]
+        }
+      },
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": null
+    },
+    "G": {
+      "node": "G",
+      "kind": "battle",
+      "kindRaw": "G： 敵南方増援部隊 機動部隊",
+      "fleetName": "敵南方増援部隊 機動部隊",
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {
+        "base": {
+          "patterns": [
+            {
+              "pattern": 1,
+              "rowRef": 13,
+              "enemyShips": [
+                {
+                  "name": "空母ヲ級flagship(艦載機赤)",
+                  "raw": "[[空母ヲ級flagship(艦載機&color(Red){赤};)>空母ヲ級flagship#d]]",
+                  "wikiTarget": "空母ヲ級flagship#d",
+                  "apiId": 1615,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "空母ヲ級flagship(艦載機赤)",
+                  "raw": "[[空母ヲ級flagship(艦載機&color(Red){赤};)>空母ヲ級flagship#d]]",
+                  "wikiTarget": "空母ヲ級flagship#d",
+                  "apiId": 1615,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡ネ級",
+                  "raw": "[[重巡ネ級]]",
+                  "wikiTarget": "重巡ネ級",
+                  "apiId": 1594,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "輪形"
+              ],
+              "formationStatus": "verified",
+              "exp": 300,
+              "enemyAirPower": 206,
+              "enemyAirPowerNote": null,
+              "airStatus": "verified",
+              "airSuperiority": 309,
+              "airSupremacy": 618,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 2,
+              "rowRef": 14,
+              "enemyShips": [
+                {
+                  "name": "空母ヲ級flagship(艦載機赤)",
+                  "raw": "[[空母ヲ級flagship(艦載機&color(Red){赤};)>空母ヲ級flagship#d]]",
+                  "wikiTarget": "空母ヲ級flagship#d",
+                  "apiId": 1615,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "空母ヲ級flagship(艦載機赤)",
+                  "raw": "[[空母ヲ級flagship(艦載機&color(Red){赤};)>空母ヲ級flagship#d]]",
+                  "wikiTarget": "空母ヲ級flagship#d",
+                  "apiId": 1615,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "輪形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 320,
+              "enemyAirPower": 206,
+              "enemyAirPowerNote": null,
+              "airStatus": "verified",
+              "airSuperiority": 309,
+              "airSupremacy": 618,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 3,
+              "rowRef": 15,
+              "enemyShips": [
+                {
+                  "name": "空母ヲ級flagship(艦載機赤)",
+                  "raw": "[[空母ヲ級flagship(艦載機&color(Red){赤};)>空母ヲ級flagship#d]]",
+                  "wikiTarget": "空母ヲ級flagship#d",
+                  "apiId": 1615,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "空母ヲ級flagship(艦載機赤)",
+                  "raw": "[[空母ヲ級flagship(艦載機&color(Red){赤};)>空母ヲ級flagship#d]]",
+                  "wikiTarget": "空母ヲ級flagship#d",
+                  "apiId": 1615,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "輪形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 330,
+              "enemyAirPower": 206,
+              "enemyAirPowerNote": null,
+              "airStatus": "verified",
+              "airSuperiority": 309,
+              "airSupremacy": 618,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 4,
+              "rowRef": 16,
+              "enemyShips": [
+                {
+                  "name": "空母ヲ級flagship(艦載機赤)",
+                  "raw": "[[空母ヲ級flagship(艦載機&color(Red){赤};)>空母ヲ級flagship#d]]",
+                  "wikiTarget": "空母ヲ級flagship#d",
+                  "apiId": 1615,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "空母ヲ級flagship(艦載機赤)",
+                  "raw": "[[空母ヲ級flagship(艦載機&color(Red){赤};)>空母ヲ級flagship#d]]",
+                  "wikiTarget": "空母ヲ級flagship#d",
+                  "apiId": 1615,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡ネ級",
+                  "raw": "[[重巡ネ級]]",
+                  "wikiTarget": "重巡ネ級",
+                  "apiId": 1594,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "輪形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 340,
+              "enemyAirPower": 206,
+              "enemyAirPowerNote": null,
+              "airStatus": "verified",
+              "airSuperiority": 309,
+              "airSupremacy": 618,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 5,
+              "rowRef": 17,
+              "enemyShips": [
+                {
+                  "name": "空母ヲ級flagship(艦載機赤)",
+                  "raw": "[[空母ヲ級flagship(艦載機&color(Red){赤};)>空母ヲ級flagship#d]]",
+                  "wikiTarget": "空母ヲ級flagship#d",
+                  "apiId": 1615,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "空母ヲ級flagship(艦載機赤)",
+                  "raw": "[[空母ヲ級flagship(艦載機&color(Red){赤};)>空母ヲ級flagship#d]]",
+                  "wikiTarget": "空母ヲ級flagship#d",
+                  "apiId": 1615,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡ネ級elite",
+                  "raw": "[[重巡ネ級elite]]",
+                  "wikiTarget": "重巡ネ級elite",
+                  "apiId": 1595,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "輪形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 350,
+              "enemyAirPower": 206,
+              "enemyAirPowerNote": null,
+              "airStatus": "verified",
+              "airSuperiority": 309,
+              "airSupremacy": 618,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 6,
+              "rowRef": 18,
+              "enemyShips": [
+                {
+                  "name": "空母ヲ級flagship(艦載機赤)",
+                  "raw": "[[空母ヲ級flagship(艦載機&color(Red){赤};)>空母ヲ級flagship#d]]",
+                  "wikiTarget": "空母ヲ級flagship#d",
+                  "apiId": 1615,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "空母ヲ級flagship(艦載機赤)",
+                  "raw": "[[空母ヲ級flagship(艦載機&color(Red){赤};)>空母ヲ級flagship#d]]",
+                  "wikiTarget": "空母ヲ級flagship#d",
+                  "apiId": 1615,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡ネ級elite",
+                  "raw": "[[重巡ネ級elite]]",
+                  "wikiTarget": "重巡ネ級elite",
+                  "apiId": 1595,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級",
+                  "raw": "[[軽巡ツ級]]",
+                  "wikiTarget": "軽巡ツ級",
+                  "apiId": 1591,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "輪形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 360,
+              "enemyAirPower": 206,
+              "enemyAirPowerNote": null,
+              "airStatus": "verified",
+              "airSuperiority": 309,
+              "airSupremacy": 618,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            }
+          ]
+        }
+      },
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": null
+    },
+    "H": {
+      "node": "H",
+      "kind": "nightBattle",
+      "kindRaw": "H：夜戦 敵鉄底海峡巡洋艦戦隊",
+      "fleetName": "敵鉄底海峡巡洋艦戦隊",
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {
+        "base": {
+          "patterns": [
+            {
+              "pattern": 1,
+              "rowRef": 19,
+              "enemyShips": [
+                {
+                  "name": "重巡リ級flagship",
+                  "raw": "[[重巡リ級flagship]]",
+                  "wikiTarget": "重巡リ級flagship",
+                  "apiId": 1527,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡リ級elite",
+                  "raw": "[[重巡リ級elite]]",
+                  "wikiTarget": "重巡リ級elite",
+                  "apiId": 1522,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ヘ級elite",
+                  "raw": "[[軽巡ヘ級elite]]",
+                  "wikiTarget": "軽巡ヘ級elite",
+                  "apiId": 1519,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ホ級elite",
+                  "raw": "[[軽巡ホ級elite]]",
+                  "wikiTarget": "軽巡ホ級elite",
+                  "apiId": 1518,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "単縦",
+                "梯形"
+              ],
+              "formationStatus": "verified",
+              "exp": 230,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 2,
+              "rowRef": 20,
+              "enemyShips": [
+                {
+                  "name": "重巡リ級flagship",
+                  "raw": "[[重巡リ級flagship]]",
+                  "wikiTarget": "重巡リ級flagship",
+                  "apiId": 1527,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡リ級elite",
+                  "raw": "[[重巡リ級elite]]",
+                  "wikiTarget": "重巡リ級elite",
+                  "apiId": 1522,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ヘ級elite",
+                  "raw": "[[軽巡ヘ級elite]]",
+                  "wikiTarget": "軽巡ヘ級elite",
+                  "apiId": 1519,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ホ級elite",
+                  "raw": "[[軽巡ホ級elite]]",
+                  "wikiTarget": "軽巡ホ級elite",
+                  "apiId": 1518,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "単縦",
+                "梯形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 250,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 3,
+              "rowRef": 21,
+              "enemyShips": [
+                {
+                  "name": "重巡リ級flagship",
+                  "raw": "[[重巡リ級flagship]]",
+                  "wikiTarget": "重巡リ級flagship",
+                  "apiId": 1527,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡リ級elite",
+                  "raw": "[[重巡リ級elite]]",
+                  "wikiTarget": "重巡リ級elite",
+                  "apiId": 1522,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡リ級elite",
+                  "raw": "[[重巡リ級elite]]",
+                  "wikiTarget": "重巡リ級elite",
+                  "apiId": 1522,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級",
+                  "raw": "[[軽巡ツ級]]",
+                  "wikiTarget": "軽巡ツ級",
+                  "apiId": 1591,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "単縦",
+                "梯形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 270,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            }
+          ]
+        }
+      },
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": null
+    },
+    "I": {
+      "node": "I",
+      "kind": "item",
+      "kindRaw": "I：アイテム獲得",
+      "fleetName": null,
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {},
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": {
+        "raw": "弾薬+60:ドラム缶(+10) 大発動艇系((「[[特大発動艇＋戦車第11連隊]]」は対象外))(+15)  (上限値180)"
+      }
+    },
+    "J": {
+      "node": "J",
+      "kind": "nightBattle",
+      "kindRaw": "J：夜戦 敵泊地投錨中 輸送船団",
+      "fleetName": "敵泊地投錨中 輸送船団",
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {
+        "base": {
+          "patterns": [
+            {
+              "pattern": 1,
+              "rowRef": 23,
+              "enemyShips": [
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "輸送ワ級",
+                  "raw": "[[輸送ワ級]]",
+                  "wikiTarget": "輸送ワ級",
+                  "apiId": 1513,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "輸送ワ級",
+                  "raw": "[[輸送ワ級]]",
+                  "wikiTarget": "輸送ワ級",
+                  "apiId": 1513,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "複縦"
+              ],
+              "formationStatus": "verified",
+              "exp": 450,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 2,
+              "rowRef": 24,
+              "enemyShips": [
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "輸送ワ級",
+                  "raw": "[[輸送ワ級]]",
+                  "wikiTarget": "輸送ワ級",
+                  "apiId": 1513,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "複縦"
+              ],
+              "formationStatus": "inherited",
+              "exp": 460,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 3,
+              "rowRef": 25,
+              "enemyShips": [
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "輸送ワ級",
+                  "raw": "[[輸送ワ級]]",
+                  "wikiTarget": "輸送ワ級",
+                  "apiId": 1513,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "複縦"
+              ],
+              "formationStatus": "inherited",
+              "exp": 470,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 4,
+              "rowRef": 26,
+              "enemyShips": [
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐イ級",
+                  "raw": "[[駆逐イ級]]",
+                  "wikiTarget": "駆逐イ級",
+                  "apiId": 1501,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "複縦"
+              ],
+              "formationStatus": "inherited",
+              "exp": 480,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 5,
+              "rowRef": 27,
+              "enemyShips": [
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "複縦"
+              ],
+              "formationStatus": "inherited",
+              "exp": 490,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 6,
+              "rowRef": 28,
+              "enemyShips": [
+                {
+                  "name": "輸送ワ級flagship",
+                  "raw": "[[輸送ワ級flagship]]",
+                  "wikiTarget": "輸送ワ級flagship",
+                  "apiId": 1558,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "輸送ワ級elite",
+                  "raw": "[[輸送ワ級elite]]",
+                  "wikiTarget": "輸送ワ級elite",
+                  "apiId": 1526,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "複縦"
+              ],
+              "formationStatus": "inherited",
+              "exp": 490,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            }
+          ]
+        }
+      },
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": null
+    },
+    "K": {
+      "node": "K",
+      "kind": "whirlpool",
+      "kindRaw": "K：[[うずしお>資材#Whirlpool]]",
+      "fleetName": null,
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {},
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": {
+        "raw": "強うずしお（燃料）基本喪失割合:40%, 又は150%, 実際の喪失割合:①24%((2戦目後に通過するため))（喪失上限値:確認不可能((このマスを通れる燃料の消費量が最大の[[武蔵改二]](電探搭載艦0、未ケッコン)で-66される。))）, 又は90%((2戦目後に通過するため))（喪失上限値:120）\n①(電探0:-24%, 電探1:-18%, 電探2:-14.4%, 電探3:-12%, 電探4:-10.8%, 電探5:-10.08%, 電探6:-9.6%)\n②(電探0:-90%, 電探1:-67.5%, 電探2:-54%, 電探3:-45%, 電探4:-40.5%, 電探5:-37.8%, 電探6:-36%)"
+      }
+    },
+    "L": {
+      "node": "L",
+      "kind": "battle",
+      "kindRaw": "L： 敵南方増援部隊 本隊",
+      "fleetName": "敵南方増援部隊 本隊",
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {
+        "base": {
+          "patterns": [
+            {
+              "pattern": 1,
+              "rowRef": 30,
+              "enemyShips": [
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ヘ級flagship",
+                  "raw": "[[軽巡ヘ級flagship]]",
+                  "wikiTarget": "軽巡ヘ級flagship",
+                  "apiId": 1555,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ホ級flagship",
+                  "raw": "[[軽巡ホ級flagship]]",
+                  "wikiTarget": "軽巡ホ級flagship",
+                  "apiId": 1554,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級",
+                  "raw": "[[軽巡ツ級]]",
+                  "wikiTarget": "軽巡ツ級",
+                  "apiId": 1591,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "単縦",
+                "輪形",
+                "梯形"
+              ],
+              "formationStatus": "verified",
+              "exp": 390,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 2,
+              "rowRef": 31,
+              "enemyShips": [
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡ネ級elite",
+                  "raw": "[[重巡ネ級elite]]",
+                  "wikiTarget": "重巡ネ級elite",
+                  "apiId": 1595,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級",
+                  "raw": "[[軽巡ツ級]]",
+                  "wikiTarget": "軽巡ツ級",
+                  "apiId": 1591,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "複縦",
+                "輪形",
+                "梯形"
+              ],
+              "formationStatus": "verified",
+              "exp": 390,
+              "enemyAirPower": null,
+              "enemyAirPowerNote": null,
+              "airStatus": "absent",
+              "airSuperiority": null,
+              "airSupremacy": null,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            }
+          ]
+        }
+      },
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": null
+    },
+    "M": {
+      "node": "M",
+      "kind": "noBattle",
+      "kindRaw": "M：戦闘なし",
+      "fleetName": null,
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {},
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": {
+        "raw": "敵影を見ず。"
+      }
+    },
+    "N": {
+      "node": "N",
+      "kind": "noBattle",
+      "kindRaw": "N：戦闘なし",
+      "fleetName": null,
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {},
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": {
+        "raw": "気のせいだった。"
+      }
+    },
+    "O": {
+      "node": "O",
+      "kind": "noBattle",
+      "kindRaw": "O：戦闘なし",
+      "fleetName": null,
+      "boss": false,
+      "bossLabel": null,
+      "note": null,
+      "phases": {},
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": {
+        "raw": "気のせいだった。"
+      }
+    },
+    "P": {
+      "node": "P",
+      "kind": "battle",
+      "kindRaw": "P：ボス 敵南方増援部隊 本隊",
+      "fleetName": "敵南方増援部隊 本隊",
+      "boss": true,
+      "bossLabel": null,
+      "note": null,
+      "phases": {
+        "base": {
+          "patterns": [
+            {
+              "pattern": 1,
+              "rowRef": 35,
+              "enemyShips": [
+                {
+                  "name": "輸送ワ級flagship",
+                  "raw": "[[輸送ワ級flagship]]",
+                  "wikiTarget": "輸送ワ級flagship",
+                  "apiId": 1558,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽母ヌ級flagship(艦載機赤)",
+                  "raw": "[[軽母ヌ級flagship(艦載機&color(Red){赤};)>軽母ヌ級flagship#c]]",
+                  "wikiTarget": "軽母ヌ級flagship#c",
+                  "apiId": 1764,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦ル級flagship",
+                  "raw": "[[戦艦ル級flagship]]",
+                  "wikiTarget": "戦艦ル級flagship",
+                  "apiId": 1529,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級elite",
+                  "raw": "[[軽巡ツ級elite]]",
+                  "wikiTarget": "軽巡ツ級elite",
+                  "apiId": 1592,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "輪形"
+              ],
+              "formationStatus": "verified",
+              "exp": 540,
+              "enemyAirPower": 93,
+              "enemyAirPowerNote": null,
+              "airStatus": "verified",
+              "airSuperiority": 140,
+              "airSupremacy": 279,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 2,
+              "rowRef": 36,
+              "enemyShips": [
+                {
+                  "name": "輸送ワ級flagship",
+                  "raw": "[[輸送ワ級flagship]]",
+                  "wikiTarget": "輸送ワ級flagship",
+                  "apiId": 1558,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽母ヌ級flagship(艦載機赤)",
+                  "raw": "[[軽母ヌ級flagship(艦載機&color(Red){赤};)>軽母ヌ級flagship#c]]",
+                  "wikiTarget": "軽母ヌ級flagship#c",
+                  "apiId": 1764,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦ル級flagship",
+                  "raw": "[[戦艦ル級flagship]]",
+                  "wikiTarget": "戦艦ル級flagship",
+                  "apiId": 1529,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡ネ級elite",
+                  "raw": "[[重巡ネ級elite]]",
+                  "wikiTarget": "重巡ネ級elite",
+                  "apiId": 1595,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ロ級後期型",
+                  "raw": "[[駆逐ロ級後期型]]",
+                  "wikiTarget": "駆逐ロ級後期型",
+                  "apiId": 1576,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "輪形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 540,
+              "enemyAirPower": 93,
+              "enemyAirPowerNote": null,
+              "airStatus": "verified",
+              "airSuperiority": 140,
+              "airSupremacy": 279,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 3,
+              "rowRef": 37,
+              "enemyShips": [
+                {
+                  "name": "輸送ワ級flagship",
+                  "raw": "[[輸送ワ級flagship]]",
+                  "wikiTarget": "輸送ワ級flagship",
+                  "apiId": 1558,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽母ヌ級flagship(艦載機赤)",
+                  "raw": "[[軽母ヌ級flagship(艦載機&color(Red){赤};)>軽母ヌ級flagship#c]]",
+                  "wikiTarget": "軽母ヌ級flagship#c",
+                  "apiId": 1764,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦ル級flagship",
+                  "raw": "[[戦艦ル級flagship]]",
+                  "wikiTarget": "戦艦ル級flagship",
+                  "apiId": 1529,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級elite",
+                  "raw": "[[軽巡ツ級elite]]",
+                  "wikiTarget": "軽巡ツ級elite",
+                  "apiId": 1592,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "輪形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 510,
+              "enemyAirPower": 93,
+              "enemyAirPowerNote": null,
+              "airStatus": "verified",
+              "airSuperiority": 140,
+              "airSupremacy": 279,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 4,
+              "rowRef": 38,
+              "enemyShips": [
+                {
+                  "name": "輸送ワ級flagship",
+                  "raw": "[[輸送ワ級flagship]]",
+                  "wikiTarget": "輸送ワ級flagship",
+                  "apiId": 1558,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽母ヌ級flagship(艦載機赤)",
+                  "raw": "[[軽母ヌ級flagship(艦載機&color(Red){赤};)>軽母ヌ級flagship#c]]",
+                  "wikiTarget": "軽母ヌ級flagship#c",
+                  "apiId": 1764,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦ル級flagship",
+                  "raw": "[[戦艦ル級flagship]]",
+                  "wikiTarget": "戦艦ル級flagship",
+                  "apiId": 1529,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡ネ級elite",
+                  "raw": "[[重巡ネ級elite]]",
+                  "wikiTarget": "重巡ネ級elite",
+                  "apiId": 1595,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "輪形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 550,
+              "enemyAirPower": 93,
+              "enemyAirPowerNote": null,
+              "airStatus": "verified",
+              "airSuperiority": 140,
+              "airSupremacy": 279,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 5,
+              "rowRef": 39,
+              "enemyShips": [
+                {
+                  "name": "輸送ワ級flagship",
+                  "raw": "[[輸送ワ級flagship]]",
+                  "wikiTarget": "輸送ワ級flagship",
+                  "apiId": 1558,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽母ヌ級flagship(艦載機赤)",
+                  "raw": "[[軽母ヌ級flagship(艦載機&color(Red){赤};)>軽母ヌ級flagship#c]]",
+                  "wikiTarget": "軽母ヌ級flagship#c",
+                  "apiId": 1764,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽巡ツ級elite",
+                  "raw": "[[軽巡ツ級elite]]",
+                  "wikiTarget": "軽巡ツ級elite",
+                  "apiId": 1592,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "輪形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 520,
+              "enemyAirPower": 93,
+              "enemyAirPowerNote": null,
+              "airStatus": "verified",
+              "airSuperiority": 140,
+              "airSupremacy": 279,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            },
+            {
+              "pattern": 6,
+              "rowRef": 40,
+              "enemyShips": [
+                {
+                  "name": "輸送ワ級flagship",
+                  "raw": "[[輸送ワ級flagship]]",
+                  "wikiTarget": "輸送ワ級flagship",
+                  "apiId": 1558,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "軽母ヌ級flagship(艦載機赤)",
+                  "raw": "[[軽母ヌ級flagship(艦載機&color(Red){赤};)>軽母ヌ級flagship#c]]",
+                  "wikiTarget": "軽母ヌ級flagship#c",
+                  "apiId": 1764,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "戦艦タ級flagship",
+                  "raw": "[[戦艦タ級flagship]]",
+                  "wikiTarget": "戦艦タ級flagship",
+                  "apiId": 1543,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "重巡ネ級elite",
+                  "raw": "[[重巡ネ級elite]]",
+                  "wikiTarget": "重巡ネ級elite",
+                  "apiId": 1595,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                },
+                {
+                  "name": "駆逐ハ級後期型",
+                  "raw": "[[駆逐ハ級後期型]]",
+                  "wikiTarget": "駆逐ハ級後期型",
+                  "apiId": 1577,
+                  "apiIdStatus": "verified(wikiTarget)"
+                }
+              ],
+              "sameAsPattern": null,
+              "formation": [
+                "輪形"
+              ],
+              "formationStatus": "inherited",
+              "exp": 550,
+              "enemyAirPower": 93,
+              "enemyAirPowerNote": null,
+              "airStatus": "verified",
+              "airSuperiority": 140,
+              "airSupremacy": 279,
+              "hqLevelRange": null,
+              "appearanceRate": null,
+              "finalForm": null,
+              "availability": null,
+              "lbasRadius": null,
+              "status": "verified"
+            }
+          ]
+        }
+      },
+      "fuelFraction": null,
+      "ammoFraction": null,
+      "effect": null
+    }
+  },
+  "validation": [],
+  "coverageCheck": {
+    "graphNodes": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "start"
+    ],
+    "coveredNodes": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P"
+    ],
+    "missingInEnemyTable": [],
+    "notInGraph": []
+  },
+  "apiIdBackfill": {
+    "catalogGeneratedAt": "2026-09-28T07:04:59+00:00",
+    "resolved": 186,
+    "unresolvedCount": 0,
+    "unresolved": []
+  },
+  "crossCheck": {
+    "source": {
+      "url": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-4",
+      "retrievedAt": "2026-09-28T04:36:36+00:00",
+      "sha256": "8fca582380753d7d0da1e85d9d579dac800d10c3eba5f6f0018fe0f97ac4a069"
+    },
+    "idNameSource": {
+      "url": "https://zh.kcwiki.cn/wiki/Template:%E6%B7%B1%E6%B5%B7%E6%A8%AA%E5%B9%85",
+      "note": "kcwiki Template:深海横幅 api id → 日文名"
+    },
+    "matchBasis": "api-id sequence first, name fallback; fields compared when both sides document them: exp/enemyAirPower/formation/escortApiIds/finalForm",
+    "checkedAt": "2026-09-28T07:04:59+00:00",
+    "nodes": {
+      "A": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [],
+            "escortApiIds": null,
+            "namesJa": [],
+            "formation": null,
+            "air": null,
+            "exp": null,
+            "finalForm": null
+          }
+        ],
+        "matches": [],
+        "conflicts": []
+      },
+      "B": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [],
+            "escortApiIds": null,
+            "namesJa": [],
+            "formation": null,
+            "air": null,
+            "exp": null,
+            "finalForm": null
+          }
+        ],
+        "matches": [],
+        "conflicts": []
+      },
+      "C": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [
+              1555,
+              1591,
+              1577,
+              1577,
+              1501,
+              1501
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "軽巡ヘ級flagship",
+              "軽巡ツ級",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型",
+              "駆逐イ級",
+              "駆逐イ級"
+            ],
+            "formation": "単縦陣<br>梯形陣",
+            "air": null,
+            "exp": 200,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1555,
+              1591,
+              1577,
+              1577,
+              1501,
+              1532
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "軽巡ヘ級flagship",
+              "軽巡ツ級",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型",
+              "駆逐イ級",
+              "潜水カ級elite"
+            ],
+            "formation": "単縦陣<br>梯形陣",
+            "air": null,
+            "exp": 220,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1555,
+              1591,
+              1577,
+              1577,
+              1532,
+              1532
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "軽巡ヘ級flagship",
+              "軽巡ツ級",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型",
+              "潜水カ級elite",
+              "潜水カ級elite"
+            ],
+            "formation": "単縦陣<br>梯形陣",
+            "air": null,
+            "exp": 240,
+            "finalForm": null
+          }
+        ],
+        "matches": [
+          {
+            "pattern": 1,
+            "basis": "ids"
+          },
+          {
+            "pattern": 2,
+            "basis": "ids"
+          },
+          {
+            "pattern": 3,
+            "basis": "ids"
+          }
+        ],
+        "conflicts": []
+      },
+      "D": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [],
+            "escortApiIds": null,
+            "namesJa": [],
+            "formation": null,
+            "air": null,
+            "exp": null,
+            "finalForm": null
+          }
+        ],
+        "matches": [],
+        "conflicts": []
+      },
+      "E": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [
+              1554,
+              1591,
+              1577,
+              1577,
+              1501,
+              1501
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "軽巡ホ級flagship",
+              "軽巡ツ級",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型",
+              "駆逐イ級",
+              "駆逐イ級"
+            ],
+            "formation": "単縦陣<br>複縦陣",
+            "air": null,
+            "exp": 200,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1555,
+              1518,
+              1591,
+              1577,
+              1577,
+              1501
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "軽巡ヘ級flagship",
+              "軽巡ホ級elite",
+              "軽巡ツ級",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型",
+              "駆逐イ級"
+            ],
+            "formation": "単縦陣<br>複縦陣",
+            "air": null,
+            "exp": 220,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1555,
+              1518,
+              1592,
+              1577,
+              1577,
+              1501
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "軽巡ヘ級flagship",
+              "軽巡ホ級elite",
+              "軽巡ツ級elite",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型",
+              "駆逐イ級"
+            ],
+            "formation": "単縦陣<br>複縦陣",
+            "air": null,
+            "exp": 240,
+            "finalForm": null
+          }
+        ],
+        "matches": [
+          {
+            "pattern": 1,
+            "basis": "ids"
+          },
+          {
+            "pattern": 2,
+            "basis": "ids"
+          },
+          {
+            "pattern": 3,
+            "basis": "ids"
+          }
+        ],
+        "conflicts": []
+      },
+      "F": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [
+              1543,
+              1522,
+              1522,
+              1592,
+              1577,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "戦艦タ級flagship",
+              "重巡リ級elite",
+              "重巡リ級elite",
+              "軽巡ツ級elite",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "単縦陣<br>複縦陣<br>梯形陣",
+            "air": null,
+            "exp": 330,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1543,
+              1543,
+              1522,
+              1592,
+              1577,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "戦艦タ級flagship",
+              "戦艦タ級flagship",
+              "重巡リ級elite",
+              "軽巡ツ級elite",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "単縦陣<br>複縦陣<br>梯形陣",
+            "air": null,
+            "exp": 360,
+            "finalForm": null
+          }
+        ],
+        "matches": [
+          {
+            "pattern": 1,
+            "basis": "ids"
+          },
+          {
+            "pattern": 2,
+            "basis": "ids"
+          }
+        ],
+        "conflicts": []
+      },
+      "G": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [
+              1615,
+              1615,
+              1543,
+              1577,
+              1501,
+              1501
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "空母ヲ級flagship 艦載機赤",
+              "空母ヲ級flagship 艦載機赤",
+              "戦艦タ級flagship",
+              "駆逐ハ級後期型",
+              "駆逐イ級",
+              "駆逐イ級"
+            ],
+            "formation": "輪形陣",
+            "air": null,
+            "exp": 320,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1615,
+              1615,
+              1543,
+              1577,
+              1577,
+              1501
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "空母ヲ級flagship 艦載機赤",
+              "空母ヲ級flagship 艦載機赤",
+              "戦艦タ級flagship",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型",
+              "駆逐イ級"
+            ],
+            "formation": "輪形陣",
+            "air": null,
+            "exp": 330,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1615,
+              1615,
+              1543,
+              1594,
+              1577,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "空母ヲ級flagship 艦載機赤",
+              "空母ヲ級flagship 艦載機赤",
+              "戦艦タ級flagship",
+              "重巡ネ級",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "輪形陣",
+            "air": null,
+            "exp": 340,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1615,
+              1615,
+              1543,
+              1595,
+              1577,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "空母ヲ級flagship 艦載機赤",
+              "空母ヲ級flagship 艦載機赤",
+              "戦艦タ級flagship",
+              "重巡ネ級elite",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "輪形陣",
+            "air": null,
+            "exp": 350,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1615,
+              1615,
+              1543,
+              1595,
+              1591,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "空母ヲ級flagship 艦載機赤",
+              "空母ヲ級flagship 艦載機赤",
+              "戦艦タ級flagship",
+              "重巡ネ級elite",
+              "軽巡ツ級",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "輪形陣",
+            "air": null,
+            "exp": 360,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1615,
+              1615,
+              1594,
+              1577,
+              1501,
+              1501
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "空母ヲ級flagship 艦載機赤",
+              "空母ヲ級flagship 艦載機赤",
+              "重巡ネ級",
+              "駆逐ハ級後期型",
+              "駆逐イ級",
+              "駆逐イ級"
+            ],
+            "formation": "輪形陣",
+            "air": null,
+            "exp": 300,
+            "finalForm": null
+          }
+        ],
+        "matches": [
+          {
+            "pattern": 1,
+            "basis": "ids"
+          },
+          {
+            "pattern": 2,
+            "basis": "ids"
+          },
+          {
+            "pattern": 3,
+            "basis": "ids"
+          },
+          {
+            "pattern": 4,
+            "basis": "ids"
+          },
+          {
+            "pattern": 5,
+            "basis": "ids"
+          },
+          {
+            "pattern": 6,
+            "basis": "ids"
+          }
+        ],
+        "conflicts": []
+      },
+      "H": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [
+              1527,
+              1522,
+              1519,
+              1518,
+              1577,
+              1501
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "重巡リ級flagship",
+              "重巡リ級elite",
+              "軽巡ヘ級elite",
+              "軽巡ホ級elite",
+              "駆逐ハ級後期型",
+              "駆逐イ級"
+            ],
+            "formation": "単縦陣<br>梯形陣",
+            "air": null,
+            "exp": 230,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1527,
+              1522,
+              1519,
+              1518,
+              1577,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "重巡リ級flagship",
+              "重巡リ級elite",
+              "軽巡ヘ級elite",
+              "軽巡ホ級elite",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "単縦陣<br>梯形陣",
+            "air": null,
+            "exp": 250,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1527,
+              1522,
+              1522,
+              1591,
+              1577,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "重巡リ級flagship",
+              "重巡リ級elite",
+              "重巡リ級elite",
+              "軽巡ツ級",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "単縦陣<br>梯形陣",
+            "air": null,
+            "exp": 270,
+            "finalForm": null
+          }
+        ],
+        "matches": [
+          {
+            "pattern": 1,
+            "basis": "ids"
+          },
+          {
+            "pattern": 2,
+            "basis": "ids"
+          },
+          {
+            "pattern": 3,
+            "basis": "ids"
+          }
+        ],
+        "conflicts": []
+      },
+      "I": {
+        "kcwikiVariants": null,
+        "matches": [],
+        "conflicts": [
+          {
+            "type": "nodeMissingInKcwiki",
+            "wikiwiki": "node present",
+            "kcwiki": null
+          }
+        ]
+      },
+      "J": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [
+              1526,
+              1513,
+              1513,
+              1576,
+              1501,
+              1501
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "輸送ワ級elite",
+              "輸送ワ級",
+              "輸送ワ級",
+              "駆逐ロ級後期型",
+              "駆逐イ級",
+              "駆逐イ級"
+            ],
+            "formation": "複縦陣",
+            "air": null,
+            "exp": 450,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1526,
+              1526,
+              1513,
+              1576,
+              1501,
+              1501
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "輸送ワ級elite",
+              "輸送ワ級elite",
+              "輸送ワ級",
+              "駆逐ロ級後期型",
+              "駆逐イ級",
+              "駆逐イ級"
+            ],
+            "formation": "複縦陣",
+            "air": null,
+            "exp": 460,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1526,
+              1526,
+              1513,
+              1576,
+              1576,
+              1501
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "輸送ワ級elite",
+              "輸送ワ級elite",
+              "輸送ワ級",
+              "駆逐ロ級後期型",
+              "駆逐ロ級後期型",
+              "駆逐イ級"
+            ],
+            "formation": "複縦陣",
+            "air": null,
+            "exp": 470,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1526,
+              1526,
+              1526,
+              1576,
+              1576,
+              1501
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "輸送ワ級elite",
+              "輸送ワ級elite",
+              "輸送ワ級elite",
+              "駆逐ロ級後期型",
+              "駆逐ロ級後期型",
+              "駆逐イ級"
+            ],
+            "formation": "複縦陣",
+            "air": null,
+            "exp": 480,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1526,
+              1526,
+              1526,
+              1576,
+              1576,
+              1576
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "輸送ワ級elite",
+              "輸送ワ級elite",
+              "輸送ワ級elite",
+              "駆逐ロ級後期型",
+              "駆逐ロ級後期型",
+              "駆逐ロ級後期型"
+            ],
+            "formation": "複縦陣",
+            "air": null,
+            "exp": 490,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1558,
+              1526,
+              1526,
+              1576,
+              1576,
+              1576
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "輸送ワ級flagship",
+              "輸送ワ級elite",
+              "輸送ワ級elite",
+              "駆逐ロ級後期型",
+              "駆逐ロ級後期型",
+              "駆逐ロ級後期型"
+            ],
+            "formation": "複縦陣",
+            "air": null,
+            "exp": 490,
+            "finalForm": null
+          }
+        ],
+        "matches": [
+          {
+            "pattern": 1,
+            "basis": "ids"
+          },
+          {
+            "pattern": 2,
+            "basis": "ids"
+          },
+          {
+            "pattern": 3,
+            "basis": "ids"
+          },
+          {
+            "pattern": 4,
+            "basis": "ids"
+          },
+          {
+            "pattern": 5,
+            "basis": "ids"
+          },
+          {
+            "pattern": 6,
+            "basis": "ids"
+          }
+        ],
+        "conflicts": []
+      },
+      "K": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [],
+            "escortApiIds": null,
+            "namesJa": [],
+            "formation": null,
+            "air": null,
+            "exp": null,
+            "finalForm": null
+          }
+        ],
+        "matches": [],
+        "conflicts": []
+      },
+      "L": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [
+              1543,
+              1543,
+              1595,
+              1591,
+              1577,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "戦艦タ級flagship",
+              "戦艦タ級flagship",
+              "重巡ネ級elite",
+              "軽巡ツ級",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "複縦陣<br>輪形陣<br>梯形陣",
+            "air": null,
+            "exp": 390,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1543,
+              1555,
+              1554,
+              1591,
+              1577,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "戦艦タ級flagship",
+              "軽巡ヘ級flagship",
+              "軽巡ホ級flagship",
+              "軽巡ツ級",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "単縦陣<br>複縦陣<br>梯形陣",
+            "air": null,
+            "exp": 390,
+            "finalForm": null
+          }
+        ],
+        "matches": [
+          {
+            "pattern": 2,
+            "basis": "ids"
+          }
+        ],
+        "conflicts": [
+          {
+            "type": "fieldConflict",
+            "wikiwikiPattern": 1,
+            "matchBasis": "ids",
+            "fieldConflicts": [
+              {
+                "field": "formation",
+                "wikiwiki": [
+                  "単縦",
+                  "梯形",
+                  "輪形"
+                ],
+                "kcwiki": [
+                  "単縦",
+                  "梯形",
+                  "複縦"
+                ],
+                "relation": "disjoint"
+              }
+            ],
+            "wikiwikiApiIds": [
+              1543,
+              1555,
+              1554,
+              1591,
+              1577,
+              1577
+            ],
+            "kcwikiApiIds": [
+              1543,
+              1555,
+              1554,
+              1591,
+              1577,
+              1577
+            ]
+          }
+        ]
+      },
+      "M": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [],
+            "escortApiIds": null,
+            "namesJa": [],
+            "formation": null,
+            "air": null,
+            "exp": null,
+            "finalForm": null
+          }
+        ],
+        "matches": [],
+        "conflicts": []
+      },
+      "N": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [],
+            "escortApiIds": null,
+            "namesJa": [],
+            "formation": null,
+            "air": null,
+            "exp": null,
+            "finalForm": null
+          }
+        ],
+        "matches": [],
+        "conflicts": []
+      },
+      "O": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [],
+            "escortApiIds": null,
+            "namesJa": [],
+            "formation": null,
+            "air": null,
+            "exp": null,
+            "finalForm": null
+          }
+        ],
+        "matches": [],
+        "conflicts": []
+      },
+      "P": {
+        "kcwikiVariants": [
+          {
+            "apiIds": [
+              1558,
+              1764,
+              1529,
+              1592,
+              1576,
+              1576
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "輸送ワ級flagship",
+              "軽母ヌ級flagship 艦載機赤",
+              "戦艦ル級flagship",
+              "軽巡ツ級elite",
+              "駆逐ロ級後期型",
+              "駆逐ロ級後期型"
+            ],
+            "formation": "輪形陣",
+            "air": null,
+            "exp": 540,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1558,
+              1764,
+              1529,
+              1592,
+              1577,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "輸送ワ級flagship",
+              "軽母ヌ級flagship 艦載機赤",
+              "戦艦ル級flagship",
+              "軽巡ツ級elite",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "輪形陣",
+            "air": null,
+            "exp": 510,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1558,
+              1764,
+              1529,
+              1595,
+              1576,
+              1576
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "輸送ワ級flagship",
+              "軽母ヌ級flagship 艦載機赤",
+              "戦艦ル級flagship",
+              "重巡ネ級elite",
+              "駆逐ロ級後期型",
+              "駆逐ロ級後期型"
+            ],
+            "formation": "輪形陣",
+            "air": null,
+            "exp": 540,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1558,
+              1764,
+              1529,
+              1595,
+              1577,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "輸送ワ級flagship",
+              "軽母ヌ級flagship 艦載機赤",
+              "戦艦ル級flagship",
+              "重巡ネ級elite",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "輪形陣",
+            "air": null,
+            "exp": 510,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1558,
+              1764,
+              1543,
+              1592,
+              1577,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "輸送ワ級flagship",
+              "軽母ヌ級flagship 艦載機赤",
+              "戦艦タ級flagship",
+              "軽巡ツ級elite",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "輪形陣",
+            "air": null,
+            "exp": 520,
+            "finalForm": null
+          },
+          {
+            "apiIds": [
+              1558,
+              1764,
+              1543,
+              1595,
+              1577,
+              1577
+            ],
+            "escortApiIds": null,
+            "namesJa": [
+              "輸送ワ級flagship",
+              "軽母ヌ級flagship 艦載機赤",
+              "戦艦タ級flagship",
+              "重巡ネ級elite",
+              "駆逐ハ級後期型",
+              "駆逐ハ級後期型"
+            ],
+            "formation": "輪形陣",
+            "air": null,
+            "exp": 520,
+            "finalForm": null
+          }
+        ],
+        "matches": [
+          {
+            "pattern": 1,
+            "basis": "ids"
+          },
+          {
+            "pattern": 2,
+            "basis": "ids"
+          },
+          {
+            "pattern": 3,
+            "basis": "ids"
+          },
+          {
+            "pattern": 5,
+            "basis": "ids"
+          }
+        ],
+        "conflicts": [
+          {
+            "type": "fieldConflict",
+            "wikiwikiPattern": 4,
+            "matchBasis": "ids",
+            "fieldConflicts": [
+              {
+                "field": "exp",
+                "wikiwiki": 550,
+                "kcwiki": 510
+              }
+            ],
+            "wikiwikiApiIds": [
+              1558,
+              1764,
+              1529,
+              1595,
+              1577,
+              1577
+            ],
+            "kcwikiApiIds": [
+              1558,
+              1764,
+              1529,
+              1595,
+              1577,
+              1577
+            ]
+          },
+          {
+            "type": "fieldConflict",
+            "wikiwikiPattern": 6,
+            "matchBasis": "ids",
+            "fieldConflicts": [
+              {
+                "field": "exp",
+                "wikiwiki": 550,
+                "kcwiki": 520
+              }
+            ],
+            "wikiwikiApiIds": [
+              1558,
+              1764,
+              1543,
+              1595,
+              1577,
+              1577
+            ],
+            "kcwikiApiIds": [
+              1558,
+              1764,
+              1543,
+              1595,
+              1577,
+              1577
+            ]
+          }
+        ]
+      }
+    },
+    "summary": {
+      "nodesChecked": 16,
+      "kcwikiNodes": 15,
+      "patternsFullyConsistent": 28,
+      "fieldConflictPatterns": 3,
+      "compositionConflictPatterns": 0,
+      "conflictCount": 4,
+      "note": "「字段一致」指 api ID 序列与双方均记载的全部字段（经验/敌制空/阵形/护卫舰队/最终形态）都一致；仅舰名匹配不算一致"
+    }
+  }
+}

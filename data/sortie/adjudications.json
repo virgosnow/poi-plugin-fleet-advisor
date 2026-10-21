@@ -1,0 +1,4167 @@
+{
+  "updated": "2026-10-14T04:38:21+00:00",
+  "entries": [
+    {
+      "area": "1-5",
+      "node": "I",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 110,
+          "kcwiki": 100
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "1-5",
+      "node": "J",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 170,
+          "kcwiki": 165
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-5",
+      "node": "C",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "enemyAirPower"
+      ],
+      "values": {
+        "enemyAirPower": {
+          "wikiwiki": 24,
+          "kcwiki": 23
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-5",
+      "node": "C",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-5",
+      "node": "J",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "梯形",
+            "複縦"
+          ],
+          "kcwiki": [
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-5",
+      "node": "J",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "梯形",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-5",
+      "node": "J",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "梯形",
+            "複縦"
+          ],
+          "kcwiki": [
+            "梯形",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-5",
+      "node": "L",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "enemyAirPower"
+      ],
+      "values": {
+        "enemyAirPower": {
+          "wikiwiki": 51,
+          "kcwiki": 52
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-5",
+      "node": "L",
+      "pattern": 7,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 270,
+          "kcwiki": 320
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-5",
+      "node": "C",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": false,
+          "kcwiki": true
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-5",
+      "node": "C",
+      "pattern": 7,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-5",
+      "node": "E",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単横",
+            "梯形"
+          ],
+          "kcwiki": [
+            "梯形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-5",
+      "node": "E",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単横",
+            "梯形"
+          ],
+          "kcwiki": [
+            "単横"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-5",
+      "node": "E",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単横",
+            "梯形"
+          ],
+          "kcwiki": [
+            "梯形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-5",
+      "node": "E",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単横",
+            "梯形"
+          ],
+          "kcwiki": [
+            "梯形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-5",
+      "node": "E",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単横",
+            "梯形"
+          ],
+          "kcwiki": [
+            "梯形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-5",
+      "node": "I",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "複縦",
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-5",
+      "node": "I",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": false,
+          "kcwiki": true
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-5",
+      "node": "I",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-5",
+      "node": "R",
+      "pattern": 4,
+      "kind": "airLineInconsistency",
+      "fields": [
+        "airSuperiority"
+      ],
+      "wikiwiki": 394,
+      "kcwiki": null,
+      "computed": 396,
+      "status": "pending",
+      "note": "原表自相矛盾：敌制空264×规则值396≠记载394；保留原值待核查"
+    },
+    {
+      "area": "7-5",
+      "node": "A",
+      "pattern": 3,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        2047,
+        1651
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "7-5",
+      "node": "K",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-5",
+      "node": "K",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-5",
+      "node": "Q",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-5",
+      "node": "Q",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-5",
+      "node": "T",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-5",
+      "node": "T",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-5",
+      "node": "T",
+      "pattern": 5,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1901,
+        1519,
+        1575,
+        1575
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "1-3",
+      "node": "C",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 70,
+          "kcwiki": 80
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "1-3",
+      "node": "E",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 70,
+          "kcwiki": 80
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "1-6",
+      "node": "F",
+      "pattern": 5,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1528,
+        1510,
+        1522,
+        1501,
+        1501,
+        1501
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "1-6",
+      "node": "F",
+      "pattern": 7,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1528,
+        1523,
+        1592,
+        1501,
+        1501,
+        1501
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "1-6",
+      "node": "I",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 40,
+          "kcwiki": 50
+        },
+        "formation": {
+          "wikiwiki": [
+            "梯形"
+          ],
+          "kcwiki": [
+            "単縦",
+            "梯形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "1-6",
+      "node": "I",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "梯形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "1-6",
+      "node": "K",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 80,
+          "kcwiki": 90
+        },
+        "formation": {
+          "wikiwiki": [
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "1-6",
+      "node": "K",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "1-6",
+      "node": "K",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 100,
+          "kcwiki": 110
+        },
+        "formation": {
+          "wikiwiki": [
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "1-6",
+      "node": "K",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-2",
+      "node": "B",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-2",
+      "node": "B",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-2",
+      "node": "B",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-2",
+      "node": "B",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-2",
+      "node": "B",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-2",
+      "node": "B",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-2",
+      "node": "D",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 170,
+          "kcwiki": 150
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-2",
+      "node": "D",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 170,
+          "kcwiki": 150
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-2",
+      "node": "D",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 200,
+          "kcwiki": 150
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-2",
+      "node": "D",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 200,
+          "kcwiki": 180
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-2",
+      "node": "D",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 220,
+          "kcwiki": 200
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-2",
+      "node": "D",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 220,
+          "kcwiki": 200
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-3",
+      "node": "A",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 100,
+          "kcwiki": 110
+        },
+        "formation": {
+          "wikiwiki": [
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-3",
+      "node": "A",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-3",
+      "node": "A",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-3",
+      "node": "E",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 100,
+          "kcwiki": 110
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-3",
+      "node": "J",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-3",
+      "node": "J",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-3",
+      "node": "K",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-3",
+      "node": "M",
+      "pattern": 1,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1518,
+        1513,
+        1513,
+        1513,
+        1501,
+        1501
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "2-3",
+      "node": "N",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 260,
+          "kcwiki": 270
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-3",
+      "node": "N",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 270,
+          "kcwiki": 280
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-3",
+      "node": "N",
+      "pattern": 7,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 280,
+          "kcwiki": 260
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-4",
+      "node": "I",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 140,
+          "kcwiki": 150
+        },
+        "formation": {
+          "wikiwiki": [
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "2-4",
+      "node": "I",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "3-1",
+      "node": "B",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "3-1",
+      "node": "B",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "3-2",
+      "node": "J",
+      "pattern": 4,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1527,
+        1527,
+        1505,
+        1576,
+        1576,
+        1576
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "3-2",
+      "node": "K",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 300,
+          "kcwiki": 320
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "B",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "E",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "E",
+      "pattern": 3,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1560,
+        1529,
+        1529,
+        1576,
+        1576,
+        1534
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "F",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "G",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "G",
+      "pattern": 3,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1527,
+        1522,
+        1520,
+        1518,
+        1575,
+        1575
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "G",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "H",
+      "pattern": 1,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        null,
+        null,
+        1550,
+        1527,
+        1576,
+        1576
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "H",
+      "pattern": 2,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        null,
+        null,
+        1550,
+        1551,
+        1550,
+        1551
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "H",
+      "pattern": 3,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1588,
+        null,
+        1550,
+        1551,
+        1550,
+        1551
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "H",
+      "pattern": 4,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1589,
+        null,
+        1550,
+        1527,
+        1576,
+        1576
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "H",
+      "pattern": 5,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1589,
+        null,
+        1550,
+        1551,
+        1550,
+        1551
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "H",
+      "pattern": 6,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1590,
+        null,
+        1550,
+        1551,
+        1550,
+        1551
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "K",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "K",
+      "pattern": 4,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1591,
+        1558,
+        1558,
+        1543,
+        1577,
+        1577
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "4-1",
+      "node": "H",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-1",
+      "node": "H",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-1",
+      "node": "H",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-1",
+      "node": "H",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-2",
+      "node": "E",
+      "pattern": 3,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1560,
+        1527,
+        1554,
+        1518,
+        1576,
+        1576
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "4-3",
+      "node": "I",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-4",
+      "node": "B",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 190,
+          "kcwiki": 180
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-4",
+      "node": "F",
+      "pattern": 4,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1528,
+        1523,
+        1543,
+        1555,
+        1577,
+        1577
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "4-4",
+      "node": "F",
+      "pattern": 5,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1528,
+        1560,
+        1543,
+        1555,
+        1577,
+        1577
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "4-4",
+      "node": "G",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 320,
+          "kcwiki": 300
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-4",
+      "node": "H",
+      "pattern": 3,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1560,
+        1529,
+        1527,
+        1527,
+        1577,
+        1577
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "4-4",
+      "node": "H",
+      "pattern": 4,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1528,
+        1529,
+        1527,
+        1527,
+        1577,
+        1577
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "4-4",
+      "node": "I",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 220,
+          "kcwiki": 200
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "G",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "G",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "J",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "梯形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "J",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "梯形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "J",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "梯形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "N",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 400,
+          "kcwiki": 350
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "N",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 420,
+          "kcwiki": 360
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "N",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 450,
+          "kcwiki": 380
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "S",
+      "pattern": 1,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1560,
+        1543,
+        1595,
+        1591,
+        1576,
+        1576
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "T",
+      "pattern": 4,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1613,
+        null,
+        1567,
+        1595,
+        1526,
+        1526
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "T",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "T",
+      "pattern": 6,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1613,
+        null,
+        1550,
+        1567,
+        1595,
+        1558
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "5-2",
+      "node": "I",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 250,
+          "kcwiki": 200
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-2",
+      "node": "K",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-2",
+      "node": "K",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-3",
+      "node": "M",
+      "pattern": 1,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1579,
+        1523,
+        1594,
+        1591,
+        1577,
+        1577
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "5-4",
+      "node": "L",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "梯形",
+            "輪形"
+          ],
+          "kcwiki": [
+            "単縦",
+            "梯形",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-4",
+      "node": "P",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 550,
+          "kcwiki": 510
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-4",
+      "node": "P",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 550,
+          "kcwiki": 520
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-1",
+      "node": "C",
+      "pattern": 3,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1529,
+        1560,
+        1527,
+        1591,
+        1578,
+        1578
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "6-1",
+      "node": "H",
+      "pattern": 1,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1527,
+        1555,
+        1516,
+        1516,
+        1575,
+        1575
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "6-1",
+      "node": "J",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-1",
+      "node": "J",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦",
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-1",
+      "node": "K",
+      "pattern": 3,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1579,
+        1527,
+        1519,
+        1591,
+        1577,
+        1577
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "6-2",
+      "node": "B",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-2",
+      "node": "H",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-2",
+      "node": "I",
+      "pattern": 2,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1529,
+        1529,
+        1560,
+        1591,
+        1577,
+        1578
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "6-2",
+      "node": "J",
+      "pattern": 3,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1566,
+        1529,
+        1523,
+        1591,
+        1575,
+        1575
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "B",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "B",
+      "pattern": 4,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1555,
+        1576,
+        1576
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "D",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 100,
+          "kcwiki": 110
+        },
+        "formation": {
+          "wikiwiki": [
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "D",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "D",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 120,
+          "kcwiki": 130
+        },
+        "formation": {
+          "wikiwiki": [
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "D",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "D",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 140,
+          "kcwiki": 150
+        },
+        "formation": {
+          "wikiwiki": [
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "D",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "F",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 200,
+          "kcwiki": 210
+        },
+        "formation": {
+          "wikiwiki": [
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "F",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "F",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 220,
+          "kcwiki": 230
+        },
+        "formation": {
+          "wikiwiki": [
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "F",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "F",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 240,
+          "kcwiki": 250
+        },
+        "formation": {
+          "wikiwiki": [
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "F",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-3",
+      "node": "J",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "A",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "A",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "finalForm"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 220,
+          "kcwiki": 210
+        },
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "B",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 150,
+          "kcwiki": 120
+        },
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "複縦"
+          ],
+          "kcwiki": [
+            "単縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "B",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 160,
+          "kcwiki": 130
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "B",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "finalForm"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 190,
+          "kcwiki": 160
+        },
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "B",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "C",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 220,
+          "kcwiki": 170
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "C",
+      "pattern": 2,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1529,
+        1529,
+        1555,
+        1575,
+        1575,
+        1523
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "C",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 240,
+          "kcwiki": 220
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "C",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 250,
+          "kcwiki": 230
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "C",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "finalForm"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 260,
+          "kcwiki": 240
+        },
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "C",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "finalForm"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 280,
+          "kcwiki": 260
+        },
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "D",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "D",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "E",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "finalForm"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 260,
+          "kcwiki": 180
+        },
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "E",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "finalForm"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 280,
+          "kcwiki": 200
+        },
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "F",
+      "pattern": 1,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1668
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "F",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "F",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "G",
+      "pattern": 1,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1668
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "G",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "H",
+      "pattern": 4,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1529,
+        1529,
+        1555,
+        1577,
+        1577,
+        1560
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "H",
+      "pattern": 5,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1529,
+        1529,
+        1555,
+        1578,
+        1578,
+        1560
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "I",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "輪形"
+          ],
+          "kcwiki": [
+            "轮形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "I",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "輪形"
+          ],
+          "kcwiki": [
+            "轮形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "J",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "finalForm"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 330,
+          "kcwiki": 350
+        },
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "J",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "finalForm"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 350,
+          "kcwiki": 330
+        },
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "K",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "L",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "L",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "L",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation",
+        "finalForm"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "複縦"
+          ]
+        },
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "M",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "梯形"
+          ],
+          "kcwiki": [
+            "単横",
+            "梯形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "M",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "N",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "formation"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 620,
+          "kcwiki": 600
+        },
+        "formation": {
+          "wikiwiki": [
+            "単縦"
+          ],
+          "kcwiki": [
+            "単縦",
+            "提督等级107级以前（包含107级）"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "N",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 700,
+          "kcwiki": 560
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "N",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 720,
+          "kcwiki": 680
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "N",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "finalForm"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 740,
+          "kcwiki": 700
+        },
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "6-4",
+      "node": "N",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp",
+        "finalForm"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 740,
+          "kcwiki": 700
+        },
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-1",
+      "node": "B",
+      "pattern": 3,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1560,
+        1527,
+        1527,
+        1554,
+        1576,
+        1576
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "7-2",
+      "node": "M",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 510,
+          "kcwiki": 460
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-2",
+      "node": "M",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 520,
+          "kcwiki": 470
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-2",
+      "node": "M",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 530,
+          "kcwiki": 480
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-2",
+      "node": "M",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 550,
+          "kcwiki": 500
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-2",
+      "node": "M",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 550,
+          "kcwiki": 500
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-2",
+      "node": "M",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 550,
+          "kcwiki": 500
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-2",
+      "node": "M",
+      "pattern": 7,
+      "kind": "fieldConflict",
+      "fields": [
+        "exp"
+      ],
+      "values": {
+        "exp": {
+          "wikiwiki": 580,
+          "kcwiki": 520
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-3",
+      "node": "E",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-3",
+      "node": "N",
+      "pattern": 1,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1765,
+        1765,
+        1542,
+        1591,
+        1576,
+        1576
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "7-3",
+      "node": "N",
+      "pattern": 2,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1765,
+        1765,
+        1542,
+        1592,
+        1576,
+        1576
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "7-3",
+      "node": "N",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-3",
+      "node": "P",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-4",
+      "node": "E",
+      "pattern": 1,
+      "kind": "airLineInconsistency",
+      "fields": [
+        "airSupremacy"
+      ],
+      "wikiwiki": 343,
+      "kcwiki": null,
+      "computed": 345,
+      "status": "pending",
+      "note": "原表自相矛盾：敌制空115×规则值345≠记载343；保留原值待核查"
+    },
+    {
+      "area": "7-4",
+      "node": "P",
+      "pattern": 6,
+      "kind": "airLineInconsistency",
+      "fields": [
+        "airSuperiority"
+      ],
+      "wikiwiki": 234,
+      "kcwiki": null,
+      "computed": 236,
+      "status": "pending",
+      "note": "原表自相矛盾：敌制空157×规则值236≠记载234；保留原值待核查"
+    },
+    {
+      "area": "7-4",
+      "node": "M",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-4",
+      "node": "M",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-4",
+      "node": "P",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-4",
+      "node": "P",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "3-5",
+      "node": "H",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "T",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "4-5",
+      "node": "T",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "7-2",
+      "node": "K",
+      "pattern": 0,
+      "kind": "nodeNotInGraph",
+      "fields": [],
+      "status": "pending",
+      "note": "敌编成表有该点但带路文本无其边信息；需人工比对地图补全 normal_routes 后移除"
+    },
+    {
+      "area": "5-6",
+      "node": "G",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "単縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "P",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "梯形",
+            "複縦"
+          ],
+          "kcwiki": [
+            "梯形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "Q1",
+      "pattern": 1,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1616,
+        1762,
+        1561,
+        1592,
+        1577,
+        1577
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "Q1",
+      "pattern": 2,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1616,
+        1763,
+        1592,
+        1577,
+        1577,
+        1531
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "Q1",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "Q2",
+      "pattern": 1,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1533,
+        1532,
+        1533,
+        1530,
+        1530
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "T",
+      "pattern": 1,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "複縦"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "T",
+      "pattern": 2,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "T",
+      "pattern": 3,
+      "kind": "fieldConflict",
+      "fields": [
+        "formation"
+      ],
+      "values": {
+        "formation": {
+          "wikiwiki": [
+            "複縦",
+            "輪形"
+          ],
+          "kcwiki": [
+            "輪形"
+          ]
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "V",
+      "pattern": 3,
+      "kind": "compositionConflict",
+      "fields": [],
+      "wikiwikiApiIds": [
+        1616,
+        1616,
+        1592,
+        1577,
+        1577,
+        1533
+      ],
+      "status": "pending",
+      "note": "敌舰 ID 序列不一致，待人工裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "X",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "X",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "X",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "Z",
+      "pattern": 4,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "Z",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    },
+    {
+      "area": "5-6",
+      "node": "Z",
+      "pattern": 6,
+      "kind": "fieldConflict",
+      "fields": [
+        "finalForm"
+      ],
+      "values": {
+        "finalForm": {
+          "wikiwiki": true,
+          "kcwiki": false
+        }
+      },
+      "status": "pending",
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+    }
+  ]
+}

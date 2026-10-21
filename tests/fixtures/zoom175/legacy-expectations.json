@@ -1,0 +1,216 @@
+{
+  "home": [
+    {
+      "kind": "screen",
+      "expected": {
+        "valid": true,
+        "mode": "home"
+      },
+      "arg": {}
+    }
+  ],
+  "org": [
+    {
+      "kind": "screen",
+      "expected": {
+        "valid": true,
+        "mode": "organization"
+      },
+      "arg": {}
+    },
+    {
+      "kind": "orgtab",
+      "expected": {
+        "valid": true
+      },
+      "arg": {
+        "fleet": 1
+      }
+    }
+  ],
+  "org-hover": [
+    {
+      "kind": "orgclear",
+      "expected": {
+        "valid": true
+      },
+      "arg": {
+        "fleet": 1
+      }
+    }
+  ],
+  "picker-p1": [
+    {
+      "kind": "sortread",
+      "expected": {
+        "valid": false
+      },
+      "arg": {}
+    },
+    {
+      "kind": "pageread",
+      "expected": {
+        "valid": true,
+        "activePage": 1
+      },
+      "arg": {
+        "total": 5
+      }
+    },
+    {
+      "kind": "filterstate",
+      "expected": {
+        "valid": true,
+        "states": [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arg": {}
+    }
+  ],
+  "picker-sort2": [
+    {
+      "kind": "sortread",
+      "expected": {
+        "valid": false
+      },
+      "arg": {}
+    }
+  ],
+  "picker-sort3": [
+    {
+      "kind": "sortread",
+      "expected": {
+        "valid": false
+      },
+      "arg": {}
+    }
+  ],
+  "picker-sort4": [
+    {
+      "kind": "sortread",
+      "expected": {
+        "valid": true,
+        "mode": "level",
+        "direction": "desc"
+      },
+      "arg": {}
+    }
+  ],
+  "picker-p2": [
+    {
+      "kind": "pageread",
+      "expected": {
+        "valid": true,
+        "activePage": 5
+      },
+      "arg": {
+        "total": 5
+      }
+    }
+  ],
+  "remodel-ship": [
+    {
+      "kind": "equipship",
+      "expected": {
+        "valid": true,
+        "level": 122
+      },
+      "arg": {
+        "fleet": 1,
+        "expectedLevel": 122
+      }
+    }
+  ],
+  "equip-hover": [
+    {
+      "kind": "equipclear",
+      "expected": {
+        "valid": true
+      },
+      "arg": {
+        "fleet": 1,
+        "slots": 4
+      }
+    }
+  ],
+  "equippicker-p1": [
+    {
+      "kind": "equipmode",
+      "expected": {
+        "valid": true,
+        "mode": "stock"
+      },
+      "arg": {}
+    },
+    {
+      "kind": "equippicker",
+      "expected": {
+        "valid": true,
+        "category": 0,
+        "page": {
+          "activePage": 1
+        }
+      },
+      "arg": {
+        "total": 999
+      }
+    }
+  ],
+  "equippicker-others": [
+    {
+      "kind": "equipmode",
+      "expected": {
+        "valid": true,
+        "mode": "others"
+      },
+      "arg": {}
+    }
+  ],
+  "category-menu": [
+    {
+      "kind": "cells",
+      "expected": {
+        "valid": true,
+        "categories": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14
+        ]
+      },
+      "arg": {}
+    }
+  ],
+  "equippicker-p2": [
+    {
+      "kind": "pageread",
+      "expected": {
+        "valid": true,
+        "activePage": 6
+      },
+      "arg": {
+        "total": 999,
+        "layout": "equip"
+      }
+    }
+  ]
+}

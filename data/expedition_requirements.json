@@ -1,0 +1,1327 @@
+{
+ "source": "WikiWiki expedition conditions and great-success references",
+ "notes": {
+  "estype": "ESType names (SSLike/CVLike/DDorDE/CVE...) are resolved by the runtime engine",
+  "gs": {
+   "drum": "Wiki theoretical reference table; min=dispatch drum minimum, max/extraDrums/carriers=great-success table.",
+   "flagship": "Wiki estimate: 16 + 15*sparkled + sqrt(flagship level) + flagship level/10.",
+   "sparkled": "All ships sparkled; Wiki approximate 80% / 95% at four / five ships, 100% at six."
+  }
+ },
+ "unlocks": {
+  "source": "https://wikiwiki.jp/kancolle/遠征#trigger",
+  "checked": "2026-10-16",
+  "notes": "Direct prerequisites; all listed conditions are required. Monthly prerequisites must be completed in the current expedition period. Unlock status itself always comes from the server list.",
+  "monthly": [42, 43, 44, 46, 103, 104, 105, 111, 112, 113, 114, 115, 132, 133, 141, 142],
+  "missions": {
+   "1": {"quests": ["A4「编成一支六舰舰队」"]},
+   "2": {"missions": [1]},
+   "3": {"missions": [1]},
+   "4": {"missions": [2, 3]},
+   "5": {"missions": [2, 3]},
+   "6": {"missions": [4]},
+   "7": {"missions": [6]},
+   "8": {"missions": [7]},
+   "9": {"missions": [1]},
+   "10": {"missions": [9]},
+   "11": {"missions": [10]},
+   "12": {"missions": [10]},
+   "13": {"missions": [10]},
+   "14": {"missions": [11, 12, 13]},
+   "15": {"missions": [14]},
+   "16": {"missions": [15]},
+   "17": {"missions": [1]},
+   "18": {"missions": [16, 17]},
+   "19": {"missions": [18]},
+   "20": {"missions": [19]},
+   "21": {"missions": [17]},
+   "22": {"missions": [18]},
+   "23": {"missions": [22], "maps": ["1-5"]},
+   "24": {"missions": [18]},
+   "25": {"missions": [18]},
+   "26": {"missions": [25]},
+   "27": {"missions": [20]},
+   "28": {"missions": [27]},
+   "29": {"missions": [28]},
+   "30": {"missions": [29], "maps": ["1-5"]},
+   "31": {"missions": [29], "maps": ["1-5"]},
+   "32": {"missions": [8]},
+   "33": {"missions": [18]},
+   "34": {"missions": [26]},
+   "35": {"missions": [26]},
+   "36": {"missions": [35]},
+   "37": {"missions": [36], "maps": ["1-5"]},
+   "38": {"missions": [37]},
+   "39": {"missions": [36], "maps": ["1-5"]},
+   "40": {"missions": [38]},
+   "41": {"missions": [110], "maps": ["2-4"]},
+   "42": {"missions": [41]},
+   "43": {"missions": [42]},
+   "44": {"missions": [40, 41, 103]},
+   "45": {"missions": [32, 41]},
+   "46": {"missions": [131]},
+   "100": {"missions": [5]},
+   "101": {"missions": [8, 100]},
+   "102": {"missions": [101, 24]},
+   "103": {"missions": [102]},
+   "104": {"missions": [103, 112]},
+   "105": {"missions": [104, 113]},
+   "110": {"missions": [10]},
+   "111": {"missions": [102]},
+   "112": {"missions": [111]},
+   "113": {"missions": [112]},
+   "114": {"missions": [113]},
+   "115": {"missions": [103, 113]},
+   "131": {"missions": [32]},
+   "132": {"missions": [131]},
+   "133": {"missions": [132]},
+   "141": {"missions": [40]},
+   "142": {"missions": [38]}
+  }
+ },
+ "missions": {
+  "1": {
+   "world": 1,
+   "flagshipLevel": 1,
+   "shipCount": 2,
+   "minMorale": 28,
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "2": {
+   "world": 1,
+   "flagshipLevel": 2,
+   "shipCount": 4,
+   "minMorale": 13,
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "3": {
+   "world": 1,
+   "flagshipLevel": 3,
+   "shipCount": 3,
+   "minMorale": 22,
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "4": {
+   "world": 1,
+   "flagshipLevel": 3,
+   "shipCount": 3,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DDorDE": 2
+    },
+    {
+     "DD": 1,
+     "DE": 3
+    },
+    {
+     "CT": 1,
+     "DE": 2
+    },
+    {
+     "CVE": 1,
+     "DE": 2
+    },
+    {
+     "CVE": 1,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "5": {
+   "world": 1,
+   "flagshipLevel": 3,
+   "shipCount": 4,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DDorDE": 2
+    },
+    {
+     "DD": 1,
+     "DE": 3
+    },
+    {
+     "CT": 1,
+     "DE": 2
+    },
+    {
+     "CVE": 1,
+     "DE": 2
+    },
+    {
+     "CVE": 1,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "6": {
+   "world": 1,
+   "flagshipLevel": 4,
+   "shipCount": 4,
+   "minMorale": 1,
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "7": {
+   "world": 1,
+   "flagshipLevel": 5,
+   "shipCount": 6,
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "8": {
+   "world": 1,
+   "flagshipLevel": 6,
+   "shipCount": 6,
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "9": {
+   "world": 2,
+   "flagshipLevel": 3,
+   "shipCount": 4,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DDorDE": 2
+    },
+    {
+     "DD": 1,
+     "DE": 3
+    },
+    {
+     "CT": 1,
+     "DE": 2
+    },
+    {
+     "CVE": 1,
+     "DE": 2
+    },
+    {
+     "CVE": 1,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "10": {
+   "world": 2,
+   "flagshipLevel": 3,
+   "shipCount": 3,
+   "fleetCompos": [
+    {
+     "CL": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "11": {
+   "world": 2,
+   "flagshipLevel": 6,
+   "shipCount": 4,
+   "fleetCompos": [
+    {
+     "DDorDE": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "12": {
+   "world": 2,
+   "flagshipLevel": 4,
+   "shipCount": 4,
+   "fleetCompos": [
+    {
+     "DDorDE": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "13": {
+   "world": 2,
+   "flagshipLevel": 5,
+   "shipCount": 6,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DD": 4
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "14": {
+   "world": 2,
+   "flagshipLevel": 6,
+   "shipCount": 6,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DD": 3
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "15": {
+   "world": 2,
+   "flagshipLevel": 8,
+   "shipCount": 6,
+   "fleetCompos": [
+    {
+     "CVLike": 2,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "16": {
+   "world": 2,
+   "flagshipLevel": 10,
+   "shipCount": 6,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "17": {
+   "world": 3,
+   "flagshipLevel": 20,
+   "shipCount": 6,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DD": 3
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "18": {
+   "world": 3,
+   "flagshipLevel": 15,
+   "shipCount": 6,
+   "fleetCompos": [
+    {
+     "CVLike": 3,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "19": {
+   "world": 3,
+   "flagshipLevel": 20,
+   "shipCount": 6,
+   "fleetCompos": [
+    {
+     "BBV": 2,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "20": {
+   "world": 3,
+   "flagshipLevel": 1,
+   "shipCount": 2,
+   "fleetCompos": [
+    {
+     "SSLike": 1,
+     "CL": 1
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "21": {
+   "world": 3,
+   "flagshipLevel": 15,
+   "shipCount": 5,
+   "levelSum": 30,
+   "drumCarriers": 3,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DD": 4
+    }
+   ],
+   "gs": {
+    "kind": "drum",
+    "max": 4,
+    "extraDrums": 4,
+    "carriers": 3,
+    "min": 0
+   }
+  },
+  "22": {
+   "world": 3,
+   "flagshipLevel": 30,
+   "shipCount": 6,
+   "levelSum": 45,
+   "fleetCompos": [
+    {
+     "CA": 1,
+     "CL": 1,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "23": {
+   "world": 3,
+   "flagshipLevel": 50,
+   "shipCount": 6,
+   "levelSum": 200,
+   "fleetCompos": [
+    {
+     "BBV": 2,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "24": {
+   "world": 3,
+   "flagshipLevel": 50,
+   "shipCount": 6,
+   "levelSum": 200,
+   "flagshipType": "CL",
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DDorDE": 4
+    }
+   ],
+   "gs": {
+    "kind": "drum",
+    "max": 2,
+    "extraDrums": 2,
+    "carriers": 1,
+    "min": 0
+   }
+  },
+  "25": {
+   "world": 4,
+   "flagshipLevel": 25,
+   "shipCount": 4,
+   "fleetCompos": [
+    {
+     "CA": 2,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "26": {
+   "world": 4,
+   "flagshipLevel": 30,
+   "shipCount": 4,
+   "fleetCompos": [
+    {
+     "CVLike": 1,
+     "CL": 1,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "27": {
+   "world": 4,
+   "flagshipLevel": 1,
+   "shipCount": 2,
+   "fleetCompos": [
+    {
+     "SSLike": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "28": {
+   "world": 4,
+   "flagshipLevel": 30,
+   "shipCount": 3,
+   "fleetCompos": [
+    {
+     "SSLike": 3
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "29": {
+   "world": 4,
+   "flagshipLevel": 50,
+   "shipCount": 3,
+   "fleetCompos": [
+    {
+     "SSLike": 3
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "30": {
+   "world": 4,
+   "flagshipLevel": 55,
+   "shipCount": 4,
+   "fleetCompos": [
+    {
+     "SSLike": 4
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "31": {
+   "world": 4,
+   "flagshipLevel": 60,
+   "shipCount": 4,
+   "levelSum": 200,
+   "fleetCompos": [
+    {
+     "SSLike": 4
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "32": {
+   "world": 4,
+   "flagshipLevel": 5,
+   "shipCount": 3,
+   "flagshipType": "CT",
+   "fleetCompos": [
+    {
+     "CT": 1,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "33": {
+   "world": 5,
+   "flagshipLevel": 1,
+   "shipCount": 2,
+   "fleetCompos": [
+    {
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "34": {
+   "world": 5,
+   "flagshipLevel": 1,
+   "shipCount": 2,
+   "fleetCompos": [
+    {
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "35": {
+   "world": 5,
+   "flagshipLevel": 40,
+   "shipCount": 6,
+   "fleetCompos": [
+    {
+     "CVLike": 2,
+     "CA": 1,
+     "DD": 1
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "36": {
+   "world": 5,
+   "flagshipLevel": 30,
+   "shipCount": 6,
+   "fleetCompos": [
+    {
+     "AV": 2,
+     "CL": 1,
+     "DD": 1
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "37": {
+   "world": 5,
+   "flagshipLevel": 50,
+   "shipCount": 6,
+   "levelSum": 200,
+   "drumCarriers": 3,
+   "drums": 4,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DD": 5
+    }
+   ],
+   "gs": {
+    "kind": "drum",
+    "max": 5,
+    "extraDrums": 5,
+    "carriers": 3,
+    "min": 4
+   }
+  },
+  "38": {
+   "world": 5,
+   "flagshipLevel": 65,
+   "shipCount": 6,
+   "levelSum": 240,
+   "drumCarriers": 4,
+   "drums": 8,
+   "fleetCompos": [
+    {
+     "DD": 5
+    }
+   ],
+   "gs": {
+    "kind": "drum",
+    "max": 10,
+    "extraDrums": 10,
+    "carriers": 4,
+    "min": 8
+   }
+  },
+  "39": {
+   "world": 5,
+   "flagshipLevel": 3,
+   "shipCount": 5,
+   "levelSum": 180,
+   "fleetCompos": [
+    {
+     "AS": 1,
+     "SSLike": 4
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "40": {
+   "world": 5,
+   "flagshipLevel": 25,
+   "shipCount": 6,
+   "levelSum": 150,
+   "flagshipType": "CL",
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "AV": 2,
+     "DD": 2
+    }
+   ],
+   "gs": {
+    "kind": "drum",
+    "max": 4,
+    "extraDrums": 4,
+    "carriers": 1,
+    "min": 0
+   }
+  },
+  "41": {
+   "world": 7,
+   "flagshipLevel": 30,
+   "shipCount": 3,
+   "levelSum": 100,
+   "fleetCompos": [
+    {
+     "DDorDE": 3
+    }
+   ],
+   "totals": {
+    "firepower": 60,
+    "antiAir": 80,
+    "asw": 210
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "42": {
+   "world": 7,
+   "flagshipLevel": 45,
+   "shipCount": 4,
+   "levelSum": 200,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DD": 2
+    },
+    {
+     "CL": 1,
+     "DE": 2
+    },
+    {
+     "DD": 1,
+     "DE": 3
+    },
+    {
+     "CT": 1,
+     "DE": 2
+    },
+    {
+     "CVE": 1,
+     "DD": 2
+    },
+    {
+     "CVE": 1,
+     "DE": 2
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "43": {
+   "world": 7,
+   "flagshipLevel": 55,
+   "shipCount": 6,
+   "levelSum": 300,
+   "flagshipType": "CVL",
+   "fleetCompos": [
+    {
+     "CVE": 1,
+     "DD": 2
+    },
+    {
+     "CVE": 1,
+     "DE": 2
+    },
+    {
+     "CVL": 1,
+     "CL": 1,
+     "DD": 4
+    },
+    {
+     "CVL": 1,
+     "CL": 1,
+     "DE": 2
+    },
+    {
+     "CVL": 1,
+     "DD": 1,
+     "DE": 3
+    },
+    {
+     "CVL": 1,
+     "CT": 1,
+     "DE": 2
+    },
+    {
+     "CVL": 1,
+     "CVE": 1,
+     "DD": 2
+    },
+    {
+     "CVL": 1,
+     "CVE": 1,
+     "DE": 2
+    }
+   ],
+   "totals": {
+    "firepower": 500,
+    "antiAir": 280,
+    "asw": 280,
+    "los": 170
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "44": {
+   "world": 7,
+   "flagshipLevel": 35,
+   "shipCount": 6,
+   "levelSum": 210,
+   "drumCarriers": 3,
+   "drums": 6,
+   "fleetCompos": [
+    {
+     "CVLike": 2,
+     "AV": 1,
+     "CL": 1,
+     "DDorDE": 2
+    }
+   ],
+   "totals": {
+    "antiAir": 200,
+    "asw": 200,
+    "los": 150
+   },
+   "gs": {
+    "kind": "drum",
+    "max": 8,
+    "extraDrums": 8,
+    "carriers": 3,
+    "min": 6
+   }
+  },
+  "45": {
+   "world": 7,
+   "flagshipLevel": 50,
+   "shipCount": 5,
+   "levelSum": 240,
+   "flagshipType": "CVL",
+   "fleetCompos": [
+    {
+     "CVL": 1,
+     "DDorDE": 4
+    }
+   ],
+   "totals": {
+    "antiAir": 240,
+    "asw": 300,
+    "los": 180
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "46": {
+   "world": 7,
+   "flagshipLevel": 60,
+   "shipCount": 5,
+   "levelSum": 300,
+   "fleetCompos": [
+    {
+     "CA": 2,
+     "CL": 1,
+     "DD": 2
+    }
+   ],
+   "totals": {
+    "firepower": 350,
+    "antiAir": 250,
+    "asw": 220,
+    "los": 190
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "100": {
+   "world": 1,
+   "flagshipLevel": 5,
+   "shipCount": 4,
+   "levelSum": 10,
+   "fleetCompos": [
+    {
+     "DDorDE": 3
+    }
+   ],
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "101": {
+   "world": 1,
+   "flagshipLevel": 20,
+   "shipCount": 4,
+   "fleetCompos": [
+    {
+     "DDorDE": 4
+    }
+   ],
+   "totals": {
+    "firepower": 50,
+    "antiAir": 70,
+    "asw": 180
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "102": {
+   "world": 1,
+   "flagshipLevel": 35,
+   "shipCount": 5,
+   "levelSum": 185,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DDorDE": 3
+    },
+    {
+     "CL": 1,
+     "DE": 2
+    },
+    {
+     "DD": 1,
+     "DE": 3
+    },
+    {
+     "CT": 1,
+     "DE": 2
+    },
+    {
+     "CVE": 1,
+     "DD": 2
+    },
+    {
+     "CVE": 1,
+     "DE": 2
+    }
+   ],
+   "totals": {
+    "asw": 280,
+    "los": 60
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "103": {
+   "world": 1,
+   "flagshipLevel": 40,
+   "shipCount": 5,
+   "levelSum": 200,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DD": 2
+    },
+    {
+     "CL": 1,
+     "DE": 2
+    },
+    {
+     "DD": 1,
+     "DE": 3
+    },
+    {
+     "CT": 1,
+     "DE": 2
+    },
+    {
+     "CVE": 1,
+     "DD": 2
+    },
+    {
+     "CVE": 1,
+     "DE": 2
+    }
+   ],
+   "totals": {
+    "firepower": 300,
+    "antiAir": 200,
+    "asw": 200,
+    "los": 120
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "104": {
+   "world": 1,
+   "flagshipLevel": 45,
+   "shipCount": 5,
+   "levelSum": 230,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DD": 3
+    },
+    {
+     "CL": 1,
+     "DE": 2
+    },
+    {
+     "DD": 1,
+     "DE": 3
+    },
+    {
+     "CT": 1,
+     "DE": 2
+    },
+    {
+     "CVE": 1,
+     "DD": 2
+    },
+    {
+     "CVE": 1,
+     "DE": 2
+    }
+   ],
+   "totals": {
+    "firepower": 280,
+    "antiAir": 220,
+    "asw": 240,
+    "los": 150
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "105": {
+   "world": 1,
+   "flagshipLevel": 55,
+   "shipCount": 6,
+   "levelSum": 290,
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DD": 3
+    },
+    {
+     "CL": 1,
+     "DE": 2
+    },
+    {
+     "DD": 1,
+     "DE": 3
+    },
+    {
+     "CT": 1,
+     "DE": 2
+    },
+    {
+     "CVE": 1,
+     "DD": 2
+    },
+    {
+     "CVE": 1,
+     "DE": 2
+    }
+   ],
+   "totals": {
+    "firepower": 330,
+    "antiAir": 300,
+    "asw": 270,
+    "los": 180
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "110": {
+   "world": 2,
+   "flagshipLevel": 40,
+   "shipCount": 6,
+   "levelSum": 150,
+   "fleetCompos": [
+    {
+     "AV": 1,
+     "CL": 1,
+     "DDorDE": 2
+    }
+   ],
+   "totals": {
+    "antiAir": 200,
+    "asw": 200,
+    "los": 140
+   },
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "111": {
+   "world": 2,
+   "flagshipLevel": 45,
+   "shipCount": 6,
+   "levelSum": 220,
+   "fleetCompos": [
+    {
+     "CA": 1,
+     "CL": 1,
+     "DD": 3
+    }
+   ],
+   "totals": {
+    "firepower": 360,
+    "antiAir": 160,
+    "asw": 160,
+    "los": 140
+   },
+   "gs": {
+    "kind": "sparkled"
+   }
+  },
+  "112": {
+   "world": 2,
+   "flagshipLevel": 50,
+   "shipCount": 6,
+   "levelSum": 250,
+   "fleetCompos": [
+    {
+     "AV": 1,
+     "CL": 1,
+     "DD": 4
+    }
+   ],
+   "totals": {
+    "firepower": 400,
+    "antiAir": 220,
+    "asw": 220,
+    "los": 190
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "113": {
+   "world": 2,
+   "flagshipLevel": 55,
+   "shipCount": 6,
+   "levelSum": 300,
+   "fleetCompos": [
+    {
+     "CA": 2,
+     "CL": 1,
+     "DD": 2,
+     "SSLike": 1
+    }
+   ],
+   "totals": {
+    "firepower": 500,
+    "antiAir": 280,
+    "asw": 280,
+    "los": 170
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "114": {
+   "world": 2,
+   "flagshipLevel": 60,
+   "shipCount": 6,
+   "levelSum": 330,
+   "fleetCompos": [
+    {
+     "AV": 1,
+     "CL": 1,
+     "DD": 2
+    }
+   ],
+   "totals": {
+    "firepower": 510,
+    "antiAir": 400,
+    "asw": 285,
+    "los": 385
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "115": {
+   "world": 2,
+   "flagshipLevel": 75,
+   "shipCount": 6,
+   "levelSum": 400,
+   "flagshipType": "CL",
+   "fleetCompos": [
+    {
+     "CL": 1,
+     "DD": 5
+    }
+   ],
+   "totals": {
+    "firepower": 410,
+    "antiAir": 390,
+    "asw": 410,
+    "los": 340
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "131": {
+   "world": 4,
+   "flagshipLevel": 50,
+   "shipCount": 5,
+   "levelSum": 200,
+   "flagshipType": "AV",
+   "fleetCompos": [
+    {
+     "AV": 1,
+     "DD": 3
+    }
+   ],
+   "totals": {
+    "antiAir": 240,
+    "asw": 240,
+    "los": 300
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "132": {
+   "world": 4,
+   "flagshipLevel": 55,
+   "shipCount": 5,
+   "levelSum": 270,
+   "flagshipType": "AS",
+   "fleetCompos": [
+    {
+     "AS": 1,
+     "SSLike": 3
+    }
+   ],
+   "totals": {
+    "firepower": 60,
+    "antiAir": 80,
+    "asw": 50,
+    "los": 70
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "133": {
+   "world": 4,
+   "flagshipLevel": 65,
+   "shipCount": 5,
+   "levelSum": 350,
+   "flagshipType": "AS",
+   "fleetCompos": [
+    {
+     "AS": 1,
+     "SSLike": 3
+    }
+   ],
+   "totals": {
+    "firepower": 115,
+    "antiAir": 90,
+    "asw": 70,
+    "los": 95
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "141": {
+   "world": 5,
+   "flagshipLevel": 55,
+   "shipCount": 6,
+   "levelSum": 290,
+   "flagshipType": "CA",
+   "fleetCompos": [
+    {
+     "CA": 1,
+     "CL": 1,
+     "DD": 3
+    }
+   ],
+   "totals": {
+    "firepower": 450,
+    "antiAir": 350,
+    "asw": 330,
+    "los": 250
+   },
+   "gs": {
+    "kind": "flagship"
+   }
+  },
+  "142": {
+   "world": 5,
+   "flagshipLevel": 70,
+   "shipCount": 5,
+   "levelSum": 320,
+   "drumCarriers": 3,
+   "drums": 4,
+   "fleetCompos": [
+    {
+     "DD": 5
+    }
+   ],
+   "totals": {
+    "firepower": 280,
+    "antiAir": 240,
+    "asw": 200,
+    "los": 160
+   },
+   "gs": {
+    "kind": "drum",
+    "max": 6,
+    "extraDrums": 6,
+    "carriers": 3,
+    "min": 4
+   }
+  }
+ },
+ "sources": [
+  {
+   "page": "遠征",
+   "url": "https://wikiwiki.jp/kancolle/%E9%81%A0%E5%BE%81",
+   "retrievedAt": "2026-10-21T09:43:36+00:00",
+   "sha256": "46cbb7b33a34457a6342227840a426e5d8f97b7ab992a739ceea7f050be061da"
+  },
+  {
+   "page": "遠征/詳細一覧表",
+   "url": "https://wikiwiki.jp/kancolle/%E9%81%A0%E5%BE%81/%E8%A9%B3%E7%B4%B0%E4%B8%80%E8%A6%A7%E8%A1%A8",
+   "retrievedAt": "2026-10-21T09:44:33+00:00",
+   "sha256": "7f88917468df1fb865cbe2c46c629efff69ef8112db6ddd5a232b0253c0cb3d3"
+  }
+ ],
+ "checked": "2026-10-21"
+}

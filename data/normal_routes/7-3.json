@@ -1,0 +1,2579 @@
+{
+  "area": "7-3",
+  "source": {
+    "url": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-3",
+    "branchSectionSha256": "4a0196378f3902513481982a4654763464c36127c5049e30858ada24dc0e90ba",
+    "previousUrl": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-3",
+    "authority": "nga-16820397",
+    "postUrl": "https://bbs.nga.cn/read.php?pid=453499314",
+    "threadUrl": "https://bbs.nga.cn/read.php?tid=16820397",
+    "postId": 453499314,
+    "capturedDate": "2026-10-13",
+    "bodySha256": "a9a18273631682bb6939caa07e897a3454c0ad27e1ab3d4f0231bbe4b8d739ba",
+    "snapshotSha256": "34ede676cbe1f4a8f2dade1a6bcbfa3bcb8f8b9d59757c6f391aa2932bccdc2a"
+  },
+  "bossNodes": [
+    "E",
+    "P"
+  ],
+  "terminalNodes": [],
+  "branchPoints": [
+    {
+      "from": "A",
+      "destinations": [
+        "C",
+        "B"
+      ],
+      "clauses": [
+        "• 舰队船数=1 去C\n• CV系>=1 去B\n• DD+DE=0 去B\n• P1阶段 且 舰队船数>=5 去B\n• 羽黑=0 且 BB系>=1 去B\n• 神风+羽黑=2 去C\n• AO>=1 且 DD+DE>=3 去C\n• CA=0 去B\n• 舰队船数<=3\n• CA+CL+DD+DE=舰队船数 去C\n• 其余去B\n• 羽黑=0 且 低速舰队 去B\n• DD+DE>=3 去C\n• 舰队船数>=5 去B\n• CL=1 且 DD+DE=2 去C\n• 其余去B"
+      ],
+      "phase": "gauge1",
+      "source": "https://bbs.nga.cn/read.php?pid=453499314"
+    },
+    {
+      "from": "C",
+      "destinations": [
+        "D",
+        "E"
+      ],
+      "clauses": [
+        "• BB系+CV系>=1 去D\n• DD+DE=0 去D\n• 舰队船数=6\n• P1阶段  去D\n• DD+DE<=1 去D\n• [最速]的舰队 去I\n• CA系+CLT+AV>=3 去D\n• [高速+]的舰队 去I\n• 其余去D\n• 舰队船数=5\n• P1阶段  去D\n• DD+DE<=1 去D\n• [最速]的舰队 去I\n• 神风+羽黑=2\n• 足柄=1 去I\n• [高速+]以上的舰队 去I\n• CL>=1 去I\n• 其余去D\n• DD>=4 且 [高速+]以上的舰队 去I\n• CL=1 且 DD=3 且 [高速+]以上的舰队 去I\n• CA=1 且 CL=1 且 DD=3 且 高速以上的舰队 去I\n• 其余去D\n• 舰队船数=4\n• 神风+羽黑=2\n• P2阶段 且 [最速]的舰队 去I\n• CA系>=3 去D\n• 足柄+妙高>=1 去E\n• DD+DE>=2 去E\n• 其余去D\n• 神风=1 且 DD+DE=4 去E\n• 羽黑=1 且 DD+DE=3 去E\n• 其余去D\n• 舰队船数=3\n• 神风+羽黑=2 且 足柄+妙高=1 去E\n• CA系>=2 去D\n• CA+DD+DE=3 去E\n• 其余去D\n• 舰队船数<=2 去E"
+      ],
+      "phase": "gauge1",
+      "source": "https://bbs.nga.cn/read.php?pid=453499314"
+    },
+    {
+      "from": "D",
+      "destinations": [
+        "F",
+        "E"
+      ],
+      "clauses": [
+        "• P1阶段\n• BB系+CV系>=1 去F\n• CA系>=4 去F\n• CAV>=2 去F\n• 舰队船数=6 去F\n• 其余去E\n• P2阶段\n• BB系>=3 去F\n• CV系>=3 去F\n• CAV>=3 去F\n• 其余去G"
+      ],
+      "phase": "gauge1",
+      "source": "https://bbs.nga.cn/read.php?pid=453499314"
+    },
+    {
+      "from": "A",
+      "destinations": [
+        "C",
+        "B"
+      ],
+      "clauses": [
+        "• 舰队船数=1 去C\n• CV系>=1 去B\n• DD+DE=0 去B\n• P1阶段 且 舰队船数>=5 去B\n• 羽黑=0 且 BB系>=1 去B\n• 神风+羽黑=2 去C\n• AO>=1 且 DD+DE>=3 去C\n• CA=0 去B\n• 舰队船数<=3\n• CA+CL+DD+DE=舰队船数 去C\n• 其余去B\n• 羽黑=0 且 低速舰队 去B\n• DD+DE>=3 去C\n• 舰队船数>=5 去B\n• CL=1 且 DD+DE=2 去C\n• 其余去B"
+      ],
+      "phase": "gauge2",
+      "source": "https://bbs.nga.cn/read.php?pid=453499314"
+    },
+    {
+      "from": "C",
+      "destinations": [
+        "D",
+        "I",
+        "E"
+      ],
+      "clauses": [
+        "• BB系+CV系>=1 去D\n• DD+DE=0 去D\n• 舰队船数=6\n• P1阶段  去D\n• DD+DE<=1 去D\n• [最速]的舰队 去I\n• CA系+CLT+AV>=3 去D\n• [高速+]的舰队 去I\n• 其余去D\n• 舰队船数=5\n• P1阶段  去D\n• DD+DE<=1 去D\n• [最速]的舰队 去I\n• 神风+羽黑=2\n• 足柄=1 去I\n• [高速+]以上的舰队 去I\n• CL>=1 去I\n• 其余去D\n• DD>=4 且 [高速+]以上的舰队 去I\n• CL=1 且 DD=3 且 [高速+]以上的舰队 去I\n• CA=1 且 CL=1 且 DD=3 且 高速以上的舰队 去I\n• 其余去D\n• 舰队船数=4\n• 神风+羽黑=2\n• P2阶段 且 [最速]的舰队 去I\n• CA系>=3 去D\n• 足柄+妙高>=1 去E\n• DD+DE>=2 去E\n• 其余去D\n• 神风=1 且 DD+DE=4 去E\n• 羽黑=1 且 DD+DE=3 去E\n• 其余去D\n• 舰队船数=3\n• 神风+羽黑=2 且 足柄+妙高=1 去E\n• CA系>=2 去D\n• CA+DD+DE=3 去E\n• 其余去D\n• 舰队船数<=2 去E"
+      ],
+      "phase": "gauge2",
+      "source": "https://bbs.nga.cn/read.php?pid=453499314"
+    },
+    {
+      "from": "D",
+      "destinations": [
+        "F",
+        "G"
+      ],
+      "clauses": [
+        "• P1阶段\n• BB系+CV系>=1 去F\n• CA系>=4 去F\n• CAV>=2 去F\n• 舰队船数=6 去F\n• 其余去E\n• P2阶段\n• BB系>=3 去F\n• CV系>=3 去F\n• CAV>=3 去F\n• 其余去G"
+      ],
+      "phase": "gauge2",
+      "source": "https://bbs.nga.cn/read.php?pid=453499314"
+    },
+    {
+      "from": "G",
+      "destinations": [
+        "H",
+        "I",
+        "J",
+        "P",
+        "K"
+      ],
+      "clauses": [
+        "• AO>=1 且 DD+DE>=2 且 CA=0 去H\n• AV>=2 且 DD+DE>=2 且 CA=0 去H\n• SS系>=1 去I\n• BB系+CV系>=1 去J\n• 神风+羽黑=2\n• 舰队船数<=4 去P\n• DD<=2 去J\n• 低速舰队 去J\n• [高速+]以上的舰队 去P\n• CA系>=3\n• 足柄+妙高+高雄=2 去K\n• 其余去J\n• CA系<=2\n• 足柄=1 去P\n• 其余去K\n• 神风+羽黑<=1\n• 低速舰队 去J\n• DD<=2 去J\n• CA系>=3 去J\n• 其余去I"
+      ],
+      "phase": "gauge2",
+      "source": "https://bbs.nga.cn/read.php?pid=453499314"
+    },
+    {
+      "from": "I",
+      "destinations": [
+        "J",
+        "M",
+        "L"
+      ],
+      "clauses": [
+        "• SS系>=1 去J\n• BB系+CV系>=1 去J\n• CA系>=3 去J\n• DD+DE=0 去J\n• 神风+羽黑=2\n• DD+DE>=3\n• [高速+]以上的舰队 去J\n• 其余去M\n• DD+DE=2\n• [最速]的舰队 去M\n• 其余去L\n• DD+DE=1 去L\n• 神风+羽黑<=1\n• DD>=3 且 [最速]的舰队 去J\n• 神风+羽黑+足柄=2 且 DD+DE>=3 去M\n• 其余去L"
+      ],
+      "phase": "gauge2",
+      "source": "https://bbs.nga.cn/read.php?pid=453499314"
+    },
+    {
+      "from": "J",
+      "destinations": [
+        "M",
+        "P"
+      ],
+      "clauses": [
+        "• BB系+CV系>=1 去M\n• 低速舰队 去M\n• DD<=1 去M\n• DD=2\n• 神风+羽黑+足柄+妙高+高雄=5 去P\n• CA系>=4 去M\n• 神风+羽黑+足柄=3 去P\n• 其余去M\n• DD>=3\n• 神风+羽黑+足柄>=2 去P\n• CA系>=3 去M\n• 其余去P"
+      ],
+      "phase": "gauge2",
+      "source": "https://bbs.nga.cn/read.php?pid=453499314"
+    },
+    {
+      "from": "M",
+      "destinations": [
+        "N",
+        "P",
+        "O"
+      ],
+      "clauses": [
+        "• CV+CVB>=1 去N\n• 神风+羽黑+足柄=3 且 BB+FBB+CVL=0 去P？\n• BB系+CVL>=2 去N\n• SS系>=4? 去N\n• BB=1 去O\n• AO>=1 去O\n• AV>=2 去O\n• 其余去P"
+      ],
+      "phase": "gauge2",
+      "source": "https://bbs.nga.cn/read.php?pid=453499314"
+    }
+  ],
+  "evaluation": "reviewed",
+  "machineRules": {
+    "A#gauge1": [
+      {
+        "when": {
+          "shipCount": {
+            "exact": 1
+          }
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              7,
+              11,
+              18
+            ],
+            "min": 1
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "exact": 0
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "min": 5
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "not": {
+                "shipName": {
+                  "prefixes": [
+                    "羽黒"
+                  ]
+                }
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12
+                ],
+                "min": 1
+              }
+            }
+          ]
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipName": {
+                "prefixes": [
+                  "羽黒"
+                ]
+              }
+            },
+            {
+              "shipName": {
+                "prefixes": [
+                  "神風"
+                ]
+              }
+            }
+          ]
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  22
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              5
+            ],
+            "exact": 0
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "max": 3
+              }
+            },
+            {
+              "allStypes": [
+                5,
+                3,
+                2,
+                1
+              ]
+            }
+          ]
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "max": 3
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "not": {
+                "shipName": {
+                  "prefixes": [
+                    "羽黒"
+                  ]
+                }
+              }
+            },
+            {
+              "speedIs": "slow"
+            }
+          ]
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "min": 3
+          }
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "min": 5
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  3
+                ],
+                "exact": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "exact": 2
+              }
+            }
+          ]
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": true,
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      }
+    ],
+    "C#gauge1": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              8,
+              9,
+              10,
+              12,
+              7,
+              11,
+              18
+            ],
+            "min": 1
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "exact": 0
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "min": 5
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 4
+              }
+            },
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  5,
+                  6
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 4
+              }
+            },
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "any": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "足柄",
+                      "妙高"
+                    ]
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1,
+                      2
+                    ],
+                    "min": 2
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 4
+              }
+            },
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 4
+              }
+            },
+            {
+              "any": [
+                {
+                  "all": [
+                    {
+                      "shipName": {
+                        "prefixes": [
+                          "神風"
+                        ]
+                      }
+                    },
+                    {
+                      "count": {
+                        "stypes": [
+                          1,
+                          2
+                        ],
+                        "exact": 4
+                      }
+                    }
+                  ]
+                },
+                {
+                  "all": [
+                    {
+                      "shipName": {
+                        "prefixes": [
+                          "羽黒"
+                        ]
+                      }
+                    },
+                    {
+                      "count": {
+                        "stypes": [
+                          1,
+                          2
+                        ],
+                        "exact": 3
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "exact": 4
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 3
+              }
+            },
+            {
+              "shipName": {
+                "prefixes": [
+                  "神風"
+                ]
+              }
+            },
+            {
+              "shipName": {
+                "prefixes": [
+                  "羽黒"
+                ]
+              }
+            },
+            {
+              "shipName": {
+                "prefixes": [
+                  "足柄",
+                  "妙高"
+                ]
+              }
+            }
+          ]
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 3
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  5,
+                  6
+                ],
+                "min": 2
+              }
+            }
+          ]
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 3
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  5,
+                  2,
+                  1
+                ],
+                "exact": 3
+              }
+            }
+          ]
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "exact": 3
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": true,
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      }
+    ],
+    "D#gauge1": [
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "carrier",
+              "battleship"
+            ],
+            "min": 1
+          }
+        },
+        "to": "F",
+        "note": "NGA 地图配置2.0 · 7-3 D · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "exact": 6
+          }
+        },
+        "to": "F",
+        "note": "NGA 地图配置2.0 · 7-3 D · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "heavyCruiser"
+            ],
+            "min": 4
+          }
+        },
+        "to": "F",
+        "note": "NGA 地图配置2.0 · 7-3 D · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              6
+            ],
+            "min": 2
+          }
+        },
+        "to": "F",
+        "note": "NGA 地图配置2.0 · 7-3 D · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": "otherwise",
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 7-3 D · https://bbs.nga.cn/read.php?pid=453499314"
+      }
+    ],
+    "A#gauge2": [
+      {
+        "when": {
+          "shipCount": {
+            "exact": 1
+          }
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              7,
+              11,
+              18
+            ],
+            "min": 1
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "exact": 0
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "not": {
+                "shipName": {
+                  "prefixes": [
+                    "羽黒"
+                  ]
+                }
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12
+                ],
+                "min": 1
+              }
+            }
+          ]
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipName": {
+                "prefixes": [
+                  "羽黒"
+                ]
+              }
+            },
+            {
+              "shipName": {
+                "prefixes": [
+                  "神風"
+                ]
+              }
+            }
+          ]
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  22
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              5
+            ],
+            "exact": 0
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "max": 3
+              }
+            },
+            {
+              "allStypes": [
+                5,
+                3,
+                2,
+                1
+              ]
+            }
+          ]
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "max": 3
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "not": {
+                "shipName": {
+                  "prefixes": [
+                    "羽黒"
+                  ]
+                }
+              }
+            },
+            {
+              "speedIs": "slow"
+            }
+          ]
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "min": 3
+          }
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "min": 5
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  3
+                ],
+                "exact": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "exact": 2
+              }
+            }
+          ]
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": true,
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 7-3 A · https://bbs.nga.cn/read.php?pid=453499314"
+      }
+    ],
+    "C#gauge2": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              8,
+              9,
+              10,
+              12,
+              7,
+              11,
+              18
+            ],
+            "min": 1
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "exact": 0
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "min": 5
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "max": 1
+              }
+            }
+          ]
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "min": 5
+              }
+            },
+            {
+              "speedAtLeast": "fastest"
+            }
+          ]
+        },
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 6
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  5,
+                  6,
+                  4,
+                  16
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 6
+              }
+            },
+            {
+              "speedAtLeast": "fastPlus"
+            }
+          ]
+        },
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "exact": 6
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 5
+              }
+            },
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "any": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "足柄"
+                    ]
+                  }
+                },
+                {
+                  "speedAtLeast": "fastPlus"
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      3
+                    ],
+                    "min": 1
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 5
+              }
+            },
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 5
+              }
+            },
+            {
+              "speedAtLeast": "fastPlus"
+            },
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      2
+                    ],
+                    "min": 4
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          3
+                        ],
+                        "exact": 1
+                      }
+                    },
+                    {
+                      "count": {
+                        "stypes": [
+                          2
+                        ],
+                        "exact": 3
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 5
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  5
+                ],
+                "exact": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  3
+                ],
+                "exact": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  2
+                ],
+                "exact": 3
+              }
+            },
+            {
+              "speedAtLeast": "fast"
+            }
+          ]
+        },
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "exact": 5
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 4
+              }
+            },
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "speedAtLeast": "fastest"
+            }
+          ]
+        },
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 4
+              }
+            },
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  5,
+                  6
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 4
+              }
+            },
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "any": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "足柄",
+                      "妙高"
+                    ]
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1,
+                      2
+                    ],
+                    "min": 2
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 4
+              }
+            },
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 4
+              }
+            },
+            {
+              "any": [
+                {
+                  "all": [
+                    {
+                      "shipName": {
+                        "prefixes": [
+                          "神風"
+                        ]
+                      }
+                    },
+                    {
+                      "count": {
+                        "stypes": [
+                          1,
+                          2
+                        ],
+                        "exact": 4
+                      }
+                    }
+                  ]
+                },
+                {
+                  "all": [
+                    {
+                      "shipName": {
+                        "prefixes": [
+                          "羽黒"
+                        ]
+                      }
+                    },
+                    {
+                      "count": {
+                        "stypes": [
+                          1,
+                          2
+                        ],
+                        "exact": 3
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "exact": 4
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 3
+              }
+            },
+            {
+              "shipName": {
+                "prefixes": [
+                  "神風"
+                ]
+              }
+            },
+            {
+              "shipName": {
+                "prefixes": [
+                  "羽黒"
+                ]
+              }
+            },
+            {
+              "shipName": {
+                "prefixes": [
+                  "足柄",
+                  "妙高"
+                ]
+              }
+            }
+          ]
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 3
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  5,
+                  6
+                ],
+                "min": 2
+              }
+            }
+          ]
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 3
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  5,
+                  2,
+                  1
+                ],
+                "exact": 3
+              }
+            }
+          ]
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "shipCount": {
+            "exact": 3
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": true,
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 7-3 C · https://bbs.nga.cn/read.php?pid=453499314"
+      }
+    ],
+    "D#gauge2": [
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "battleship"
+            ],
+            "min": 3
+          }
+        },
+        "to": "F",
+        "note": "NGA 地图配置2.0 · 7-3 D · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "carrier"
+            ],
+            "min": 3
+          }
+        },
+        "to": "F",
+        "note": "NGA 地图配置2.0 · 7-3 D · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              6
+            ],
+            "min": 3
+          }
+        },
+        "to": "F",
+        "note": "NGA 地图配置2.0 · 7-3 D · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": true,
+        "to": "G",
+        "note": "NGA 地图配置2.0 · 7-3 D · https://bbs.nga.cn/read.php?pid=453499314"
+      }
+    ],
+    "G#gauge2": [
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  5
+                ],
+                "exact": 0
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 2
+              }
+            },
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      22
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      16
+                    ],
+                    "min": 2
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "to": "H",
+        "note": "NGA 地图配置2.0 · 7-3 G · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              13,
+              14
+            ],
+            "min": 1
+          }
+        },
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 7-3 G · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              8,
+              9,
+              10,
+              12,
+              7,
+              11,
+              18
+            ],
+            "min": 1
+          }
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-3 G · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "shipCount": {
+                "max": 4
+              }
+            }
+          ]
+        },
+        "to": "P",
+        "note": "NGA 地图配置2.0 · 7-3 G · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      2
+                    ],
+                    "max": 2
+                  }
+                },
+                {
+                  "speedIs": "slow"
+                }
+              ]
+            }
+          ]
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-3 G · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "speedAtLeast": "fastPlus"
+            }
+          ]
+        },
+        "to": "P",
+        "note": "NGA 地图配置2.0 · 7-3 G · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  5,
+                  6
+                ],
+                "min": 3
+              }
+            },
+            {
+              "count": {
+                "prefixes": [
+                  "足柄",
+                  "妙高",
+                  "高雄"
+                ],
+                "exact": 2
+              }
+            }
+          ]
+        },
+        "to": "K",
+        "note": "NGA 地图配置2.0 · 7-3 G · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  5,
+                  6
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-3 G · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "shipName": {
+                "prefixes": [
+                  "足柄"
+                ]
+              }
+            }
+          ]
+        },
+        "to": "P",
+        "note": "NGA 地图配置2.0 · 7-3 G · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipName": {
+                "prefixes": [
+                  "羽黒"
+                ]
+              }
+            },
+            {
+              "shipName": {
+                "prefixes": [
+                  "神風"
+                ]
+              }
+            }
+          ]
+        },
+        "to": "K",
+        "note": "NGA 地图配置2.0 · 7-3 G · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "any": [
+            {
+              "speedIs": "slow"
+            },
+            {
+              "count": {
+                "stypes": [
+                  2
+                ],
+                "max": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  5,
+                  6
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-3 G · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": true,
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 7-3 G · https://bbs.nga.cn/read.php?pid=453499314"
+      }
+    ],
+    "I#gauge2": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              13,
+              14
+            ],
+            "min": 1
+          }
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-3 I · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "carrier",
+              "battleship"
+            ],
+            "min": 1
+          }
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-3 I · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "heavyCruiser"
+            ],
+            "min": 3
+          }
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-3 I · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "exact": 0
+          }
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-3 I · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 3
+              }
+            },
+            {
+              "speedAtLeast": "fastPlus"
+            }
+          ]
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-3 I · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "M",
+        "note": "NGA 地图配置2.0 · 7-3 I · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "all": [
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "羽黒"
+                    ]
+                  }
+                },
+                {
+                  "shipName": {
+                    "prefixes": [
+                      "神風"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "exact": 2
+              }
+            },
+            {
+              "speedIs": "fastest"
+            }
+          ]
+        },
+        "to": "M",
+        "note": "NGA 地图配置2.0 · 7-3 I · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipName": {
+                "prefixes": [
+                  "羽黒"
+                ]
+              }
+            },
+            {
+              "shipName": {
+                "prefixes": [
+                  "神風"
+                ]
+              }
+            }
+          ]
+        },
+        "to": "L",
+        "note": "NGA 地图配置2.0 · 7-3 I · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "speedIs": "fastest"
+            },
+            {
+              "count": {
+                "stypes": [
+                  2
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-3 I · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "shipName": {
+                "prefixes": [
+                  "羽黒",
+                  "神風"
+                ]
+              }
+            },
+            {
+              "shipName": {
+                "prefixes": [
+                  "足柄"
+                ]
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "M",
+        "note": "NGA 地图配置2.0 · 7-3 I · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": "otherwise",
+        "to": "L",
+        "note": "NGA 地图配置2.0 · 7-3 I · https://bbs.nga.cn/read.php?pid=453499314"
+      }
+    ],
+    "J#gauge2": [
+      {
+        "when": {
+          "any": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12,
+                  7,
+                  11,
+                  18
+                ],
+                "min": 1
+              }
+            },
+            {
+              "speedIs": "slow"
+            },
+            {
+              "count": {
+                "stypes": [
+                  2
+                ],
+                "max": 1
+              }
+            }
+          ]
+        },
+        "to": "M",
+        "note": "NGA 地图配置2.0 · 7-3 J · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  2
+                ],
+                "exact": 2
+              }
+            },
+            {
+              "count": {
+                "prefixes": [
+                  "神風",
+                  "羽黒",
+                  "足柄",
+                  "妙高",
+                  "高雄"
+                ],
+                "exact": 5
+              }
+            }
+          ]
+        },
+        "to": "P",
+        "note": "NGA 地图配置2.0 · 7-3 J · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  2
+                ],
+                "exact": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  5,
+                  6
+                ],
+                "min": 4
+              }
+            }
+          ]
+        },
+        "to": "M",
+        "note": "NGA 地图配置2.0 · 7-3 J · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  2
+                ],
+                "exact": 2
+              }
+            },
+            {
+              "count": {
+                "prefixes": [
+                  "羽黒",
+                  "神風",
+                  "足柄"
+                ],
+                "exact": 3
+              }
+            }
+          ]
+        },
+        "to": "P",
+        "note": "NGA 地图配置2.0 · 7-3 J · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              2
+            ],
+            "exact": 2
+          }
+        },
+        "to": "M",
+        "note": "NGA 地图配置2.0 · 7-3 J · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "prefixes": [
+              "神風",
+              "羽黒",
+              "足柄"
+            ],
+            "min": 2
+          }
+        },
+        "to": "P",
+        "note": "NGA 地图配置2.0 · 7-3 J · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              5,
+              6
+            ],
+            "min": 3
+          }
+        },
+        "to": "M",
+        "note": "NGA 地图配置2.0 · 7-3 J · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": true,
+        "to": "P",
+        "note": "NGA 地图配置2.0 · 7-3 J · https://bbs.nga.cn/read.php?pid=453499314"
+      }
+    ],
+    "M#gauge2": [
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "fleetCarrier"
+            ],
+            "min": 1
+          }
+        },
+        "to": "N",
+        "note": "NGA 地图配置2.0 · 7-3 M · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "prefixes": [
+                  "羽黒",
+                  "神風",
+                  "足柄"
+                ],
+                "exact": 3
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  12,
+                  7
+                ],
+                "exact": 0
+              }
+            }
+          ]
+        },
+        "to": "P",
+        "note": "NGA 地图配置2.0 · 7-3 M · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "carrier",
+              "battleship"
+            ],
+            "min": 2
+          }
+        },
+        "to": "N",
+        "note": "NGA 地图配置2.0 · 7-3 M · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              13,
+              14
+            ],
+            "min": 4
+          }
+        },
+        "to": "N",
+        "note": "NGA 地图配置2.0 · 7-3 M · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "slowBattleship"
+            ],
+            "min": 1
+          }
+        },
+        "to": "O",
+        "note": "NGA 地图配置2.0 · 7-3 M · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "supply"
+            ],
+            "min": 1
+          }
+        },
+        "to": "O",
+        "note": "NGA 地图配置2.0 · 7-3 M · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              16
+            ],
+            "min": 2
+          }
+        },
+        "to": "O",
+        "note": "NGA 地图配置2.0 · 7-3 M · https://bbs.nga.cn/read.php?pid=453499314"
+      },
+      {
+        "when": "otherwise",
+        "to": "P",
+        "note": "NGA 地图配置2.0 · 7-3 M · https://bbs.nga.cn/read.php?pid=453499314"
+      }
+    ]
+  },
+  "bossPhases": {
+    "gauge1": [
+      "E"
+    ],
+    "gauge2": [
+      "P"
+    ]
+  },
+  "graphComplete": true,
+  "fixedEdges": {
+    "start": "A",
+    "B": "C",
+    "K": "P",
+    "L": "M"
+  },
+  "deadEnds": [
+    "F",
+    "H",
+    "O",
+    "N"
+  ],
+  "reviewNotes": [
+    "2026-09-24 wikiwiki gauge-2 map: E remains a boss/terminal; E→G is not drawn, but D→E is drawn. M→N is drawn and N is a dead end; N→P is not drawn.",
+    "https://cdn.wikiwiki.jp/to/w/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/::attach/7-3-2.jpg?rev=19a329959a4c746c54fcafe571292355&t=20200918223437",
+    "2026-10-13 玩家指定参考口径：D→E视为仅第一阶段，第二阶段D仅F/G；来源原文仍保留E条件不明记录供后续核对，C→E不受此修订影响。"
+  ],
+  "airControl": {
+    "source": "user-provided-quick-reference-2026-09-24",
+    "coverage": "quickReferenceNotExhaustive",
+    "profiles": [
+      {
+        "id": "overview",
+        "label": "全图敌制空为 0",
+        "superiority": 0,
+        "supremacy": 0
+      }
+    ]
+  },
+  "ruleReview": {
+    "date": "2026-10-13",
+    "source": "https://wikiwiki.jp/kancolle/南西海域/7-3",
+    "scope": "补全已公开的复合条件；保留来源中未确定的分岐"
+  },
+  "horizontalReview": {
+    "date": "2026-10-13",
+    "sources": [
+      "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-3"
+    ],
+    "nodes": [
+      "A#gauge1",
+      "C#gauge1",
+      "A#gauge2",
+      "C#gauge2",
+      "G#gauge2",
+      "I#gauge2",
+      "J#gauge2",
+      "M#gauge2"
+    ]
+  },
+  "ngaReview": {
+    "date": "2026-10-13",
+    "priority": "用户指定为带路条件主来源，覆盖此前中日文差异取舍",
+    "changedNodes": [
+      "C#gauge1",
+      "C#gauge2"
+    ],
+    "referenceNotes": [],
+    "supplementaryNodes": []
+  }
+}

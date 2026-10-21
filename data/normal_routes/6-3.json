@@ -1,0 +1,216 @@
+{
+  "area": "6-3",
+  "source": {
+    "url": "https://zh.kcwiki.cn/wiki/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-3",
+    "branchSectionSha256": "4f836b542c6f6736781856ea21514da66f22159ae984c0a0141599dce501cbd5",
+    "previousUrl": "https://wikiwiki.jp/kancolle/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-3",
+    "authority": "nga-16820397",
+    "postUrl": "https://bbs.nga.cn/read.php?pid=330616602",
+    "threadUrl": "https://bbs.nga.cn/read.php?tid=16820397",
+    "postId": 330616602,
+    "capturedDate": "2026-10-13",
+    "bodySha256": "3fceef7a764e1a3bf608433c5d4b0bba7a7dc04420818bbc0f324e258fe669bd",
+    "snapshotSha256": "34ede676cbe1f4a8f2dade1a6bcbfa3bcb8f8b9d59757c6f391aa2932bccdc2a"
+  },
+  "bossNodes": [
+    "J"
+  ],
+  "terminalNodes": [],
+  "branchPoints": [
+    {
+      "from": "A",
+      "destinations": [
+        "B",
+        "C"
+      ],
+      "clauses": [
+        "能動分岐"
+      ]
+    },
+    {
+      "from": "E",
+      "destinations": [
+        "G",
+        "F"
+      ],
+      "clauses": [
+        "• CL>=3 去F\n• AV>=2 去F\n• CL<=1 且 DD>=3 去G\n• 其余60%去F，40%去G"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330616602"
+    },
+    {
+      "from": "H",
+      "destinations": [
+        "I",
+        "J"
+      ],
+      "clauses": [
+        "• 分歧点系数=3\n索敌>=38 去J(司令部系数0.35，索敌>=44)\n索敌36~38 随机去J/I\n索敌<36 去I"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330616602"
+    }
+  ],
+  "evaluation": "reviewed",
+  "machineRules": {
+    "A": [
+      {
+        "when": true,
+        "uncertain": true,
+        "choices": [
+          {
+            "to": "B"
+          },
+          {
+            "to": "C"
+          }
+        ],
+        "note": "能動分岐（出撃者の選択）"
+      }
+    ],
+    "E": [
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  16
+                ],
+                "max": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  3
+                ],
+                "max": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  2
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "G",
+        "note": "NGA 地图配置2.0 · 6-3 E · https://bbs.nga.cn/read.php?pid=330616602"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  16
+                ],
+                "max": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  3
+                ],
+                "max": 2
+              }
+            }
+          ]
+        },
+        "choices": [
+          {
+            "to": "F",
+            "weight": 0.6
+          },
+          {
+            "to": "G",
+            "weight": 0.4
+          }
+        ],
+        "note": "NGA 地图配置2.0 · 6-3 E · https://bbs.nga.cn/read.php?pid=330616602"
+      },
+      {
+        "when": "otherwise",
+        "to": "F",
+        "note": "NGA 地图配置2.0 · 6-3 E · https://bbs.nga.cn/read.php?pid=330616602"
+      }
+    ],
+    "H": [
+      {
+        "when": {
+          "los": {
+            "coefficient": 3,
+            "lt": 36
+          }
+        },
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 6-3 H · https://bbs.nga.cn/read.php?pid=330616602"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 3,
+            "lt": 38,
+            "gte": 36
+          }
+        },
+        "choices": [
+          {
+            "to": "I"
+          },
+          {
+            "to": "J"
+          }
+        ],
+        "note": "NGA 地图配置2.0 · 6-3 H · https://bbs.nga.cn/read.php?pid=330616602"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 3,
+            "gte": 38
+          }
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 6-3 H · https://bbs.nga.cn/read.php?pid=330616602"
+      }
+    ]
+  },
+  "graphComplete": true,
+  "fixedEdges": {
+    "start": "A",
+    "B": "D",
+    "C": "E",
+    "D": "E",
+    "F": "H",
+    "G": "H"
+  },
+  "deadEnds": [
+    "I"
+  ],
+  "airControl": {
+    "source": "user-provided-quick-reference-2026-09-24",
+    "coverage": "quickReferenceNotExhaustive",
+    "profiles": [
+      {
+        "id": "overview",
+        "label": "全图敌制空为 0",
+        "superiority": 0,
+        "supremacy": 0
+      }
+    ]
+  },
+  "ngaReview": {
+    "date": "2026-10-13",
+    "priority": "用户指定为带路条件主来源，覆盖此前中日文差异取舍",
+    "changedNodes": [],
+    "referenceNotes": [],
+    "supplementaryNodes": [
+      "A"
+    ]
+  }
+}

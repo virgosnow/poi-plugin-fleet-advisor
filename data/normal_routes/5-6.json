@@ -1,0 +1,2391 @@
+{
+  "area": "5-6",
+  "name": "ラバウル方面海域",
+  "source": {
+    "url": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-6",
+    "authority": "nga-16820397",
+    "postUrl": "https://bbs.nga.cn/read.php?pid=869961817",
+    "threadUrl": "https://bbs.nga.cn/read.php?tid=16820397",
+    "postId": 869961817,
+    "capturedDate": "2026-10-13",
+    "bodySha256": "cde242a250e3c9bb49f872ce015b785fd286cf7d0dfa4ba38426dece75fefa94",
+    "snapshotSha256": "34ede676cbe1f4a8f2dade1a6bcbfa3bcb8f8b9d59757c6f391aa2932bccdc2a"
+  },
+  "bossNodes": [
+    "G",
+    "N",
+    "Z"
+  ],
+  "terminalNodes": [
+    "R"
+  ],
+  "bossPhases": {
+    "gauge1": [
+      "G"
+    ],
+    "gauge2": [
+      "N"
+    ],
+    "gauge3": [
+      "Z"
+    ]
+  },
+  "phaseNotes": {
+    "gauge1": "运输阶段；第二出发点尚未解锁。",
+    "gauge2": "需先完成运输并抵达 R 点，解锁第二出发点。",
+    "gauge3": "需先击破第二血条，开放 Q→U、Q→W 及 Z 点。"
+  },
+  "branchPoints": [
+    {
+      "from": "start",
+      "destinations": [
+        "A1",
+        "A",
+        "A2"
+      ],
+      "clauses": [
+        "• 未开启第2出发点 从1出发\n• AV+LHA>=1 从1出发\n• DE>=2 从1出发\n• BB系>=2 且 低速舰队 从1出发\n• 其余从2出发\n第一出发点：\n• CV+CVB>=1 去A1\n• DD+DE<=1 去A1\n• BB系>=2 且 DD+DE=2 去A1\n• AV+LHA>=2 去A\n• DE>=3 去A\n• DD+DE>=4 去A\n• 其余去A2"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "start",
+      "phase": "gauge1",
+      "destinations": [
+        "A1",
+        "A",
+        "A2"
+      ],
+      "clauses": [
+        "第二出发点未解锁，使用第一出发点。\n• 未开启第2出发点 从1出发\n• AV+LHA>=1 从1出发\n• DE>=2 从1出发\n• BB系>=2 且 低速舰队 从1出发\n• 其余从2出发\n第一出发点：\n• CV+CVB>=1 去A1\n• DD+DE<=1 去A1\n• BB系>=2 且 DD+DE=2 去A1\n• AV+LHA>=2 去A\n• DE>=3 去A\n• DD+DE>=4 去A\n• 其余去A2"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "start",
+      "phase": "gimmick",
+      "destinations": [
+        "A1",
+        "A",
+        "A2"
+      ],
+      "clauses": [
+        "第二出发点未解锁，使用第一出发点。\n• 未开启第2出发点 从1出发\n• AV+LHA>=1 从1出发\n• DE>=2 从1出发\n• BB系>=2 且 低速舰队 从1出发\n• 其余从2出发\n第一出发点：\n• CV+CVB>=1 去A1\n• DD+DE<=1 去A1\n• BB系>=2 且 DD+DE=2 去A1\n• AV+LHA>=2 去A\n• DE>=3 去A\n• DD+DE>=4 去A\n• 其余去A2"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "start",
+      "phase": "gauge2",
+      "destinations": [
+        "A1",
+        "A",
+        "A2",
+        "I"
+      ],
+      "clauses": [
+        "本阶段以第二出发点已解锁为前提。\n• 未开启第2出发点 从1出发\n• AV+LHA>=1 从1出发\n• DE>=2 从1出发\n• BB系>=2 且 低速舰队 从1出发\n• 其余从2出发\n第一出发点：\n• CV+CVB>=1 去A1\n• DD+DE<=1 去A1\n• BB系>=2 且 DD+DE=2 去A1\n• AV+LHA>=2 去A\n• DE>=3 去A\n• DD+DE>=4 去A\n• 其余去A2"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "start",
+      "phase": "gauge3",
+      "destinations": [
+        "A1",
+        "A",
+        "A2",
+        "I"
+      ],
+      "clauses": [
+        "本阶段以第二出发点已解锁为前提。\n• 未开启第2出发点 从1出发\n• AV+LHA>=1 从1出发\n• DE>=2 从1出发\n• BB系>=2 且 低速舰队 从1出发\n• 其余从2出发\n第一出发点：\n• CV+CVB>=1 去A1\n• DD+DE<=1 去A1\n• BB系>=2 且 DD+DE=2 去A1\n• AV+LHA>=2 去A\n• DE>=3 去A\n• DD+DE>=4 去A\n• 其余去A2"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "A",
+      "destinations": [
+        "B",
+        "C2"
+      ],
+      "clauses": [
+        "• BB系+CVL+あきつ丸>=1 去B\n• CA系>=1 且 低速舰队 去B\n• 其余去C2"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "A2",
+      "destinations": [
+        "B",
+        "C"
+      ],
+      "clauses": [
+        "• 低速舰队 去B\n• CV+CVB>=1 去B\n• CA系>=2 去B\n• DD+DE<=1 去B\n• BB系>=1 且 BB系+CVL>=2 且 CL+DD+DE<=3 去B\n• 其余去C"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "B",
+      "destinations": [
+        "C2",
+        "C1",
+        "C"
+      ],
+      "clauses": [
+        "• BBV=2 且 DD+DE=4 去C2\n• CV+CVB>=1 去C1\n• 高速舰队\n• BB系+CVL+あきつ丸<=1 去C\n• AV+LHA>=1 去C\n• CL>=1 且 DD+DE>=2 去C1\n• DD+DE>=4 去C1\n• 其余去C\n\n• 低速舰队\n• BB系+CVL+あきつ丸=0 且 DD+DE>=2 去C\n• BB系+CVL+あきつ丸=1 且 DD+DE=3 去C\n• 其余去C1"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "C1",
+      "destinations": [
+        "C2",
+        "C"
+      ],
+      "clauses": [
+        "• 经过A点的舰队 去C2\n• 其余去C"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "E",
+      "destinations": [
+        "G",
+        "F"
+      ],
+      "clauses": [
+        "• BB系=0：分歧点系数=4，索敌>=58 固定去G\n• BB系>=1：分歧点系数=4，索敌>=65 固定去G\n• 索敌不足 去F"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "I",
+      "destinations": [
+        "J",
+        "O"
+      ],
+      "clauses": [
+        "能動分岐"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "J",
+      "destinations": [
+        "K1",
+        "K"
+      ],
+      "clauses": [
+        "• CV+CVB>=2 且 低速舰队 去K1\n• DD>=2 去K\n• 其余去K1"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "K",
+      "destinations": [
+        "L",
+        "K2"
+      ],
+      "clauses": [
+        "• BB系+CV系<=2 且 CL>=1 且 高速舰队 去L\n• 其余去K2"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "L",
+      "destinations": [
+        "N",
+        "M"
+      ],
+      "clauses": [
+        "• 分歧点系数=4，索敌约>=80 固定去N\n• 索敌不足 去M"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "O",
+      "destinations": [
+        "P",
+        "Q"
+      ],
+      "clauses": [
+        "能動分岐"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "Q",
+      "destinations": [
+        "W",
+        "Q2",
+        "U"
+      ],
+      "clauses": [
+        "• 未开启Q-U、Q-W路线 去Q2\n• 或以上的舰队 去W\n• CL>=1 且 DD>=3 且 高速舰队 去W\n• CV+CVB>=3 去Q2\n• BB系>=2 且 CL=0 去Q2\n• DD<=1 去Q2\n• 其余去U"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "Q",
+      "phase": "gauge2",
+      "destinations": [
+        "Q2"
+      ],
+      "clauses": [
+        "• 未开启Q-U、Q-W路线 去Q2\n• 或以上的舰队 去W\n• CL>=1 且 DD>=3 且 高速舰队 去W\n• CV+CVB>=3 去Q2\n• BB系>=2 且 CL=0 去Q2\n• DD<=1 去Q2\n• 其余去U"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "Q1",
+      "destinations": [
+        "S",
+        "T",
+        "Q2"
+      ],
+      "clauses": [
+        "• 索敌不足 去S\n• DD>=2 去T？\n• 其余去Q2"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "Q2",
+      "destinations": [
+        "T",
+        "V"
+      ],
+      "clauses": [
+        "• 经过P点的舰队 去T\n• 经过Q点的舰队 去V"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "V",
+      "destinations": [
+        "W",
+        "X"
+      ],
+      "clauses": [
+        "• BB系+CV系>=4 去W\n• CV+CVB>=3 去W\n• DD<=1 去W\n• 其余去X"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "X",
+      "destinations": [
+        "Z",
+        "Y"
+      ],
+      "clauses": [
+        "• 分歧点系数=4，索敌约>=88 固定去Z\n• 索敌不足 去Y"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=869961817"
+    },
+    {
+      "from": "A1",
+      "destinations": [
+        "A2"
+      ],
+      "clauses": [
+        "固定连接：游戏路线素材与Wiki海图核对"
+      ]
+    },
+    {
+      "from": "C2",
+      "destinations": [
+        "D"
+      ],
+      "clauses": [
+        "固定连接：游戏路线素材与Wiki海图核对"
+      ]
+    },
+    {
+      "from": "D",
+      "destinations": [
+        "E"
+      ],
+      "clauses": [
+        "固定连接：游戏路线素材与Wiki海图核对"
+      ]
+    },
+    {
+      "from": "C",
+      "destinations": [
+        "H"
+      ],
+      "clauses": [
+        "固定连接：游戏路线素材与Wiki海图核对"
+      ]
+    },
+    {
+      "from": "H",
+      "destinations": [
+        "R"
+      ],
+      "clauses": [
+        "固定连接：游戏路线素材与Wiki海图核对"
+      ]
+    },
+    {
+      "from": "K1",
+      "destinations": [
+        "K"
+      ],
+      "clauses": [
+        "固定连接：游戏路线素材与Wiki海图核对"
+      ]
+    },
+    {
+      "from": "K2",
+      "destinations": [
+        "L"
+      ],
+      "clauses": [
+        "固定连接：游戏路线素材与Wiki海图核对"
+      ]
+    },
+    {
+      "from": "P",
+      "destinations": [
+        "Q1"
+      ],
+      "clauses": [
+        "固定连接：游戏路线素材与Wiki海图核对"
+      ]
+    },
+    {
+      "from": "U",
+      "destinations": [
+        "X"
+      ],
+      "clauses": [
+        "固定连接：游戏路线素材与Wiki海图核对"
+      ]
+    },
+    {
+      "from": "W",
+      "destinations": [
+        "X"
+      ],
+      "clauses": [
+        "固定连接：游戏路线素材与Wiki海图核对"
+      ]
+    }
+  ],
+  "machineRules": {
+    "start": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              11,
+              18
+            ],
+            "min": 1
+          }
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "max": 1
+          }
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12
+                ],
+                "min": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "exact": 2
+              }
+            }
+          ]
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              16,
+              17
+            ],
+            "min": 2
+          }
+        },
+        "to": "A"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1
+            ],
+            "min": 3
+          }
+        },
+        "to": "A"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "min": 4
+          }
+        },
+        "to": "A"
+      },
+      {
+        "when": true,
+        "to": "A2"
+      }
+    ],
+    "start#gauge1": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              11,
+              18
+            ],
+            "min": 1
+          }
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "max": 1
+          }
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12
+                ],
+                "min": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "exact": 2
+              }
+            }
+          ]
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              16,
+              17
+            ],
+            "min": 2
+          }
+        },
+        "to": "A"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1
+            ],
+            "min": 3
+          }
+        },
+        "to": "A"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "min": 4
+          }
+        },
+        "to": "A"
+      },
+      {
+        "when": true,
+        "to": "A2"
+      }
+    ],
+    "start#gimmick": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              11,
+              18
+            ],
+            "min": 1
+          }
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "max": 1
+          }
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12
+                ],
+                "min": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "exact": 2
+              }
+            }
+          ]
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              16,
+              17
+            ],
+            "min": 2
+          }
+        },
+        "to": "A"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1
+            ],
+            "min": 3
+          }
+        },
+        "to": "A"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "min": 4
+          }
+        },
+        "to": "A"
+      },
+      {
+        "when": true,
+        "to": "A2"
+      }
+    ],
+    "start#gauge2": [
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  11,
+                  18
+                ],
+                "min": 1
+              }
+            }
+          ]
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "max": 1
+              }
+            }
+          ]
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "all": [
+                {
+                  "count": {
+                    "stypes": [
+                      8,
+                      9,
+                      10,
+                      12
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1,
+                      2
+                    ],
+                    "exact": 2
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  16,
+                  17
+                ],
+                "min": 2
+              }
+            }
+          ]
+        },
+        "to": "A"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  1
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "A"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 4
+              }
+            }
+          ]
+        },
+        "to": "A"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            true
+          ]
+        },
+        "to": "A2"
+      },
+      {
+        "when": true,
+        "to": "I"
+      }
+    ],
+    "start#gauge3": [
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  11,
+                  18
+                ],
+                "min": 1
+              }
+            }
+          ]
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "max": 1
+              }
+            }
+          ]
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "all": [
+                {
+                  "count": {
+                    "stypes": [
+                      8,
+                      9,
+                      10,
+                      12
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1,
+                      2
+                    ],
+                    "exact": 2
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "to": "A1"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  16,
+                  17
+                ],
+                "min": 2
+              }
+            }
+          ]
+        },
+        "to": "A"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  1
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "A"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 4
+              }
+            }
+          ]
+        },
+        "to": "A"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      16,
+                      17
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 2
+                      }
+                    },
+                    {
+                      "not": {
+                        "speedAtLeast": "fast"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            true
+          ]
+        },
+        "to": "A2"
+      },
+      {
+        "when": true,
+        "to": "I"
+      }
+    ],
+    "A": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              8,
+              9,
+              10,
+              12,
+              7
+            ],
+            "prefixes": [
+              "あきつ丸"
+            ],
+            "min": 1
+          }
+        },
+        "to": "B"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  5,
+                  6
+                ],
+                "min": 1
+              }
+            },
+            {
+              "not": {
+                "speedAtLeast": "fast"
+              }
+            }
+          ]
+        },
+        "to": "B"
+      },
+      {
+        "when": true,
+        "to": "C2"
+      }
+    ],
+    "A2": [
+      {
+        "when": {
+          "not": {
+            "speedAtLeast": "fast"
+          }
+        },
+        "to": "B"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              11,
+              18
+            ],
+            "min": 1
+          }
+        },
+        "to": "B"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              5,
+              6
+            ],
+            "min": 2
+          }
+        },
+        "to": "B"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "max": 1
+          }
+        },
+        "to": "B"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12,
+                  7
+                ],
+                "min": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  3,
+                  1,
+                  2
+                ],
+                "max": 3
+              }
+            }
+          ]
+        },
+        "to": "B"
+      },
+      {
+        "when": true,
+        "to": "C"
+      }
+    ],
+    "B": [
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  10
+                ],
+                "exact": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "exact": 4
+              }
+            }
+          ]
+        },
+        "to": "C2"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              11,
+              18
+            ],
+            "min": 1
+          }
+        },
+        "to": "C1"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "speedAtLeast": "fast"
+            },
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12,
+                  7
+                ],
+                "prefixes": [
+                  "あきつ丸"
+                ],
+                "max": 1
+              }
+            }
+          ]
+        },
+        "to": "C"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "speedAtLeast": "fast"
+            },
+            {
+              "count": {
+                "stypes": [
+                  16,
+                  17
+                ],
+                "min": 1
+              }
+            }
+          ]
+        },
+        "to": "C"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "speedAtLeast": "fast"
+            },
+            {
+              "count": {
+                "stypes": [
+                  3
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 2
+              }
+            }
+          ]
+        },
+        "to": "C1"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "speedAtLeast": "fast"
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 4
+              }
+            }
+          ]
+        },
+        "to": "C1"
+      },
+      {
+        "when": {
+          "speedAtLeast": "fast"
+        },
+        "to": "C"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12,
+                  7
+                ],
+                "prefixes": [
+                  "あきつ丸"
+                ],
+                "exact": 0
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 2
+              }
+            }
+          ]
+        },
+        "to": "C"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12,
+                  7
+                ],
+                "prefixes": [
+                  "あきつ丸"
+                ],
+                "exact": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "exact": 3
+              }
+            }
+          ]
+        },
+        "to": "C"
+      },
+      {
+        "when": true,
+        "to": "C1"
+      }
+    ],
+    "C1": [
+      {
+        "when": {
+          "pathIncludes": "A"
+        },
+        "to": "C2"
+      },
+      {
+        "when": true,
+        "to": "C"
+      }
+    ],
+    "E": [
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12
+                ],
+                "exact": 0
+              }
+            },
+            {
+              "los": {
+                "coefficient": 4,
+                "gte": 58
+              }
+            }
+          ]
+        },
+        "to": "G"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12
+                ],
+                "min": 1
+              }
+            },
+            {
+              "los": {
+                "coefficient": 4,
+                "gte": 65
+              }
+            }
+          ]
+        },
+        "to": "G"
+      },
+      {
+        "when": true,
+        "to": "F"
+      }
+    ],
+    "I": [
+      {
+        "when": true,
+        "uncertain": true,
+        "choices": [
+          {
+            "to": "J"
+          },
+          {
+            "to": "O"
+          }
+        ],
+        "note": "能動分岐（出击者选择）"
+      }
+    ],
+    "J": [
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  11,
+                  18
+                ],
+                "min": 2
+              }
+            },
+            {
+              "not": {
+                "speedAtLeast": "fast"
+              }
+            }
+          ]
+        },
+        "to": "K1"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              2
+            ],
+            "min": 2
+          }
+        },
+        "to": "K"
+      },
+      {
+        "when": true,
+        "to": "K1"
+      }
+    ],
+    "K": [
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12,
+                  7,
+                  11,
+                  18
+                ],
+                "max": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  3
+                ],
+                "min": 1
+              }
+            },
+            {
+              "speedAtLeast": "fast"
+            }
+          ]
+        },
+        "to": "L"
+      },
+      {
+        "when": true,
+        "to": "K2"
+      }
+    ],
+    "L": [
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "gte": 80
+          }
+        },
+        "to": "N"
+      },
+      {
+        "when": true,
+        "to": "M"
+      }
+    ],
+    "O": [
+      {
+        "when": true,
+        "uncertain": true,
+        "choices": [
+          {
+            "to": "P"
+          },
+          {
+            "to": "Q"
+          }
+        ],
+        "note": "能動分岐（出击者选择）"
+      }
+    ],
+    "Q": [
+      {
+        "when": {
+          "speedAtLeast": "fastPlus"
+        },
+        "to": "W"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  3
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  2
+                ],
+                "min": 3
+              }
+            },
+            {
+              "speedAtLeast": "fast"
+            }
+          ]
+        },
+        "to": "W"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              11,
+              18
+            ],
+            "min": 3
+          }
+        },
+        "to": "Q2"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12
+                ],
+                "min": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  3
+                ],
+                "exact": 0
+              }
+            }
+          ]
+        },
+        "to": "Q2"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              2
+            ],
+            "max": 1
+          }
+        },
+        "to": "Q2"
+      },
+      {
+        "when": true,
+        "to": "U"
+      }
+    ],
+    "Q#gauge2": [
+      {
+        "when": true,
+        "to": "Q2"
+      }
+    ],
+    "Q1": [
+      {
+        "when": {
+          "unknown": "Q1点索敌门槛尚未明确"
+        },
+        "to": "S"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              2
+            ],
+            "min": 2
+          }
+        },
+        "to": "T"
+      },
+      {
+        "when": true,
+        "to": "Q2"
+      }
+    ],
+    "Q2": [
+      {
+        "when": {
+          "pathIncludes": "P"
+        },
+        "to": "T"
+      },
+      {
+        "when": {
+          "pathIncludes": "Q"
+        },
+        "to": "V"
+      }
+    ],
+    "V": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              8,
+              9,
+              10,
+              12,
+              7,
+              11,
+              18
+            ],
+            "min": 4
+          }
+        },
+        "to": "W"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              11,
+              18
+            ],
+            "min": 3
+          }
+        },
+        "to": "W"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              2
+            ],
+            "max": 1
+          }
+        },
+        "to": "W"
+      },
+      {
+        "when": true,
+        "to": "X"
+      }
+    ],
+    "X": [
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "gte": 88
+          }
+        },
+        "to": "Z"
+      },
+      {
+        "when": true,
+        "to": "Y"
+      }
+    ]
+  },
+  "fixedEdges": {
+    "A1": "A2",
+    "C2": "D",
+    "D": "E",
+    "C": "H",
+    "H": "R",
+    "K1": "K",
+    "K2": "L",
+    "P": "Q1",
+    "U": "X",
+    "W": "X"
+  },
+  "deadEnds": [
+    "F",
+    "M",
+    "R",
+    "S",
+    "T",
+    "Y",
+    "Q2#gauge2"
+  ],
+  "unavailableByPhase": {
+    "gauge1": [
+      "H",
+      "R",
+      "I",
+      "J",
+      "K",
+      "K1",
+      "K2",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "Q1",
+      "Q2",
+      "S",
+      "T",
+      "U",
+      "V",
+      "W",
+      "X",
+      "Y",
+      "Z"
+    ],
+    "gimmick": [
+      "I",
+      "J",
+      "K",
+      "K1",
+      "K2",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "Q1",
+      "Q2",
+      "S",
+      "T",
+      "U",
+      "V",
+      "W",
+      "X",
+      "Y",
+      "Z"
+    ],
+    "gauge2": [
+      "S",
+      "T",
+      "U",
+      "V",
+      "W",
+      "X",
+      "Y",
+      "Z"
+    ]
+  },
+  "graphComplete": true,
+  "evaluation": {
+    "mode": "reviewedMachineRules",
+    "notes": [
+      "所选阶段表示规划前提，不执行或自动判断解锁。Q1索敌数值仍未知。"
+    ]
+  },
+  "ngaReview": {
+    "date": "2026-10-14",
+    "priority": "用户指定NGA原文为主来源",
+    "changedNodes": [],
+    "addedNodes": [
+      "start",
+      "start#gauge1",
+      "start#gimmick",
+      "start#gauge2",
+      "start#gauge3",
+      "A",
+      "A2",
+      "B",
+      "C1",
+      "E",
+      "I",
+      "J",
+      "K",
+      "L",
+      "O",
+      "Q",
+      "Q#gauge2",
+      "Q1",
+      "Q2",
+      "V",
+      "X"
+    ],
+    "referenceNotes": [
+      "Q1索敌门槛未给出，不猜数值。"
+    ],
+    "supplementaryNodes": [
+      "A1",
+      "C2",
+      "D",
+      "C",
+      "H",
+      "K1",
+      "K2",
+      "P",
+      "U",
+      "W",
+      "I",
+      "O"
+    ]
+  },
+  "airControl": {
+    "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-6",
+    "coverage": "routeEncounterTables",
+    "profiles": [
+      {
+        "id": "gauge1C",
+        "node": "C",
+        "label": "C 点",
+        "phase": "gauge1",
+        "superiority": 254,
+        "supremacy": 507
+      },
+      {
+        "id": "gauge1C1",
+        "node": "C1",
+        "label": "C1 点",
+        "phase": "gauge1",
+        "superiority": 254,
+        "supremacy": 507
+      },
+      {
+        "id": "gauge1D",
+        "node": "D",
+        "label": "D 点",
+        "phase": "gauge1",
+        "superiority": 254,
+        "supremacy": 507
+      },
+      {
+        "id": "gauge1G",
+        "node": "G",
+        "label": "G 点",
+        "phase": "gauge1",
+        "superiority": 174,
+        "supremacy": 348
+      },
+      {
+        "id": "gauge2L",
+        "node": "L",
+        "label": "L 点",
+        "phase": "gauge2",
+        "superiority": 324,
+        "supremacy": 648
+      },
+      {
+        "id": "gauge2N",
+        "node": "N",
+        "label": "N 点",
+        "phase": "gauge2",
+        "superiority": 485,
+        "supremacy": 969
+      },
+      {
+        "id": "gauge3X",
+        "node": "X",
+        "label": "X 点",
+        "phase": "gauge3",
+        "superiority": 653,
+        "supremacy": 1305
+      },
+      {
+        "id": "gauge3Z",
+        "node": "Z",
+        "label": "Z 点",
+        "phase": "gauge3",
+        "superiority": 653,
+        "supremacy": 1305
+      }
+    ]
+  }
+}

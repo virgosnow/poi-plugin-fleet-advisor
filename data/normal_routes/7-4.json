@@ -1,0 +1,960 @@
+{
+  "area": "7-4",
+  "source": {
+    "url": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-4",
+    "branchSectionSha256": "3d56b1b1809f985b68184831fbf6a1ae66f0bd8f6e6d4316f0f5f726958591c7",
+    "previousUrl": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-4",
+    "authority": "nga-16820397",
+    "postUrl": "https://bbs.nga.cn/read.php?pid=577131071",
+    "threadUrl": "https://bbs.nga.cn/read.php?tid=16820397",
+    "postId": 577131071,
+    "capturedDate": "2026-10-13",
+    "bodySha256": "2958e8d5afa759ee223c7b210d4600491c8348a9ea4a262a8029fe52cb15c5c3",
+    "snapshotSha256": "34ede676cbe1f4a8f2dade1a6bcbfa3bcb8f8b9d59757c6f391aa2932bccdc2a"
+  },
+  "bossNodes": [
+    "P"
+  ],
+  "terminalNodes": [],
+  "branchPoints": [
+    {
+      "from": "start",
+      "destinations": [
+        "C",
+        "A"
+      ],
+      "clauses": [
+        "• SS系>=1 去C\n• BB+FBB+CV+CVB>=1 去C\n• CA系>=2 去C\n• CL系>=2 去C\n• LHA>=1 且 DD+DE>=3 且 DE>=2 去A\n• BBV+CVL+あきつ丸>=3 去C\n• DD+DE>=3 去A\n• DE>=2 去A\n• 其余去C"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=577131071"
+    },
+    {
+      "from": "C",
+      "destinations": [
+        "D",
+        "E"
+      ],
+      "clauses": [
+        "• SS系>=1 去D\n• BB+FBB+CV+CVB>=1 去D\n• CVL+あきつ丸>=3 去D\n• DD+DE>=4 去E\n• DD+DE>=3 且 CT>=1 去E\n• DE>=3 去E\n• DD>=2 且 [高速+]以上舰队 去E\n• 其余去D"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=577131071"
+    },
+    {
+      "from": "E",
+      "destinations": [
+        "J",
+        "G"
+      ],
+      "clauses": [
+        "• CVL+あきつ丸>=2 去J\n• AO+LHA=0 去J\n• 大鹰级+AO+LHA+CT+DD+DE<=5 去J\n• DE>=4 去G\n• CT>=1 且 DE>=3 去G \n• 其余去J"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=577131071"
+    },
+    {
+      "from": "F",
+      "destinations": [
+        "H",
+        "J"
+      ],
+      "clauses": [
+        "能動分岐"
+      ]
+    },
+    {
+      "from": "G",
+      "destinations": [
+        "I",
+        "L"
+      ],
+      "clauses": [
+        "• 分歧点系数=4\n索敌>=37？ 去L\n33<=索敌<37？ 随机去I/L\n索敌<33？ 去I\n(此处司令部系数应该是0.35，司令部等级115、112、110及以下需要多配索敌)"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=577131071"
+    },
+    {
+      "from": "J",
+      "destinations": [
+        "K",
+        "P",
+        "L"
+      ],
+      "clauses": [
+        "• 分歧点系数=4\n索敌<33 去K\n33<=索敌<37 随机去K\n去K判定失败 或 索敌>=37 继续下面的判定\n(此处司令部系数应该是0.35，司令部等级115、112、110及以下需要多配索敌)\n• 经过F点的舰队 去K\n• 舰队只包含DE 去P？\n• 舰队船数=3 且 DD=1 且 DE=2 去P？\n• 舰队船数=4 且 大鹰级=1 且 DE=3 去P？\n• 舰队船数=5\n• 大鹰级+CT+DD+DE=5 且 大鹰级=1 且 DE>=3 去P？\n• 大鹰级+CT+DD+DE=5 且 DD=1 且 DE>=3 去P？\n• 其余去L"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=577131071"
+    },
+    {
+      "from": "K",
+      "destinations": [
+        "M"
+      ],
+      "clauses": [
+        "• 目前全部K-M，没有K-P的数据"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=577131071"
+    },
+    {
+      "from": "M",
+      "destinations": [
+        "P",
+        "N",
+        "O"
+      ],
+      "clauses": [
+        "• CT=1 且 DE>=3 且 大鹰级+CT+DD+DE=5 且 舰队船数=5 去P？\n• 分歧点系数=4\n索敌<45 去N\n45<=索敌<47 随机去N\n去N判定失败 或 索敌>=47 继续下面的判定\n(此处司令部系数应该是0.35，司令部等级115、112、110及以下需要多配索敌)\n• 索敌不足 去O\n(此处分歧点系数=4的索敌可能要57才能固定不去O)\n• BB+CV+CVB>=1 去O\n• FBB>=2 去O\n• BBV>=2 去O\n• CVL+あきつ丸>=2 去O\n• AV>=2 去O\n• CA系>=3 去O\n• DD+DE<=1 去O\n• 其余去P"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=577131071"
+    }
+  ],
+  "evaluation": "reviewed",
+  "machineRules": {
+    "start": [
+      {
+        "when": {
+          "any": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  12
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "groups": [
+                  "fleetCarrier"
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  13,
+                  14
+                ],
+                "min": 1
+              }
+            }
+          ]
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-4 start · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "heavyCruiser"
+            ],
+            "min": 2
+          }
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-4 start · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              3,
+              21,
+              4
+            ],
+            "min": 2
+          }
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-4 start · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  17
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1
+                ],
+                "min": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "A",
+        "note": "NGA 地图配置2.0 · 7-4 start · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              10,
+              7
+            ],
+            "prefixes": [
+              "あきつ丸"
+            ],
+            "min": 3
+          }
+        },
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-4 start · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1,
+              2
+            ],
+            "min": 3
+          }
+        },
+        "to": "A",
+        "note": "NGA 地图配置2.0 · 7-4 start · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1
+            ],
+            "min": 2
+          }
+        },
+        "to": "A",
+        "note": "NGA 地图配置2.0 · 7-4 start · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": "otherwise",
+        "to": "C",
+        "note": "NGA 地图配置2.0 · 7-4 start · https://bbs.nga.cn/read.php?pid=577131071"
+      }
+    ],
+    "C": [
+      {
+        "when": {
+          "any": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  12
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "groups": [
+                  "fleetCarrier"
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  13,
+                  14
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  7
+                ],
+                "prefixes": [
+                  "あきつ丸"
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-4 C · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "any": [
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "min": 4
+              }
+            },
+            {
+              "all": [
+                {
+                  "count": {
+                    "stypes": [
+                      21
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1,
+                      2
+                    ],
+                    "min": 3
+                  }
+                }
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  1
+                ],
+                "min": 3
+              }
+            },
+            {
+              "all": [
+                {
+                  "speedAtLeast": "fastPlus"
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      2
+                    ],
+                    "min": 2
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 7-4 C · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": "otherwise",
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 7-4 C · https://bbs.nga.cn/read.php?pid=577131071"
+      }
+    ],
+    "E": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              7
+            ],
+            "prefixes": [
+              "あきつ丸"
+            ],
+            "min": 2
+          }
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-4 E · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              22,
+              17
+            ],
+            "exact": 0
+          }
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-4 E · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              22,
+              17,
+              21,
+              2,
+              1
+            ],
+            "prefixes": [
+              "春日丸",
+              "大鷹",
+              "八幡丸",
+              "雲鷹",
+              "冲鷹"
+            ],
+            "max": 5
+          }
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-4 E · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              1
+            ],
+            "min": 4
+          }
+        },
+        "to": "G",
+        "note": "NGA 地图配置2.0 · 7-4 E · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  21
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "G",
+        "note": "NGA 地图配置2.0 · 7-4 E · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": "otherwise",
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 7-4 E · https://bbs.nga.cn/read.php?pid=577131071"
+      }
+    ],
+    "F": [
+      {
+        "when": true,
+        "uncertain": true,
+        "choices": [
+          {
+            "to": "H"
+          },
+          {
+            "to": "J"
+          }
+        ],
+        "note": "能動分岐（出撃者の選択）"
+      }
+    ],
+    "G": [
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "lt": 33
+          }
+        },
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 7-4 G · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "gte": 33,
+            "lt": 37
+          }
+        },
+        "choices": [
+          {
+            "to": "I"
+          },
+          {
+            "to": "L"
+          }
+        ],
+        "note": "NGA 地图配置2.0 · 7-4 G · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "gte": 37
+          }
+        },
+        "to": "L",
+        "note": "NGA 地图配置2.0 · 7-4 G · https://bbs.nga.cn/read.php?pid=577131071"
+      }
+    ],
+    "J": [
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "lt": 33
+          }
+        },
+        "to": "K",
+        "note": "NGA 地图配置2.0 · 7-4 J · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "gte": 33,
+            "lt": 37
+          }
+        },
+        "to": "K",
+        "chance": 0.5,
+        "note": "NGA 地图配置2.0 · 7-4 J · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "pathIncludes": "F"
+        },
+        "to": "K",
+        "note": "NGA 地图配置2.0 · 7-4 J · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "any": [
+            {
+              "allStypes": [
+                1
+              ]
+            },
+            {
+              "all": [
+                {
+                  "shipCount": {
+                    "exact": 3
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      2
+                    ],
+                    "exact": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "exact": 2
+                  }
+                }
+              ]
+            },
+            {
+              "all": [
+                {
+                  "shipCount": {
+                    "exact": 4
+                  }
+                },
+                {
+                  "count": {
+                    "prefixes": [
+                      "春日丸",
+                      "大鷹",
+                      "八幡丸",
+                      "雲鷹",
+                      "冲鷹"
+                    ],
+                    "exact": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "exact": 3
+                  }
+                }
+              ]
+            },
+            {
+              "all": [
+                {
+                  "shipCount": {
+                    "exact": 5
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      21,
+                      2,
+                      1
+                    ],
+                    "prefixes": [
+                      "春日丸",
+                      "大鷹",
+                      "八幡丸",
+                      "雲鷹",
+                      "冲鷹"
+                    ],
+                    "exact": 5
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      1
+                    ],
+                    "min": 3
+                  }
+                },
+                {
+                  "any": [
+                    {
+                      "count": {
+                        "prefixes": [
+                          "春日丸",
+                          "大鷹",
+                          "八幡丸",
+                          "雲鷹",
+                          "冲鷹"
+                        ],
+                        "exact": 1
+                      }
+                    },
+                    {
+                      "count": {
+                        "stypes": [
+                          2
+                        ],
+                        "exact": 1
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "to": "P",
+        "note": "NGA 地图配置2.0 · 7-4 J · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": true,
+        "to": "L",
+        "note": "NGA 地图配置2.0 · 7-4 J · https://bbs.nga.cn/read.php?pid=577131071"
+      }
+    ],
+    "M": [
+      {
+        "when": {
+          "all": [
+            {
+              "shipCount": {
+                "exact": 5
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  21
+                ],
+                "exact": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1
+                ],
+                "min": 3
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  21,
+                  2,
+                  1
+                ],
+                "prefixes": [
+                  "春日丸",
+                  "大鷹",
+                  "八幡丸",
+                  "雲鷹",
+                  "冲鷹"
+                ],
+                "exact": 5
+              }
+            }
+          ]
+        },
+        "to": "P",
+        "note": "NGA 地图配置2.0 · 7-4 M · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "lt": 45
+          }
+        },
+        "to": "N",
+        "note": "NGA 地图配置2.0 · 7-4 M · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "gte": 45,
+            "lt": 47
+          }
+        },
+        "to": "N",
+        "chance": 0.5,
+        "note": "NGA 地图配置2.0 · 7-4 M · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "los": {
+            "coefficient": 4,
+            "lt": 57
+          }
+        },
+        "to": "O",
+        "note": "NGA 地图配置2.0 · 7-4 M · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": {
+          "any": [
+            {
+              "count": {
+                "groups": [
+                  "slowBattleship",
+                  "fleetCarrier"
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  8
+                ],
+                "min": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  10
+                ],
+                "min": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  7
+                ],
+                "prefixes": [
+                  "あきつ丸"
+                ],
+                "min": 2
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  16
+                ],
+                "min": 2
+              }
+            },
+            {
+              "count": {
+                "groups": [
+                  "heavyCruiser"
+                ],
+                "min": 3
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  1,
+                  2
+                ],
+                "max": 1
+              }
+            }
+          ]
+        },
+        "to": "O",
+        "note": "NGA 地图配置2.0 · 7-4 M · https://bbs.nga.cn/read.php?pid=577131071"
+      },
+      {
+        "when": true,
+        "to": "P",
+        "note": "NGA 地图配置2.0 · 7-4 M · https://bbs.nga.cn/read.php?pid=577131071"
+      }
+    ],
+    "K": [
+      {
+        "when": true,
+        "to": "M",
+        "note": "NGA 地图配置2.0 · 7-4 K · https://bbs.nga.cn/read.php?pid=577131071"
+      }
+    ]
+  },
+  "graphComplete": true,
+  "fixedEdges": {
+    "A": "B",
+    "B": "E",
+    "D": "F",
+    "L": "P",
+    "H": "K"
+  },
+  "deadEnds": [
+    "I",
+    "N",
+    "O"
+  ],
+  "reviewNotes": [
+    "2026-09-24 wikiwiki map: H→K is fixed; K has arrows to both M and P, with branching conditions unknown.",
+    "https://cdn.wikiwiki.jp/to/w/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-4/::attach/7-4.jpg?rev=a93c0ee230669e4a8eced31ef2058fef&t=20211229023940",
+    "2026-10-13 采用用户提供的完整中文带路表（HTML摘录，未附URL）：G 系数4下限33/上限37；K 仅 M；补全 E 练巡、C 最速、J/M 护航特例和 M 索敌57与舰种优先级。问号数字按当前参考值，未给出的随机比例按所选出口50%。原始来源的 K→P 不再参与路线判断。司令部低于120沿用统一额外索敌余量，未将标准33式的司令部系数全局改为0.35。"
+  ],
+  "airControl": {
+    "source": "user-provided-quick-reference-2026-09-24",
+    "coverage": "quickReferenceNotExhaustive",
+    "profiles": [
+      {
+        "id": "raidNormal",
+        "label": "空袭点：磨血及斩后",
+        "superiority": 321,
+        "supremacy": 642,
+        "bossState": "normalOrCleared",
+        "node": "E",
+        "route": "recommended"
+      },
+      {
+        "id": "raidFinal",
+        "label": "空袭点：斩杀",
+        "superiority": 359,
+        "supremacy": 717,
+        "bossState": "final",
+        "node": "E",
+        "route": "recommended"
+      },
+      {
+        "id": "bossNormal",
+        "label": "Boss：磨血及斩后",
+        "superiority": 146,
+        "supremacy": 291,
+        "bossState": "normalOrCleared"
+      },
+      {
+        "id": "bossFinal",
+        "label": "Boss：斩杀",
+        "superiority": 236,
+        "supremacy": 471,
+        "bossState": "final"
+      },
+      {
+        "id": "detourH",
+        "label": "绕路 H 点最高编成",
+        "superiority": 519,
+        "supremacy": 1038,
+        "node": "H",
+        "route": "detour",
+        "source": "wikiwiki"
+      },
+      {
+        "id": "detourM",
+        "label": "绕路 M 点最高编成",
+        "superiority": 549,
+        "supremacy": 1098,
+        "node": "M",
+        "route": "detour",
+        "source": "wikiwiki"
+      }
+    ],
+    "notes": [
+      "速查表空袭线适用于推荐路线 E 点；日文 Wiki 的绕路 H/M 点敌制空更高，已单独列出。"
+    ]
+  },
+  "incompatiblePathSegments": [
+    {
+      "nodes": [
+        "start",
+        "C",
+        "E",
+        "G"
+      ],
+      "reason": "E→G 限定补给/扬陆与海防或练巡护航六舰组合，这种组合出发固定 A。",
+      "source": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-4",
+      "reviewed": "2026-10-09"
+    },
+    {
+      "nodes": [
+        "start",
+        "C",
+        "E",
+        "J",
+        "P"
+      ],
+      "reason": "J→P允许的海防/驱逐/大鹰型/练巡组合不能同时满足出发C及C→E；经C到J需走L/K。",
+      "source": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-4",
+      "reviewed": "2026-10-09"
+    }
+  ],
+  "ruleReview": {
+    "date": "2026-10-13",
+    "source": "用户提供的7-4完整中文带路表（HTML摘录，未附URL）",
+    "scope": "按条目顺序更新 start/C/E/G/J/K/M；保留 F 能动分歧"
+  },
+  "ngaReview": {
+    "date": "2026-10-13",
+    "priority": "用户指定为带路条件主来源，覆盖此前中日文差异取舍",
+    "changedNodes": [
+      "J",
+      "M"
+    ],
+    "referenceNotes": [
+      "37/47/57采用表内现行数字；司令部0.35注释保留。计算沿用标准33式0.4与低司令部余量，未重复叠加两套口径。"
+    ],
+    "supplementaryNodes": [
+      "F"
+    ]
+  }
+}

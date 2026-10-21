@@ -1,0 +1,20 @@
+NO.,一番艦,,二番艦,,三番艦,,回数,発動率,95%CI下限,95%CI上限,テスト場所,検証人,ソース,NT式仮定発動率,修正式?
+,LV,運,LV,運,LV,運,,,,,,,,,
+1,99,40,99,8,99,13,500,56.60%,52.26%,60.94%,1-2,kingzerox ,https://bbs.nga.cn/read.php?pid=601890791&opt=128,61,57
+2,139~140,110,153,108,153~154,98,500,78.60%,75.01%,82.19%,1-1,raven147,https://bbs.nga.cn/read.php?tid=29030351,81,77
+3,129,43,157,73,142,39,502,72.31%,68.40%,76.22%,1-1,くろ,https://docs.google.com/spreadsheets/d/1uKRtDv8xs30MRRPatL1CA-mUOQTS0-mBGN3McNM4tjY/edit#gid=1538591739,73,69
+4,129,43,157,73,142,39,300,71.67%,66.57%,76.77%,1-1,くろ,https://docs.google.com/spreadsheets/d/1uKRtDv8xs30MRRPatL1CA-mUOQTS0-mBGN3McNM4tjY/edit#gid=1538591739,73,69
+5,129,43,147,19,145,46,500,61.20%,56.93%,65.47%,1-1,くろ,https://docs.google.com/spreadsheets/d/1uKRtDv8xs30MRRPatL1CA-mUOQTS0-mBGN3McNM4tjY/edit#gid=1538591739,71,67
+6,129~130,43,11~15,30,11~15,30,333,55.86%,50.53%,61.19%,1-1,くろ,https://docs.google.com/spreadsheets/d/1uKRtDv8xs30MRRPatL1CA-mUOQTS0-mBGN3McNM4tjY/edit#gid=1538591739,53~54,49~50
+7,,,,,,,,,#DIV/0!,#DIV/0!,,,,,
+8,,,,,,,,,#DIV/0!,#DIV/0!,,,,,
+9,,,,,,,,,#DIV/0!,#DIV/0!,,,,,
+10,,,,,,,,,#DIV/0!,#DIV/0!,,,,,
+11,,,,,,,,,#DIV/0!,#DIV/0!,,,,,
+12,,,,,,,,,#DIV/0!,#DIV/0!,,,,,
+13,,,,,,,,,#DIV/0!,#DIV/0!,,,,,
+14,,,,,,,,,#DIV/0!,#DIV/0!,,,,,
+15,,,,,,,,,#DIV/0!,#DIV/0!,,,,,
+16,,,,,,,,,#DIV/0!,#DIV/0!,,,,,
+17,,,,,,,,,#DIV/0!,#DIV/0!,,,,,
+18,,,,,,,,,#DIV/0!,#DIV/0!,,,,,

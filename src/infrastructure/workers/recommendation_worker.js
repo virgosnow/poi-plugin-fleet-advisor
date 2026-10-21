@@ -1,0 +1,112 @@
+'use strict';
+const {Worker,isMainThread,parentPort,workerData}=require('worker_threads');
+const METHODS=new Set(['recommendNormalFleet','recommendNormalEquipment','recommendExpeditionFleet','recommendExpeditionEquipment']);
+const cancelled=()=>Object.assign(Error('推荐计算已取消'),{code:'RECOMMENDATION_CANCELLED'});
+
+// The existing worker computes success while ONE child computes great success.
+// No idle third coordinator, and only the owner persists shared cache tables.
+async function parallelExpeditionGoals(store,args,{scope=fn=>fn(),cache={},createWorker=(file,options)=>new Worker(file,options)}={}){
+  const worker=createWorker(__filename,{workerData:{kind:'expedition-goal',store,args:{...args,goal:'great'},
+    cacheDirectory:cache.cacheDirectory,version:cache.version,cacheMaxBytes:cache.cacheMaxBytes}});
+  const pending=new Promise((resolve,reject)=>{
+    let settled=false;
+    const finish=(error,message)=>{if(settled)return;settled=true;error?reject(error):resolve(message);};
+    worker.once('message',message=>finish(message.ok?null:Object.assign(Error(message.error.message),message.error),message));
+    worker.once('error',error=>finish(error));
+    worker.once('exit',code=>finish(Error(`远征计算线程提前退出（${code}）`)));
+  });
+  // A local failure must still stop/drain the child without an unhandled rejection.
+  pending.catch(()=>{});
+  try{
+    const success=scope(()=>require('../../recommendation/index').recommendExpeditionFleet(store,{...args,goal:'success'}));
+    const message=await pending;
+    cache.mergeEquipmentEntries?.(message.equipment||[]);
+    cache.mergeHullEntries?.(message.hulls||[]);
+    return {success,great:message.result};
+  }finally{await worker.terminate();}
+}
+
+if(!isMainThread&&workerData?.kind==='expedition-goal'){
+  try{
+    const {CalculationCache,withCalculationCache}=require('../../shared/calculation_cache');
+    const {RecommendationCache}=require('../cache/recommendation_cache');
+    const storage=workerData.cacheDirectory?new RecommendationCache(workerData.cacheDirectory,{version:workerData.version,maxBytes:workerData.cacheMaxBytes}):null;
+    if(storage)storage.write=()=>{};
+    const cache=storage?new CalculationCache(storage):null;
+    const calculate=()=>require('../../recommendation/index').recommendExpeditionFleet(workerData.store,workerData.args);
+    const result=cache?withCalculationCache(cache,calculate,{flush:false}):calculate();
+    parentPort.postMessage({ok:true,result,equipment:cache?.equipmentEntries()||[],hulls:cache?.hullEntries()||[]});
+  }catch(e){parentPort.postMessage({ok:false,error:{message:e.message,code:e.code,stack:e.stack}});}
+}
+
+// Pure calculations only: snapshots cross the thread boundary, never the live
+// controller, game bridge or account-storage service.
+if(!isMainThread&&workerData?.kind==='fleet-recommendation')(async()=>{
+  try{
+    if(!METHODS.has(workerData.method))throw Error('Unsupported recommendation method');
+    const result=workerData.method==='recommendNormalFleet'?await require('../cache/recommendation_cache').cachedRecommendationAsync(
+      workerData.cacheDir,workerData.method,workerData.store,workerData.args,async(scope,cache)=>{
+        const {RecommendationPool}=require('./recommendation_pool');
+        const pool=new RecommendationPool(workerData.store,{...cache,
+          size:require('../../config/computation_settings').resources(workerData.settings).effectiveThreads});
+        try{
+          const result=await require('../../recommendation/index').recommendNormalFleetParallel(workerData.store,workerData.args,
+            (batch,fallback)=>pool.run(batch,fallback),scope);
+          await pool.flush();return result;
+        }
+        finally{await pool.dispose();}
+      },workerData.settings):workerData.method==='recommendExpeditionFleet'?
+      await require('../cache/recommendation_cache').cachedExpeditionRecommendationAsync(workerData.cacheDir,workerData.store,workerData.args,
+        (args,scope,cache)=>require('../../config/computation_settings').resources(workerData.settings).effectiveExpeditionThreads===1?
+          scope(()=>require('../../recommendation/index').recommendExpeditionGoals(workerData.store,args)):
+          parallelExpeditionGoals(workerData.store,args,{scope,cache}),workerData.settings):
+      require('../cache/recommendation_cache').cachedRecommendation(workerData.cacheDir,
+      workerData.method,workerData.store,workerData.args,
+      ()=>require('../../recommendation/index')[workerData.method](workerData.store,workerData.args),workerData.settings);
+    parentPort.postMessage({ok:true,result});
+  }catch(e){parentPort.postMessage({ok:false,error:{message:e.message,code:e.code,stack:e.stack}});}
+})();
+
+class RecommendationWorker {
+  constructor({createWorker=(filename,options)=>new Worker(filename,options),cacheDir,getSettings=()=>undefined}={}){
+    this.createWorker=createWorker;this.cacheDir=cacheDir;this.pending=Promise.resolve();this.active=null;this.closed=false;
+    this.getSettings=getSettings;this.queued=0;
+  }
+  // Cache maintenance uses this same queue, so an older search cannot refill
+  // files immediately after the user has cleared them.
+  maintain(operation){return this.enqueue(operation);}
+  enqueue(operation){
+    if(this.closed)return Promise.reject(cancelled());
+    this.queued++;
+    const task=this.pending.then(()=>{if(this.closed)throw cancelled();return operation();});
+    const tracked=task.finally(()=>{this.queued--;});
+    this.pending=tracked.catch(()=>{});return tracked;
+  }
+  run(method,store,args){
+    if(this.closed)return Promise.reject(cancelled());
+    if(!METHODS.has(method))return Promise.reject(Error('Unsupported recommendation method'));
+    // Serialize heavy work from different tabs/MCP callers to avoid CPU spikes.
+    return this.enqueue(()=>{
+      return new Promise((resolve,reject)=>{
+        const settings=require('../../config/computation_settings').normalize(this.getSettings());
+        const worker=this.createWorker(__filename,{workerData:{kind:'fleet-recommendation',method,store,args,cacheDir:this.cacheDir,settings}});
+        let settled=false;
+        const finish=(reason,result)=>{
+          if(settled)return;settled=true;this.active=null;
+          reason?reject(reason):resolve(result);
+        };
+        this.active={worker,cancel:()=>finish(cancelled())};
+        worker.once('message',message=>finish(message.ok?null:Object.assign(Error(message.error.message),message.error),message.result));
+        worker.once('error',e=>finish(e));
+        worker.once('exit',code=>finish(Error(`推荐线程提前退出（${code}）`)));
+      });
+    });
+  }
+  async dispose(){
+    this.closed=true;
+    const active=this.active;
+    if(active){active.cancel();await active.worker.terminate();}
+    await this.pending;
+  }
+}
+module.exports={RecommendationWorker,parallelExpeditionGoals};

@@ -1,0 +1,4 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');const {Observer}=require('../../src/vision/observers');
+const obs=new Observer(),frame=n=>fs.readFileSync(__dirname+'/../fixtures/'+n+'.png');
+for(const [name,mode] of [['borrow/stock','stock'],['borrow/others','others'],['borrow/others-page2','others']])test('fresh picker mode '+name,async()=>{assert.deepEqual(await obs.observe('equipmode',frame(name)),{valid:true,mode});});
+test('native transfer confirmation matches only the final modal',async()=>{assert((await obs.observe('borrowconfirm',frame('borrow/confirm'))).valid);for(const name of ['borrow/stock','borrow/others','equip/confirm'])assert(!(await obs.observe('borrowconfirm',frame(name))).valid);assert(!(await obs.observe('equipmode',frame('borrow/confirm'))).valid);});

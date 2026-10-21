@@ -1,0 +1,46 @@
+{
+  "repository": "https://github.com/KagamiChan/kcs2-mapdata",
+  "commit": "796a7564eac5de79d32ae0e086a673052ee65ad0",
+  "imageUrl": "https://raw.githubusercontent.com/KagamiChan/kcs2-mapdata/796a7564eac5de79d32ae0e086a673052ee65ad0/data/map_common.png",
+  "atlasUrl": "https://raw.githubusercontent.com/KagamiChan/kcs2-mapdata/796a7564eac5de79d32ae0e086a673052ee65ad0/data/map_common.json",
+  "imageSha256": "6277315bc3e07e7f5ecb30b20b6de8927dafa831ff15343faf1c0ab9b7f3df3c",
+  "atlasSha256": "089228ae93277ce674c4bc3edb3ab52d57f962844b96d4fb78dd24c6e951a271",
+  "bossFrame": "map_common_120",
+  "startFrame": "map_common_125",
+  "note": "Original game Boss bull-head and departure wheel symbols. Runtime PNG retains the original canvas size, sprite coordinates, used sprite pixels and two pixels of source interpolation padding; unused regions are transparent. Original PNG and atlas hashes remain above; runtimeAtlas records unchanged used frames and original sprite pixel hashes, imageEncoding records the runtime PNG identity. Artwork rights follow SOURCE_LICENSE and THIRD_PARTY.md.",
+  "runtimeAtlas": {
+    "size": {
+      "w": 2834,
+      "h": 2782
+    },
+    "frames": {
+      "map_common_120": {
+        "x": 1014,
+        "y": 2640,
+        "w": 58,
+        "h": 61
+      },
+      "map_common_125": {
+        "x": 1401,
+        "y": 2542,
+        "w": 90,
+        "h": 90
+      }
+    },
+    "frameRgbaSha256": {
+      "map_common_120": "18a0843a31067f44322d3be0a8a5e8bd9a662c766d821e60db758e1ff3d339b7",
+      "map_common_125": "bd5391ea8037d44a4e64d2c2ccb28167e65e548f25ffc4b2437d901aa8912a9a"
+    },
+    "originalRgbaSha256": "793ab8d30c5a9457548de694117d2bec2f9583c1b306efb64b88a0e72f55b588"
+  },
+  "image": "map_common.png",
+  "imageEncoding": {
+    "format": "png-lossless",
+    "exact": true,
+    "sha256": "3268da7ced4da4618cb0aef89a2d405a697e7fdd0a077d10964f4e35bde0133d",
+    "rgbaSha256": "43bbba19ef29db7535eb223586c28b61fbb2a3685760889f9199ab4c78c2ee80",
+    "sourceFile": "map_common.png",
+    "sourceBytes": 6385346,
+    "bytes": 46760
+  }
+}

@@ -1,0 +1,594 @@
+{
+  "area": "6-4",
+  "source": {
+    "url": "https://zh.kcwiki.cn/wiki/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-4",
+    "branchSectionSha256": "4bd77aacbdfe5b6333d559dc67588e0950d278680779a10954d0ebc471b4e1e4",
+    "previousUrl": "https://wikiwiki.jp/kancolle/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-4",
+    "authority": "nga-16820397",
+    "postUrl": "https://bbs.nga.cn/read.php?pid=330616685",
+    "threadUrl": "https://bbs.nga.cn/read.php?tid=16820397",
+    "postId": 330616685,
+    "capturedDate": "2026-10-13",
+    "bodySha256": "8071146b016a13ed5b0f6ed47e56c32feb9d300cbfbba09aafb07ce99edf7e62",
+    "snapshotSha256": "34ede676cbe1f4a8f2dade1a6bcbfa3bcb8f8b9d59757c6f391aa2932bccdc2a"
+  },
+  "bossNodes": [
+    "N"
+  ],
+  "terminalNodes": [],
+  "branchPoints": [
+    {
+      "from": "start",
+      "destinations": [
+        "M",
+        "A",
+        "B"
+      ],
+      "clauses": [
+        "• LHA>=1 从2出发\n• CV系>=1 从2出发\n• CAV>=3 从2出发\n• DD<=1 从2出发\n• BB系>=2 且 舰队中包含长门改二、陆奥改二以外的BB系 从2出发\n• 其余从1出发\n第一出发点：\n• 低速舰队 去A\n• CL旗舰 且 DD>=3 去B\n• DD>=4 去B\n• 其余去A"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330616685"
+    },
+    {
+      "from": "A",
+      "destinations": [
+        "D",
+        "E"
+      ],
+      "clauses": [
+        "• 舰队中包含 秋津洲\n• CAV=1 去D\n• CL>=1 去D\n• DD>=3 去D\n• 其余去E\n• 舰队中不包含 秋津洲\n• BB系>=1 去E\n• 低速舰队 去E\n• CL旗舰 去D\n• DD>=3 去D\n• 其余去E"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330616685"
+    },
+    {
+      "from": "E",
+      "destinations": [
+        "D",
+        "G"
+      ],
+      "clauses": [
+        "• 舰队中包含 秋津洲 去D\n• 舰队中包含 如月 去D\n• 低速舰队 去G\n• CAV=2 去G\n• CA>=2 去G\n• CL=0 去G\n• 其余去D"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330616685"
+    },
+    {
+      "from": "J",
+      "destinations": [
+        "L",
+        "N",
+        "I"
+      ],
+      "clauses": [
+        "• CL=0 去L\n• DD<=1 去L\n• BB系+CV系>=3 且 长门改二+陆奥改二<=1 去L\n• LHA>=1 去N\n• CV系<=1 去I\n• 高速舰队 去I\n• 低速舰队 去L"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330616685"
+    },
+    {
+      "from": "K",
+      "destinations": [
+        "H",
+        "J"
+      ],
+      "clauses": [
+        "• BB系>=2 去H\n• BB系+CA系>=3 去H\n• DD<=1 去H\n• 其余去J"
+      ],
+      "source": "https://bbs.nga.cn/read.php?pid=330616685"
+    }
+  ],
+  "evaluation": "reviewed",
+  "machineRules": {
+    "start": [
+      {
+        "when": {
+          "any": [
+            {
+              "count": {
+                "stypes": [
+                  17
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  7,
+                  11,
+                  18
+                ],
+                "min": 1
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  6
+                ],
+                "min": 3
+              }
+            },
+            {
+              "count": {
+                "stypes": [
+                  2
+                ],
+                "max": 1
+              }
+            },
+            {
+              "all": [
+                {
+                  "count": {
+                    "stypes": [
+                      8,
+                      9,
+                      10,
+                      12
+                    ],
+                    "min": 2
+                  }
+                },
+                {
+                  "any": [
+                    {
+                      "count": {
+                        "stypes": [
+                          8,
+                          9,
+                          10,
+                          12
+                        ],
+                        "min": 3
+                      }
+                    },
+                    {
+                      "not": {
+                        "all": [
+                          {
+                            "shipName": {
+                              "prefixes": [
+                                "長門改二"
+                              ]
+                            }
+                          },
+                          {
+                            "shipName": {
+                              "prefixes": [
+                                "陸奥改二"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "to": "M",
+        "note": "NGA 地图配置2.0 · 6-4 start · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "speedIs": "slow"
+        },
+        "to": "A",
+        "note": "NGA 地图配置2.0 · 6-4 start · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "flagshipStype": [
+                3
+              ]
+            },
+            {
+              "count": {
+                "stypes": [
+                  2
+                ],
+                "min": 3
+              }
+            }
+          ]
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 6-4 start · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              2
+            ],
+            "min": 4
+          }
+        },
+        "to": "B",
+        "note": "NGA 地图配置2.0 · 6-4 start · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": true,
+        "to": "A",
+        "note": "NGA 地图配置2.0 · 6-4 start · https://bbs.nga.cn/read.php?pid=330616685"
+      }
+    ],
+    "A": [
+      {
+        "when": {
+          "all": [
+            {
+              "shipName": {
+                "prefixes": [
+                  "秋津洲"
+                ]
+              }
+            },
+            {
+              "any": [
+                {
+                  "count": {
+                    "stypes": [
+                      6
+                    ],
+                    "exact": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      3
+                    ],
+                    "min": 1
+                  }
+                },
+                {
+                  "count": {
+                    "stypes": [
+                      2
+                    ],
+                    "min": 3
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 6-4 A · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "shipName": {
+            "prefixes": [
+              "秋津洲"
+            ]
+          }
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 6-4 A · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              8,
+              9,
+              10,
+              12
+            ],
+            "min": 1
+          }
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 6-4 A · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "speedIs": "slow"
+        },
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 6-4 A · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "flagshipStype": [
+            3
+          ]
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 6-4 A · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              2
+            ],
+            "min": 3
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 6-4 A · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": true,
+        "to": "E",
+        "note": "NGA 地图配置2.0 · 6-4 A · https://bbs.nga.cn/read.php?pid=330616685"
+      }
+    ],
+    "E": [
+      {
+        "when": {
+          "shipName": {
+            "prefixes": [
+              "秋津洲",
+              "如月"
+            ]
+          }
+        },
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 6-4 E · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "speedIs": "slow"
+        },
+        "to": "G",
+        "note": "NGA 地图配置2.0 · 6-4 E · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              6
+            ],
+            "exact": 2
+          }
+        },
+        "to": "G",
+        "note": "NGA 地图配置2.0 · 6-4 E · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              5
+            ],
+            "min": 2
+          }
+        },
+        "to": "G",
+        "note": "NGA 地图配置2.0 · 6-4 E · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              3
+            ],
+            "exact": 0
+          }
+        },
+        "to": "G",
+        "note": "NGA 地图配置2.0 · 6-4 E · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": true,
+        "to": "D",
+        "note": "NGA 地图配置2.0 · 6-4 E · https://bbs.nga.cn/read.php?pid=330616685"
+      }
+    ],
+    "J": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              3
+            ],
+            "exact": 0
+          }
+        },
+        "to": "L",
+        "note": "NGA 地图配置2.0 · 6-4 J · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              2
+            ],
+            "max": 1
+          }
+        },
+        "to": "L",
+        "note": "NGA 地图配置2.0 · 6-4 J · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "count": {
+                "stypes": [
+                  8,
+                  9,
+                  10,
+                  12,
+                  7,
+                  11,
+                  18
+                ],
+                "min": 3
+              }
+            },
+            {
+              "not": {
+                "all": [
+                  {
+                    "shipName": {
+                      "prefixes": [
+                        "長門改二"
+                      ]
+                    }
+                  },
+                  {
+                    "shipName": {
+                      "prefixes": [
+                        "陸奥改二"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "to": "L",
+        "note": "NGA 地图配置2.0 · 6-4 J · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              17
+            ],
+            "min": 1
+          }
+        },
+        "to": "N",
+        "note": "NGA 地图配置2.0 · 6-4 J · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              7,
+              11,
+              18
+            ],
+            "max": 1
+          }
+        },
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 6-4 J · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "speedAtLeast": "fast"
+        },
+        "to": "I",
+        "note": "NGA 地图配置2.0 · 6-4 J · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": true,
+        "to": "L",
+        "note": "NGA 地图配置2.0 · 6-4 J · https://bbs.nga.cn/read.php?pid=330616685"
+      }
+    ],
+    "K": [
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              8,
+              9,
+              10,
+              12
+            ],
+            "min": 2
+          }
+        },
+        "to": "H",
+        "note": "NGA 地图配置2.0 · 6-4 K · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "count": {
+            "groups": [
+              "battleship",
+              "heavyCruiser"
+            ],
+            "min": 3
+          }
+        },
+        "to": "H",
+        "note": "NGA 地图配置2.0 · 6-4 K · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": {
+          "count": {
+            "stypes": [
+              2
+            ],
+            "min": 2
+          }
+        },
+        "to": "J",
+        "note": "NGA 地图配置2.0 · 6-4 K · https://bbs.nga.cn/read.php?pid=330616685"
+      },
+      {
+        "when": "otherwise",
+        "to": "H",
+        "note": "NGA 地图配置2.0 · 6-4 K · https://bbs.nga.cn/read.php?pid=330616685"
+      }
+    ]
+  },
+  "graphComplete": true,
+  "fixedEdges": {
+    "B": "D",
+    "M": "K",
+    "D": "C",
+    "C": "F",
+    "F": "N",
+    "G": "N",
+    "H": "J",
+    "I": "N",
+    "L": "N"
+  },
+  "deadEnds": [],
+  "airControl": {
+    "source": "user-provided-quick-reference-2026-09-24",
+    "coverage": "quickReferenceNotExhaustive",
+    "profiles": [
+      {
+        "id": "normal",
+        "label": "非斩杀",
+        "superiority": 168,
+        "supremacy": 336,
+        "bossState": "normal"
+      },
+      {
+        "id": "final",
+        "label": "斩杀",
+        "superiority": 72,
+        "supremacy": 144,
+        "bossState": "final"
+      }
+    ]
+  },
+  "horizontalReview": {
+    "date": "2026-10-13",
+    "sources": [
+      "https://zh.kcwiki.cn/wiki/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-4"
+    ],
+    "nodes": [
+      "start",
+      "A",
+      "E",
+      "J",
+      "K"
+    ]
+  },
+  "ngaReview": {
+    "date": "2026-10-13",
+    "priority": "用户指定为带路条件主来源，覆盖此前中日文差异取舍",
+    "changedNodes": [
+      "start"
+    ],
+    "referenceNotes": [],
+    "supplementaryNodes": []
+  }
+}

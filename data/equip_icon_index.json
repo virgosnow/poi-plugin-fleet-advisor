@@ -1,0 +1,419 @@
+{
+  "note": "运行时装备种类图标（api_type[3]）。仅保留图标匹配器实际使用的切片；组成员规则由 src/domain/fleet/equipment_planner.js 定义。",
+  "source_atlas": "游戏图集 common_icon_weapon；atlas_frame 保留原始帧标识，运行时切片见 icons[].file。",
+  "icons": [
+    {
+      "t3": 1,
+      "file": "t3/小口径主砲-1.png",
+      "name": "小口径主砲",
+      "art_check": "红小炮",
+      "atlas_frame": "common_icon_weapon_id_1"
+    },
+    {
+      "t3": 2,
+      "file": "t3/中口径主砲-2.png",
+      "name": "中口径主砲",
+      "art_check": "橙中炮",
+      "atlas_frame": "common_icon_weapon_id_2"
+    },
+    {
+      "t3": 3,
+      "file": "t3/大口径主砲-3.png",
+      "name": "大口径主砲",
+      "art_check": "大红炮",
+      "atlas_frame": "common_icon_weapon_id_3"
+    },
+    {
+      "t3": 4,
+      "file": "t3/副砲-4.png",
+      "name": "副砲",
+      "art_check": "黄副炮",
+      "atlas_frame": "common_icon_weapon_id_4"
+    },
+    {
+      "t3": 5,
+      "file": "t3/魚雷-5.png",
+      "name": "魚雷",
+      "art_check": "鱼雷",
+      "atlas_frame": "common_icon_weapon_id_5"
+    },
+    {
+      "t3": 6,
+      "file": "t3/艦上戦闘機-6.png",
+      "name": "艦上戦闘機",
+      "art_check": "戦徽战机",
+      "atlas_frame": "common_icon_weapon_id_6"
+    },
+    {
+      "t3": 7,
+      "file": "t3/艦上爆撃機-7.png",
+      "name": "艦上爆撃機",
+      "art_check": "爆徽战机",
+      "atlas_frame": "common_icon_weapon_id_7"
+    },
+    {
+      "t3": 8,
+      "file": "t3/艦上攻撃機-8.png",
+      "name": "艦上攻撃機",
+      "art_check": "攻徽战机",
+      "atlas_frame": "common_icon_weapon_id_8"
+    },
+    {
+      "t3": 9,
+      "file": "t3/艦上偵察機-9.png",
+      "name": "艦上偵察機",
+      "art_check": "偵徽战机",
+      "atlas_frame": "common_icon_weapon_id_9"
+    },
+    {
+      "t3": 10,
+      "file": "t3/水上偵察機-10.png",
+      "name": "水上偵察機",
+      "art_check": "水上侦察机",
+      "atlas_frame": "common_icon_weapon_id_10"
+    },
+    {
+      "t3": 11,
+      "file": "t3/電探-11.png",
+      "name": "電探",
+      "art_check": "橙色雷达盘",
+      "atlas_frame": "common_icon_weapon_id_11"
+    },
+    {
+      "t3": 12,
+      "file": "t3/対空強化弾-12.png",
+      "name": "対空強化弾",
+      "art_check": "三式弹红色弹体",
+      "atlas_frame": "common_icon_weapon_id_12"
+    },
+    {
+      "t3": 13,
+      "file": "t3/対艦強化弾-13.png",
+      "name": "対艦強化弾",
+      "art_check": "彻甲弹银色弹体",
+      "atlas_frame": "common_icon_weapon_id_13"
+    },
+    {
+      "t3": 14,
+      "file": "t3/応急修理要員-14.png",
+      "name": "応急修理要員",
+      "art_check": "白色担架",
+      "atlas_frame": "common_icon_weapon_id_14"
+    },
+    {
+      "t3": 15,
+      "file": "t3/対空機銃-15.png",
+      "name": "対空機銃",
+      "art_check": "绿机炮",
+      "atlas_frame": "common_icon_weapon_id_15"
+    },
+    {
+      "t3": 16,
+      "file": "t3/高角砲-16.png",
+      "name": "高角砲",
+      "art_check": "绿高角炮",
+      "atlas_frame": "common_icon_weapon_id_16"
+    },
+    {
+      "t3": 17,
+      "file": "t3/爆雷-17.png",
+      "name": "爆雷",
+      "art_check": "蓝色爆雷+气泡",
+      "atlas_frame": "common_icon_weapon_id_17"
+    },
+    {
+      "t3": 18,
+      "file": "t3/ソナー-18.png",
+      "name": "ソナー",
+      "art_check": "蓝色声呐表盘",
+      "atlas_frame": "common_icon_weapon_id_18"
+    },
+    {
+      "t3": 19,
+      "file": "t3/機関部強化-19.png",
+      "name": "機関部強化",
+      "art_check": "黄色涡轮环",
+      "atlas_frame": "common_icon_weapon_id_19"
+    },
+    {
+      "t3": 20,
+      "file": "t3/上陸用舟艇-20.png",
+      "name": "上陸用舟艇",
+      "art_check": "绿大发船体",
+      "atlas_frame": "common_icon_weapon_id_20"
+    },
+    {
+      "t3": 21,
+      "file": "t3/回転翼機-21.png",
+      "name": "回転翼機",
+      "art_check": "绿色直升机",
+      "atlas_frame": "common_icon_weapon_id_21"
+    },
+    {
+      "t3": 22,
+      "file": "t3/対潜哨戒機-22.png",
+      "name": "対潜哨戒機",
+      "art_check": "蓝色对潜机",
+      "atlas_frame": "common_icon_weapon_id_22"
+    },
+    {
+      "t3": 23,
+      "file": "t3/増設バルジ-23.png",
+      "name": "増設バルジ",
+      "art_check": "紫防雷隔板",
+      "atlas_frame": "common_icon_weapon_id_23"
+    },
+    {
+      "t3": 24,
+      "file": "t3/探照灯-24.png",
+      "name": "探照灯",
+      "art_check": "橙色探照灯",
+      "atlas_frame": "common_icon_weapon_id_24"
+    },
+    {
+      "t3": 25,
+      "file": "t3/簡易輸送部材-25.png",
+      "name": "簡易輸送部材",
+      "art_check": "灰桶ドラム缶",
+      "atlas_frame": "common_icon_weapon_id_25"
+    },
+    {
+      "t3": 26,
+      "file": "t3/艦艇修理施設-26.png",
+      "name": "艦艇修理施設",
+      "art_check": "黄色吊车",
+      "atlas_frame": "common_icon_weapon_id_26"
+    },
+    {
+      "t3": 27,
+      "file": "t3/照明弾-27.png",
+      "name": "照明弾",
+      "art_check": "照明弹伞",
+      "atlas_frame": "common_icon_weapon_id_27"
+    },
+    {
+      "t3": 28,
+      "file": "t3/司令部施設-28.png",
+      "name": "司令部施設",
+      "art_check": "紫色天线塔",
+      "atlas_frame": "common_icon_weapon_id_28"
+    },
+    {
+      "t3": 29,
+      "file": "t3/航空要員-29.png",
+      "name": "航空要員",
+      "art_check": "扳手整备",
+      "atlas_frame": "common_icon_weapon_id_29"
+    },
+    {
+      "t3": 30,
+      "file": "t3/高射装置-30.png",
+      "name": "高射装置",
+      "art_check": "橄榄高射装置座",
+      "atlas_frame": "common_icon_weapon_id_30"
+    },
+    {
+      "t3": 31,
+      "file": "t3/対地装備-31.png",
+      "name": "対地装備",
+      "art_check": "WG42三联火箭",
+      "atlas_frame": "common_icon_weapon_id_31"
+    },
+    {
+      "t3": 32,
+      "file": "t3/水上艦要員-32.png",
+      "name": "水上艦要員",
+      "art_check": "绿色站姿见张员",
+      "atlas_frame": "common_icon_weapon_id_32"
+    },
+    {
+      "t3": 33,
+      "file": "t3/大型飛行艇-33.png",
+      "name": "大型飛行艇",
+      "art_check": "大艇",
+      "atlas_frame": "common_icon_weapon_id_33"
+    },
+    {
+      "t3": 34,
+      "file": "t3/戦闘糧食-34.png",
+      "name": "戦闘糧食",
+      "art_check": "饭团",
+      "atlas_frame": "common_icon_weapon_id_34"
+    },
+    {
+      "t3": 35,
+      "file": "t3/補給物資-35.png",
+      "name": "補給物資",
+      "art_check": "青补给桶堆",
+      "atlas_frame": "common_icon_weapon_id_35"
+    },
+    {
+      "t3": 36,
+      "file": "t3/特型内火艇-36.png",
+      "name": "特型内火艇",
+      "art_check": "内火艇车体",
+      "atlas_frame": "common_icon_weapon_id_36"
+    },
+    {
+      "t3": 37,
+      "file": "t3/陸上攻撃機-37.png",
+      "name": "陸上攻撃機",
+      "art_check": "陸徽双发陆攻",
+      "atlas_frame": "common_icon_weapon_id_37"
+    },
+    {
+      "t3": 38,
+      "file": "t3/局地戦闘機-38.png",
+      "name": "局地戦闘機",
+      "art_check": "局徽战机",
+      "atlas_frame": "common_icon_weapon_id_38"
+    },
+    {
+      "t3": 39,
+      "file": "t3/噴式戦闘爆撃機-39.png",
+      "name": "噴式戦闘爆撃機",
+      "art_check": "金喷徽",
+      "atlas_frame": "common_icon_weapon_id_39"
+    },
+    {
+      "t3": 40,
+      "file": "t3/噴式戦闘爆撃機-40.png",
+      "name": "噴式戦闘爆撃機",
+      "art_check": "金喷徽",
+      "atlas_frame": "common_icon_weapon_id_40"
+    },
+    {
+      "t3": 41,
+      "file": "t3/輸送機材-41.png",
+      "name": "輸送機材",
+      "art_check": "分解机群输送",
+      "atlas_frame": "common_icon_weapon_id_41"
+    },
+    {
+      "t3": 42,
+      "file": "t3/潜水艦装備-42.png",
+      "name": "潜水艦装備",
+      "art_check": "潜水舰",
+      "atlas_frame": "common_icon_weapon_id_42"
+    },
+    {
+      "t3": 43,
+      "file": "t3/水上戦闘機-43.png",
+      "name": "水上戦闘機",
+      "art_check": "水上战机浮筒双翼",
+      "atlas_frame": "common_icon_weapon_id_43"
+    },
+    {
+      "t3": 44,
+      "file": "t3/陸軍戦闘機-44.png",
+      "name": "陸軍戦闘機",
+      "art_check": "陸徽绿机",
+      "atlas_frame": "common_icon_weapon_id_44"
+    },
+    {
+      "t3": 45,
+      "file": "t3/夜間戦闘機-45.png",
+      "name": "夜間戦闘機",
+      "art_check": "夜戦徽",
+      "atlas_frame": "common_icon_weapon_id_45"
+    },
+    {
+      "t3": 46,
+      "file": "t3/夜間攻撃機-46.png",
+      "name": "夜間攻撃機",
+      "art_check": "夜攻徽",
+      "atlas_frame": "common_icon_weapon_id_46"
+    },
+    {
+      "t3": 47,
+      "file": "t3/対潜陸攻-47.png",
+      "name": "対潜陸攻",
+      "art_check": "哨徽",
+      "atlas_frame": "common_icon_weapon_id_47"
+    },
+    {
+      "t3": 48,
+      "file": "t3/誘導弾陸攻-48.png",
+      "name": "誘導弾陸攻",
+      "art_check": "诱导徽",
+      "atlas_frame": "common_icon_weapon_id_48"
+    },
+    {
+      "t3": 49,
+      "file": "t3/大型陸上機-49.png",
+      "name": "大型陸上機",
+      "art_check": "大型陆机徽",
+      "atlas_frame": "common_icon_weapon_id_49"
+    },
+    {
+      "t3": 50,
+      "file": "t3/夜偵-50.png",
+      "name": "夜偵",
+      "art_check": "夜徽",
+      "atlas_frame": "common_icon_weapon_id_50"
+    },
+    {
+      "t3": 51,
+      "file": "t3/夜間水爆-51.png",
+      "name": "夜間水爆",
+      "art_check": "夜爆徽+红光",
+      "atlas_frame": "common_icon_weapon_id_51"
+    },
+    {
+      "t3": 52,
+      "file": "t3/陸戦部隊-52.png",
+      "name": "陸戦部隊",
+      "art_check": "坦克",
+      "atlas_frame": "common_icon_weapon_id_52"
+    },
+    {
+      "t3": 54,
+      "file": "t3/艦載発煙装置-54.png",
+      "name": "艦載発煙装置",
+      "art_check": "烟雾罐",
+      "atlas_frame": "common_icon_weapon_id_54"
+    },
+    {
+      "t3": 55,
+      "file": "t3/防空気球-55.png",
+      "name": "防空気球",
+      "art_check": "阻塞气球",
+      "atlas_frame": "common_icon_weapon_id_55"
+    },
+    {
+      "t3": 56,
+      "file": "t3/局地戦闘機-56.png",
+      "name": "局地戦闘機",
+      "art_check": "局徽喷机",
+      "atlas_frame": "common_icon_weapon_id_56"
+    },
+    {
+      "t3": 57,
+      "file": "t3/局地戦闘機-57.png",
+      "name": "局地戦闘機",
+      "art_check": "局徽喷机",
+      "atlas_frame": "common_icon_weapon_id_57"
+    },
+    {
+      "t3": 58,
+      "file": "t3/夜間爆撃機-58.png",
+      "name": "夜間爆撃機",
+      "art_check": "夜戦徽喷机",
+      "atlas_frame": "common_icon_weapon_id_58"
+    },
+    {
+      "t3": 59,
+      "file": "t3/全翼型戦闘爆撃機-59.png",
+      "name": "全翼型戦闘爆撃機",
+      "art_check": "银徽喷机",
+      "atlas_frame": "common_icon_weapon_id_59"
+    },
+    {
+      "t3": 60,
+      "file": "t3/噴式艦上戦闘機-60.png",
+      "name": "噴式艦上戦闘機",
+      "art_check": "银徽喷机",
+      "atlas_frame": "common_icon_weapon_id_60"
+    }
+  ]
+}
