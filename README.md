@@ -4,6 +4,27 @@
 
 舰队参谋是 poi 的舰队编成与配装插件，包名为 `poi-plugin-fleet-advisor`。它根据玩家持有的舰娘和装备推荐常规海域、远征编成，并提供当前舰队状态和本地 AI 接口。
 
+## 界面预览
+
+以下为通过 npm 安装的 1.0.0 版本在 poi 中的实际运行画面。
+
+**常规海域**：在地图上查看所选路线、Boss 进度与敌情，在同一工作台核对编成、配装、制空和索敌。
+
+![常规海域工作台：3-5 下路、路线地图与舰队配装](https://raw.githubusercontent.com/virgosnow/poi-plugin-fleet-advisor/main/docs/images/normal-map.png)
+
+<details>
+<summary>查看当前舰队与远征界面</summary>
+
+**当前舰队**：查看四支舰队概况，以及各舰的装备、搭载、耐久和战斗机制。
+
+![当前舰队：四支舰队总览、装备和战斗机制](https://raw.githubusercontent.com/virgosnow/poi-plugin-fleet-advisor/main/docs/images/current-fleet.png)
+
+**远征**：核对出航条件、大成功参考概率、收益装备和补给后的净收益。
+
+![远征工作台：出航条件、大成功概率、净收益与装备方案](https://raw.githubusercontent.com/virgosnow/poi-plugin-fleet-advisor/main/docs/images/expedition.png)
+
+</details>
+
 ## 功能与使用
 
 | 页面 | 用途 | 操作方式 |

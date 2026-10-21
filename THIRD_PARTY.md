@@ -66,6 +66,7 @@ MCP 服务采用 Node.js 内置 HTTP 实现，不捆绑协议 SDK 或客户端�
 | `data/icons/items/59.png` | [游戏静态资源中的伊良湖图标](https://w16s.kancolle-server.com/kcs2/resources/useitem/card/059.png)，SHA-256：`401e1007a1b16d02e00265a4baa916e8b35a102257b5a67024c712e7f381f49c` |
 | 数字与控件 JSON 模板 | 从游戏画面提取，消费者位于 `src/vision/` |
 | `tests/fixtures/` | 只保留 `privacy.json` 允许区域的脱敏游戏画面，不分发完整截图 |
+| `docs/images/` | 通过 npm 安装的 Fleet Advisor 1.0.0 在 poi 中的实际运行截图，裁去窗口边框，仅保留插件界面 |
 
 这些图像、模板和轮廓不构成游戏美术的独立 MIT 授权。识别使用本地像素模板与游戏状态核对，不捆绑 OCR 引擎。
 
