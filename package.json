@@ -1,6 +1,7 @@
 {
   "name": "poi-plugin-fleet-advisor",
-  "version": "1.0.0",
+  "version": "1.0.1",
+  "author": "virgosnow",
   "license": "MIT",
   "bundledDependencies": true,
   "description": "Fleet Advisor for poi: fleet composition, equipment planning, normal maps, expeditions and local MCP tools",

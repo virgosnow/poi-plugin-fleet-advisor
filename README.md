@@ -4,6 +4,8 @@
 
 舰队参谋是 poi 的舰队编成与配装插件，包名为 `poi-plugin-fleet-advisor`。它根据玩家持有的舰娘和装备推荐常规海域、远征编成，并提供当前舰队状态和本地 AI 接口。
 
+作者：[virgosnow](https://github.com/virgosnow)。
+
 ## 界面预览
 
 以下为通过 npm 安装的 1.0.0 版本在 poi 中的实际运行画面。

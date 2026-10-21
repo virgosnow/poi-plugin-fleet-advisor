@@ -5,7 +5,7 @@
 // gating; no OCR ships in the package.
 const fs=require('fs'),path=require('path'),os=require('os'),zlib=require('zlib');
 const {Worker}=require('worker_threads');
-const tar=zlib.gunzipSync(fs.readFileSync(process.argv[2]||'poi-plugin-fleet-advisor-1.0.0.tgz'));
+const tar=zlib.gunzipSync(fs.readFileSync(process.argv[2]||'poi-plugin-fleet-advisor-1.0.1.tgz'));
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'poi-plugin-zh-'));
 let worker;
 async function main() {

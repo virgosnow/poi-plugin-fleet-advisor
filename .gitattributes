@@ -1,2 +1,5 @@
 # This source atlas is verified by its original byte hash, including newlines.
 data/sortie/maps/map_common.json -text
+
+# Keep the generated MCP reference identical across Windows and Unix checkouts.
+docs/MCP_API.md text eol=lf
