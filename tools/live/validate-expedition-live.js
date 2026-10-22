@@ -15,10 +15,8 @@
     const output=recommendExpeditionFleet(store,{missionId,fleet,goal:'great',limit:1});
     const row=output.recommendations[0];
     if(row){
-      const ships={...store.info.ships};
-      for(const s of row.scheme.ships)if(s.slots)ships[s.id]={...ships[s.id],api_slot:s.slots};
-      const projected={...store,info:{...store.info,ships,fleets:store.info.fleets.map((f,i)=>i===fleet-1?{...f,api_ship:row.scheme.ships.map(s=>s.id)}:f)}};
-      const actual=evaluateExpedition(projected,fleet,missionId);
+      // Keep the observed outfit as the baseline when projecting candidate stats.
+      const actual=evaluateExpedition(store,fleet,missionId,row.scheme);
       assert(actual.eligible);assert.equal(actual.greatSuccess.estimatedPercent,row.evaluation.greatSuccess.estimatedPercent);
       assert(actual.greatSuccess.estimatedPercent>=0&&actual.greatSuccess.estimatedPercent<=100);
       checks.push({missionId,eligible:true,probability:actual.greatSuccess.estimatedPercent,flash:actual.greatSuccess.sparkledCount,drums:actual.greatSuccess.drums,shipCount:actual.ships.length,evaluated:output.search.evaluated,ms:Date.now()-start});

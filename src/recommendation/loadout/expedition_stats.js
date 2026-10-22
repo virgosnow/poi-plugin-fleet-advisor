@@ -2,10 +2,21 @@
 const {FIELDS,improvement,AIR,createStatReader}=require('../../domain/expeditions/expedition_stats');
 const {fits,automaticSlotLimit}=require('../../domain/expeditions/expedition_loadout');
 const EPS=1e-9;
+function blueCandidates(needs){
+  const ids=new Set(),types=new Set();
+  for(const rule of [...require('../../../data/combat_bonuses.json').rules,...require('../../../data/asw_bonuses.json').rules]){
+    if(!needs.some(([key])=>Number(rule[FIELDS[key][2]||key])>0))continue;
+    for(const field of ['ids','requiresId','requiresId2'])for(const id of rule[field]||[])ids.add(id);
+    for(const field of ['types','requiresType'])for(const type of rule[field]||[])types.add(type);
+    if(rule.requiresSR||rule.requiresAR||rule.requiresAccR)for(const type of [12,13,93])types.add(type);
+  }
+  return item=>ids.has(item.master.api_id??item.instance.api_slotitem_id)||types.has(item.type);
+}
 // A bounded, inventory-aware coordinate search. Attribute trials use the same
 // conservative dispatch model as evaluation; they never edit the API snapshot.
 function fitStatEquipment(store,entries,inventory,held,spec,readStats=createStatReader(store)){
   const needs=Object.entries(spec.totals||{});if(!needs.length)return;
+  const maySupplyBlue=blueCandidates(needs);
   const used=new Set(entries.flatMap(s=>s.slots.concat(s.ex)).filter(id=>id>0));
   const selected=new Set(entries.map(s=>s.id)),groups=new Map(),positions=[];
   const owners=new Map(inventory.map(item=>[item.id,item.sourceShipId]));
@@ -14,7 +25,7 @@ function fitStatEquipment(store,entries,inventory,held,spec,readStats=createStat
     const instance=store.info.equips[item.id],type=Number(item.master.api_type?.[2]);
     const useful=needs.some(([key])=>Number(item.master[FIELDS[key][1]]||0)>0&&
       (!AIR.has(type)||['firepower','asw'].includes(key))||improvement({...item,type,instance},key).value>0);
-    if(!useful)continue;
+    if(!useful&&!maySupplyBlue({...item,type,instance}))continue;
     const key=[instance.api_slotitem_id,instance.api_level||0,instance.api_alv||0].join(':');
     if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item);
   }
@@ -24,7 +35,7 @@ function fitStatEquipment(store,entries,inventory,held,spec,readStats=createStat
     const get=()=>k==='ex'?ship.ex:ship.slots[k],set=id=>{if(k==='ex')ship.ex=id;else ship.slots[k]=id;};
     if(k!=='ex'&&k>=automaticSlotLimit(ship,held)||held.get(ship.id)?.keep?.[k]||store.info.equips[get()]?.api_slotitem_id===75)continue;
     const choices=[...groups.values()].map(rows=>rows.filter(item=>fits(store,item,ship.id,k))).filter(rows=>rows.length);
-    if(choices.length||get()>0)positions.push({ship,k,get,set,choices});
+    if(choices.length||get()>0)positions.push({ship,k,get,set,choices,allChoices:choices});
   }
   const readings=new Map(entries.map(s=>[s.id,readStats(s.id,s)]));
   let totals=Object.fromEntries(needs.map(([key])=>[key,entries.reduce((n,s)=>n+readings.get(s.id)[key].lower,0)]));
@@ -57,7 +68,7 @@ function fitStatEquipment(store,entries,inventory,held,spec,readStats=createStat
     for(const rows of position.choices)if(rows.some(i=>i.id===position.get()))keep.add(rows);
     position.choices=[...keep];
   }
-  let exchanges=0;
+  let exchanges=0,widened=false;
   for(let pass=0;pass<positions.length*2;pass++){
     let best=null;
     for(const position of positions){
@@ -70,6 +81,15 @@ function fitStatEquipment(store,entries,inventory,held,spec,readStats=createStat
           [key,totals[key]-previous[key].lower+reading[key].lower]));
         const grade=score(values,{count:current.count+Number(id>0)-Number(old>0),borrowed:current.borrowed+borrowed(id)-borrowed(old)});position.set(old);
         if(better(grade,best?.grade||current))best={position,id,old,reading,values,grade};
+      }
+    }
+    if(!best&&current.gap>EPS&&!widened){
+      widened=true;
+      // Low-raw equipment can be essential through blue/synergy bonuses.
+      // Expand only after the cheap effect shortlist actually stalls.
+      if(positions.some(p=>p.choices.length<p.allChoices.length)){
+        for(const p of positions)p.choices=p.allChoices;
+        continue;
       }
     }
     if(!best&&current.gap>EPS&&exchanges<2){
