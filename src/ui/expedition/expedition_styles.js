@@ -51,7 +51,8 @@ module.exports=`
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-resource{gap:6px;min-width:0;overflow-wrap:anywhere}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-resource .paa-resource-icon{flex:none;width:20px!important;height:20px!important}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-details{margin-top:10px!important;padding-top:9px;border-top:1px solid var(--paa-line)}
-.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-details>summary{padding:0;font-size:14px;line-height:22px;font-weight:400}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-details>summary{padding:0;font-size:13px;line-height:20px;font-weight:600}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-unlock-details>summary{font-size:13px;line-height:20px;font-weight:600}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-condition{min-height:32px;padding-block:6px}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table>div{gap:6px;grid-template-columns:repeat(4,minmax(0,1fr))}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table[data-columns="3"]>div{grid-template-columns:repeat(3,minmax(0,1fr))}
