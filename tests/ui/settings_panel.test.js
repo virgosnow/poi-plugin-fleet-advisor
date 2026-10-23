@@ -83,13 +83,19 @@ test('settings navigation preserves drafts and MCP controls keep their actions a
   let tree=render();const original=workbenches(tree);
   assert.equal(original.length,3);
   assert.equal(find(tree,n=>n.props['aria-label']==='设置面板').props.hidden,true);
+  assert(!find(tree,n=>n.props['aria-label']==='恢复默认设置'),'global reset only appears while viewing settings');
+  assert(!find(tree,n=>n.props['aria-label']==='设置').children.includes('设置'),'the collapsed control stays icon-only');
   find(tree,n=>n.props['aria-label']==='设置').props.onClick();tree=render();
   assert.equal(find(tree,n=>n.props['aria-label']==='设置面板').props.hidden,false);
   assert(workbenches(tree).every((n,i)=>n.props.hidden&&n.type===original[i].type&&n.props.key===original[i].props.key));
   assert(find(tree,n=>n.props['aria-label']==='AI 工具接入（MCP）'));
   const settings=find(tree,n=>n.props['aria-label']==='设置面板');
-  const agent= find(settings,n=>n.props['aria-label']==='AI 工具接入（MCP）');
-  assert(find(find(agent,n=>n.props.className==='paa-settings-section-head'),n=>n.props['aria-label']==='AI 工具接入（MCP）说明'));
+  const experiments=find(settings,n=>n.props['aria-label']==='实验功能');
+  const agent=find(experiments,n=>n.props['aria-label']==='AI 工具接入（MCP）');
+  assert(agent,'MCP is grouped with automatic operations under experimental features');
+  assert(!agent.props.className.includes('paa-settings-card'),'peer switches share one card');
+  assert(find(experiments,n=>n.props['aria-label']==='自动操作开关'));
+  assert(find(find(agent,n=>n.props.className==='paa-settings-row paa-experimental-mcp-head'),n=>n.props['aria-label']==='AI 工具接入（MCP）说明'));
   for(const label of ['HTTP 端口说明','连接地址说明'])assert(!find(settings,n=>n.props['aria-label']===label),'MCP details share section help');
   assert(!JSON.stringify(tree).includes('方案填写与操作说明'));
   assert(!find(tree,n=>n.props['aria-label']==='MCP 访问令牌'));
@@ -105,12 +111,22 @@ test('settings navigation preserves drafts and MCP controls keep their actions a
   find(tree,n=>n.props['aria-label']==='MCP 接入开关').props.onClick();await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual(toggles,[false]);
   tree=render();const keys=workbenches(tree).map(n=>n.props.key);
-  const heading=find(tree,n=>n.props.className==='paa-settings-heading');
-  const reset=find(heading,n=>n.props['aria-label']==='恢复默认设置');assert(reset);
+  assert(!find(tree,n=>n.props['aria-label']==='恢复默认设置'),'leaving settings removes its reset action');
+  find(tree,n=>n.props['aria-label']==='设置').props.onClick();tree=render();
+  const nav=find(tree,n=>n.props.className==='paa-tabs');
+  const actions=find(nav,n=>n.props.className==='paa-settings-reset-actions');
+  const reset=find(actions,n=>n.props['aria-label']==='恢复默认设置');assert(reset);
+  const tools=find(nav,n=>n.props['aria-label']==='设置操作');
+  assert.equal(tools.props['data-expanded'],true);
+  assert.equal(tools.children[1],actions,'reset and settings share one frame');
+  assert(find(tools,n=>n.props['aria-label']==='设置').children.includes('设置'));
+  assert(reset.children.includes('恢复默认'),'reset uses a visible text label');
+  assert(!find(tree,n=>n.props.className==='paa-settings-heading'),'settings body has no standalone action row');
+  assert.match(reset.props['data-tooltip'],/出击、远征、计算和缓存/,'the top action clearly applies to all recommendation settings');
   await reset.props.onClick();tree=render();
   assert.equal(resetCalls,1);assert.equal(changes,2,'global reset never invokes Agent switch or port setters');
   assert.deepEqual(workbenches(tree).map(n=>n.props.key),keys,'reset preferences preserves fleet drafts');
-  assert(find(find(tree,n=>n.props.className==='paa-settings-heading'),n=>n.props['data-tooltip']==='已恢复出击、远征、计算和缓存默认设置'));
+  assert(find(find(tree,n=>n.props.className==='paa-settings-reset-actions'),n=>n.props['data-tooltip']==='已恢复出击、远征、计算和缓存默认设置'));
 });
 
 test('real recommendation work runs off the UI thread and preserves calculation results',async()=>{
@@ -172,7 +188,8 @@ test('home resets all draft instances and inline execution feedback preserves st
   assert.equal(find(tree,n=>n.props.className==='paa-activity'),undefined);
   assert.equal(find(tree,n=>n.props.className==='paa-card paa-execution'),undefined);
   const nav=find(tree,n=>n.props.className==='paa-tabs');
-  assert.equal(nav.children[0],home(tree));assert.equal(nav.children.at(-1).props['aria-label'],'设置');
+  assert.equal(nav.children[0],home(tree));assert.equal(nav.children.at(-1).props['aria-label'],'设置操作');
+  assert(find(nav.children.at(-1),n=>n.props['aria-label']==='设置'));
   const original=workbenches(tree).map(n=>n.props.key);
   const running=normal(tree).props.onApply({fleet:1,ships:[1]});
   tree=render();assert.equal(feedback(tree).props['data-state'],'running');

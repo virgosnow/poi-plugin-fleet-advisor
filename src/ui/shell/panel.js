@@ -182,15 +182,19 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
         ...[['manual','当前舰队'],['normal','常规海域'],['expedition','远征']].map(([value,label])=>
           h('button',{key:value,type:'button','aria-pressed':mode===value,disabled:busy||!!externalJob,
             onClick:()=>{setMode(value);if(mode!=='settings')reset();}},label)),
+        h('div',{className:'paa-settings-tools',role:'group','aria-label':'设置操作','data-expanded':mode==='settings'},
         h('button',{type:'button',className:'paa-settings-toggle','aria-label':'设置','data-tooltip':'设置','aria-pressed':mode==='settings',disabled:busy||!!externalJob,onClick:()=>setMode('settings')},
           h('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
-            h('path',{d:'M9.5 3h5l.6 2.4 1.5.9 2.4-.7 2.5 4.3-1.8 1.7v1.8l1.8 1.7-2.5 4.3-2.4-.7-1.5.9-.6 2.4h-5l-.6-2.4-1.5-.9-2.4.7-2.5-4.3 1.8-1.7v-1.8L2 9.9l2.5-4.3 2.4.7 1.5-.9z'}),h('circle',{cx:12,cy:12,r:3}))))),
+            h('path',{d:'M9.5 3h5l.6 2.4 1.5.9 2.4-.7 2.5 4.3-1.8 1.7v1.8l1.8 1.7-2.5 4.3-2.4-.7-1.5.9-.6 2.4h-5l-.6-2.4-1.5-.9-2.4.7-2.5-4.3 1.8-1.7v-1.8L2 9.9l2.5-4.3 2.4.7 1.5-.9z'}),h('circle',{cx:12,cy:12,r:3})),...(mode==='settings'?['设置']:[])),
+        ...(mode==='settings'?[h('div',{className:'paa-settings-reset-actions'},
+          h('button',{type:'button',className:'paa-settings-reset','aria-label':'恢复默认设置','data-tooltip':'恢复默认：恢复出击、远征、计算和缓存设置，不改变实验功能开关和 MCP 端口。',disabled:running||resettingSettings||resourceBusy,onClick:resetSettings},
+            h('svg',{width:18,height:18,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
+              h('path',{d:'M4 7a6 6 0 1 1 0 6M4 3v4h4'})),'恢复默认'),
+          settingFeedback(React,settingsFeedbacks.reset))]:[])))),
       h('div',{className:'paa-workspace','aria-busy':running},
       h('div',{className:'paa-workspace-content',ref:workspace},
       ...['normal','expedition','manual'].map(kind=>h(kind==='manual'?CurrentFleet:Workbench,{key:`${kind}:${draftEpoch}`,kind,automaticFilters:recommendationFilters[kind],automaticOperations:experimentalSettings.automaticOperations,hidden:mode!==kind,busy:running,stopping,onStop:stop,stopButtonRef:mode===kind?stopButton:undefined,operationFeedback:mode===kind?feedback:null,executionPlan:busy?executionPlan.current:null,...(kind!=='manual'?{onApply:candidate=>action(true,M.format(candidate))}:{})})),
       h('section',{className:'paa-settings-page',hidden:mode!=='settings','aria-label':'设置面板'},
-      h('div',{className:'paa-settings-heading'},h('h3',null,'设置'),h('div',{className:'paa-settings-value'},
-        h('button',{type:'button','aria-label':'恢复默认设置',disabled:running||resettingSettings||resourceBusy,onClick:resetSettings},'恢复默认'),settingFeedback(React,settingsFeedbacks.reset))),
       filterSettings({value:recommendationFilters,disabled:running||resettingSettings,feedbacks:settingsFeedbacks,onChange:(value,target)=>{
         try{setRecommendationFilters(getController().setRecommendationFilters(value));reportSetting(target,'success','已保存');}
         catch(e){reportSetting(target,'error',e.message);}
@@ -199,10 +203,9 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
       experimentalControls({value:experimentalSettings,disabled:running||resettingSettings,status:settingsFeedbacks.experimental,onChange:value=>{
         try{setExperimentalSettings(getController().setExperimentalSettings(value));reportSetting('experimental','success','已保存');}
         catch(e){reportSetting('experimental','error',e.message);}
-      }}),
-      getMcpStatus?h('section',{className:'paa-settings-card paa-agent-settings','aria-label':'AI 工具接入（MCP）'},
-        h('div',{className:'paa-settings-section-head'},
-          h('div',{className:'paa-settings-label'},h('h3',null,'AI 工具接入（MCP）'),settingFeedback(React,undefined,{label:'AI 工具接入（MCP）',text:'仅支持本机 Streamable HTTP。\n将连接地址填入 AI 工具即可使用，无需配置认证请求头。\n更改 HTTP 端口后，AI 工具中的地址也需要更新。'})),
+      },mcpControls:getMcpStatus?h('section',{className:'paa-experimental-mcp','aria-label':'AI 工具接入（MCP）'},
+        h('div',{className:'paa-settings-row paa-experimental-mcp-head'},
+          h('div',{className:'paa-settings-label'},h('span',null,'AI 工具接入（MCP）'),settingFeedback(React,undefined,{label:'AI 工具接入（MCP）',text:'仅支持本机 Streamable HTTP。\n将连接地址填入 AI 工具即可使用，无需配置认证请求头。\n更改 HTTP 端口后，AI 工具中的地址也需要更新。'})),
           h('div',{className:'paa-settings-value'},h('button',{type:'button',role:'switch','aria-checked':String(mcpEnabled),className:'paa-switch',disabled:busy||settingsFeedbacks.agentSwitch?.kind==='pending',
             'aria-label':'MCP 接入开关',onClick:()=>{
               reportSetting('agentSwitch','pending','正在保存…');
@@ -230,7 +233,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
               mcpEnabled&&mcpHttp?.active&&mcpHttp?.address?
                 h(React.Fragment,null,h('code',null,mcpHttp.address),
                   h('button',{type:'button',onClick:()=>{void copyMcpAddress(mcpHttp.address);}},mcpCopied?'已复制':'复制地址')):
-                h('span',{className:mcpEnabled&&mcpHttp?.error?'paa-error paa-agent-connection-error':'paa-muted','data-tooltip':mcpEnabled?mcpHttp?.error:undefined,role:mcpEnabled&&mcpHttp?.error?'alert':undefined},mcpEnabled?(mcpHttp?.error||'正在准备连接…'):'开启后显示连接地址'))))):null)),
+                h('span',{className:mcpEnabled&&mcpHttp?.error?'paa-error paa-agent-connection-error':'paa-muted','data-tooltip':mcpEnabled?mcpHttp?.error:undefined,role:mcpEnabled&&mcpHttp?.error?'alert':undefined},mcpEnabled?(mcpHttp?.error||'正在准备连接…'):'开启后显示连接地址'))))):null}))),
       running?h('div',{className:'paa-run-mask','aria-hidden':true}):null));
   };
 };
