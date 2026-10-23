@@ -1082,7 +1082,7 @@ test('arrival status expands route requirements while notes and route warnings r
   let control=h.find(card,n=>n.props.className==='paa-wb-arrival');
   let rules=h.find(card,n=>n.props.className==='paa-wb-route-requirements');
   assert.equal(control.type,'button');assert.equal(control.props['aria-expanded'],false);
-  assert.equal(control.props['aria-controls'],rules.props.id);assert.equal(rules.props.hidden,true);
+  assert.equal(control.props['aria-controls'],rules.props.id);assert.equal(rules.props['aria-hidden'],true);assert.equal(rules.props.inert,'');
   assert.match(text(control),/到达概率 80%/);
   assert(!text(card).includes('所选路线的舰种与带路要求'),'the arrival row is the only disclosure heading');
   const warning=h.find(card,n=>n.props['aria-label']==='路线条件');
@@ -1091,7 +1091,7 @@ test('arrival status expands route requirements while notes and route warnings r
   if(note)assert(!h.find(rules,n=>n===note),'arrival notes remain outside the disclosure');
   control.props.onClick();tree=h.render();card=h.find(tree,n=>n.props.className==='paa-wb-route-status');
   control=h.find(card,n=>n.props.className==='paa-wb-arrival');rules=h.find(card,n=>n.props.className==='paa-wb-route-requirements');
-  assert.equal(control.props['aria-expanded'],true);assert.equal(rules.props.hidden,false);
+  assert.equal(control.props['aria-expanded'],true);assert.equal(rules.props['aria-hidden'],false);assert.equal(rules.props.inert,undefined);
   assert(h.find(rules,n=>n.props.className==='paa-wb-route-rule'&&n.props['data-state']==='matched'));
   control.props.onClick();assert.equal(h.get('routeRulesOpen'),false);
   const empty=harness(),unselected=empty.render(),status=empty.find(unselected,n=>n.props.className==='paa-wb-arrival');
@@ -1113,6 +1113,12 @@ test('route card whitespace expands rules without toggling reading, selection or
   card().props.onClick(click({}, {isCollapsed:false,anchorNode:{}}));assert.equal(h.get('routeRulesOpen'),true,'copying text must not close the card');
   card().props.onClick(click({},null,{defaultPrevented:true}));assert.equal(h.get('routeRulesOpen'),true);
   card().props.onClick(click({},null,{button:2}));assert.equal(h.get('routeRulesOpen'),true);
+  const warnings={getBoundingClientRect:()=>({left:10}),clientLeft:2,clientWidth:200};
+  const warningText={closest:selector=>selector==='.paa-wb-route-warnings'?warnings:selector.includes('[role="region"]')?warnings:null};
+  card().props.onClick(click(warningText,null,{clientX:80}));assert.equal(h.get('routeRulesOpen'),false,'random branch explanations also close the card');
+  card().props.onClick(click(warningText,null,{clientX:80}));assert.equal(h.get('routeRulesOpen'),true,'random branch explanations also open the card');
+  card().props.onClick(click(warningText,null,{clientX:213}));assert.equal(h.get('routeRulesOpen'),true,'using the warning scrollbar must not toggle the card');
+  card().props.onClick(click(warningText,{isCollapsed:false,anchorNode:{}},{clientX:80}));assert.equal(h.get('routeRulesOpen'),true,'selecting branch explanation text keeps the card open');
   card().props.onClick(click());assert.equal(h.get('routeRulesOpen'),false,'the outer card also closes the requirements');
   const disabled=card({busy:true});assert.equal(disabled.props['data-expandable'],false);
   disabled.props.onClick(click());assert.equal(h.get('routeRulesOpen'),false);

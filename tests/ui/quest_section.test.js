@@ -5,6 +5,7 @@ const create=require('../../src/ui/components/quest_section');
 function harness(props,result){
   const hooks=[],calls=[];let cursor=0,tree;
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
+    useRef(initial){const index=cursor++;return hooks[index]||(hooks[index]={current:initial});},
     useState(initial){const index=cursor++;if(!(index in hooks))hooks[index]=initial;return [hooks[index],value=>{hooks[index]=value;}];},
     useMemo(compute,deps){const index=cursor++,cached=hooks[index];if(!cached||deps.some((value,i)=>!Object.is(value,cached.deps[i])))hooks[index]={value:compute(),deps};return hooks[index].value;}};
   const Component=create(React,{listRelatedQuests:input=>{calls.push(input);return typeof result==='function'?result(input):result;}});
@@ -77,7 +78,10 @@ test('related tasks stay folded and perform no evaluation until opened',()=>{
   assert.match(ui.text(),/相关任务1 项/);
   ui.render();assert.equal(ui.calls.length,1,'unrelated rerenders reuse the current evaluation');
   ui.toggle(false);props.slots=[{id:5,slots:[18],ex:-1}];ui.render();assert.equal(ui.calls.length,1);
-  assert.equal(ui.find(n=>n.props.className==='paa-quest-content'),undefined);
+  const folded=ui.find(n=>n.props.className==='paa-quest-content');
+  assert.equal(folded.props['aria-hidden'],true);assert.equal(folded.props.inert,'');
+  assert(ui.find(n=>n.props['data-quest-id']===1001),'keep the last body during its closing transition without re-evaluation');
+  ui.toggle(true);assert.equal(ui.calls.length,2);assert.equal(ui.calls[1].slots,props.slots);
 });
 
 test('opened tasks re-evaluate the current ships, equipment, destination and quest state',()=>{

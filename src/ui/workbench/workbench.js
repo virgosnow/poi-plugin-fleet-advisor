@@ -393,7 +393,10 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
               null),
             stableResult('route',h('div',{className:'paa-wb-route-status','data-expandable':!!routeRequirements.length&&!disabled,onClick:event=>{
               if(disabled||!routeRequirements.length||event.defaultPrevented||event.button>0)return;
-              if(event.target.closest?.('.paa-wb-arrival,.paa-wb-route-requirements,a,button,input,select,textarea,summary,[role="button"],[role="region"]'))return;
+              const target=event.target?.nodeType===3?event.target.parentElement:event.target;
+              if(target.closest?.('.paa-wb-arrival,.paa-wb-route-requirements,a,button,input,select,textarea,summary,[role="button"]'))return;
+              const warnings=target.closest?.('.paa-wb-route-warnings');
+              if(warnings&&event.clientX>=warnings.getBoundingClientRect().left+warnings.clientLeft+warnings.clientWidth)return;
               const selection=event.currentTarget.ownerDocument?.getSelection();
               if(selection&&!selection.isCollapsed&&event.currentTarget.contains(selection.anchorNode))return;
               setRouteRulesOpen(open=>!open);
@@ -404,7 +407,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
             arrival.note&&!routeSearchFailed?h('small',{className:'paa-wb-arrival-note'},arrival.note):null,
             reasons.length?h('div',{className:'paa-wb-route-warnings',role:'region',tabIndex:0,'aria-label':'路线条件'},...reasons.map((reason,i)=>h('p',{key:i},reason))):null,
             ['notFound','unconfirmed'].includes(selectedRoute?.status)?h('div',{className:'paa-wb-route-warnings',role:'region',tabIndex:0,'aria-label':'推荐路线受阻条件'},...(selectedRoute.diagnostics?.briefWarnings?.length?selectedRoute.diagnostics.briefWarnings:['未找到符合所选路线的编成']).map((text,i)=>h('p',{key:i},text))):null,
-            routeRequirements.length?h('div',{id:`${kind}-route-requirements`,className:'paa-wb-route-requirements',hidden:!routeRulesOpen},
+            routeRequirements.length?h('div',{id:`${kind}-route-requirements`,className:'paa-wb-route-requirements','data-open':routeRulesOpen,'aria-hidden':!routeRulesOpen,inert:routeRulesOpen?undefined:''},
+              h('div',{className:'paa-wb-route-rules-clip'},
               h('div',{key:`${area}:${phase}:${mapRoute}`,className:'paa-wb-route-rules-scroll',role:'region',tabIndex:0,'aria-label':'详细带路规则'},
               selectedRoute?.source?h('a',{href:selectedRoute.source,target:'_blank',rel:'noopener noreferrer'},'攻略来源'):h('small',{className:'paa-muted'},'推定路线'),
               h('small',{className:'paa-muted'},'各点从上到下判断；概率判定未命中时继续下一条。随机分岐不保证走所选出口。'),
@@ -414,7 +418,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
                   h('div',{className:'paa-wb-rule-heading'},h('strong',null,`${i+1}. → ${r.destinations}`,
                     Number.isFinite(r.chance)?`（${Math.round(r.chance*10000)/100}%，否则继续判断）`:null),
                     h('span',null,({matched:'当前命中',estimated:'按配装估算命中',pending:'条件待确认'})[r.state]||'',r.offRoute?' · 不走所选出口':'')),
-                  conditionView(r.conditionTree,r.active,String(i+1)))))))):null),
+                  conditionView(r.conditionTree,r.active,String(i+1))))))))):null),
             h('div',{className:'paa-wb-threat','aria-live':'polite'},h('div',{className:'paa-wb-section-head'},h('h4',null,threat.title)),
               threat?.enemies?.length?h('div',{className:'paa-wb-enemies'},...threat.enemies.slice(0,2).map((e,i)=>h('div',{key:i},portrait({name:e.name,portrait:V.portraitUrl(store,e.apiId)}),h('span',null,e.name,h('small',null,`${(e.nodes||[]).join(' / ')} 点`))))):h('span',null,threat?.status==='none'?'此处没有记录到战斗敌舰':'敌情资料不足，暂不能比较'),
               ...(threat.warnings||[]).map((warning,i)=>h('small',{key:i,className:'paa-muted'},warning))))),

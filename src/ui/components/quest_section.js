@@ -29,8 +29,10 @@ module.exports=function createQuestSection(React,options={}){
   const listRelatedQuests=options.listRelatedQuests||((input)=>require('../../domain/quests/quest_requirements').listRelatedQuests(input));
   return function QuestSection({state,slots,deckId,kind='normal',mapId,missionId,questState}){
     const [open,setOpen]=React.useState(false);
-    const related=React.useMemo(()=>open?listRelatedQuests({state,slots,deckId,kind,mapId,missionId,questState}):null,
+    const last=React.useRef(null);
+    const related=React.useMemo(()=>open?listRelatedQuests({state,slots,deckId,kind,mapId,missionId,questState}):last.current,
       [open,state,slots,deckId,kind,mapId,missionId,questState]);
+    if(open)last.current=related;
     const ready=related?.status==='ready';
     const tasks=ready&&(Array.isArray(related.tasks))?related.tasks.filter(task=>task&&(Number(task.state)===1||Number(task.state)===2)):[];
     const taskView=task=>{
@@ -56,7 +58,7 @@ module.exports=function createQuestSection(React,options={}){
     };
     return h('details',{className:'paa-quest-section',open,'aria-label':'相关任务',onClick:toggleCardSpace,onToggle:event=>setOpen(Boolean(event.currentTarget.open))},
       h('summary',null,h('span',null,'相关任务'),open&&ready?h('span',{className:'paa-quest-count'},`${tasks.length} 项`):null),
-      open?h('div',{className:'paa-quest-content'},
+      open||related?h('div',{className:'paa-quest-content','aria-hidden':!open,inert:open?undefined:''},
         !ready?h('p',{className:'paa-quest-empty'},'请在游戏中打开任务列表以同步'):
           !tasks.length?h('p',{className:'paa-quest-empty'},'暂无可受领或进行中的相关任务'):
             h('div',{className:'paa-quest-list',role:'region','aria-label':'相关任务要求',tabIndex:0},...tasks.map(taskView))):null);

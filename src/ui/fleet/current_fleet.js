@@ -1,6 +1,7 @@
 'use strict';
 const F=require('./current_fleet_model'),V=require('../models/presentation_model');
 const {retain,hiddenPage}=require('../components/retained_view');
+const collapse=require('../components/collapse');
 const show=n=>Number.isFinite(n)?n:'—';
 const fraction=p=>`${show(p?.current)} / ${show(p?.max)}`;
 module.exports=(React,{getStore})=>{
@@ -85,11 +86,11 @@ module.exports=(React,{getStore})=>{
         }))),
         h('div',{className:'paa-current-presets'},h('h3',{className:'paa-fleet-section-heading'},h('button',{type:'button',className:'paa-preset-toggle',disabled:busy,'aria-expanded':presetsOpen,'aria-controls':'paa-fleet-preset-list',onClick:()=>setPresetsOpen(v=>!v)},
           h('span',null,'编成预设'),h('small',null,presets.items.length||''),chevron(presetsOpen))),
-          presetsOpen?h('div',{className:'paa-scheme-library',id:'paa-fleet-preset-list'},h('div',{className:'paa-source-list'},...presets.items.map(preset=>h('button',{key:preset.id,type:'button','data-source-preset':preset.id,'aria-pressed':sourcePreset===preset.id,'data-selected':sourcePreset===preset.id,disabled:busy,onClick:()=>selectSource(()=>setSourcePreset(preset.id))},
+          collapse(h,{open:presetsOpen,id:'paa-fleet-preset-list'},h('div',{className:'paa-scheme-library'},h('div',{className:'paa-source-list'},...presets.items.map(preset=>h('button',{key:preset.id,type:'button','data-source-preset':preset.id,'aria-pressed':sourcePreset===preset.id,'data-selected':sourcePreset===preset.id,disabled:busy,onClick:()=>selectSource(()=>setSourcePreset(preset.id))},
             h('span',{className:'paa-source-title'},h('strong',{'data-tooltip':preset.name},preset.name),h('small',null,preset.ids.length+' 艘')),
             h('span',{className:'paa-source-ships'},...preset.ids.slice(0,6).map(id=>{const ship=store.info?.ships?.[id],master=store.const?.$ships?.[ship?.api_ship_id],name=master?.api_name||'舰娘 #'+id,url=ship?V.portraitUrl(store,ship.api_ship_id):null;
               return h('span',{key:id,className:'paa-source-portrait','data-tooltip':name},h('span',null,name.slice(0,2)),url?h('img',{src:url,alt:'',draggable:false,onError:e=>{e.currentTarget.style.display='none';}}):null);
-            }))))),!presets.items.length?h('span',{className:'paa-preset-empty'},presets.synced?'暂无编成预设':'在游戏中打开编成记录后同步'):null):null))),
+            }))))),!presets.items.length?h('span',{className:'paa-preset-empty'},presets.synced?'暂无编成预设':'在游戏中打开编成记录后同步'):null))))),
       h('section',{className:'paa-wb-right'},
         h('div',{className:'paa-fleet-heading'},h('div',null,h('h3',null,sourcePreset===null?`第 ${sourceFleet} 舰队`:`编成预设 ${sourcePreset}`),current.name?h('span',{className:'paa-muted'},current.name):null),
           h('div',{className:'paa-fleet-duty','data-state':current.state},h('span',{'data-tooltip':current.preset?'游戏编成记录保存舰娘名单；这里显示成员当前的装备与状态。':undefined,tabIndex:current.preset?0:undefined},current.status),current.mission?h('span',null,current.mission):null,current.remaining?h('time',{'data-tooltip':current.returnAt?new Date(current.returnAt).toLocaleString('zh-CN'):undefined},current.remaining):null)),
@@ -115,7 +116,7 @@ module.exports=(React,{getStore})=>{
                   fold('属性',shipDetails[ship.id],()=>setShipDetails(v=>({...v,[ship.id]:!v[ship.id]})),`paa-fleet-stats-${ship.id}`,`${ship.name}：属性`)),
                 [ship.fuel,ship.ammo].some(p=>p.current!==null&&p.max!==null&&p.current<p.max)?h('span',{className:'paa-fleet-supply-warning','data-tooltip':`燃料：${fraction(ship.fuel)}\n弹药：${fraction(ship.ammo)}`,tabIndex:0},'补给不足'):
                   [ship.fuel,ship.ammo].some(p=>p.current===null||p.max===null)?h('span',{className:'paa-muted'},'补给待同步'):null,
-                shipDetails[ship.id]?h('dl',{id:`paa-fleet-stats-${ship.id}`,className:'paa-fleet-ship-stats','aria-label':'当前面板属性'},...ship.stats.map(s=>h('div',{key:s.label},h('dt',null,s.label),h('dd',null,show(s.value))))):null):null),
+                collapse(h,{open:shipDetails[ship.id],id:`paa-fleet-stats-${ship.id}`},h('dl',{className:'paa-fleet-ship-stats','aria-label':'当前面板属性'},...ship.stats.map(s=>h('div',{key:s.label},h('dt',null,s.label),h('dd',null,show(s.value))))))):null),
             h('div',{className:'paa-wb-mechanisms','aria-label':'战斗与远征机制'},...badges(ship.badges)),
             h('div',{className:'paa-wb-gears'},...(ship.equipment||[]).map(eq=>h('div',{key:eq.slot,className:'paa-wb-gear','data-tooltip':eq.id>0&&!eq.item?'装备资料待同步':V.equipmentTooltip(eq.item)||'空槽',tabIndex:0},
               h('span',{className:'paa-wb-slot-label'},eq.slot==='ex'?'增':eq.slot+1),eq.item?h(EquipmentIcon,{item:eq.item}):h('span',{className:'paa-wb-gear-empty'},eq.id>0?'?':'＋'),

@@ -130,7 +130,7 @@ test('read-only status UI switches live fleets, refreshes data and offers no sch
   render();assert(find(tree,n=>n.type==='h3'&&n.children.includes('舰队总览')));assert(!find(tree,n=>n.props['aria-label']==='全舰队动态'));for(const label of ['保存方案','已保存方案','JSON','编入','应用编成','换船','移除','新建'])assert(!text(tree).includes(label),label);
   assert(!find(tree,n=>n.type==='textarea'));assert(find(tree,n=>n.props['data-source-fleet']===4));
   assert(!text(tree).includes('舰种构成'));assert(!text(tree).includes('整备情况'));assert(!text(tree).includes('需要留意'));
-  assert(!find(tree,n=>n.props['data-source-preset']===2));
+  assert.equal(find(tree,n=>n.props.id==='paa-fleet-preset-list').props.inert,'');
   const presetToggle=find(tree,n=>n.props['aria-controls']==='paa-fleet-preset-list');assert.equal(presetToggle.props['aria-expanded'],false);
   assert.equal(presetToggle.type,'button');assert(presetToggle.props.className.includes('paa-preset-toggle'));
   assert(find(tree,n=>n.type==='h3'&&n.children.includes(presetToggle)),'preset fold remains a section heading at the same level as fleets');
@@ -150,7 +150,7 @@ test('read-only status UI switches live fleets, refreshes data and offers no sch
   assert(!find(tree,n=>n.type==='select'));assert.equal(los.children[1].children[0],scores[4].toFixed(1));assert.equal(los.props.tabIndex,0);
   for(const c of [1,2,3,4])assert(los.props['data-tooltip'].includes(`系数 ${c}${c===4?'（主显示）':''}：${scores[c].toFixed(1)}`));
   assert(!text(tree).includes('系数 4'));
-  assert(!find(tree,n=>n.props.className==='paa-fleet-ship-stats'));assert(!find(tree,n=>n.props.id==='paa-fleet-supply-details'));
+  assert.equal(find(tree,n=>n.props.id==='paa-fleet-stats-1').props.inert,'');assert(!find(tree,n=>n.props.id==='paa-fleet-supply-details'));
   const attrLabel='测试舰1：属性';find(tree,n=>n.props['aria-label']===attrLabel).props.onClick();render();
   const stats=find(tree,n=>n.props['aria-label']==='当前面板属性');assert.equal(stats.type,'dl');assert.equal(stats.children.length,8);
   assert.equal(stats.children[0].children[0].type,'dt');assert.equal(stats.children[0].children[1].type,'dd');

@@ -159,6 +159,7 @@ module.exports+=`
 module.exports+=require('../fleet/current_fleet_styles');
 module.exports+=require('../expedition/expedition_styles');
 module.exports+=require('../components/quest_section_styles');
+module.exports+=require('../components/disclosure_styles');
 
 // Keep disclosure feedback consistent across pages and poi's host styles.
 module.exports+=`
