@@ -9,6 +9,7 @@ const aswCombat=require('../domain/combat/asw_combat');
 const {estimateRouteAirMargins}=require('../domain/routes/route_air');
 const {shipFamilyKey,usableSlots}=require('./context');
 const {openingTorpedo}=require('./scoring');
+const {smallCarrierSlot,carrierUtility,healthySupremacy,affordableSupremacy,supportedAirGoal}=require('./loadout/carrier_policy');
 
 function requiredDestroyerGuns(area,phase,profile){
   if(area==='1-1'||profile?.counts?.surface?.maximum===0)return 0;
@@ -179,7 +180,7 @@ function strategyFailure(store,ctx,option,inventory,heldSlots=[]){
   issues.push(`可调用提速装备：涡轮 ${count(33)}、强化型缶 ${count(34)}、新型缶 ${count(87)}；电探 ${radars}`);
   return `${option.name}未配成：${need}。${issues.join('；')}。请检查提速装备数量、补强增设及手动保留槽位，或更换难以提速的舰娘；不会降级推荐。`;
 }
-function airLoadout(store,scheme,inventory,required,reference,goal='superiority',heldSlots=[]){
+function airLoadout(store,scheme,inventory,required,reference,goal='superiority',heldSlots=[],{protectedAttackSlots=new Set()}={}){
   const uncontested=reference?.status==='known'&&reference.enemyAirPower===0&&reference.nodes.some(n=>!n.noAirBattle&&n.kind!=='asw');
   if(uncontested)required=Math.max(1,required||0);
   if(!Number.isFinite(required)||required<=0)return null;
@@ -216,19 +217,20 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     const score=value.status==='range'?value:{min:0,max:0,slots:[]};
     memo.set(id,score);return score;
   };
-  const total=()=>{
-    const air=positions.reduce((sum,position)=>{
+  const totalAir=()=>positions.reduce((sum,position)=>{
       const value=contribution(position,slots.get(position.shipId)[position.slot]);
       sum.min+=value.min;sum.max+=value.max;sum.slots.push(...(value.slots||[]));return sum;
     },{status:'range',min:0,max:0,slots:[]});
+  const total=()=>{
+    const air=totalAir();
     const margin=reference?estimateRouteAirMargins(air,reference)?.[goal]:null;
     return margin?{min:required+margin.min,max:required+margin.max}:air;
   };
-  const trial=(changes)=>{
+  const trial=(changes,reading=()=>total().min)=>{
     const before=changes.map(([position,id])=>{
       const list=slots.get(position.shipId),old=list[position.slot];list[position.slot]=id;return [position,old];
     });
-    try{return total().min;}finally{for(const [position,id]of before)slots.get(position.shipId)[position.slot]=id;}
+    try{return reading();}finally{for(const [position,id]of before)slots.get(position.shipId)[position.slot]=id;}
   };
   const attackCount=shipId=>slots.get(shipId).filter(id=>[7,8].includes(typeOf(id))).length;
   const allowed=(position,item)=>{
@@ -261,6 +263,19 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     list[position.slot]=id;
     if(id>0)used.add(id);
   };
+  const small=position=>smallCarrierSlot(position.ship,position.master,position.slot);
+  const utility=carrierUtility(inventory);
+  // Retire expendable tiny strike slots before air fitting. Keep the last
+  // strike plane and manual holds, and never weaken an already met air goal.
+  for(const position of positions.filter(p=>[7,11,18].includes(p.stype)&&small(p))){
+    const old=slots.get(position.shipId)[position.slot];
+    if(old>0&&![7,8].includes(typeOf(old))||[7,8].includes(typeOf(old))&&attackCount(position.shipId)<=1)continue;
+    const minimum=Math.min(required,total().min);
+    const item=alternatives(position,utility).find(item=>
+      (Number(item.master.api_type[2])!==9||!slots.get(position.shipId).some(id=>typeOf(id)===9))&&
+      trial([[position,item.id]])>=minimum);
+    if(item)replace(position,item.id);
+  }
   const attackValue=(position,item)=>{
     const observed=Number(position.ship.api_onslot?.[position.slot]);
     const planes=Number.isFinite(observed)?observed:
@@ -268,13 +283,14 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     const type=Number(item.master.api_type[2]);
     const hasType=slots.get(position.shipId).some(id=>typeOf(id)===type);
     return (Number(item.master.api_raig||0)+Number(item.master.api_baku||0))*
-      Math.sqrt(Math.max(0,planes))+(hasType?0:40);
+      Math.sqrt(Math.max(0,planes))+Number(item.master.api_houg||0)*1.5+(hasType?0:40);
   };
   const bestFighter=(where,allowAttackLoss)=>{
     let best=null;
     for(const position of positions.filter(where)){
       const old=slots.get(position.shipId)[position.slot],oldType=typeOf(old);
       if([7,8].includes(oldType)&&(!allowAttackLoss||attackCount(position.shipId)<=1))continue;
+      if(protectedAttackSlots.has(position.shipId+':'+position.slot))continue;
       const prior=contribution(position,old);
       for(const item of alternatives(position,fighters)){
         const type=Number(item.master.api_type[2]);
@@ -330,6 +346,28 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     if(best)replace(best.position,best.item.id);
   }
   improve(position=>[7,11,18].includes(position.stype),false);
+  // A high-AA bomber (e.g. F4U-1D) may close the gap while retaining B+A.
+  // Compare the full air contribution, including aircraft-type proficiency,
+  // before sacrificing a strike slot to another pure fighter. B never counts
+  // as F in the cut-in combination, and remains subject to stage-two AA.
+  for(let step=0;step<positions.length&&total().min<required;step++){
+    let best=null;
+    for(const position of positions.filter(p=>[7,11,18].includes(p.stype)&&!small(p))){
+      const old=slots.get(position.shipId)[position.slot],oldType=typeOf(old);
+      if(![7,8].includes(oldType))continue;
+      const previous=inventory.find(item=>item.id===old);if(!previous)continue;
+      const prior=contribution(position,old);
+      for(const item of alternatives(position,attackers.filter(item=>Number(item.master.api_type[2])===oldType))){
+        const next=contribution(position,item.id),gain=next.min-prior.min;
+        if(gain<=0)continue;
+        if(!trial([[position,item.id]],()=>supportedAirGoal(totalAir(),reference,goal)))continue;
+        const loss=Math.max(0,attackValue(position,previous)-attackValue(position,item));
+        const score=gain/(1+loss);
+        if(!best||score>best.score)best={position,item,score};
+      }
+    }
+    if(!best)break;replace(best.position,best.item.id);
+  }
   improve(position=>[7,11,18].includes(position.stype),true);
   // Cruise-ship water fighters are a fallback once carrier non-attack slots
   // and expendable strike slots cannot close the gap. Eligibility is checked
@@ -340,6 +378,7 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
   if(total().min>=required)for(const position of positions){
     if(![7,11,18].includes(position.stype)||typeOf(slots.get(position.shipId)[position.slot])!==6)
       continue;
+    if(small(position)&&attackCount(position.shipId)>0)continue;
     if(uncontested&&positions.filter(p=>[6,45].includes(typeOf(slots.get(p.shipId)[p.slot]))).length<=1)continue;
     const old=slots.get(position.shipId)[position.slot],prior=contribution(position,old);
     const current=total().min;
@@ -350,8 +389,9 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     }).sort((a,b)=>b.attack-a.attack||b.next.min-a.next.min||a.item.id-b.item.id);
     // Same winner as testing every option then sorting; stop at the first
     // passing option in that exact order.
-    const choice=choices.find(option=>reference?trial([[position,option.item.id]])>=required:
-      current-prior.min+option.next.min>=required);
+    const choice=choices.find(option=>(reference?trial([[position,option.item.id]])>=required:
+      current-prior.min+option.next.min>=required)&&
+      trial([[position,option.item.id]],()=>supportedAirGoal(totalAir(),reference,goal)));
     if(choice)replace(position,choice.item.id);
   }
   // A water fighter on an eligible cruiser may buy back a carrier strike slot.
@@ -368,7 +408,7 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
         const waterGain=contribution(cruiser,water.id).min-oldAir.min;
         if(waterGain<=0)continue;
         for(const carrier of positions.filter(position=>[7,11,18].includes(position.stype)&&
-          typeOf(slots.get(position.shipId)[position.slot])===6)){
+          !small(position)&&typeOf(slots.get(position.shipId)[position.slot])===6)){
           const fighter=slots.get(carrier.shipId)[carrier.slot];
           const before=contribution(carrier,fighter).min;
           for(const attack of alternatives(carrier,attackers)){
@@ -378,6 +418,7 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
             if(best&&score<=best.score)continue;
             const after=contribution(carrier,attack.id).min;
             if(reference?trial([[cruiser,water.id],[carrier,attack.id]])<required:current+waterGain+after-before<required)continue;
+            if(!trial([[cruiser,water.id],[carrier,attack.id]],()=>supportedAirGoal(totalAir(),reference,goal)))continue;
             if(!best||score>best.score)best={cruiser,water,carrier,attack,score};
           }
         }
@@ -388,10 +429,37 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     replace(best.carrier,best.attack.id);
   }
   const entries=scheme.ships.map(entry=>{
-    const current=usableSlots(store,entry.id),next=slots.get(entry.id);
+    const current=entry.slots||usableSlots(store,entry.id),next=slots.get(entry.id);
     return next.some((id,i)=>id!==current[i])?{...entry,slots:next}:{...entry};
   });
-  return entries.some(entry=>entry.slots)?{fleet:scheme.fleet,ships:entries}:null;
+  const fitted=entries.some(entry=>entry.slots)?{fleet:scheme.fleet,ships:entries}:null;
+  if(fitted&&goal==='superiority'&&reference?.status==='known'&&reference.enemyAirPower>0&&
+    entries.filter(entry=>[7,11,18].includes(Number(store.const.$ships[store.info.ships[entry.id].api_ship_id]?.api_stype))).length>=2&&
+    total().min>=required){
+    const target=Number(reference.supremacy??reference.enemyAirPower*3);
+    const strikeCore=new Set();
+    for(const entry of fitted.ships){
+      // Reserve the strongest large-slot bomber and torpedo plane before
+      // buying AS+ with an expendable third strike slot.
+      for(const type of [7,8]){
+        const core=positions.filter(p=>p.shipId===entry.id&&!small(p)&&
+          typeOf(entry.slots[p.slot])===type).sort((a,b)=>
+          Number(b.ship.api_onslot?.[b.slot]??b.master.api_maxeq?.[b.slot]??0)-
+          Number(a.ship.api_onslot?.[a.slot]??a.master.api_maxeq?.[a.slot]??0))[0];
+        if(core)strikeCore.add(entry.id+':'+core.slot);
+      }
+    }
+    const upgraded=airLoadout(store,fitted,inventory,target,reference,'supremacy',heldSlots,{protectedAttackSlots:strikeCore});
+    if(upgraded&&affordableSupremacy(store,fitted,upgraded)){
+      const air=airPower(store,upgraded.ships.map(entry=>{
+        const ship=store.info.ships[entry.id];return {id:entry.id,ship,master:store.const.$ships[ship.api_ship_id],
+          before:{slots:ship.api_slot,ex:ship.api_slot_ex},after:entry};
+      }));
+      const estimate=estimateRouteAirMargins(air,reference);
+      if(healthySupremacy(store,upgraded,air,{margins:estimate})&&supportedAirGoal(air,reference,'supremacy'))return upgraded;
+    }
+  }
+  return fitted;
 }
 function oneOneOpeningLoadout(store,scheme,inventory){
   const used=new Set(scheme.ships.flatMap(entry=>entry.slots||usableSlots(store,entry.id))

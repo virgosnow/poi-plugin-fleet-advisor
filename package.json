@@ -1,6 +1,6 @@
 {
   "name": "poi-plugin-fleet-advisor",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "virgosnow",
   "license": "MIT",
   "bundledDependencies": true,

@@ -1,0 +1,66 @@
+'use strict';
+const {estimateRouteAirMargins}=require('../../domain/routes/route_air');
+// A conservative fitting preference, not a universal shoot-down threshold.
+const SMALL_CARRIER_SLOT=12;
+function carrierSlotSize(ship,master,slot){
+  return Number(ship.api_onslot?.[slot]??master.api_maxeq?.[slot]??0);
+}
+const smallCarrierSlot=(ship,master,slot)=>carrierSlotSize(ship,master,slot)<=SMALL_CARRIER_SLOT;
+function carrierUtility(inventory){
+  const type=item=>Number(item.master.api_type?.[2]);
+  const rank=item=>type(item)===6?0:type(item)===9?1:2;
+  const value=item=>type(item)===6?Number(item.master.api_tyku||0):type(item)===9?
+    Number(item.master.api_saku||0):Number(item.master.api_houg||0)*3+Number(item.master.api_houm||0);
+  return inventory.filter(item=>[6,9].includes(type(item))||
+    [1,2,3,4,35].includes(type(item))&&Number(item.master.api_houg)>0)
+    .sort((a,b)=>rank(a)-rank(b)||value(b)-value(a)||a.id-b.id);
+}
+function carrierSummary(store,scheme){
+  return scheme.ships.flatMap(entry=>{
+    const ship=store.info.ships[entry.id],master=store.const.$ships[ship.api_ship_id];
+    if(![7,11,18].includes(Number(master.api_stype)))return [];
+    const attacks=(entry.slots||ship.api_slot).flatMap((id,k)=>{
+      const m=store.const.$equips[store.info.equips[id]?.api_slotitem_id],t=Number(m?.api_type?.[2]),n=carrierSlotSize(ship,master,k);
+      return [7,8].includes(t)&&n>0?[{type:t,large:!smallCarrierSlot(ship,master,k),
+        power:(Number(m.api_raig||0)+Number(m.api_baku||0))*Math.sqrt(n)}]:[];
+    });
+    return [{id:entry.id,attacks,power:attacks.reduce((n,a)=>n+a.power,0)}];
+  });
+}
+// Opportunity thresholds below are fitting heuristics. Wiki describes the
+// AS -> AS+ spotting/air-loss benefits, not a universal number of fighters:
+// https://wikiwiki.jp/kancolle/航空戦#AirSupremacy
+function healthySupremacy(store,scheme,air,estimate){
+  const rows=carrierSummary(store,scheme);
+  return rows.length>=2&&estimate?.margins?.supremacy?.min>=0&&
+    (air?.slots||[]).filter(s=>s.aircraftType===6&&s.planes?.[0]>0&&s.effectiveAntiAir?.[0]>=10).length>=2&&
+    rows.every(row=>[7,8].every(t=>row.attacks.some(a=>a.type===t&&a.large)));
+}
+// Strike planes also suffer stage-two AA. When their air power is essential,
+// require a durable fighter floor and extra margin after sequential losses.
+// These 80% / 120% limits are policy buffers, not wipeout probabilities.
+function supportedAirGoal(air,reference,goal){
+  if(reference?.status!=='known'||air?.status!=='range')return false;
+  const enemy=reference.enemyAirPower??Math.max(0,...reference.nodes.map(n=>n.enemyAirPower??n.upperBound??NaN));
+  if(enemy===0)return true;
+  if(!Number.isFinite(enemy))return false;
+  const required=Math.max(1,Number(reference[goal]??enemy*(goal==='supremacy'?3:1.5)));
+  const slots=air.slots.filter(s=>[6,45].includes(s.aircraftType));
+  const pure={status:'range',slots,min:slots.reduce((n,s)=>n+s.min,0),max:slots.reduce((n,s)=>n+s.max,0)};
+  const floor=estimateRouteAirMargins(pure,reference)?.[goal];
+  if(!floor)return false;
+  if(floor.min>=0)return true;
+  const margin=estimateRouteAirMargins(air,reference)?.[goal];
+  return required+floor.min>=required*0.8&&margin?.min>=required*0.2;
+}
+function affordableSupremacy(store,before,after){
+  const original=carrierSummary(store,before),next=carrierSummary(store,after);
+  const count=rows=>rows.reduce((n,r)=>n+r.attacks.length,0),power=rows=>rows.reduce((n,r)=>n+r.power,0);
+  return original.length===next.length&&count(original)-count(next)<=1&&power(next)>=power(original)*0.85&&
+    original.every(row=>{
+      const fitted=next.find(r=>r.id===row.id);
+      return fitted&&fitted.attacks.length>=Math.min(2,row.attacks.length)&&
+        row.attacks.every(a=>fitted.attacks.some(b=>b.type===a.type));
+    });
+}
+module.exports={SMALL_CARRIER_SLOT,carrierSlotSize,smallCarrierSlot,carrierUtility,healthySupremacy,affordableSupremacy,supportedAirGoal};

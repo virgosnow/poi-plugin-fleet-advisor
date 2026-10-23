@@ -8,6 +8,7 @@ const {aswEscortLimit,submarineObjective,aswEncounterWeight}=require('./loadout/
 const aswCombat=require('../domain/combat/asw_combat');
 const {routeAirReference,estimateRouteAir}=require('../domain/routes/route_air');
 const {aswPotential,num,shipCost,usableSlots}=require('./context');
+const {healthySupremacy,supportedAirGoal}=require('./loadout/carrier_policy');
 
 function airGoalScore(result,airGoal,area,profile){
   const reference=routeAirReference(result,area,profile);
@@ -205,8 +206,12 @@ function routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute=false
   const aviationBattleship=aviationBattleshipStrike(store,rows,scheme);
   const seaplane=seaplaneStrike(store,rows,scheme);
   const strike=carrier+aviationBattleship+seaplane;
+  // Modest combat credit for affordable AS+ fits, not another mandatory air
+  // tier. Never reward an unarmed fighter mule or sacrifice the carrier's BA.
+  const supremacyPreference=airGoal==='superiority'&&healthySupremacy(store,scheme,air,airScore.routeAirEstimate)&&
+    supportedAirGoal(air,airScore.routeAirReference,'supremacy')?carrier*0.3:0;
   const strength=combat.strength+strike*0.7+
-    (airGoal==='ignore'?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5);
+    supremacyPreference+(airGoal==='ignore'?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5);
   const cost=rows.reduce((sum,row)=>sum+shipCost(row),0);
   const battleCount=profile?.counts?
     profile.counts.surface.maximum+profile.counts.air.maximum+profile.counts.asw.maximum:hops;
@@ -254,7 +259,7 @@ function routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute=false
       (nightSupport?.supportTier||0)*1e7+specialAttack.bonus+groundAttack.bonus*100+
       (profile?.counts?.night?.maximum>=2&&!nightSupport?.zuiunEquipped?Math.max(0,Math.min(2,nightSupport?.flareCarriers||0)-1)*1000:0)+preferenceScore+probability-
       airScore.airGoalShortfall*10000,
-    ...airScore,nightSupport,specialAttack,groundAttack,
+    ...airScore,opportunisticSupremacy:supremacyPreference>0,nightSupport,specialAttack,groundAttack,
     routePriority,routeChance:chance,assumedChance:assumed,
     graphHops:result.reachableHops||null,strengthProxy:strength,
     carrierStrikeProxy:carrier,aviationBattleshipStrikeProxy:aviationBattleship,

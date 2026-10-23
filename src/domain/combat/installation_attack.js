@@ -355,4 +355,4 @@ function groundCombatContext(store,scheme,profile,{airReference,airEstimate,scor
   };
   return {targets,score,states,combatPlanes};
 }
-module.exports={equipmentEffects,groundBadge,groundConfiguration,routeGroundTargets,routeGroundEncounters,groundPower,fleetGroundScore,groundCombatContext,itemsForEntry,dedicated,flags,carrierGroundState};
+module.exports={equipmentEffects,groundBadge,groundConfiguration,routeGroundTargets,routeGroundEncounters,groundPower,fleetGroundScore,groundCombatContext,itemsForEntry,dedicated,flags,carrierGroundState,groundBomber};

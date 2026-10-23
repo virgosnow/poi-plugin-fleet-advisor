@@ -80,7 +80,7 @@ const TOOL_DEFS=Object.freeze([
     {jobId:uuid('Job to stop.')},['jobId'],false),
 ]);
 const instructions='Fleet Advisor controls KanColle fleet composition/equipment through poi; it does not dispatch sorties/expeditions. Read status/contract, create a snapshot, then query/evaluate/recommend. IDs are owned instances unless labeled masterId. ships is the COMPLETE fleet, not a patch. Game presets store hulls only. Recommendations never change the game. To apply: preview_fleet -> execute_plan -> get_job, with one idempotency key. On partial failure inspect a new snapshot. Route probability excludes battle retreat. Keep unknown data unknown. Tools use fleet_advisor_ prefix.';
-const SERVER_INFO={name:'poi-plugin-fleet-advisor',version:'1.0.2'};
+const SERVER_INFO={name:'poi-plugin-fleet-advisor',version:require('../../package.json').version};
 const PROTOCOL_VERSION='2026-07-28';
 const SUPPORTED_PROTOCOL_VERSIONS=['2025-03-26','2025-06-18','2025-11-25',PROTOCOL_VERSION];
 const toolList=()=>TOOL_DEFS.map(t=>({name:t.name,description:t.description,

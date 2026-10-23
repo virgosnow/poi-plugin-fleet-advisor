@@ -1,7 +1,8 @@
 'use strict';
 const {canEquip,acceptsOtherSlot}=require('../../domain/fleet/equipment_rules');
-const {dedicated,flags,itemsForEntry,routeGroundTargets,groundCombatContext,fleetGroundScore}=require('../../domain/combat/installation_attack');
+const {dedicated,flags,itemsForEntry,routeGroundTargets,groundCombatContext,fleetGroundScore,groundBomber,carrierGroundState}=require('../../domain/combat/installation_attack');
 const {aswEscortLimit,aswEscortIds}=require('./loadout_policy');
+const {smallCarrierSlot}=require('./carrier_policy');
 const type=m=>Number(m?.api_type?.[2]);
 const main=m=>[1,2,3,38].includes(type(m));
 const scout=m=>[10,11].includes(type(m));
@@ -14,11 +15,38 @@ const clone=entry=>({...entry,slots:entry.slots.slice()});
 const read=(entry,k)=>k==='ex'?entry.ex:entry.slots[k];
 const write=(entry,k,id)=>{if(k==='ex')entry.ex=id;else entry.slots[k]=id;};
 
+function carrierGroundLoadout(store,scheme,inventory,profile,locks,airReference){
+  const bombers=inventory.filter(i=>groundBomber(i.master));if(!bombers.length)return [];
+  const current={fleet:scheme.fleet,ships:scheme.ships.map(clone)};let changed=false;
+  for(const entry of current.ships){
+    const ship=store.info.ships[entry.id],sm=store.const.$ships[ship.api_ship_id];
+    if(![7,11,18].includes(Number(sm.api_stype))||carrierGroundState(itemsForEntry(store,entry))==='ready')continue;
+    const context=groundCombatContext(store,current,profile,{airReference}),base=context.score(entry).score;
+    const used=new Set(current.ships.flatMap(s=>s.slots.concat(s.ex)).filter(id=>id>0));let best=null;
+    for(let k=0;k<entry.slots.length;k++){
+      const old=store.const.$equips[store.info.equips[entry.slots[k]]?.api_slotitem_id];
+      if(locks.get(entry.id)?.[k]||smallCarrierSlot(ship,sm,k)||entry.slots[k]>0&&type(old)!==7)continue;
+      for(const item of bombers){
+        if(used.has(item.id))continue;
+        try{if(!canEquip(store,entry.id,item.id,k)||item.sourceShipId&&item.sourceShipId!==entry.id&&
+          !acceptsOtherSlot(store,entry.id,item.id,k))continue;}catch(_){continue;}
+        const trial=clone(entry);trial.slots[k]=item.id;
+        const gain=context.score(trial).score-base;
+        if(gain>1&&(!best||gain>best.gain))best={k,item,gain};
+      }
+    }
+    if(best){entry.slots[best.k]=best.item.id;changed=true;}
+  }
+  return changed?[current]:[];
+}
+
 function groundLoadouts(store,scheme,inventory,{profile,heldSlots=[],airReference,packages=true}={}){
   if(!routeGroundTargets(profile).length)return [];
   const master=id=>store.const.$equips[store.info.equips[id]?.api_slotitem_id];
   const locks=new Map(heldSlots.filter(Boolean).map(s=>[s.id,s.keep||{}]));
-  const entries=scheme.ships.map(s=>({...s,slots:(s.slots||store.info.ships[s.id].api_slot).slice(),ex:s.ex??store.info.ships[s.id].api_slot_ex}));
+  let entries=scheme.ships.map(s=>({...s,slots:(s.slots||store.info.ships[s.id].api_slot).slice(),ex:s.ex??store.info.ships[s.id].api_slot_ex}));
+  const carrierVariants=carrierGroundLoadout(store,{fleet:scheme.fleet,ships:entries},inventory,profile,locks,airReference);
+  if(carrierVariants.length)entries=carrierVariants[0].ships;
   const escorts=aswEscortIds(store,entries,aswEscortLimit(profile));
   const protectedItem=(entry,id)=>protectedTypes.has(type(master(id)))&&
     (escorts.has(entry.id)||![14,15,40,44].includes(type(master(id))))&&!dedicated(master(id));
@@ -32,7 +60,7 @@ function groundLoadouts(store,scheme,inventory,{profile,heldSlots=[],airReferenc
       'ordinary:'+store.info.equips[item.id]?.api_slotitem_id;
     if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item);
   }
-  if(![...groups.keys()].some(k=>k.startsWith('ground:')))return [];
+  if(![...groups.keys()].some(k=>k.startsWith('ground:')))return carrierVariants;
   const raw=item=>Number(item.master.api_houg||0)*3+Number(item.master.api_houm||0)*2+
     Number(item.master.api_saku||0)+Math.sqrt(Number(store.info.equips[item.id]?.api_level||0))*3;
   for(const group of groups.values())group.sort((a,b)=>raw(b)-raw(a)||a.id-b.id);
@@ -70,7 +98,7 @@ function groundLoadouts(store,scheme,inventory,{profile,heldSlots=[],airReferenc
       }
       if(!placed)break;
     }
-    return changed?[current]:[];
+    return [...(changed?[current]:[]),...carrierVariants];
   }
   const fit=(current,entry,mode)=>{
     const usedElsewhere=new Set(current.ships.filter(s=>s.id!==entry.id).flatMap(s=>s.slots.concat(s.ex)).filter(id=>id>0));
@@ -137,7 +165,7 @@ function groundLoadouts(store,scheme,inventory,{profile,heldSlots=[],airReferenc
     if(score>baseline+1)options.push({scheme:current,score});
   }
   options.sort((a,b)=>b.score-a.score);const seen=new Set();
-  return options.filter(r=>{const key=JSON.stringify(r.scheme);if(seen.has(key))return false;seen.add(key);return true;}).map(r=>r.scheme);
+  return [...options.map(r=>r.scheme),...carrierVariants].filter(s=>{const key=JSON.stringify(s);if(seen.has(key))return false;seen.add(key);return true;});
 }
 function groundLoadout(store,scheme,inventory,options){return groundLoadouts(store,scheme,inventory,options)[0]||null;}
 module.exports={groundLoadout,groundLoadouts};

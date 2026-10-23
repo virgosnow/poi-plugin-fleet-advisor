@@ -1,7 +1,7 @@
 'use strict';
 // Portable build-time artifact check. No shell, game connection, or downloads.
 const fs=require('fs'),zlib=require('zlib'),assert=require('assert');
-const file=process.argv[2]||'poi-plugin-fleet-advisor-1.0.2.tgz';
+const file=process.argv[2]||`poi-plugin-fleet-advisor-${require('../../package.json').version}.tgz`;
 const tar=zlib.gunzipSync(fs.readFileSync(file)),names=[];let metadata;
 for(let offset=0;offset+512<=tar.length;) {
   const header=tar.subarray(offset,offset+512);

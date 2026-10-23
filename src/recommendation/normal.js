@@ -204,7 +204,7 @@ function calculateBatch(store,batch){
     }else{
       const {option}=batch;let fitted=item.scheme;
       if(airGoal!=='ignore'){
-        const next=airLoadout(store,fitted,inventory,item.score.airGoalRequired,item.score.routeAirReference,airGoal);
+        const next=airLoadout(store,fitted,inventory,item.score.airGoalRequired,item.score.routeAirReference,airGoal,args.heldSlots);
         if(next)fitted=holdDraftEquipment(store,next,args.heldSlots);
       }
       for(const need of routePlans.routingNeeds(item.route,item.nodes)){
@@ -260,7 +260,7 @@ function calculateBatch(store,batch){
         continue;
       }
       const variant=kind==='air'?
-        airLoadout(store,seed.scheme,inventory,seed.scores.airGoalRequired,reference,airGoal):
+        airLoadout(store,seed.scheme,inventory,seed.scores.airGoalRequired,reference,airGoal,args.heldSlots):
         kind==='opening'?oneOneOpeningLoadout(store,seed.scheme,inventory):
         kind==='surface'?surfaceLoadout(store,seed.scheme,inventory,area,phase,seed.profile,args.heldSlots):
         kind==='night'?seed.profile?.counts?.night?.maximum?
@@ -275,7 +275,7 @@ function calculateBatch(store,batch){
       let combined=seed.scheme,changes=0;
       for(const kind of ['surface','asw','ground','opening','air','los','routing','night'].filter(k=>gearKinds.includes(k))){
         const variant=kind==='air'?
-          airLoadout(store,combined,inventory,seed.scores.airGoalRequired,reference,airGoal):
+          airLoadout(store,combined,inventory,seed.scores.airGoalRequired,reference,airGoal,args.heldSlots):
           kind==='opening'?oneOneOpeningLoadout(store,combined,inventory):
           kind==='ground'?groundLoadout(store,combined,inventory,{profile:seed.profile,heldSlots:args.heldSlots,airReference:reference,packages:batch.finalGround===true}):
           kind==='surface'?surfaceLoadout(store,combined,inventory,area,phase,seed.profile,args.heldSlots):
@@ -932,7 +932,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
     ...(routeGroundTargets(initial.profile).length?['ground']:[]),
     ...(area==='1-1'?['opening']:[]),'air','los','routing',...(initial.profile?.counts?.night?.maximum?['night']:[])];
   const variant=(current,kind)=>kind==='surface'?surfaceLoadout(store,current,inventory,area,phase,initial.profile,heldSlots):
-    kind==='air'?airLoadout(store,current,inventory,initial.scores.airGoalRequired,initial.scores.routeAirReference):
+    kind==='air'?airLoadout(store,current,inventory,initial.scores.airGoalRequired,initial.scores.routeAirReference,'superiority',heldSlots):
     kind==='ground'?groundLoadout(store,current,inventory,{profile:initial.profile,heldSlots,airReference:initial.scores.routeAirReference}):
     kind==='opening'?oneOneOpeningLoadout(store,current,inventory):
     kind==='night'?nightLoadout(store,current,inventory,{normalizeGuns:area==='5-3',nightBattles:initial.profile.counts.night.maximum,heldSlots}):

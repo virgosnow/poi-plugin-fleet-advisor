@@ -1,5 +1,6 @@
 'use strict';
 const {canEquip,acceptsOtherSlot}=require('../../domain/fleet/equipment_rules');
+const {smallCarrierSlot,carrierUtility}=require('./carrier_policy');
 const type=m=>Number(m?.api_type?.[2]);
 const master=(store,id)=>store.const.$equips[store.info.equips[id]?.api_slotitem_id];
 const oneOneIrrelevant=new Set([14,15,17,18,19,24,30,37,40,42,43,44,46,54,93]);
@@ -81,10 +82,11 @@ function combatPools(inventory){
     .sort((a,b)=>score(b.master)-score(a.master)||a.id-b.id);
   const air=m=>Number(m.api_raig||0)+Number(m.api_baku||0)+Number(m.api_houm||0);
   const pools={guns:select([1,2,3]),torpedo:select([5,32]),opening:select([22],m=>Number(m.api_raig||0)),
-    fighter:select([6],m=>Number(m.api_tyku||0)),
+    fighter:select([6],m=>Number(m.api_tyku||0)),carrierUtility:carrierUtility(inventory),
     bomber:select([7,8,11,57,58],air),torpedoPlane:select([8,58],air),divePlane:select([7,57],air),
     recon:select([9,10,41],m=>Number(m.api_saku||0)),shell:select([19]),
     sonar:select([14,40],m=>Number(m.api_tais||0)),depth:select([15],m=>Number(m.api_tais||0)),
+    submarineRadar:select([51],m=>attackValue(m)+Number(m.api_houk||0)+Number(m.api_saku||0)),
     auxiliary:select([12,13,21,27,39],m=>attackValue(m)+Number(m.api_souk||0)+Number(m.api_houk||0)+Number(m.api_saku||0))};
   poolCache.set(inventory,pools);return pools;
 }
@@ -113,7 +115,7 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
         const chosen=items.find(i=>{
           if(used.has(i.id))return false;
           const t=type(i.master);
-          if([7,8,9,10,11,41,57,58].includes(t)&&(k==='ex'||capacity(k)<=0))return false;
+          if([6,7,8,9,10,11,41,45,57,58].includes(t)&&(k==='ex'||capacity(k)<=0))return false;
           try{return canEquip(store,entry.id,i.id,k)&&(!i.sourceShipId||i.sourceShipId===entry.id||acceptsOtherSlot(store,entry.id,i.id,k));}catch(_){return false;}
         });
         if(chosen){if(k==='ex')entry.ex=chosen.id;else entry.slots[k]=chosen.id;used.add(chosen.id);return true;}
@@ -122,18 +124,35 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
     };
     const opening=pool.opening.filter(i=>/甲標的/.test(i.master.api_name||''));
     if(!pure&&stype===16&&!count([11]))assign(pool.bomber.filter(i=>type(i.master)===11));
-    if(!pure&&!count([22]))assign(opening);
+    // SS/SSV gain opening torpedoes at level 10. A midget submarine is
+    // redundant then and does not count toward a two-torpedo night cut-in.
+    if(!pure&&!(sub&&Number(ship.api_lv)>=10)&&!count([22]))assign(opening);
     if(asw&&pure&&[1,2,3,4,21,22].includes(stype)){
       if(!count([14,40]))assign(pool.sonar);
       if(pure&&!count([15]))assign(pool.depth);
     }
-    if(sub){while(assign(pool.torpedo)){};}
+    if(sub){
+      while(count([5,32])<2&&assign(pool.torpedo)){};
+      const hasRadar=()=>count([51])>0||type(master(store,entry.ex))===51;
+      // Prefer expansion radar so two-slot submarines retain both torpedoes.
+      // Without an eligible expansion, only use a spare normal slot after
+      // securing the pair; never replace a torpedo or a manually held item.
+      if(!hasRadar())assign(pool.submarineRadar,['ex']);
+      if(!hasRadar()&&count([5,32])>=2)assign(pool.submarineRadar);
+      while(assign(pool.torpedo)){};
+    }
     else if(carrier){
       const airSlots=positions.slice().sort((a,b)=>capacity(b)-capacity(a)||a-b);
-      if(area!=='1-1'&&entry.slots.length>1&&!count([6]))assign(pool.fighter,airSlots);
-      if(!count([8,58]))assign(pool.torpedoPlane,airSlots);
-      if(!count([7,57]))assign(pool.divePlane,airSlots);
-      while(assign(pool.bomber,airSlots)){};
+      const large=airSlots.filter(k=>!smallCarrierSlot(ship,sm,k));
+      // Small-only early carriers still need an offensive slot. Otherwise
+      // reserve small slots for utility, even when air superiority is secure.
+      const strikeSlots=large.length?large:airSlots.filter(k=>capacity(k)>0).slice(0,1);
+      const utilitySlots=airSlots.filter(k=>!strikeSlots.includes(k)).reverse();
+      if(area!=='1-1'&&entry.slots.length>1&&!count([6]))assign(pool.fighter,[...utilitySlots,...airSlots]);
+      if(!count([8,58]))assign(pool.torpedoPlane,strikeSlots);
+      if(!count([7,57]))assign(pool.divePlane,strikeSlots);
+      while(assign(pool.bomber,strikeSlots)){};
+      for(const k of utilitySlots)assign(pool.carrierUtility.filter(i=>type(i.master)!==9||!count([9])),[k]);
     }else if(!pure){
       const target=asw&&(submarineObjective(profile)||escortSeed)&&[1,2,21,22].includes(stype)?1:2;
       while(count([1,2,3])<target&&assign(pool.guns)){};
@@ -164,8 +183,10 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
   // untouched for validation, but don't create new gaps when inventory is short.
   for(const entry of entries)for(let k=0;k<entry.slots.length;k++){
     if(entry.slots[k]>0||locks.get(entry.id)?.[k])continue;
+    const ship=store.info.ships[entry.id],sm=store.const.$ships[ship.api_ship_id];
     const later=entry.slots.findIndex((id,j)=>j>k&&id>0&&!locks.get(entry.id)?.[j]&&
-      legal(entry,k,{id,sourceShipId:null}));
+      !([7,11,18].includes(Number(sm.api_stype))&&[7,8,57,58].includes(type(master(store,id)))&&
+        smallCarrierSlot(ship,sm,k)&&!smallCarrierSlot(ship,sm,j))&&legal(entry,k,{id,sourceShipId:null}));
     if(later>=0){entry.slots[k]=entry.slots[later];entry.slots[later]=-1;}
   }
   return {fleet:scheme.fleet,ships:entries};
@@ -174,8 +195,10 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
 function explainLoadout(store,entry,{kind='normal',area,fleetEntries=[entry]}={}){
   const ship=store.info.ships[entry.id],sm=store.const.$ships[ship.api_ship_id],oneOne=kind==='normal'&&area==='1-1';
   const normal=entry.slots.map(id=>master(store,id)),opening=normal.some(m=>type(m)===22&&/甲標的/.test(m.api_name));
+  const inherentOpening=[13,14].includes(Number(sm.api_stype))&&Number(ship.api_lv)>=10;
   const guns=normal.filter(m=>[1,2,3].includes(type(m))).length;
-  const role=oneOne?(opening?'以甲标开幕雷击削减敌舰，炮击负责补刀；本图不需要运输、对地或对潜装备。':'以水上攻击为主；本图不需要运输、对地或对潜装备。'):
+  const role=inherentOpening&&kind==='normal'?'潜艇已达到 10 级，自带先制雷击；优先双鱼雷，额外槽位再考虑潜艇电探。':
+    oneOne?(opening?'以甲标开幕雷击削减敌舰，炮击负责补刀；本图不需要运输、对地或对潜装备。':'以水上攻击为主；本图不需要运输、对地或对潜装备。'):
     kind==='expedition'?'按远征成功条件与净收益核对整套装备。':kind==='manual'?'以下说明当前 JSON 配装的用途；不代表系统已为这套组合做过优化。':
       opening?'具备开幕雷击能力，其他装备承担炮击、制空或路线需求。':'按当前整套装备说明用途；是否满足路线要求以制空、索敌与带路检查为准。';
   const rows=[];let fill;
@@ -197,10 +220,15 @@ function explainLoadout(store,entry,{kind='normal',area,fleetEntries=[entry]}={}
       if(!fixed&&oneOne&&/夕張改二/.test(sm.api_name||'')&&Number(k)>=3)reason+=Number(k)===4?'第五槽仅允许小型电探、机枪或战斗粮食。':'此槽不能装主炮、鱼雷或甲标。';
     }else if(oneOne&&oneOneIrrelevant.has(t)){
       reason='本图没有对应作战或带路用途，应移除或替换。';warning=true;
-    }else if(t===22&&/甲標的/.test(m.api_name))reason='启用开幕雷击，在炮击前争取消灭敌舰。';
+    }else if(t===22&&/甲標的/.test(m.api_name))reason=inherentOpening?
+      '此潜艇已自带先制雷击，不需要甲标开启；甲标仅贡献装备属性，也不计入夜战双鱼雷组合。':
+      '启用开幕雷击，在炮击前争取消灭敌舰。';
     else if([1,2,3].includes(t))reason='增加炮击火力'+(guns===2&&!normal.some(m=>[4,5].includes(type(m)))?'；当前双主炮组合可用于夜战连击。':'。');
-    else if(t===5)reason='提高雷装，增强雷击；夜战攻击形式取决于整套组合。';
+    else if([5,32].includes(t))reason='鱼雷提高雷装，增强雷击；夜战攻击形式取决于整套组合。';
+    else if(t===51)reason='潜艇电探提供命中、回避与索敌等属性；与后期型潜艇鱼雷搭配可构成专用夜战 CI，不替代双鱼雷的优先配装。';
     else if([6,45,48,56].includes(t))reason='提供制空能力，帮助舰队达到制空目标。';
+    else if(t===7&&Number(m.api_tyku)>0)reason='舰爆同时贡献制空与轰炸输出；战爆联合按舰爆 B 计，不算舰战 F，仍承受敌方对空炮火。'+
+      (m.api_name==='F4U-1D'?'F4U-1D 还可参与对地攻击；对陆上目标不发动战爆联合 CI。':'');
     else if([7,8,11,57,58].includes(t))reason='参与航空攻击；实际效果受搭载量、制空与机种影响。';
     else if([9,10,41,59].includes(t))reason='承担侦察、索敌或观测辅助；能否发动还需满足搭载与战斗条件。';
     else if([12,13].includes(t))reason=oneOne?'利用电探的命中/火力属性帮助炮击；1-1 没有索敌门槛。':'提高命中与索敌，门槛是否达标见右侧索敌卡片。';
@@ -212,7 +240,10 @@ function explainLoadout(store,entry,{kind='normal',area,fleetEntries=[entry]}={}
     else if(t===21)reason=oneOne?'利用机枪的附加火力/命中属性；本图不靠对空收益选择它。':'提供对空能力及装备附加属性。';
     else if(t===27)reason='提供装甲与防护'+(attackValue(m)>0?'，同时利用装备附加的攻击属性。':'。');
     else if(t===39)reason='利用熟练见张员的附加属性；夜战辅助效果仍需满足舰种和整套装备条件。';
+    else if(t===35)reason='利用航空整备员等航空要员的火力与附加属性；射程和夜战支援效果按具体装备与组合核对。';
     else reason='当前组合保留此装备；推荐器尚未提供专门的用途论证。';
+    if(id>0&&k!=='ex'&&kind==='normal'&&[7,11,18].includes(Number(sm.api_stype))&&smallCarrierSlot(ship,sm,k))
+      reason=([7,8,57,58].includes(t)?'小搭载攻击机有被打空的风险。':'小搭载槽优先用于制空、侦察或火力辅助。')+reason;
     if(fixed&&id>0)reason='手动保留。'+reason;
     rows.push({slot:k,label:k==='ex'?'增设':`第 ${k+1} 槽`,name:m?.api_name||'空槽',reason,warning});
   };
