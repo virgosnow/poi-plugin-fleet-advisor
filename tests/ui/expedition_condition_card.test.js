@@ -65,3 +65,28 @@ test('income column headers show complementary integer probabilities without a s
     assert.deepEqual(columns,['成功 —','大成功 —'],'unknown probabilities must not be presented as zero or certain success');
   }
 });
+
+test('resource breakdown follows available outcomes and adds exactly to net income without negative zero',()=>{
+  const view=create(React),all=(n,p)=>!n||typeof n!=='object'?[]:[...(p(n)?[n]:[]),...n.children.flatMap(c=>all(c,p))];
+  const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join('');
+  const income={rows:[{name:'燃料',base:0,success:0,great:0,cost:5,net:-5,greatNet:-5},
+    {name:'弹药',base:30,success:31,great:47,cost:0,net:31,greatNet:47}]},before=JSON.stringify(income);
+  for(const rate of [0,50,100,null]){
+    const tree=view.overview({rate,income,hasShips:true,master:{api_win_item1:[3,1]}});
+    const tables=all(tree,n=>n.props.className==='paa-exp-detail-table'),outcomes=rate===0?['success']:rate===100?['great']:['success','great'];
+    assert.equal(tables.length,2);
+    tables.forEach((table,index)=>{
+      assert.equal(table.props['data-columns'],outcomes.length+1);
+      const rows=all(table,n=>n.props['data-component']);
+      assert.deepEqual(rows.map(n=>n.props['data-component']),['base','great','bonus','cost']);
+      for(const [col,outcome] of outcomes.entries()){
+        const values=rows.map(n=>n.children[col+1]);
+        assert.equal(values.reduce((n,c)=>n+Number(text(c)),0),income.rows[index][outcome==='success'?'net':'greatNet']);
+        assert.equal(text(values.at(-1)),index===0?'-5':'0');
+        assert.equal(values.at(-1).props['data-negative'],index===0);
+        assert.equal(values.at(-1).props['data-zero'],index===1);
+      }
+    });
+  }
+  assert.equal(JSON.stringify(income),before);
+});

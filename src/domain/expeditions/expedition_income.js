@@ -71,7 +71,7 @@ function missionIncome(store,slots,missionId){
   const rows=rewards.map((base,index)=>{
     const used=index===0?cost.fuelCost:index===1?cost.ammoCost:0;
     const success=grossReward(base,bonus),great=grossReward(base,bonus,true);
-    return {name:RESOURCE_NAMES[index],cost:used,success,great,net:success-used,greatNet:great-used};
+    return {name:RESOURCE_NAMES[index],base,cost:used,success,great,net:success-used,greatNet:great-used};
   }).filter(row=>row.success||row.cost);
   return {bonus:bonus.totalRate,cost,rows};
 }

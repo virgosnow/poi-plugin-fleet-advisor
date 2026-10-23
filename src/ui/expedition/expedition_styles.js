@@ -53,8 +53,14 @@ module.exports=`
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-details>summary{padding:0;font-size:13px;line-height:20px;font-weight:600}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-unlock-details>summary{font-size:13px;line-height:20px;font-weight:600}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-condition{min-height:32px;padding-block:6px}
-.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table>div{gap:6px;grid-template-columns:repeat(4,minmax(0,1fr))}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-groups{display:grid;gap:12px;margin-top:8px;max-height:300px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table{margin-top:0}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table>div{gap:6px;grid-template-columns:repeat(2,minmax(0,1fr));padding:3px 0;border:0}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table[data-columns="3"]>div{grid-template-columns:repeat(3,minmax(0,1fr))}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table>div:first-child{padding-bottom:5px;margin-bottom:3px;border-bottom:1px solid var(--paa-line)}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table>div:first-child>:first-child{color:var(--paa-text)}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table [role=rowheader],.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table [data-zero=true]{color:var(--paa-muted)}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table [data-negative=true]{color:var(--paa-bad)}
 @container(max-width:780px){
  .paa-workbench[data-kind=expedition] .paa-wb-left [data-result-region=expedition]{border:0;background:none;padding:0}
  .paa-workbench[data-kind=expedition] .paa-wb-left>.paa-wb-context-controls{padding:12px 14px;border:1px solid var(--paa-line);border-radius:10px;background:var(--paa-card)}

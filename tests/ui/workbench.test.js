@@ -208,6 +208,31 @@ test('hourly expedition income converts net supplies and rewards by actual missi
   assert.equal(JSON.stringify(income),before);
 });
 
+test('income breakdown preserves separately floored bonuses, zero rewards and signed supply costs',()=>{
+  const E=require('../../src/ui/expedition/expedition_model');
+  for(const [base,success,great,cost,successBonus,greatBonus] of [
+    [30,31,47,5,1,2],
+    [31,32,48,5,1,2],
+    [350,399,598,30,49,73],
+    [0,0,0,5,0,0],
+    [30,30,45,0,0,0],
+  ]){
+    const row={name:'弹药',base,success,great,cost},before=JSON.stringify(row),parts=E.incomeBreakdown(row);
+    assert.equal(parts[0].success,base);assert.equal(parts[0].great,base);
+    assert.equal(parts[1].success,0);assert.equal(parts[1].great,Math.floor(base*1.5)-base);
+    assert.equal(parts[2].success,successBonus);assert.equal(parts[2].great,greatBonus);
+    assert.equal(parts[3].success,-cost||0);assert.equal(parts[3].great,-cost||0);
+    assert.equal(parts.reduce((n,p)=>n+p.success,0),success-cost);
+    assert.equal(parts.reduce((n,p)=>n+p.great,0),great-cost);
+    assert.equal(JSON.stringify(row),before);
+  }
+  const saved=E.incomeBreakdown({name:'弹药',success:31,great:47,cost:5},1);
+  assert.equal(saved[0].success,30,'existing income rows can recover base rewards from local mission data');
+  const unknown=E.incomeBreakdown({name:'燃料',success:100,great:150,cost:5},999);
+  assert.equal(unknown[0].success,null);assert.equal(unknown[1].great,null);assert.equal(unknown[2].success,null);
+  assert.equal(unknown[3].success,-5);assert.equal(E.incomeText(unknown[0].success,'trip'),'—');
+});
+
 test('great-success goal actually prefers sparkled eligible ships while success keeps low cost',()=>{
   const store=fixture();store.info.ships[5].api_cond=60;store.info.ships[6].api_cond=60;
   const great=recommendExpeditionFleet(store,{missionId:1,fleet:2,goal:'great'}).recommendations[0];

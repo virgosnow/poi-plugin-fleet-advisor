@@ -338,11 +338,11 @@ test('selected expedition displays monthly prerequisites first and item rewards 
   }
 });
 
-test('100 percent great success shows only its net rewards and gross breakdown in trip and hourly views',()=>{
+test('100 percent great success shows only its net rewards and additive breakdown in trip and hourly views',()=>{
   const React={Fragment:'fragment',createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})};
   const view=require('../../src/ui/expedition/expedition_view')(React),all=(n,p)=>!n||typeof n!=='object'?[]:[...(p(n)?[n]:[]),...n.children.flatMap(c=>all(c,p))];
   const text=n=>typeof n==='string'||typeof n==='number'?String(n):(n?.children||[]).map(text).join(' ');
-  const income={rows:[{name:'燃料',net:70,greatNet:120,success:100,great:150,cost:30}]};
+  const income={rows:[{name:'燃料',base:80,net:70,greatNet:120,success:100,great:150,cost:30}]};
   for(const incomeUnit of ['trip','hour'])for(const hasItems of [false,true]){
     const props={mission:{missionId:43},master:{api_time:120,...(hasItems?{api_win_item1:[3,2],api_win_item2:[1,1]}:{})},
       rate:100,goal:'success',hasShips:true,income,incomeUnit};
@@ -353,8 +353,11 @@ test('100 percent great success shows only its net rewards and gross breakdown i
     assert.equal(all(table,n=>n.props.role==='cell')[0].children[1].children[0],incomeUnit==='hour'?'/小时':'/次');
     for(const row of all(table,n=>n.props.role==='row'))assert.equal(row.children.filter(Boolean).length,2);
     const details=all(tree,n=>n.props.className==='paa-exp-detail-table')[0];
-    assert.deepEqual(details.children[0].children.filter(Boolean).map(text),['资源','大成功毛收益','补给消耗']);
-    assert.deepEqual(details.children[1].children.filter(Boolean).map(text),['燃料','150','30']);
+    assert.deepEqual(details.children[0].children.filter(Boolean).map(n=>text(n).trim()),['燃料','大成功']);
+    assert.deepEqual(details.children.slice(1).map(n=>n.children.map(text)),[
+      ['基础收益','+80'],['大成功加成','+40'],['收益加成','+30'],['补给消耗','-30'],
+    ]);
+    assert.equal(details.children.at(-1).children[1].props['data-negative'],true);
     const mixed=view.overview({...props,rate:99.999,goal:'great'}),mixedTable=all(mixed,n=>n.props.className==='paa-exp-income-table')[0];
     assert.deepEqual(all(mixedTable,n=>n.props.role==='columnheader').map(n=>text(n).replace(/\s+/g,' ')),['奖励','成功 0%','大成功 100%']);
     assert.equal(all(mixedTable,n=>n.props.role==='cell')[0].children[0],incomeUnit==='hour'?'+35':'+70');

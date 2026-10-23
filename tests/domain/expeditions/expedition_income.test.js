@@ -58,7 +58,9 @@ test('mission income uses selected equipment, separate reward floors and net sup
   const before=JSON.stringify(store),result=missionIncome(store,[{id:7,slots:[10],ex:-1}],1);
   assert.equal(result.bonus,.07);assert.deepEqual(result.cost,{fuelCost:5,ammoCost:0});
   const ammo=result.rows.find(r=>r.name==='弹药');assert.equal(ammo.success,31);assert.equal(ammo.great,47);
+  assert.equal(ammo.base,30);
   const fuel=result.rows.find(r=>r.name==='燃料');assert.equal(fuel.net,-5);assert.equal(fuel.greatNet,-5);
+  assert.equal(fuel.base,0,'resources consumed without a reward retain a known zero base');
   assert.equal(JSON.stringify(store),before);
   assert.equal(missionIncome(store,[{id:99}],1),null);assert.equal(missionIncome(store,[{id:7}],999),null);
 });

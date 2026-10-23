@@ -71,8 +71,10 @@ module.exports=React=>{
             h('span',{role:'rowheader'},resource(item.name)),
             showSuccess?itemResult(item,!item.greatOnly):null,showGreat?itemResult(item,true,item.greatOnly):null))),
         income?h('details',{className:'paa-exp-income-details'},h('summary',null,'单次补给与收益明细'),
-          h('div',{className:'paa-exp-detail-table','data-columns':showGreat&&showSuccess?4:3},h('div',null,h('span',null,'资源'),showSuccess?h('span',null,'成功毛收益'):null,showGreat?h('span',null,'大成功毛收益'):null,h('span',null,'补给消耗')),
-            ...income.rows.map(r=>h('div',{key:r.name},h('span',null,r.name),showSuccess?h('span',null,r.success):null,showGreat?h('span',null,r.great):null,h('span',null,r.cost))))):
+          h('div',{className:'paa-exp-detail-groups'},...income.rows.map(r=>h('div',{key:r.name,className:'paa-exp-detail-table','data-columns':showGreat&&showSuccess?3:2,role:'table','aria-label':r.name+'单次收益明细'},
+            h('div',{role:'row'},h('span',{role:'columnheader'},resource(r.name)),showSuccess?h('span',{role:'columnheader'},'成功'):null,showGreat?h('span',{role:'columnheader'},'大成功'):null),
+            ...E.incomeBreakdown(r,mission?.missionId).map(part=>h('div',{key:part.key,role:'row','data-component':part.key},h('span',{role:'rowheader'},part.label),
+              ...[...(showSuccess?['success']:[]),...(showGreat?['great']:[])].map(outcome=>h('span',{key:outcome,role:'cell','data-negative':part[outcome]<0,'data-zero':part[outcome]===0},E.incomeText(part[outcome],'trip'))))))))):
           basePreview&&baseRows?null:h('span',{className:'paa-exp-income-empty paa-muted'},hasShips?'收益或补给资料不足':'基础奖励资料不足')));
   }
   function metrics({status,mission,income}){

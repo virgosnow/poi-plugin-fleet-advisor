@@ -115,6 +115,18 @@ function incomeText(net,unit,minutes){
   const value=unit==='hour'?Math.round(net*60/minutes*10)/10:net;
   return (value>0?'+':'')+value;
 }
+function incomeBreakdown(row,missionId){
+  const base=Number.isFinite(row.base)?row.base:REWARDS.missions[missionId]?.resources?.[RESOURCES.indexOf(row.name)];
+  const knownBase=Number.isFinite(base),greatBase=knownBase?Math.floor(base*3/2):null;
+  const cost=Number.isFinite(row.cost)?-row.cost||0:null;
+  return [
+    {key:'base',label:'基础收益',success:knownBase?base:null,great:knownBase?base:null},
+    {key:'great',label:'大成功加成',success:0,great:knownBase?greatBase-base:null},
+    {key:'bonus',label:'收益加成',success:knownBase&&Number.isFinite(row.success)?row.success-base:null,
+      great:knownBase&&Number.isFinite(row.great)?row.great-greatBase:null},
+    {key:'cost',label:'补给消耗',success:cost,great:cost},
+  ];
+}
 function referenceIncome(missionId){
   const preset=REWARDS.incomeReference?.missions?.[missionId],resources=REWARDS.missions[missionId]?.resources;
   if(!preset||!resources||!Number.isFinite(preset.minutes)||preset.minutes<=0||
@@ -152,4 +164,4 @@ function unlockText(missionId,masters={},progress={}){
   const items=unlockItems(missionId,masters,progress);
   return [UNLOCKS.missions[missionId]?'解锁条件（全部满足）':null,...items.map(item=>item.text)].filter(Boolean).join('\n');
 }
-module.exports={missionSummary,rewardItems,rateText,requirements,missingConditions,baseRewardRows,probabilityDetails,fleetStatus,shipBadges,durationText,incomeText,unlockItems,unlockText,referenceIncome};
+module.exports={missionSummary,rewardItems,rateText,requirements,missingConditions,baseRewardRows,probabilityDetails,fleetStatus,shipBadges,durationText,incomeText,incomeBreakdown,unlockItems,unlockText,referenceIncome};
