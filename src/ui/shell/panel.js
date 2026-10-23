@@ -1,6 +1,7 @@
 'use strict';
 const M=require('./model'),css=require('./styles');
 const createWorkbench=require('../workbench/workbench');
+const useNavigationMotion=require('./navigation_motion');
 // React comes from poi's entry point, keeping a single host React instance.
 module.exports=function createPanel(React,{getController,getStore,subscribe,appendLog,getMcpStatus,setMcpEnabled,setMcpHttpPort,setQuestPageActive}){
   const log=entry=>{try{if(appendLog)appendLog(entry);}catch(e){}};
@@ -28,6 +29,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
     const [resettingSettings,setResettingSettings]=React.useState(false),[resourceBusy,setResourceBusy]=React.useState(false),[resourceEpoch,setResourceEpoch]=React.useState(0);
     const tooltipRoot=React.useRef(null),resetInFlight=React.useRef(false);
     useTooltip(React,tooltipRoot,mode);
+    useNavigationMotion(React,tooltipRoot,mode);
     React.useEffect(()=>{
       const root=tooltipRoot.current;if(!root)return;
       const window=root.ownerDocument.defaultView;let idle;
@@ -179,6 +181,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
         h('button',{type:'button',className:'paa-home-toggle','aria-label':'回到主页','data-tooltip':'回到主页：重置三页临时选项与编成',disabled:running,onClick:home},
           h('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
             h('path',{d:'m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9'}))),
+        h('span',{className:'paa-tab-indicator','aria-hidden':true}),
         ...[['manual','当前舰队'],['normal','常规海域'],['expedition','远征']].map(([value,label])=>
           h('button',{key:value,type:'button','aria-pressed':mode===value,disabled:busy||!!externalJob,
             onClick:()=>{setMode(value);if(mode!=='settings')reset();}},label)),

@@ -183,7 +183,7 @@ test('home resets all draft instances and inline execution feedback preserves st
   let tree=render();assert.equal(feedback(tree),null);
   assert.equal(workbenches(tree).find(n=>!n.props.hidden).props.kind,'manual');
   const tabs=find(tree,n=>n.props.className==='paa-tabs');
-  assert.deepEqual(tabs.children.slice(1,-1).map(n=>n.children[0]),['当前舰队','常规海域','远征']);
+  assert.deepEqual(tabs.children.filter(n=>n.type==='button'&&n.props['aria-pressed']!==undefined).map(n=>n.children[0]),['当前舰队','常规海域','远征']);
   find(tree,n=>n.type==='button'&&n.children.includes('常规海域')).props.onClick();tree=render();
   assert.equal(find(tree,n=>n.props.className==='paa-activity'),undefined);
   assert.equal(find(tree,n=>n.props.className==='paa-card paa-execution'),undefined);
