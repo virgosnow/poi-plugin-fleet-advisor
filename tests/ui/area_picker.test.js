@@ -347,7 +347,7 @@ test('100 percent great success shows only its net rewards and gross breakdown i
     const props={mission:{missionId:43},master:{api_time:120,...(hasItems?{api_win_item1:[3,2],api_win_item2:[1,1]}:{})},
       rate:100,goal:'success',hasShips:true,income,incomeUnit};
     const tree=view.overview(props),table=all(tree,n=>n.props.className==='paa-exp-income-table')[0];
-    assert.deepEqual(all(table,n=>n.props.role==='columnheader').map(text),['奖励','大成功']);
+    assert.deepEqual(all(table,n=>n.props.role==='columnheader').map(n=>text(n).replace(/\s+/g,' ')),['奖励','大成功 100%']);
     assert.equal(all(table,n=>n.props.role==='cell')[0].children[0],incomeUnit==='hour'?'+60':'+120');
     assert.equal(all(table,n=>n.props.role==='cell')[0].children[1].props.className,'paa-exp-value-unit');
     assert.equal(all(table,n=>n.props.role==='cell')[0].children[1].children[0],incomeUnit==='hour'?'/小时':'/次');
@@ -356,7 +356,7 @@ test('100 percent great success shows only its net rewards and gross breakdown i
     assert.deepEqual(details.children[0].children.filter(Boolean).map(text),['资源','大成功毛收益','补给消耗']);
     assert.deepEqual(details.children[1].children.filter(Boolean).map(text),['燃料','150','30']);
     const mixed=view.overview({...props,rate:99.999,goal:'great'}),mixedTable=all(mixed,n=>n.props.className==='paa-exp-income-table')[0];
-    assert.deepEqual(all(mixedTable,n=>n.props.role==='columnheader').map(text),['奖励','成功','大成功']);
+    assert.deepEqual(all(mixedTable,n=>n.props.role==='columnheader').map(n=>text(n).replace(/\s+/g,' ')),['奖励','成功 0%','大成功 100%']);
     assert.equal(all(mixedTable,n=>n.props.role==='cell')[0].children[0],incomeUnit==='hour'?'+35':'+70');
   }
 });

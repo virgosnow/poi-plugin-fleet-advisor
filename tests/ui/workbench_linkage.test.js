@@ -37,7 +37,8 @@ test('expedition workbench preserves fixed flagship and separates conditions fro
   h.set('report',{valid:true,expedition:final,scheme:W.scheme(h.get('slots'),2),
     settingsKey:JSON.stringify({kind:'expedition',fleet:2,area:'3-5',target:'boss',phase:'',missionId:101,revision:0})});tree=h.render();
   const text=node=>typeof node==='string'?node:(node?.children||[]).map(text).join(' ');
-  assert(text(tree).includes('99.96%'));assert(text(tree).includes('全部满足'));
+  const content=text(tree).replace(/\s+/g,' ');
+  assert(content.includes('大成功 100%'));assert(content.includes('成功 0%'));assert(content.includes('全部满足'));
   assert(text(tree).includes('总对潜'));
   assert(!h.find(tree,n=>n.props.className==='paa-exp-probability'));
   const outcome=h.find(tree,n=>n.props.className==='paa-exp-outcome');

@@ -5,6 +5,7 @@ module.exports=React=>{
   const resource=name=>h('span',{className:'paa-exp-resource','data-resource':name},
     h(ResourceIcon,{name}),name);
   const unitBadge=unit=>h('small',{className:'paa-exp-value-unit'},unit==='hour'?'/小时':'/次');
+  const outcomeLabel=(label,percent)=>h(React.Fragment,null,`${label} `,h('span',{className:'paa-exp-outcome-probability','data-known':percent!==null},percent===null?'—':percent+'%'));
   const incomeValue=(value,unit,minutes)=>{
     const label=E.incomeText(value,unit,minutes);
     return [label,...(label==='—'?[]:[unitBadge(unit)])];
@@ -36,6 +37,8 @@ module.exports=React=>{
     const items=E.rewardItems(master,useItems),showUnlock=summary&&(summary.monthly||summary.completion==='locked');
     const rateState=!Number.isFinite(rate)?'unknown':rate===0?'zero':rate>=100?'full':'partial';
     const showGreat=rate>0||!Number.isFinite(rate)&&items.length>0,showSuccess=!(Number.isFinite(rate)&&rate>=100);
+    const greatPercent=Number.isFinite(rate)?Math.round(Math.min(100,Math.max(0,rate))):null;
+    const successPercent=greatPercent===null?null:100-greatPercent;
     const basePreview=!hasShips&&!income,baseRows=basePreview?E.baseRewardRows(mission?.missionId):null;
     const incomeLabel=basePreview?'基础奖励':expedition?.eligible===false?'达标后净收益':'净收益';
     const rewardRows=income?.rows||baseRows||['燃料','弹药','钢材','铝土'].map(name=>({name,net:null,greatNet:null}));
@@ -60,9 +63,8 @@ module.exports=React=>{
       h('section',{className:'paa-exp-income','data-rate':rateState,'aria-label':(incomeUnit==='hour'?'每小时':'单次')+incomeLabel},
         h('div',{className:'paa-exp-section-head'},h('div',{className:'paa-exp-income-title'},h('h4',null,incomeLabel),basePreview||!income?h('span',null,basePreview?'未扣补给 · 未计加成':'待核算补给'):null),
           h('div',{className:'paa-exp-income-unit',role:'group','aria-label':'收益时间单位'},...['trip','hour'].map(unit=>h('button',{key:unit,type:'button','aria-pressed':incomeUnit===unit,onClick:()=>onIncomeUnitChange?.(unit)},unit==='hour'?'每小时':'单次')))),
-        h('div',{className:'paa-exp-rate'},h('span',null,'大成功概率'),h('strong',null,E.rateText(rate))),
         h('div',{className:'paa-exp-income-table','data-columns':showGreat&&showSuccess?3:2,'data-has-items':items.length>0,'data-great-available':rate>0,'data-unit':incomeUnit,'data-preview':basePreview,role:'table','aria-label':basePreview?'远征基础奖励':'扣补给后的远征收益'},
-          h('div',{className:'paa-exp-income-row paa-exp-income-heading',role:'row'},h('span',{role:'columnheader'},'奖励'),showSuccess?h('span',{role:'columnheader'},'成功'):null,showGreat?h('span',{role:'columnheader'},'大成功'):null),
+          h('div',{className:'paa-exp-income-row paa-exp-income-heading',role:'row'},h('span',{role:'columnheader'},'奖励'),showSuccess?h('span',{role:'columnheader'},outcomeLabel('成功',successPercent)):null,showGreat?h('span',{role:'columnheader'},outcomeLabel('大成功',greatPercent)):null),
           ...rewardRows.map(r=>h('div',{className:'paa-exp-income-row',role:'row',key:r.name},h('span',{role:'rowheader'},resource(r.name)),
             showSuccess?h('strong',{role:'cell','data-negative':r.net<0,'data-zero':(basePreview?r.success:r.net)===0},...incomeValue(basePreview?r.success:r.net,incomeUnit,master?.api_time)):null,showGreat?h('strong',{role:'cell',className:'paa-exp-resource-great','data-negative':r.greatNet<0,'data-zero':(basePreview?r.great:r.greatNet)===0},...incomeValue(basePreview?r.great:r.greatNet,incomeUnit,master?.api_time)):null)),
           ...items.map((item,index)=>h('div',{className:'paa-exp-income-row paa-exp-item-row',role:'row',key:`item-${index}`,'data-great-only':item.greatOnly},

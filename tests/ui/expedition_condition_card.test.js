@@ -47,3 +47,21 @@ test('disabled, selected-text, cancelled and non-primary clicks do not activate 
   f.dispatch(undefined,{button:1});f.dispatch(undefined,{button:2});assert.equal(f.forwards,0);
   f.dispatch();assert.equal(f.forwards,1);
 });
+
+test('income column headers show complementary integer probabilities without a separate probability row',()=>{
+  const view=create(React),all=(n,p)=>!n||typeof n!=='object'?[]:[...(p(n)?[n]:[]),...n.children.flatMap(c=>all(c,p))];
+  const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join('');
+  const render=rate=>view.overview({rate,hasShips:true,master:{api_win_item1:[3,1]}});
+  for(const rate of [0,.4,.5,33.33,50,66.67,99.999,100]){
+    const tree=render(rate),columns=all(tree,n=>n.props.role==='columnheader').slice(1).map(text);
+    assert(columns.every(c=>/^(成功|大成功) \d+%$/.test(c)));
+    assert.equal(columns.reduce((sum,c)=>sum+Number(c.match(/\d+/)[0]),0),100);
+    if(rate===0)assert.deepEqual(columns,['成功 100%']);
+    if(rate===100)assert.deepEqual(columns,['大成功 100%']);
+    assert.equal(all(tree,n=>n.props.className==='paa-exp-rate').length,0);
+  }
+  for(const rate of [null,undefined,NaN]){
+    const columns=all(render(rate),n=>n.props.role==='columnheader').slice(1).map(text);
+    assert.deepEqual(columns,['成功 —','大成功 —'],'unknown probabilities must not be presented as zero or certain success');
+  }
+});
