@@ -143,7 +143,7 @@ function expeditionCandidate(prepared,parts,selectedFlagship,count,goal,variant,
     const wantSparkle=sparkled<sparkleTarget;
     const currentPotential=incomeMode?incomeSearch.value(incomeState):0;
     const incomeActive=incomeMode&&currentPotential<.2;
-    const preference=goal==='great'?Number(wantSparkle):-1;
+    const preference=goal==='great'?Number(wantSparkle):sparkleTarget===0?0:-1;
     // Scores depend on remaining requirements, not which hulls created
     // them. Rank once, then exclude the already selected ship families.
     const key=mode?JSON.stringify([mode,variant,preference,type,totals,incomeActive?incomeState:null,goal]):
@@ -237,11 +237,14 @@ function searchExpeditionFleet(store,args,shared={}){
   }):[];
   const flagships=[...new Map([...ctx.fixed.map(id=>ctx.byId.get(id)).filter(flagshipEligible),
     ...eligibleFlags.slice(0,10),...nearFullFlags,
+    ...(goal==='success'?eligibleFlags.filter(r=>r.ship.api_cond<50).slice(0,10):[]),
     ...(incomeSearch.active?eligibleFlags.slice().sort((a,b)=>incomeSearch.potential([b])-incomeSearch.potential([a])||cost(a)-cost(b)).slice(0,10):[]),...(goal==='great'?[
       ...eligibleFlags.filter(r=>r.ship.api_cond>=50).slice(0,10),
       ...(spec.gs.kind==='flagship'?eligibleFlags.slice().sort((a,b)=>b.level-a.level||cost(a)-cost(b)).slice(0,10):[])
     ]:[])].filter(row=>args.fixedFlagshipId===undefined||row.id===args.fixedFlagshipId).map(row=>[row.id,row])).values()];
-  const sparkleTargets=goal==='great'?[0,1,2,3,4,5,6]:[0];
+  // Retain the original neutral stream so avoiding sparkle cannot hide the
+  // only hulls capable of meeting a monthly expedition's stat requirements.
+  const sparkleTargets=goal==='great'?[0,1,2,3,4,5,6]:[0,-1];
   const variants=spec.totals||spec.levelSum?weights.map((_,i)=>i):[0];
   const collect=(candidateVariants,candidateFlags,onRow)=>{
     const passSeen=new Set();
@@ -292,7 +295,8 @@ function searchExpeditionFleet(store,args,shared={}){
     }
   }
   const probabilityOrder=(a,b)=>goal==='great'?Math.min(100,b.evaluation.greatSuccess.estimatedPercent)-Math.min(100,a.evaluation.greatSuccess.estimatedPercent):0;
-  const oldOrder=(a,b)=>probabilityOrder(a,b)||
+  const sparkleOrder=(a,b)=>goal==='success'?a.evaluation.greatSuccess.sparkledCount-b.evaluation.greatSuccess.sparkledCount:0;
+  const oldOrder=(a,b)=>probabilityOrder(a,b)||sparkleOrder(a,b)||
     (goal==='great'?a.evaluation.greatSuccess.sparkledCount-b.evaluation.greatSuccess.sparkledCount:0)||
     (goal==='great'?a.scheme.ships.length-b.scheme.ships.length:0)||
     (goal==='great'?Math.max(0,a.evaluation.greatSuccess.rawPercent-100)-Math.max(0,b.evaluation.greatSuccess.rawPercent-100):0)||
@@ -311,7 +315,7 @@ function searchExpeditionFleet(store,args,shared={}){
       candidateKeys.add(key);shortlist.push(row);if(++count>=Math.max(12,limit*4))break;
     }
   };
-  take(valid);if(incomeSearch.active)take(valid.slice().sort((a,b)=>probabilityOrder(a,b)||estimatedNet(b)-estimatedNet(a)||oldOrder(a,b)));
+  take(valid);if(incomeSearch.active)take(valid.slice().sort((a,b)=>probabilityOrder(a,b)||sparkleOrder(a,b)||estimatedNet(b)-estimatedNet(a)||oldOrder(a,b)));
   if(spec.totals||!shortlist.length)take(rejected);
   const selected=new Set(),distinct=[];
   // Inventory and preview indexes belong to this immutable search only.
@@ -323,7 +327,7 @@ function searchExpeditionFleet(store,args,shared={}){
       {
         const scheme=args.heldSlots?.some(Boolean)?holdDraftEquipment(store,row.scheme,args.heldSlots):row.scheme;
         const tier=Math.max(spec.drums||0,spec.drumCarriers||0,goal==='great'&&spec.gs.kind==='drum'?spec.gs.max||0:0);
-        const fitKey=JSON.stringify([scheme,tier]);
+        const fitKey=JSON.stringify([scheme,tier,goal]);
         let fitted=fits.get(fitKey);
         if(!fitted){fitted=fitExpeditionEquipment(store,{missionId,goal,scheme,heldSlots:args.heldSlots},{ctx,inventory,readStats:prepared.readStats});fits.set(fitKey,fitted);}
         row={...row,scheme:fitted.scheme,evaluation:fitted.evaluation,income:fitted.income,gap:gapScore(fitted.evaluation)};
@@ -363,7 +367,7 @@ function searchExpeditionFleet(store,args,shared={}){
   const net=row=>expeditionLoadout.planningNet(row.income,missionId,goal==='great'?row.evaluation.greatSuccess.estimatedPercent/100:0);
   const usage=new Map(distinct.map(row=>[row,expeditionLoadout.cargoUse(store,row.scheme.ships,inventory)]));
   distinct.sort((a,b)=>Number(b.evaluation.eligible)-Number(a.evaluation.eligible)||
-    (!a.evaluation.eligible&&!b.evaluation.eligible?gapOrder(a,b):0)||probabilityOrder(a,b)||(net(a)!==undefined&&net(b)!==undefined?net(b)-net(a):0)||
+    (!a.evaluation.eligible&&!b.evaluation.eligible?gapOrder(a,b):0)||probabilityOrder(a,b)||sparkleOrder(a,b)||(net(a)!==undefined&&net(b)!==undefined?net(b)-net(a):0)||
     usage.get(a).count-usage.get(b).count||usage.get(a).combat-usage.get(b).combat||
     usage.get(a).borrowed-usage.get(b).borrowed||usage.get(a).special-usage.get(b).special||oldOrder(a,b));
   const available=distinct.filter(r=>r.evaluation.eligible),closest=!available.length&&distinct[0];
@@ -459,11 +463,19 @@ function fitExpeditionEquipment(store,{scheme,missionId,goal='success',heldSlots
   }
   if(spec.totals)require('./loadout/expedition_stats').fitStatEquipment(store,entries,inventory,held,spec,shared.readStats);
   expeditionLoadout.fitIncomeEquipment(store,entries,inventory,held,spec,missionId);
-  const fitted=orderEquipment(store,{fleet:ctx.fleet,ships:entries},heldSlots);ctx.preview.preview('fleet',fitted);
-  const evaluation=expeditions.evaluateExpedition(store,ctx.fleet,missionId,fitted);
+  let fitted=orderEquipment(store,{fleet:ctx.fleet,ships:entries},heldSlots);ctx.preview.preview('fleet',fitted);
+  let evaluation=expeditions.evaluateExpedition(store,ctx.fleet,missionId,fitted);
+  if(goal==='success'&&evaluation.eligible&&spec.gs.kind==='drum'&&evaluation.greatSuccess.estimatedPercent<100){
+    const optional=expeditionLoadout.optionalDrumScheme(store,fitted,inventory,held,spec);
+    if(optional){
+      const candidate=orderEquipment(store,optional,heldSlots);ctx.preview.preview('fleet',candidate);
+      const checked=expeditions.evaluateExpedition(store,ctx.fleet,missionId,candidate);
+      if(checked.eligible&&checked.greatSuccess.estimatedPercent>evaluation.greatSuccess.estimatedPercent){fitted=candidate;evaluation=checked;}
+    }
+  }
   const warnings=evaluation.checks.filter(c=>!c.sat&&['drums','drumCarriers'].includes(c.type))
     .map(c=>`${c.type==='drums'?'运输桶':'载桶舰娘'}不足：${c.left} / ${c.right}，请调整舰娘、手动装备或可用运输桶`);
-  return {scheme:fitted,evaluation,warnings,drumTarget:target,income:expeditionIncome.missionIncome(store,entries,missionId)};
+  return {scheme:fitted,evaluation,warnings,drumTarget:Math.max(target,evaluation.greatSuccess.drums),income:expeditionIncome.missionIncome(store,fitted.ships,missionId)};
 }
 // Workbench-local adjustment: evaluate equipment for exactly these hulls, in
 // exactly this order. Never run the fleet search or fill an empty ship slot.

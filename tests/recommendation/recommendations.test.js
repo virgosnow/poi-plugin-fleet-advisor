@@ -572,12 +572,12 @@ test('expedition equipment keeps hull order and manual gear, and refits drums fo
   const heldSlots=[{id:2,slots:[311,312],ex:-1,keep:{0:true}}],before=JSON.stringify({store,scheme,heldSlots});
   const success=fit(store,{scheme,missionId:37,goal:'success',heldSlots});
   assert.deepEqual(success.scheme.ships.map(s=>s.id),ids);assert(success.evaluation.eligible);
-  assert.equal(success.evaluation.greatSuccess.drums,4);assert(success.evaluation.greatSuccess.drumCarriers>=3);
+  assert.equal(success.evaluation.greatSuccess.drums,5);assert(success.evaluation.greatSuccess.drumCarriers>=3);
   assert.equal(success.scheme.ships.at(-1).slots[0],311);
   const great=fit(store,{scheme:success.scheme,missionId:37,goal:'great',heldSlots});
   assert.equal(great.evaluation.greatSuccess.drums,5);
   const again=fit(store,{scheme:great.scheme,missionId:37,goal:'success',heldSlots});
-  assert.equal(again.evaluation.greatSuccess.drums,4,'success mode removes optional automatic drums');
+  assert.equal(again.evaluation.greatSuccess.drums,5,'success mode keeps useful spare-slot drums without requiring sparkle');
   const equipped=great.scheme.ships.flatMap(s=>s.slots.concat(s.ex)).filter(id=>id>0);
   assert.equal(new Set(equipped).size,equipped.length);assert.deepEqual(great.scheme.ships.map(s=>s.id),ids);
   assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',great.scheme));
@@ -657,6 +657,51 @@ test('expedition fits reward gear after mandatory and great-success drums withou
   assert.equal(fit.income.bonus,.1);assert.equal(fit.warnings.length,0);
   assert.deepEqual(fit.income,require('../../src/ui/workbench/workbench_model').income(store,fit.scheme.ships,37));
   assert.equal(JSON.stringify(store),before);
+});
+
+test('success dispatch prefers unsparkled hulls and still respects fixed or uniquely required ships',()=>{
+  const store=incomeEquipmentFixture();
+  store.info.ships[1].api_cond=60;store.info.ships[2].api_cond=60;
+  store.const.$ships[9]={...store.const.$ships[1],api_id:9,api_name:'无闪轻巡',api_fuel_max:30,api_bull_max:30};
+  store.info.ships[9]={...store.info.ships[1],api_id:9,api_ship_id:9,api_cond:49,api_fuel:30,api_bull:30,api_slot:[-1,-1]};
+  for(let id=101;id<=105;id++)addExpeditionItem(store,id,75);
+  const before=JSON.stringify(store),args={missionId:37,fleet:2,goal:'success',limit:1};
+  const best=recommendExpeditionFleet(store,args).recommendations[0];
+  assert(best.evaluation.eligible);assert.equal(best.evaluation.greatSuccess.sparkledCount,0);
+  assert(best.scheme.ships.some(s=>s.id===9));assert.equal(best.evaluation.greatSuccess.drums,5);
+  const fixed=recommendExpeditionFleet(store,{...args,fixedFlagshipId:1}).recommendations[0];
+  assert.equal(fixed.scheme.ships[0].id,1);assert.equal(fixed.evaluation.greatSuccess.sparkledCount,1);
+  const fallback=recommendExpeditionFleet(store,{...args,excludedShipIds:[9]}).recommendations[0];
+  assert(fallback.evaluation.eligible);assert.equal(fallback.evaluation.greatSuccess.sparkledCount,1);
+  assert.equal(JSON.stringify(store),before);
+});
+
+test('success equipment adds only useful complete drum tiers and preserves income gear',()=>{
+  const store=incomeEquipmentFixture(),ids=[1,2,3,4,5,6];
+  store.const.$missions[24]={api_use_fuel:.5,api_use_bull:0};
+  for(let id=101;id<=105;id++)addExpeditionItem(store,id,75);
+  const before=JSON.stringify(store),full=expeditionFit(store,ids,37,{goal:'success'});
+  assert(full.evaluation.eligible);assert.equal(full.evaluation.greatSuccess.sparkledCount,0);
+  assert.equal(full.evaluation.greatSuccess.drums,5);assert.equal(full.evaluation.greatSuccess.estimatedPercent,40);
+  assert.equal(new Set(full.scheme.ships.flatMap(s=>s.slots).filter(id=>id>0)).size,5);
+  assert.equal(JSON.stringify(store),before);
+  delete store.info.equips[105];
+  const scarce=expeditionFit(store,ids,37,{goal:'success'});
+  assert(scarce.evaluation.eligible);assert.equal(scarce.evaluation.greatSuccess.drums,4);
+  for(const id of [102,103,104])delete store.info.equips[id];
+  const partial=expeditionFit(store,ids,24,{goal:'success'});
+  assert(partial.evaluation.eligible);assert.equal(partial.evaluation.greatSuccess.drums,0);
+  assert.equal(partial.evaluation.greatSuccess.estimatedPercent,5,'one drum cannot reach the useful two-drum tier');
+  assert.equal(expeditionFit(store,ids,5,{goal:'success'}).evaluation.greatSuccess.drums,0,'ordinary missions do not benefit from drums');
+  for(let id=201;id<=204;id++)addExpeditionItem(store,id,68);
+  const heldSlots=ids.slice(2).map((id,i)=>{
+    addExpeditionItem(store,301+i*2,500);addExpeditionItem(store,302+i*2,500);
+    return {id,slots:[301+i*2,302+i*2],ex:-1,keep:{0:true,1:true}};
+  });
+  addExpeditionItem(store,102,75);
+  const crowded=expeditionFit(store,ids,24,{goal:'success',heldSlots});
+  assert(crowded.evaluation.eligible);assert.equal(crowded.income.bonus,.2);
+  assert.equal(crowded.evaluation.greatSuccess.drums,0,'optional drums must not displace cargo or manual equipment');
 });
 
 test('expedition prefers improved cargo and stops at the cap rather than diluting the average',()=>{
@@ -807,7 +852,7 @@ test('monthly fitter preserves manual empty slots and replaces full existing out
   for(let id=201;id<=210;id++)addExpeditionItem(store,id,75);
   const heldSlots=[{id:2,slots:[-1,-1,-1],keep:{0:true}}],fit=expeditionFit(store,[1,2,3,4,5,6],44,{heldSlots});
   assert(fit.evaluation.eligible,JSON.stringify(fit.evaluation.checks.filter(c=>!c.sat)));
-  assert.equal(fit.scheme.ships[1].slots[0],-1);assert.equal(fit.evaluation.greatSuccess.drums,6);
+  assert.equal(fit.scheme.ships[1].slots[0],-1);assert.equal(fit.evaluation.greatSuccess.drums,8,'spare slots reach the useful drum tier without changing the preserved empty hull');
 });
 
 test('monthly stat fitting escapes a scarce-equipment placement trap using a joint exchange',()=>{

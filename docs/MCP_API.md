@@ -366,7 +366,7 @@ Effect: **read-only**.
 | --- | --- | --- | --- |
 | `snapshotId` | uuid | yes | Immutable snapshot ID from create_snapshot. Sliding TTL: 15 minutes. |
 | `missionId` | integer | yes | minimum=1 |
-| `goal` | `success` / `great` | no | success: dispatch eligibility then net income; great: prioritize estimated great-success probability. |
+| `goal` | `success` / `great` | no | success: prefer unsparkled automatic hulls, meet dispatch requirements, then optimize net income; spare slots may hold drums that improve great-success probability. great: prioritize estimated great-success probability. Manual hulls/equipment remain fixed. |
 | `fleet` | integer | no | Default 2. minimum=2; maximum=4 |
 | `fixedShipIds` | array<integer> | no | Owned ship INSTANCE IDs, not catalog IDs. maxItems=6 |
 | `excludedShipIds` | array<integer> | no | — |
@@ -388,7 +388,7 @@ Exactly one of `scheme` / `schemeName` is required.
 | `scheme` | object | no | — |
 | `schemeName` | string | no | Exact local scheme name. minLength=1; maxLength=64 |
 | `missionId` | integer | yes | minimum=1 |
-| `goal` | `success` / `great` | no | success: dispatch eligibility then net income; great: prioritize estimated great-success probability. |
+| `goal` | `success` / `great` | no | success: prefer unsparkled automatic hulls, meet dispatch requirements, then optimize net income; spare slots may hold drums that improve great-success probability. great: prioritize estimated great-success probability. Manual hulls/equipment remain fixed. |
 | `heldSlots` | array<null or object> | no | Position-indexed draft with null holes. pin=true retains this hull position. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty. maxItems=6 |
 
 #### `fleet_advisor_query_normal_maps`

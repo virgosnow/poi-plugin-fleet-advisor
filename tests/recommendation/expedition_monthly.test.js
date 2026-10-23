@@ -42,6 +42,106 @@ test('monthly candidate generation finds unarmed hulls hidden below six currentl
   assert.equal(JSON.stringify(store),before);
 });
 const type={CL:3,DD:2,DE:1,DDorDE:2,CA:5,CAV:6,CT:21,SSLike:13,CVLike:7,CVL:7,CVE:7,CV:11,BB:9,BBV:10,AV:16,AS:20,AO:22,LHA:17};
+const drumMissions=Object.entries(DATA.missions).filter(([,spec])=>spec.gs.kind==='drum').map(([id])=>Number(id));
+function drumFixture(missionId,drums=DATA.missions[missionId].gs.max+4){
+  const store=empty(),spec=DATA.missions[missionId],types=Object.entries(spec.fleetCompos[0]).flatMap(([key,n])=>Array(n).fill(type[key]));
+  while(types.length<spec.shipCount)types.push(2);
+  if(spec.flagshipType){const at=types.indexOf(type[spec.flagshipType]);[types[0],types[at]]=[types[at],types[0]];}
+  const base=Object.fromEntries(Object.entries(spec.totals||{}).map(([key,n])=>[key,Math.ceil(n/types.length)+2]));
+  types.forEach((t,i)=>{hull(store,i+1,t,base,4);store.info.ships[i+1].api_cond=49;store.const.$shipTypes[t]={api_equip_type:{25:1,24:1,1:1}};});
+  store.const.$missions[missionId]={api_use_fuel:.5,api_use_bull:.5};
+  for(let i=0;i<drums;i++)item(store,3000+i,75,25,{});
+  for(let i=0;i<4;i++)item(store,4000+i,68,24,{});
+  return {store,spec,scheme:{fleet:2,ships:types.map((_,i)=>({id:i+1}))}};
+}
+
+test('all seven drum-bonus success dispatches fit the effective tier and stop without wasting cargo or extra drums',()=>{
+  assert.deepEqual(drumMissions,[21,24,37,38,40,44,142]);
+  for(const missionId of drumMissions){
+    const {store,spec,scheme}=drumFixture(missionId),before=JSON.stringify(store);
+    const fit=recommendExpeditionEquipment(store,{missionId,scheme,goal:'success'});
+    assert(fit.evaluation.eligible,String(missionId));assert.equal(fit.evaluation.greatSuccess.sparkledCount,0);
+    assert.equal(fit.evaluation.greatSuccess.drums,spec.gs.max,String(missionId));
+    assert(fit.evaluation.greatSuccess.drumCarriers>=spec.gs.carriers,String(missionId));
+    assert.equal(fit.evaluation.greatSuccess.estimatedPercent,40,String(missionId));
+    assert.equal(fit.income.bonus,.2,'preserve four Daihatsu on '+missionId);
+    assert.equal(fit.scheme.ships.flatMap(s=>s.slots).filter(id=>store.info.equips[id]?.api_slotitem_id===68).length,4);
+    assert.equal(new Set(fit.scheme.ships.flatMap(s=>s.slots).filter(id=>id>0)).size,spec.gs.max+4);
+    assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',fit.scheme));
+    const again=recommendExpeditionEquipment(store,{missionId,scheme:fit.scheme,goal:'success'});
+    assert.deepEqual(again.scheme,fit.scheme,'repeat fitting must not grow the drum load on '+missionId);
+    const surplus=structuredClone(fit.scheme);let extra=0;
+    for(const s of surplus.ships)for(let k=0;k<s.slots.length&&extra<4;k++)if(s.slots[k]<=0)s.slots[k]=3000+spec.gs.max+extra++;
+    assert.equal(extra,4);
+    const trimmed=recommendExpeditionEquipment(store,{missionId,scheme:surplus,goal:'success'});
+    assert(trimmed.evaluation.eligible);assert.equal(trimmed.evaluation.greatSuccess.drums,spec.gs.max);
+    assert.equal(trimmed.income.bonus,.2,'discard automatic surplus while retaining Daihatsu on '+missionId);
+    const searched=recommendExpeditionFleet(store,{missionId,fleet:2,goal:'success',limit:1}).recommendations[0];
+    assert(searched?.evaluation.eligible,'fleet search remains eligible on '+missionId);
+    assert.equal(searched.evaluation.greatSuccess.sparkledCount,0);
+    assert.equal(searched.evaluation.greatSuccess.drums,spec.gs.max);
+    assert.equal(searched.income.bonus,.2);
+    assert.equal(JSON.stringify(store),before);
+  }
+});
+
+test('all drum-bonus success dispatches discard ineffective partial tiers and exclude busy drums',()=>{
+  for(const missionId of drumMissions)for(const busy of [false,true]){
+    const spec=DATA.missions[missionId],minimum=Math.max(spec.drums||0,spec.drumCarriers||0);
+    const {store,scheme}=drumFixture(missionId,busy?spec.gs.max:spec.gs.max-1);
+    const unavailable=[];
+    if(busy){
+      hull(store,99,2,{},4);
+      for(let i=minimum;i<spec.gs.max;i++)unavailable.push(3000+i);
+      store.info.ships[99].api_slot=Array.from({length:4},(_,i)=>unavailable[i]||-1);
+      store.info.fleets[2]={api_ship:[99,-1,-1,-1,-1,-1],api_mission:[1,missionId]};
+    }
+    const before=JSON.stringify(store),fit=recommendExpeditionEquipment(store,{missionId,scheme,goal:'success'});
+    assert(fit.evaluation.eligible,String(missionId));
+    assert.equal(fit.evaluation.greatSuccess.drums,minimum,'do not waste partial-tier drums on '+missionId);
+    assert.equal(fit.evaluation.greatSuccess.estimatedPercent,5);
+    assert.equal(fit.income.bonus,.2,'drum shortages must not change Daihatsu on '+missionId);
+    assert(!fit.scheme.ships.flatMap(s=>s.slots).some(id=>unavailable.includes(id)));
+    assert.equal(JSON.stringify(store),before);
+  }
+});
+
+test('success drums respect manual equipment and empty-slot boundaries on every drum-bonus expedition',()=>{
+  for(const missionId of drumMissions){
+    const spec=DATA.missions[missionId],minimum=Math.max(spec.drums||0,spec.drumCarriers||0);
+    const {store,scheme}=drumFixture(missionId,minimum);
+    const baseline=recommendExpeditionEquipment(store,{missionId,scheme,goal:'success'});
+    assert(baseline.evaluation.eligible);assert.equal(baseline.evaluation.greatSuccess.drums,minimum);
+    for(let i=minimum;i<spec.gs.max+4;i++)item(store,3000+i,75,25,{});
+    const heldSlots=baseline.scheme.ships.map(s=>({...s,slots:s.slots.slice(),keep:Object.fromEntries(s.slots.map((_,i)=>[i,true]))}));
+    const before=JSON.stringify({store,heldSlots});
+    const fit=recommendExpeditionEquipment(store,{missionId,scheme:baseline.scheme,goal:'success',heldSlots});
+    assert(fit.evaluation.eligible);assert.deepEqual(fit.scheme,baseline.scheme,String(missionId));
+    assert.equal(fit.evaluation.greatSuccess.drums,minimum);assert.equal(fit.income.bonus,.2);
+    assert.equal(JSON.stringify({store,heldSlots}),before);
+  }
+});
+
+test('monthly success drums cannot displace the exact stat outfit or four Daihatsu to reach the next tier',()=>{
+  for(const missionId of [44,142]){
+    const {store,spec,scheme}=drumFixture(missionId);
+    if(missionId===142)scheme.ships.push({id:6});
+    const base=missionId===44?{antiAir:17,asw:17,los:9}:{firepower:30,antiAir:24,asw:17,los:10};
+    scheme.ships.forEach(({id},i)=>{hull(store,id,store.const.$ships[id]?.api_stype??2,base,missionId===44&&i<2?4:3);store.info.ships[id].api_cond=49;});
+    for(let i=0;i<10;i++)item(store,5000+i,500,1,{api_houg:10,api_tyku:10,api_tais:10,api_saku:10});
+    const before=JSON.stringify(store),fit=recommendExpeditionEquipment(store,{missionId,scheme,goal:'success'});
+    assert(fit.evaluation.eligible,String(missionId));
+    assert.equal(fit.evaluation.greatSuccess.drums,spec.drums,'no room for optional drums on '+missionId);
+    assert.equal(fit.income.bonus,.2);
+    const equipment=fit.scheme.ships.flatMap(s=>s.slots).filter(id=>id>0);
+    assert.equal(equipment.filter(id=>store.info.equips[id].api_slotitem_id===68).length,4);
+    assert.equal(equipment.filter(id=>store.info.equips[id].api_slotitem_id===500).length,10);
+    const removed=structuredClone(fit.scheme),ship=removed.ships.find(s=>s.slots.some(id=>store.info.equips[id]?.api_slotitem_id===500));
+    ship.slots[ship.slots.findIndex(id=>store.info.equips[id]?.api_slotitem_id===500)]=-1;
+    assert.equal(evaluateExpedition(store,2,missionId,removed).eligible,false,'removing a stat item really breaks dispatch');
+    assert.equal(JSON.stringify(store),before);
+  }
+});
 function monthlyFixture(missionId,worn=false,composition=0){
   const s=empty(),spec=DATA.missions[missionId],types=Object.entries(spec.fleetCompos[composition]).flatMap(([key,n])=>Array(n).fill(type[key]));
   while(types.length<6)types.push(2);
@@ -93,12 +193,26 @@ test('monthly great-success drums never turn a feasible dispatch into an ineligi
   for(let id=3000;id<3006;id++)item(store,id,75,30,{});
   const scheme={fleet:2,ships:[1,2,3,4,5,6].map(id=>({id}))};
   const witness=recommendExpeditionEquipment(store,{scheme,missionId:142,goal:'success'});
-  assert(witness.evaluation.eligible);
+  assert(witness.evaluation.eligible);assert.equal(witness.evaluation.greatSuccess.drums,4,'success mode must keep the eight items needed for dispatch');
   const fit=recommendExpeditionEquipment(store,{scheme,missionId:142,goal:'great'});
   assert(fit.evaluation.eligible,'four mandatory drums and eight attribute items fit; six drums do not');
   assert.equal(fit.evaluation.greatSuccess.drums,4);
   const searched=recommendExpeditionFleet(store,{missionId:142,fleet:2,goal:'great',limit:1});
   assert(searched.recommendations[0]?.evaluation.eligible);assert.equal(searched.closestRecommendation,undefined);
+});
+
+test('success sparkle avoidance retains the strong sparkled hulls needed for monthly dispatch',()=>{
+  const store=empty();store.const.$shipTypes[2]={api_equip_type:{30:1}};
+  for(let id=1;id<=6;id++)hull(store,id,2,{firepower:60,antiAir:50,asw:50,los:40},2);
+  for(let id=101;id<=106;id++){
+    hull(store,id,2,{firepower:1,antiAir:1,asw:1,los:1},2);
+    store.info.ships[id].api_cond=49;
+  }
+  for(let id=3000;id<3006;id++)item(store,id,75,30,{});
+  const before=JSON.stringify(store),result=recommendExpeditionFleet(store,{missionId:142,fleet:2,goal:'success',limit:1});
+  const row=result.recommendations[0];assert(row);assert(row.evaluation.eligible);
+  assert.equal(row.evaluation.greatSuccess.sparkledCount,5,'the no-sparkle preference cannot replace the five necessary strong hulls');
+  assert.equal(result.closestRecommendation,undefined);assert.equal(JSON.stringify(store),before);
 });
 
 test('attribute fitting admits radar that supplies only a required blue synergy, not raw required stats',()=>{

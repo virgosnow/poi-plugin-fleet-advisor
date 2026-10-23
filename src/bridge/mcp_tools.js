@@ -26,7 +26,7 @@ const mapArgs={area:str('Normal map ID, e.g. 5-2.',{pattern:'^[1-7]-[1-6]$'}),
   routeKey:str('Exact query_normal_map.routes[].key, including merged branches and speed strategies.')};
 const constraints={fleet,fixedShipIds:ids,excludedShipIds:{type:'array',uniqueItems:true,items:int(1)},heldSlots};
 const airGoal=enumOf(['ignore','superiority','supremacy'],'MCP default superiority. Conservative aircraft-loss estimates are not combat guarantees.');
-const goal=enumOf(['success','great'],'success: dispatch eligibility then net income; great: prioritize estimated great-success probability.');
+const goal=enumOf(['success','great'],'success: prefer unsparkled automatic hulls, meet dispatch requirements, then optimize net income; spare slots may hold drums that improve great-success probability. great: prioritize estimated great-success probability. Manual hulls/equipment remain fixed.');
 const paging={snapshotId,limit:int(1,100,'Default 50.'),cursor:str('Opaque nextCursor; retain all other query arguments when paging.')};
 const sorting=(keys,fields)=>({sort:enumOf(keys,'Default instanceId.'),order:enumOf(['asc','desc'],'Default asc.'),
   fields:{type:'array',items:enumOf(fields,'Projected field.'),description:'Optional projection; instanceId/name always returned.'}});

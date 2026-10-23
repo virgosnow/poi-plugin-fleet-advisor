@@ -43,6 +43,37 @@ function fits(store,item,shipId,k){
 }
 const resourceTotal=missionId=>(rewards[missionId]?.resources||[]).reduce((n,v)=>n+(Number(v)||0),0);
 
+// Success-only dispatches may improve probability with spare slots, after
+// required stats and reward gear have been fitted. Commit only a complete tier.
+function optionalDrumScheme(store,scheme,inventory,held,spec){
+  const entries=scheme.ships.map(s=>({...s,slots:s.slots.slice()})),selected=new Set(entries.map(s=>s.id));
+  const isDrum=id=>store.info.equips[id]?.api_slotitem_id===75;
+  const used=new Set(entries.flatMap(s=>s.slots.concat(s.ex)).filter(id=>id>0));
+  const drums=inventory.filter(item=>isDrum(item.id)&&!used.has(item.id)).sort((a,b)=>
+    Number(!selected.has(a.sourceShipId))-Number(!selected.has(b.sourceShipId))||
+    Number(!!a.sourceShipId)-Number(!!b.sourceShipId)||a.id-b.id);
+  const target=Math.max(spec.drums||0,spec.gs.max||0),carriers=spec.gs.carriers??Math.max(1,spec.drumCarriers||0);
+  const counts=()=>entries.map(s=>s.slots.concat(s.ex).filter(isDrum).length);
+  let values=counts();
+  while(values.reduce((n,v)=>n+v,0)<target||values.filter(v=>v>0).length<carriers){
+    const needCarrier=values.filter(v=>v>0).length<carriers;let placed=false;
+    for(const [i,s] of entries.entries()){
+      if(needCarrier&&values[i])continue;
+      for(let k=0;k<automaticSlotLimit(s,held);k++){
+        const previous=s.slots[k];
+        if(held.get(s.id)?.keep?.[k]||previous>0&&(spec.totals||isCargo(store,previous)||isDrum(previous)))continue;
+        const item=drums.find(item=>!used.has(item.id)&&fits(store,item,s.id,k));
+        if(!item)continue;
+        used.delete(previous);s.slots[k]=item.id;used.add(item.id);placed=true;break;
+      }
+      if(placed)break;
+    }
+    if(!placed)return null;
+    values=counts();
+  }
+  return {fleet:scheme.fleet,ships:entries};
+}
+
 // Work on the private draft. Drums, manually chosen slots and the existing
 // stat loadout of monthly expeditions take precedence over reward equipment.
 function fitIncomeEquipment(store,entries,inventory,held,spec,missionId){
@@ -114,4 +145,4 @@ function incomeSearch(store,pool,inventory,spec,missionId,heldSlots=[]){
   return {active:resourceTotal(missionId)>0&&(cargo.length>0||pool.some(r=>Number(r.ship.api_ship_id)===487)),
     potential,summary,value:fromSummary,withRow,capacity,resources:resourceTotal(missionId)};
 }
-module.exports={isCargo,isAutomaticCargo,bonus,cargoUse,planningNet,fits,fitIncomeEquipment,incomeSearch,automaticSlotLimit};
+module.exports={isCargo,isAutomaticCargo,bonus,cargoUse,planningNet,fits,fitIncomeEquipment,incomeSearch,automaticSlotLimit,optionalDrumScheme};
