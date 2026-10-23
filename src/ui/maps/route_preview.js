@@ -2,6 +2,7 @@
 const V=require('../models/presentation_model');
 const {actualMapLayout,bossSymbol,startSymbol}=require('./map_assets');
 const {mapPan}=require('./map_pan');
+const {probabilityMarkers,layoutProbabilityLabels}=require('./route_probabilities');
 // Color and shape communicate encounter types independently of route selection.
 // Unknown nodes keep their own marker; lack of enemies is not a no-battle proof.
 const TYPES={
@@ -63,17 +64,23 @@ const selectionMarker=(h,node,radius,real)=>{
 };
 // Enlarged maps use screen-sized markers, while positions and route sprites
 // still follow the map's viewBox. Never scale a node around the map origin.
-const fixedMarkerRef=()=>{
-  let observer;
+const mapGeometryRef=(layout,compact,fixedNodes)=>{
+  let observer,scaledMarkers=[];
   return svg=>{
-    observer?.disconnect();if(!svg)return;
+    observer?.disconnect();
+    // React does not own these transforms. Clear them when this ref is
+    // replaced, so a reused circle cannot retain the enlarged-map scale.
+    for(const marker of scaledMarkers)marker.removeAttribute('transform');
+    scaledMarkers=[];if(!svg)return;
     const resize=()=>{
       const matrix=svg.getScreenCTM(),scale=matrix&&Math.hypot(matrix.a,matrix.b);
       if(!scale)return;
-      for(const marker of svg.querySelectorAll('[data-marker-radius]')){
+      scaledMarkers=compact&&fixedNodes?[...svg.querySelectorAll('[data-marker-radius]')]:[];
+      for(const marker of scaledMarkers){
         const {markerX:x,markerY:y,markerRadius:radius,markerPixels:pixels}=marker.dataset;
         marker.setAttribute('transform',`translate(${x} ${y}) scale(${pixels/(radius*scale)}) translate(${-x} ${-y})`);
       }
+      layoutProbabilityLabels(svg,layout,compact,fixedNodes);
     };
     const ResizeObserver=svg.ownerDocument.defaultView.ResizeObserver;
     if(ResizeObserver){observer=new ResizeObserver(resize);observer.observe(svg);}
@@ -186,7 +193,7 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
     h('div',{className:`paa-map-scroll${layout.real?' paa-map-real-scroll':''}${layout.real&&zoomed?' paa-map-pannable':''}`,
       ...mapPan(layout.real&&zoomed)},h('svg',{viewBox:`0 0 ${layout.width} ${layout.height}`,
       width:layout.width,height:layout.height,className:layout.real?`paa-map-real${zoomed?' zoomed':''}`:undefined,
-      ref:compact&&fixedNodes?fixedMarkerRef():undefined,
+      ref:compact&&fixedNodes||profile.edgeProbabilities?.length?mapGeometryRef(layout,compact,fixedNodes):undefined,
       role:'group','aria-label':layout.real?'实际地图上的推荐路线':'编成路线示意图',onClick:()=>!disabled&&onBackground?.()},
       layout.real?h('defs',null,h('filter',{id:mutedTint,x:'-10%',y:'-10%',width:'120%',height:'120%',colorInterpolationFilters:'sRGB'},
         h('feColorMatrix',{type:'matrix',values:'0 0 0 0 0.20 0 0 0 0 0.27 0 0 0 0 0.36 0 0 0 1 0'})),
@@ -214,6 +221,7 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
           h('path',{d:`M ${end.x-dx/length*6-dy/length*3} ${end.y-dy/length*6+dx/length*3} L ${end.x} ${end.y} L ${end.x-dx/length*6+dy/length*3} ${end.y-dy/length*6-dx/length*3}`,
             className:'paa-map-arrow'}));
       }),
+      ...probabilityMarkers(h,{layout,travels,probabilities:profile.edgeProbabilities,compact,fixedNodes}),
       ...layout.nodes.map(node=>{const type=typeOf(node.kind),onRoute=active.has(node.id),boss=!!node.boss,
         start=node.id.startsWith('start'),smallStart=compact&&start&&!onRoute,smallBoss=compact&&boss&&!onRoute,
         radius=compact?compactRadius(onRoute,layout.real,boss||start):layout.real?19:14,

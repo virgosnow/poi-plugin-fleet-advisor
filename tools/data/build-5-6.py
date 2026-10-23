@@ -185,4 +185,6 @@ if __name__=='__main__':
     references=os.environ.get('FLEET_ADVISOR_MAP_REFERENCES') or str(ROOT.parent/'map-references/fleet-advisor')
     subprocess.run([sys.executable, str(ROOT/'tools/data/optimize-map-assets.py'),
                     '--reference-dir',references,'--areas','5-6'], check=True)
+    subprocess.run([sys.executable, str(ROOT/'tools/data/generate-route-label-anchors.py'),
+                    '--reference-dir',references,'--areas','5-6'], check=True)
     print('Built 5-6 route rules, five guide routes and full phased game atlas.')

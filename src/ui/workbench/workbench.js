@@ -96,8 +96,21 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const previous=previousDefaultGoal.current;previousDefaultGoal.current=defaultGoal;
       if(kind==='expedition'&&previous!==defaultGoal&&!busy&&!working&&!slots.some(Boolean)&&goal===previous)setGoal(defaultGoal);
     },[kind,defaultGoal,busy,working,slots,goal]);
-    const commit=next=>{
-      if(!next.some(Boolean))setDraftContext(null);else if(!slots.some(Boolean))setDraftContext(conditionKey);setNotice('');setSlots(next);setError('');setReport({valid:false});};
+    const commit=(next,inspection)=>{
+      const unchanged=report.valid&&report.settingsKey===JSON.stringify(settings)&&
+        JSON.stringify(report.scheme)===JSON.stringify(W.scheme(next,fleet));
+      if(!next.some(Boolean))setDraftContext(null);else if(!slots.some(Boolean))setDraftContext(conditionKey);
+      setNotice('');setSlots(next);setError('');setReport(inspection||(unchanged?report:{valid:false}));
+    };
+    const phaseForRoute=value=>phase||(kind==='normal'?
+      require('../../domain/routes/route_plans').routeOptions(area,target).find(row=>row.key===value)?.phase:'')||'';
+    const inspectSelection=value=>{
+      if(kind!=='normal'||!slots.some(Boolean))return;
+      const current=getStore(),nextSettings={...settings,phase:phaseForRoute(value)};
+      if(report.valid&&report.settingsKey===JSON.stringify(nextSettings)&&
+        JSON.stringify(report.scheme)===JSON.stringify(W.scheme(slots,fleet))&&current.info===store.info&&current.const===store.const)return;
+      observed.current=current;setReport(W.inspect(getController(),current,slots,nextSettings));
+    };
     const changeArea=value=>{
       if(value===area)return;
       // Retire pending recommendations before clearing the old map's draft.
@@ -144,6 +157,10 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     },[paused]);
     React.useEffect(()=>{
       if(paused)return;
+      // Prepared route changes already inspected the exact merged draft.
+      // Avoid clearing it or repeating the same work after the debounce.
+      if(!resumePending.current&&report.valid&&report.settingsKey===JSON.stringify(settings)&&
+        JSON.stringify(report.scheme)===JSON.stringify(W.scheme(slots,fleet)))return;
       const timer=setTimeout(()=>{if(alive.current){
         const current=getStore(),next=W.inspect(getController(),current,slots,settings);
         observed.current=current;resumePending.current=false;setReport(next);
@@ -182,10 +199,12 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     };
     React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;},[popup,search,equipmentCategory]);
     const choosePlan=(row,key=conditionKey,selectedRoute='')=>{
-      const next=W.merge(getStore(),slots,row.scheme);
+      const current=getStore(),next=W.merge(current,slots,row.scheme),
+        nextRoute=row.routeKey||selectedRoute||row.guideStyle||(row.profile?.examples?.[0]||[]).join('>');
       if(!row.planningOnly)getController().preview('fleet',W.scheme(next,fleet));
-      commit(next);prepared.current=true;setDraftContext(key);setPathIndex(0);setNodeId(null);setNotice('路线与编成已同步');
-      setMapRoute(row.routeKey||selectedRoute||row.guideStyle||(row.profile?.examples?.[0]||[]).join('>'));
+      const inspection=W.inspect(getController(),current,next,{...settings,phase:phaseForRoute(nextRoute)});
+      observed.current=current;commit(next,inspection);prepared.current=true;setDraftContext(key);setPathIndex(0);setNodeId(null);setNotice('路线与编成已同步');
+      setMapRoute(nextRoute);
     };
     const cacheKey=(requestedGoal=goal)=>JSON.stringify([kind,area,target,phase,purpose,missionId,requestedGoal,fleet,excluded,filterKey,
       slots.map((s,i)=>s&&(s.pin||Object.keys(s.keep).length)?[i,s.id,s.pin,Object.keys(s.keep).map(k=>[k,k==='ex'?s.ex:s.slots[k]])]:null)]);
@@ -224,6 +243,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       finally{if(alive.current&&token===operation.current){setWorking(false);setActivity('');}}
     };
     const changeStyle=value=>{
+      inspectSelection(value);
       setStyle(value);setMapRoute(value);setNotice('');setNodeId(null);
       // A new map/purpose remains an explicit full-search action. Once a draft
       // belongs to this context, route changes use the prepared alternatives.
@@ -263,7 +283,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       let income=null;try{if(kind==='expedition'&&rows.length)income=W.income(store,slots,missionId);}catch(_){}
       const dirty=report.settingsKey!==JSON.stringify(settings)||JSON.stringify(report.scheme)!==JSON.stringify(W.scheme(slots,fleet));
       const overview=kind==='normal'?W.mapOverview(area,target,phase,selectionSettings,store):null;
-      const mapProfile=overview?W.selectedMapProfile(overview,mapRoute,dirty?null:report.profile):null;
+      const mapProfile=overview?W.selectedMapProfile(overview,mapRoute,dirty?null:report.profile,!dirty&&report.valid?report.route:null):null;
       const speedReading=kind==='expedition'?null:fleetSpeed(store,slots);
       const mechanisms=kind==='expedition'?E.shipBadges(expeditionStatus):fleetMechanisms(store,slots,speedReading,mapProfile);
       const threat=mapProfile?W.displayThreat(mapProfile,nodeId):null;
@@ -367,7 +387,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         // Clearing the preview is not a request to assemble a default route.
         if(!value){setMapRoute('');setPathIndex(0);setNodeId(null);setNotice('');setError('');return;}
         if(area==='3-5'&&target==='boss')return changeStyle(value);
-        setMapRoute(value);setNodeId(null);
+        inspectSelection(value);setMapRoute(value);setNodeId(null);
         if(prepared.current&&(draftContext===conditionKey||!slots.some(Boolean)))return complete(style,true,value);
       },[['','选择路线'],...routeOptions.map(c=>[c.key,c.label])])):null;
     const contextControls=h('div',{className:'paa-wb-context-controls'},

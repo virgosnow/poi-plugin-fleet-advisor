@@ -169,7 +169,35 @@ function mapOverview(area,target='boss',phase,settings,store){
   const options=require('../../domain/routes/route_plans').recommendedOptions(area,target,phase,settings,store);
   return {profile,options};
 }
-function selectedMapProfile(overview,selection,actual){
+// Labels describe the conditional roll at this branch, never the cumulative
+// chance of a full journey. Re-evaluate each path so history-dependent rules
+// use its own visited nodes; conflicting histories must not invent one number.
+function routeEdgeProbabilities(route,option){
+  if(!route?.area||!route.ships?.length||!option||option.phase&&option.phase!==route.phase)return [];
+  const plans=require('../../domain/routes/route_plans'),edges=new Map();
+  const branches=plans.optionPaths(option).map(nodes=>({nodes,...plans.planningPath(route,nodes,
+    {allowTentative:false,includeLosRequirements:false})}));
+  for(const branch of branches){
+    const points=new Map(branch.pointAssessments.map(p=>[p.from,p.assessment]));let from='start';
+    for(const to of branch.nodes){
+      const assessment=points.get(from),destinations=assessment?.possibleDestinations||assessment?.destinations||[];
+      if(destinations.length&&!destinations.includes(to))break;
+      if(assessment){
+        if(plans.isPlayerChoice(assessment)){from=to;continue;}
+        const probability=assessment.status==='fixed'?1:assessment.status==='random'&&!assessment.tentative?
+          assessment.probabilities?.find(p=>p.to===to)?.probability??assessment.referencePathProbability:null;
+        if(!Number.isFinite(probability)||probability<=0||probability>1)break;
+        const key=`${from}>${to}`,previous=edges.get(key);
+        if(previous&&Math.abs(previous.probability-probability)>1e-9)previous.conflicting=true;
+        else if(!previous)edges.set(key,{from,to,probability});
+      }
+      from=to;
+    }
+  }
+  return [...edges.values()].filter(edge=>!edge.conflicting&&edge.probability<1-1e-9)
+    .map(({from,to,probability})=>({from,to,probability}));
+}
+function selectedMapProfile(overview,selection,actual,route){
   const option=overview.options.find(o=>o.key===selection);
   if(option?.phase)overview={...overview,profile:require('../../domain/routes/sortie_profile').previewForMap(overview.profile.area,{phase:option.phase})};
   const paths=option?require('../../domain/routes/route_plans').optionPaths(option):[selection?selection.split('>'):[]];
@@ -179,6 +207,7 @@ function selectedMapProfile(overview,selection,actual){
     const path=actualPath||overview.profile.routePaths?.find(same);return path?[path]:[];
   });
   return {...overview.profile,...(option?.strategy||option?.paths?{highlightPaths:paths}:{}),
+    edgeProbabilities:route?.area===overview.profile.area?routeEdgeProbabilities(route,option):[],
     referenceOnly:!selected.some(p=>actual?.area===overview.profile.area&&actual.routePaths?.includes(p)),pathCount:selected.length,
     routePaths:selected,examples:selected.map(p=>p.nodes),threat:selected.length?
       require('../../domain/routes/route_threats').routeThreat(overview.profile.mapPreview.nodes,selected):overview.profile.threat};
@@ -412,4 +441,4 @@ function fleetSummary(report,profile,routeNodes){
 }
 const income=require('../../domain/expeditions/expedition_income').missionIncome;
 
-module.exports={TYPES,entry,scheme,resolved,roster,replacementCandidates,changeSummary,equipmentOptions,recommendationHolds,merge,withEquipment,projected,inspect,routeChoices,badges,income,mapOverview,selectedMapProfile,mapProgress,displayThreat,fleetSummary,routeArrival,routeSpeedSummary,applicationWarning};
+module.exports={TYPES,entry,scheme,resolved,roster,replacementCandidates,changeSummary,equipmentOptions,recommendationHolds,merge,withEquipment,projected,inspect,routeChoices,badges,income,mapOverview,selectedMapProfile,routeEdgeProbabilities,mapProgress,displayThreat,fleetSummary,routeArrival,routeSpeedSummary,applicationWarning};

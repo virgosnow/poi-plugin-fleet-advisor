@@ -1058,6 +1058,91 @@ test('complete follows the selected non-first route and cached switches retain u
 });
 
 
+test('same-scheme route switches and pin or keep changes retain inspected probabilities',async()=>{
+  const h=harness(),settings={kind:'normal',fleet:1,area:'2-3',target:'boss',phase:'',missionId:1,revision:0};
+  h.store.const.$ships[1].api_stype=16;h.store.const.$ships[2].api_stype=3;
+  const slots=[1,2,3,4,5,6].map(id=>W.entry(h.store,id)),options=W.mapOverview('2-3').options.slice(0,2);
+  h.set('area','2-3');h.set('slots',slots);h.set('mapRoute',options[0].key);
+  const report=W.inspect(h.service,h.store,slots,settings);assert(report.valid);h.set('report',report);
+  const marker=(tree,edge)=>h.find(tree,n=>n.props.className==='paa-map-probability'&&n.props['data-edge']===edge);
+  assert.equal(marker(h.render(),'G>I').props['data-probability'],0.65);
+
+  h.set('popup',{index:0});
+  const pin=h.find(h.render(),n=>n.type==='button'&&n.props.key===1&&n.children.some(c=>c?.children?.some(v=>v?.children?.includes('测试舰1'))));
+  assert(pin);const fitting=pin.props.onClick();
+  assert.equal(h.get('slots')[0].pin,true);assert.equal(h.get('report'),report,'pin metadata must not invalidate the same hull and loadout');
+  assert(marker(h.render(),'G>I'));await fitting;assert.equal(h.get('report'),report);
+  h.set('popup',{index:0,slot:0});
+  h.find(h.render(),n=>n.type==='button'&&n.children.includes('清空此槽')).props.onClick();
+  assert.equal(h.get('slots')[0].keep[0],true);assert.equal(h.get('report'),report,'reserving an already empty slot changes no route inputs');
+  h.set('popup',{index:0,slot:0});
+  h.find(h.render(),n=>n.type==='button'&&n.children.includes('交给自动配装')).props.onClick();
+  assert.equal(h.get('report'),report);assert(marker(h.render(),'G>I'));
+
+  h.set('choices',options);h.set('draftContext',JSON.stringify(['normal','2-3','boss','','clear','lower',1,'great',null]));
+  h.service.recommendNormalFleet=()=>({routeResults:options.map((o,i)=>({...o,chance:{min:1,max:1},recommendationIndex:i})),
+    recommendations:options.map(o=>({routeKey:o.key,scheme:W.scheme(slots,1)}))});
+  const pending=h.control(h.render(),'参考路线').props.onChange({target:{value:options[1].key}});
+  assert.equal(h.get('report'),report,'the current draft remains inspected while the alternative is loading');
+  assert(!marker(h.render(),'G>I'),'changing selection must remove probabilities belonging only to the old route');
+  await pending;
+  assert.equal(h.get('error'),'');assert(h.get('report').valid);
+  assert.deepEqual(h.get('report').scheme,W.scheme(h.get('slots'),1));
+  assert(h.find(h.render(),n=>n.props.className==='paa-map-probability'),'the first completed render has the new route probabilities');
+  const inspectEffect=h.effects.filter(e=>String(e.fn).includes('const current=getStore(),next=W.inspect')).at(-1);
+  assert.equal(inspectEffect.fn(),undefined,'an already matching report must not schedule another delayed inspection');
+});
+
+test('a route recommendation inspects the final changed hulls before the first completed render',async()=>{
+  const h=harness(),settings={kind:'normal',fleet:1,area:'2-3',target:'boss',phase:'',missionId:1,revision:0};
+  h.store.const.$ships[1].api_stype=16;h.store.const.$ships[2].api_stype=3;h.store.const.$ships[8].api_stype=11;
+  const before=[1,2,3,4,5,6].map(id=>W.entry(h.store,id)),after=[8,2,3,4,5,6].map(id=>W.entry(h.store,id));
+  const options=W.mapOverview('2-3').options.slice(0,2),old=W.inspect(h.service,h.store,before,settings);
+  h.set('area','2-3');h.set('slots',before);h.set('mapRoute',options[0].key);h.set('report',old);
+  h.set('choices',options);h.set('draftContext',JSON.stringify(['normal','2-3','boss','','clear','lower',1,'great',null]));
+  h.service.recommendNormalFleet=()=>({routeResults:options.map((o,i)=>({...o,chance:{min:1,max:1},recommendationIndex:i})),
+    recommendations:options.map((o,i)=>({routeKey:o.key,scheme:W.scheme(i?after:before,1),route:{obsolete:true}}))});
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:options[1].key}});
+  assert.equal(h.get('error'),'');assert.deepEqual(h.get('slots').map(s=>s?.id),[8,2,3,4,5,6]);
+  const report=h.get('report'),expected=W.inspect(h.service,h.store,h.get('slots'),settings);
+  assert(report.valid);assert.notEqual(report,old);assert.equal(report.settingsKey,JSON.stringify(settings));
+  assert.deepEqual(report.scheme,expected.scheme);assert.deepEqual(report.route,expected.route,'reinspect the merged draft rather than trusting the cached recommendation report');
+  const tree=h.render(),profile=W.selectedMapProfile(W.mapOverview('2-3'),options[1].key,expected.profile,expected.route);
+  assert(profile.edgeProbabilities.length);
+  for(const edge of profile.edgeProbabilities){
+    const marker=h.find(tree,n=>n.props.className==='paa-map-probability'&&
+      n.props['data-edge'].replace(/^start#\d+>/,'start>')===`${edge.from}>${edge.to}`);
+    assert(marker,`first render must include ${edge.from}>${edge.to}`);assert.equal(marker.props['data-probability'],edge.probability);
+  }
+  assert(!h.find(tree,n=>n.props.className==='paa-map-probability'&&n.props['data-edge']==='G>I'));
+});
+
+test('phase changes refresh immediately while cleared or genuinely stale contexts never reuse old probabilities',()=>{
+  const h=harness(),slots=[W.entry(h.store,2)],base={kind:'normal',fleet:1,area:'7-3',target:'boss',phase:'gauge1',missionId:1,revision:0};
+  const options=require('../../src/domain/routes/route_plans').routeOptions('7-3','boss'),first=options.find(o=>o.phase==='gauge1'),second=options.find(o=>o.phase==='gauge2');
+  assert(first&&second);h.set('area','7-3');h.set('slots',slots);h.set('mapRoute',first.key);
+  const original=W.inspect(h.service,h.store,slots,base);assert(original.valid);h.set('report',original);
+  h.control(h.render(),'参考路线').props.onChange({target:{value:second.key}});
+  const report=h.get('report');assert(report.valid);assert.notEqual(report,original);
+  assert.equal(JSON.parse(report.settingsKey).phase,'gauge2');assert.equal(report.route.phase,'gauge2');
+  assert.equal(h.calls.fleet,0,'manual phase selection inspects the existing draft without searching new hulls');
+
+  h.set('area','1-1');h.set('mapRoute',W.mapOverview('1-1').options[0].key);
+  const settings={...base,area:'1-1',phase:''},fresh=W.inspect(h.service,h.store,slots,settings);
+  h.set('report',fresh);
+  const hasProbability=tree=>!!h.find(tree,n=>n.props.className==='paa-map-probability');
+  assert(hasProbability(h.render()));
+  h.control(h.render(),'参考路线').props.onChange({target:{value:''}});
+  assert.equal(h.get('report'),fresh);assert(!hasProbability(h.render()),'clearing only the route removes its markers while keeping fleet inspection');
+  h.set('mapRoute',W.mapOverview('1-1').options[0].key);assert(hasProbability(h.render()));
+  h.set('revision',1);assert(!hasProbability(h.render()),'new observed game state cannot reuse previous percentages');
+  h.set('revision',0);h.control(h.render(),'编入').props.onChange({target:{value:'2'}});
+  assert.equal(h.get('report').valid,false);assert(!hasProbability(h.render()));
+  h.set('fleet',1);h.set('report',fresh);
+  h.find(h.render(),n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();
+  assert.equal(h.get('report').valid,false);assert(!hasProbability(h.render()));assert(h.get('slots').every(s=>s===null));
+});
+
 test('route warnings stay on the left and no stale chance or duplicate LoS badge survives',()=>{
   const h=harness(),slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
   h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);

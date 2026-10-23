@@ -629,7 +629,7 @@ test('guide routes take precedence, retain readable names and never pad the list
 
 test('branching maps list every reviewed Boss path, without truncating guide or phase choices',()=>{
   const {previewForMap}=require('../../../src/domain/routes/sortie_profile');
-  for(const [area,count]of [['1-4',4],['2-3',9]]){
+  for(const [area,count]of [['1-4',4],['2-3',8]]){
     const options=routeOptions(area);
     assert.equal(options.length,count);
     assert(options.every(o=>o.arrivalMode==='boss'));

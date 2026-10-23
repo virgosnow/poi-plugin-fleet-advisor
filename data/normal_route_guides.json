@@ -22,7 +22,24 @@
             "F",
             "J"
           ],
-          "name": "上路迂回流"
+          "name": "上路迂回流",
+          "paths": [
+            [
+              "A",
+              "E",
+              "F",
+              "J"
+            ],
+            [
+              "A",
+              "D",
+              "B",
+              "E",
+              "F",
+              "J"
+            ]
+          ],
+          "pathLabel": "A→(D→B)→E→F→J"
         }
       ],
       "nameReview": {
@@ -30,7 +47,12 @@
         "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
       },
       "previousSource": "https://wikiwiki.jp/kancolle/%E9%8E%AE%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-3",
-      "routingSource": "https://bbs.nga.cn/read.php?pid=330614957"
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330614957",
+      "mergedBranchReview": {
+        "date": "2026-10-23",
+        "basis": "A 点经 D→B 或直接到 E，均在 E 汇合；按同一编成的互斥完整路径合计。只接受此流派的 E→F→J 后缀，不包含 C 起点或 F→H 迂回。",
+        "crossCheck": "https://wikiwiki.jp/kancolle/鎮守府海域/1-3"
+      }
     },
     "1-6": {
       "source": "https://zh.kcwiki.cn/wiki/%E9%95%87%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-6",
@@ -108,16 +130,21 @@
             "D",
             "H"
           ],
-          "name": "下路迎击流"
-        },
-        {
-          "nodes": [
-            "C",
-            "E",
-            "D",
-            "H"
+          "name": "下路迎击流",
+          "paths": [
+            [
+              "C",
+              "D",
+              "H"
+            ],
+            [
+              "C",
+              "E",
+              "D",
+              "H"
+            ]
           ],
-          "name": "E点迂回流"
+          "pathLabel": "C→(E)→D→H"
         }
       ],
       "nameReview": {
@@ -125,7 +152,12 @@
         "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
       },
       "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-1",
-      "routingSource": "https://bbs.nga.cn/read.php?pid=330615338"
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615338",
+      "mergedBranchReview": {
+        "date": "2026-10-23",
+        "basis": "C→D 与 C→E→D 在 D 汇合，E 为资源点；同一编成按两条互斥完整路径合计，不包含 E→F 或水母直达 H 的其他流派。",
+        "crossCheck": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-1"
+      }
     },
     "2-2": {
       "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-2",
@@ -174,7 +206,23 @@
             "H",
             "K"
           ],
-          "name": "中路迂回流"
+          "name": "中路迂回流",
+          "paths": [
+            [
+              "C",
+              "E",
+              "G",
+              "H",
+              "K"
+            ],
+            [
+              "C",
+              "E",
+              "G",
+              "K"
+            ]
+          ],
+          "pathLabel": "C→E→G→(H)→K"
         }
       ],
       "nameReview": {
@@ -182,7 +230,12 @@
         "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
       },
       "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-2",
-      "routingSource": "https://bbs.nga.cn/read.php?pid=330615386"
+      "routingSource": "https://bbs.nga.cn/read.php?pid=330615386",
+      "mergedBranchReview": {
+        "date": "2026-10-23",
+        "basis": "G→K 与 G→H→K 在 K 汇合，H 为无战斗点；按实际编成的完整路径合计，不包含少一战的 E→K 或 C→D 偏航。",
+        "crossCheck": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-2"
+      }
     },
     "2-4": {
       "source": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-4",
@@ -665,7 +718,25 @@
             "J",
             "M"
           ],
-          "name": "下路推进流"
+          "name": "下路推进流",
+          "paths": [
+            [
+              "A",
+              "B",
+              "F",
+              "J",
+              "M"
+            ],
+            [
+              "A",
+              "B",
+              "D",
+              "F",
+              "J",
+              "M"
+            ]
+          ],
+          "pathLabel": "A→B→(D)→F→J→M"
         }
       ],
       "previousSource": "https://wikiwiki.jp/kancolle/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-3",
@@ -673,6 +744,11 @@
       "nameReview": {
         "date": "2026-10-14",
         "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "mergedBranchReview": {
+        "date": "2026-10-23",
+        "basis": "B→F 与 B→D→F 在 F 汇合，D 为资源点；按同一编成的互斥完整路径合计，不包含 F→H 或增加 K 战斗的分支。",
+        "crossCheck": "https://zh.kcwiki.cn/wiki/%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-3"
       }
     },
     "3-4": {
@@ -1967,7 +2043,29 @@
             "E",
             "Q"
           ],
-          "name": "夜战突进流"
+          "name": "夜战突进流",
+          "paths": [
+            [
+              "D",
+              "G",
+              "I",
+              "O",
+              "K",
+              "E",
+              "Q"
+            ],
+            [
+              "D",
+              "G",
+              "I",
+              "O",
+              "K",
+              "H",
+              "E",
+              "Q"
+            ]
+          ],
+          "pathLabel": "D→G→I→O→K→(H)→E→Q"
         },
         {
           "nodes": [
@@ -1980,7 +2078,31 @@
             "E",
             "Q"
           ],
-          "name": "漩涡夜战流"
+          "name": "漩涡夜战流",
+          "paths": [
+            [
+              "D",
+              "G",
+              "J",
+              "L",
+              "O",
+              "K",
+              "E",
+              "Q"
+            ],
+            [
+              "D",
+              "G",
+              "J",
+              "L",
+              "O",
+              "K",
+              "H",
+              "E",
+              "Q"
+            ]
+          ],
+          "pathLabel": "D→G→J→L→O→K→(H)→E→Q"
         }
       ],
       "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-3",
@@ -1988,6 +2110,11 @@
       "nameReview": {
         "date": "2026-10-14",
         "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "mergedBranchReview": {
+        "date": "2026-10-23",
+        "basis": "K→E 与 K→H→E 在 E 汇合，H 为资源点且由编成条件决定；两种条件均可沿所选流派抵达。O 能动分歧只选择 K，不包含选择 P 的额外夜战。",
+        "crossCheck": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E6%96%B9%E6%B5%B7%E5%9F%9F/5-3"
       }
     },
     "5-4": {
@@ -3043,7 +3170,10 @@
                 5
               ],
               [
-                6
+                5,
+                6,
+                13,
+                14
               ],
               [
                 2
@@ -3097,21 +3227,36 @@
               {
                 "count": {
                   "stypes": [
-                    5
+                    5,
+                    6,
+                    13,
+                    14
                   ],
-                  "exact": 2
-                }
-              },
-              {
-                "count": {
-                  "stypes": [
-                    6
-                  ],
-                  "exact": 1
+                  "exact": 3
                 }
               }
             ]
-          }
+          },
+          "paths": [
+            [
+              "A",
+              "C",
+              "D",
+              "G",
+              "J",
+              "P"
+            ],
+            [
+              "A",
+              "C",
+              "D",
+              "G",
+              "I",
+              "J",
+              "P"
+            ]
+          ],
+          "pathLabel": "A→C→D→G→(I)→J→P"
         },
         {
           "nodes": [
@@ -3288,6 +3433,11 @@
       "nameReview": {
         "date": "2026-10-14",
         "basis": "按实际地图坐标、现行NGA带路条件和全目录推荐编成核对；沿用有依据的攻略流派，无专属舰种约束时采用实际经由点或路径特征，不把示例编成当作必需条件。"
+      },
+      "mergedBranchReview": {
+        "date": "2026-10-23",
+        "basis": "G→J 与 G→I→J 在 J 汇合，I 无战斗；高速潜水舰编成可实际经过 I。仍按 J 点史实舰、驱逐数与速力判断，不包含低速编成的 J→M 额外战斗、K/L 漩涡或 A→B 分支。 无神风编成保留羽黑、足柄与三驱逐，剩余一舰允许重巡、航巡或潜水舰；速力和所选完整路径必须实际通过判定。",
+        "crossCheck": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-3"
       }
     },
     "7-4": {
@@ -3980,9 +4130,26 @@
               "I",
               "K",
               "N"
+            ],
+            [
+              "C",
+              "D",
+              "F",
+              "G",
+              "K",
+              "N"
+            ],
+            [
+              "C",
+              "D",
+              "F",
+              "G",
+              "I",
+              "K",
+              "N"
             ]
           ],
-          "pathLabel": "C→F→G→(I)→K→N"
+          "pathLabel": "C→(D)→F→G→(I)→K→N"
         },
         {
           "nodes": [
@@ -4015,38 +4182,6 @@
             ]
           ],
           "pathLabel": "A→D→F→G→(I)→K→N"
-        },
-        {
-          "nodes": [
-            "C",
-            "D",
-            "F",
-            "G",
-            "K",
-            "N"
-          ],
-          "name": "潜水舰队流",
-          "nameSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-3#tactics3",
-          "paths": [
-            [
-              "C",
-              "D",
-              "F",
-              "G",
-              "K",
-              "N"
-            ],
-            [
-              "C",
-              "D",
-              "F",
-              "G",
-              "I",
-              "K",
-              "N"
-            ]
-          ],
-          "pathLabel": "C→D→F→G→(I)→K→N"
         }
       ],
       "arrivalMode": "boss",
@@ -4058,8 +4193,9 @@
       "previousSource": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E8%AB%B8%E5%B3%B6%E6%B5%B7%E5%9F%9F/2-3",
       "routingSource": "https://bbs.nga.cn/read.php?pid=330615494",
       "mergedBranchReview": {
-        "date": "2026-10-14",
-        "basis": "同一流派内临时分岔后汇合的路径合并展示；括号节点表示可能经由。概率按同一编成的互斥完整路径计算，保留各分支规则与制空参考。"
+        "date": "2026-10-23",
+        "basis": "保留既有 G→(I)→K 合流；潜水舰队 C→F 与 C→D→F 在 F 汇合，D 为资源点，四条互斥完整路径合并为一项，避免重复推荐。最终 Boss 概率仍按全图计算。",
+        "crossCheck": "https://zh.kcwiki.cn/wiki/%E5%8D%97%E8%A5%BF%E7%BE%A4%E5%B2%9B%E6%B5%B7%E5%9F%9F/2-3"
       }
     },
     "6-3": {

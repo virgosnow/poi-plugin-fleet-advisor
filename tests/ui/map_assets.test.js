@@ -218,6 +218,17 @@ test('all 37 map resource indexes retain pinned identities, valid bounds and com
   }
 });
 
+test('every map line has a finite on-chart display anchor and a unit local tangent',()=>{
+  let lines=0;
+  for(const [area,map] of Object.entries(data.maps))for(const [key,line] of Object.entries(map.lines)){
+    const g=line.labelGeometry,message=`${area} ${key}`;lines++;
+    assert(g&&[g.x,g.y,g.dx,g.dy].every(Number.isFinite),message);
+    assert(g.x>=0&&g.x<=map.width&&g.y>=0&&g.y<=map.height,message);
+    assert(Math.abs(Math.hypot(g.dx,g.dy)-1)<.000002,message);
+  }
+  assert.equal(lines,674);
+});
+
 test('3-5 upper and lower routes are placed on actual game coordinates without mutating navigation',()=>{
   const profile=profileForRoute('3-5',{targetNodes:['K'],pointAssessments:[
     fixed('start','B'),fixed('B','D'),fixed('H','K')]});

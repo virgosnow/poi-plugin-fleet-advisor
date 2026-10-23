@@ -6,7 +6,7 @@ Fleet Advisor 1.0 使用资源索引按需加载地图。项目与发行包不�
 
 | 文件 | 用途 |
 | --- | --- |
-| `index.json` | 37 张海图的坐标、裁切、阶段偏移、资源地址与哈希 |
+| `index.json` | 37 张海图的坐标、裁切、阶段偏移、连线标签锚点、资源地址与哈希 |
 | `map_common.png` | Boss 与出发点图标及插值边缘，约 46 KiB |
 | `map_common.json` | 公共图集的原始帧元数据 |
 | `map_common.source.json` | 原始与运行文件哈希、保留帧和来源 |
@@ -22,6 +22,8 @@ Fleet Advisor 1.0 使用资源索引按需加载地图。项目与发行包不�
 
 7-2、7-3、7-5 和 5-6 按索引加载阶段增量纹理。显示完整图片不改变推荐阶段，也不表示玩家已经解锁。节点和连线的可达判断始终采用 `data/normal_routes/`。
 
+每条连线的 `labelGeometry` 保存从真实虚线像素提取的地图坐标 `x` / `y`、单位切向 `dx` / `dy`，以及用于引线避障的稀疏中心折线 `path: [[x,y],…]`。折线使用绝对地图坐标，保留实际弯曲并连接虚线间隙，按 2 像素误差简化，不用两节点间的直线代替。它们仅用于概率标签的引线和大图嵌入显示；概率仍按当前编成及所选路径计算。缺少可靠像素时保留普通标签，不猜测真实线条的位置。运行时不解析图片像素。
+
 ## 维护工具
 
 开发参考图默认输出到项目旁的 `../map-references/fleet-advisor/`。可用 `FLEET_ADVISOR_MAP_REFERENCES` 或工具支持的 `--reference-dir` 指定项目外目录；工具拒绝写回工程内。
@@ -35,9 +37,13 @@ python tools/data/optimize-map-assets.py --check --reference-dir ../map-referenc
 
 # 从固定来源生成指定海图的坐标、资源索引与外部参考图
 python tools/data/import-map-assets.py 7-2 7-3 7-5 --reference-dir ../map-references/fleet-advisor
+
+# 重新提取并核对真实连线的标签锚点；不修改原图或分岐规则
+python tools/data/generate-route-label-anchors.py --reference-dir ../map-references/fleet-advisor
+python tools/data/generate-route-label-anchors.py --check --reference-dir ../map-references/fleet-advisor
 ```
 
-生成需要网络与 Pillow。5-6 使用 `tools/data/build-5-6.py`，从 `FLEET_ADVISOR_NGA_SOURCE` 指定的项目外 NGA JSON 和分阶段游戏资源生成资料。原始网页与抓取归档不随项目提供。
+下载来源资料需要网络；图片优化和标签几何重建只读取本地参考图，需要 Pillow。5-6 使用 `tools/data/build-5-6.py`，从 `FLEET_ADVISOR_NGA_SOURCE` 指定的项目外 NGA JSON 和分阶段游戏资源生成资料。原始网页与抓取归档不随项目提供。
 
 Node 回归检查索引、阶段覆盖、裁切边界和公共图集文件身份；Python 用构造图片验证无损压缩、路径限制和损坏拒绝。完整外部图片逐像素检查使用上面的显式命令。
 

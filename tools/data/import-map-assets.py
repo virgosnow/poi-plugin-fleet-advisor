@@ -169,6 +169,9 @@ def main(areas=None, reference_dir=None):
     if generated:
         command += ['--reference-dir', str(references), '--areas', *generated]
     subprocess.run(command, check=True)
+    if generated:
+        subprocess.run([sys.executable, str(ROOT / 'tools/data/generate-route-label-anchors.py'),
+                        '--reference-dir', str(references), '--areas', *generated], check=True)
     rows = json.loads((DEST / 'index.json').read_text(encoding='utf8'))['maps']
     print(json.dumps({'maps': len(rows), 'missingCoordinates': {a: r['missingCoordinates'] for a, r in rows.items()
            if r['missingCoordinates']}, 'missingLineSprites': {a: r['missingLineSprites'] for a, r in rows.items()

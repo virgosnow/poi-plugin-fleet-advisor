@@ -96,7 +96,7 @@ test('service injects global preferences into workers and future planning never 
 
  test('route budget limits UI and actual searches without truncating the source graph',()=>{
   const P=require('../../src/domain/routes/route_plans'),W=require('../../src/ui/workbench/workbench_model'),R=require('../../src/recommendation/index');
-  const store=fixture(),full=P.routeOptions('2-3');assert.equal(full.length,9);
+  const store=fixture(),full=P.routeOptions('2-3');assert.equal(full.length,8);
   assert.equal(full.flatMap(P.optionPaths).length,16,'all original journeys remain inside merged choices');
   assert.equal(P.recommendedOptions('2-3').length,5);
   assert.equal(W.mapOverview('2-3').options.length,5);
@@ -107,7 +107,7 @@ test('service injects global preferences into workers and future planning never 
     assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),P.recommendedOptions(area,'boss',undefined,{maxRoutes}).map(r=>[r.phase,r.key]));
     assert(result.recommendations.length<=maxRoutes);
   }
-  assert.equal(P.recommendedOptions('2-3','boss',undefined,{maxRoutes:20}).length,9);
+  assert.equal(P.recommendedOptions('2-3','boss',undefined,{maxRoutes:20}).length,8);
   assert.equal(P.recommendedOptions('1-1').length,1);
  });
 test('multiphase budgets reserve every phase and assign extras only to observed progress',()=>{
