@@ -65,7 +65,7 @@ test('roster labels expose busy and repairing availability',()=>{
 
 test('production panel keeps the workbench mounted and applies directly without a second confirmation page',async()=>{
   const ui=harness(),calls=[],plan={fleet:1,done:true,organization:{fleet:1,current:[],targets:[],done:true},equipment:{fleet:1,ships:[],expected:[],done:true}};
-  const Panel=require('../../src/ui/shell/panel')(ui.React,{getController:()=>({preview:()=>{calls.push('preview');return plan;},run:async()=>{calls.push('run');return {ok:true,done:true,changed:0};}}),getStore:()=>store,subscribe:()=>()=>{}});
+  const Panel=require('../../src/ui/shell/panel')(ui.React,{getController:()=>({getExperimentalSettings:()=>({automaticOperations:true}),preview:()=>{calls.push('preview');return plan;},run:async()=>{calls.push('run');return {ok:true,done:true,changed:0};}}),getStore:()=>store,subscribe:()=>()=>{}});
   let tree=ui.render(Panel,{});
   await find(tree,n=>typeof n.type==='function'&&n.type.name==='Workbench').props.onApply({fleet:1,ships:[{id:1}]});
   tree=ui.render(Panel,{});

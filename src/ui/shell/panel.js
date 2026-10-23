@@ -9,6 +9,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
   const CurrentFleet=require('../fleet/current_fleet')(React,{getStore});
   const ExecutionFeedback=require('../components/execution_feedback')(React,{subscribe,getStore});
   const filterSettings=require('../settings/recommendation_settings')(React);
+  const experimentalControls=require('../settings/experimental_settings')(React);
   const useTooltip=require('../components/tooltip');
   const ComputationSettings=require('../settings/computation_settings')(React,{getController});
   return function FleetAdvisorPanel(){
@@ -40,6 +41,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
     },[]);
     const [draftEpoch,setDraftEpoch]=React.useState(0);
     const [recommendationFilters,setRecommendationFilters]=React.useState(()=>getController()?.getRecommendationFilters?.()||require('../../config/recommendation_filters').normalize());
+    const [experimentalSettings,setExperimentalSettings]=React.useState(()=>getController()?.getExperimentalSettings?.()||require('../../config/experimental_settings').normalize());
     const copyMcpAddress=async text=>{
       const document=tooltipRoot.current?.ownerDocument,navigator=document?.defaultView?.navigator;
       try{await navigator.clipboard.writeText(text);}
@@ -85,6 +87,8 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
       const refresh=()=>{
         const service=getController();if(!service)return;
         const current=getMcpStatus();setMcpEnabledState(current.mcpEnabled);
+        const experiments=current.experimentalSettings||service.getExperimentalSettings?.()||require('../../config/experimental_settings').normalize();
+        setExperimentalSettings(previous=>previous.automaticOperations===experiments.automaticOperations?previous:experiments);
         const http=current.mcpHttp||null;setMcpHttp(previous=>JSON.stringify(previous)===JSON.stringify(http)?previous:http);
         const id=current.activeJobId;
         const currentJob=id&&service.getJob?service.getJob({jobId:id}):null;
@@ -115,6 +119,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
       setTimeout(()=>setCopied(''),2500);
     };
     const action=async(execute,source)=>{
+      if(execute&&!experimentalSettings.automaticOperations)return false;
       if(active.current||getMcpStatus?.()?.activeJobId)return false;
       stopped.current=false;
       let outcome=status,diagnostic=detail;
@@ -182,7 +187,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
             h('path',{d:'M9.5 3h5l.6 2.4 1.5.9 2.4-.7 2.5 4.3-1.8 1.7v1.8l1.8 1.7-2.5 4.3-2.4-.7-1.5.9-.6 2.4h-5l-.6-2.4-1.5-.9-2.4.7-2.5-4.3 1.8-1.7v-1.8L2 9.9l2.5-4.3 2.4.7 1.5-.9z'}),h('circle',{cx:12,cy:12,r:3}))))),
       h('div',{className:'paa-workspace','aria-busy':running},
       h('div',{className:'paa-workspace-content',ref:workspace},
-      ...['normal','expedition','manual'].map(kind=>h(kind==='manual'?CurrentFleet:Workbench,{key:`${kind}:${draftEpoch}`,kind,automaticFilters:recommendationFilters[kind],hidden:mode!==kind,busy:running,stopping,onStop:stop,stopButtonRef:mode===kind?stopButton:undefined,operationFeedback:mode===kind?feedback:null,executionPlan:busy?executionPlan.current:null,...(kind!=='manual'?{onApply:candidate=>action(true,M.format(candidate))}:{})})),
+      ...['normal','expedition','manual'].map(kind=>h(kind==='manual'?CurrentFleet:Workbench,{key:`${kind}:${draftEpoch}`,kind,automaticFilters:recommendationFilters[kind],automaticOperations:experimentalSettings.automaticOperations,hidden:mode!==kind,busy:running,stopping,onStop:stop,stopButtonRef:mode===kind?stopButton:undefined,operationFeedback:mode===kind?feedback:null,executionPlan:busy?executionPlan.current:null,...(kind!=='manual'?{onApply:candidate=>action(true,M.format(candidate))}:{})})),
       h('section',{className:'paa-settings-page',hidden:mode!=='settings','aria-label':'设置面板'},
       h('div',{className:'paa-settings-heading'},h('h3',null,'设置'),h('div',{className:'paa-settings-value'},
         h('button',{type:'button','aria-label':'恢复默认设置',disabled:running||resettingSettings||resourceBusy,onClick:resetSettings},'恢复默认'),settingFeedback(React,settingsFeedbacks.reset))),
@@ -191,6 +196,10 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
         catch(e){reportSetting(target,'error',e.message);}
       }}),
       h(ComputationSettings,{key:resourceEpoch,active:mode==='settings',disabled:running||resettingSettings,onBusyChange:setResourceBusy}),
+      experimentalControls({value:experimentalSettings,disabled:running||resettingSettings,status:settingsFeedbacks.experimental,onChange:value=>{
+        try{setExperimentalSettings(getController().setExperimentalSettings(value));reportSetting('experimental','success','已保存');}
+        catch(e){reportSetting('experimental','error',e.message);}
+      }}),
       getMcpStatus?h('section',{className:'paa-settings-card paa-agent-settings','aria-label':'AI 工具接入（MCP）'},
         h('div',{className:'paa-settings-section-head'},
           h('div',{className:'paa-settings-label'},h('h3',null,'AI 工具接入（MCP）'),settingFeedback(React,undefined,{label:'AI 工具接入（MCP）',text:'仅支持本机 Streamable HTTP。\n将连接地址填入 AI 工具即可使用，无需配置认证请求头。\n更改 HTTP 端口后，AI 工具中的地址也需要更新。'})),

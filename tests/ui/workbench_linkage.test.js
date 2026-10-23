@@ -150,7 +150,7 @@ function harness(kind='normal',automaticFilters){
   const names=[...String(Workbench).split('React.useRef')[0].matchAll(/\[\s*(\w+)\s*,\s*\w+\s*\]\s*=\s*React\.useState\(/g)].map(m=>m[1]);
   const stateIndex=name=>{const index=names.indexOf(name);assert(index>=0,'Unknown workbench state: '+name);return index;};
   const get=name=>state[stateIndex(name)],set=(name,value)=>{state[stateIndex(name)]=value;};
-  const render=(props={})=>{index=0;refIndex=0;return Workbench({kind,busy:false,automaticFilters,...props});};
+  const render=(props={})=>{index=0;refIndex=0;return Workbench({kind,busy:false,automaticFilters,automaticOperations:true,...props});};
   const find=(node,predicate)=>{if(!node||typeof node!=='object')return;return predicate(node)?node:node.children?.map(n=>find(n,predicate)).find(Boolean);};
   const control=(tree,label)=>find(tree,n=>n.props['aria-label']===label);
   const chooseGoal=(tree,goal)=>find(tree,n=>n.type==='button'&&n.children.includes(goal==='great'?'优先大成功':'成功即可')).props.onClick();
@@ -731,6 +731,25 @@ test('apply becomes the same-position stop action during execution even when the
     action=button(h.render({...props,busy:true,stopping:true}));
     assert.equal(action.children[0],'正在停止…');assert(action.props.disabled);action.props.onClick();assert.equal(stops,1);
     action=button(h.render(props));assert.equal(action.children[0],'应用编成');assert(action.props.disabled);
+  }
+});
+
+test('automatic operations off hides the entire application module, preserves drafts, and keeps stop available',()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind),slots=[W.entry(h.store,1),null,null,null,null,null];h.set('slots',slots);
+    const module=tree=>h.find(tree,n=>n.props.className==='paa-wb-apply-controls');
+    const before=JSON.stringify(h.get('slots'));
+    assert(module(h.render({automaticOperations:true})));
+    const off=h.render({automaticOperations:false});
+    assert.equal(module(off),undefined);
+    assert(h.find(off,n=>n.props.className==='paa-wb-complete'));
+    assert(h.find(off,n=>n.type==='button'&&n.children.includes('一键清空')));
+    assert.equal(JSON.stringify(h.get('slots')),before);
+    let stops=0;const running=h.render({automaticOperations:false,busy:true,onStop:()=>stops++});
+    const stop=h.find(running,n=>n.type==='button'&&n.children.includes('停止操作'));
+    assert(stop);stop.props.onClick();assert.equal(stops,1);
+    assert(module(h.render({automaticOperations:true})));
+    assert.equal(JSON.stringify(h.get('slots')),before);
   }
 });
 

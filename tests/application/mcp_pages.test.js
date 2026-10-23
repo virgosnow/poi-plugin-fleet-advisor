@@ -171,6 +171,7 @@ test('all 26 MCP tools have a reproducible complete Markdown parameter reference
 });
 test('two independent HTTP clients query/recommend/refit and share one mock execution lock',async t=>{
   const data=store(),s=service(t,data);s.httpPort=0;s.setMcpEnabled(true);await s.startMcpServer();
+  s.setExperimentalSettings({automaticOperations:true});
   s.setRecommendationFilters({normal:{excludeUnremodeled:false}});
   const {address}=s.getStatus().mcpHttp;
   const client=()=>{

@@ -115,7 +115,7 @@ test('execution cards follow confirmed per-ship events and do not recalculate th
 test('job polling never keeps a finished local run busy; MCP jobs still expose stopping',async t=>{
   let finish,job=null,cancelled=0;
   const status=()=>({mcpEnabled:false,activeJobId:job?.jobId||null,mcpHttp:{active:false}});
-  const service={preview:()=>({done:false}),run:()=>{job={jobId:'local',source:'panel',state:'running'};return new Promise(resolve=>finish=resolve);},
+  const service={getExperimentalSettings:()=>({automaticOperations:true}),preview:()=>({done:false}),run:()=>{job={jobId:'local',source:'panel',state:'running'};return new Promise(resolve=>finish=resolve);},
     getJob:()=>({...job}),cancelJob:()=>{cancelled++;job={...job,state:'stopping'};}};
   const h=harness(t,require('../../src/ui/shell/panel'),{getController:()=>service,getStore:()=>fixture(),subscribe:()=>()=>{},getMcpStatus:status});
   h.render();find(h.tree,n=>n.type==='button'&&n.children.includes('常规海域')).props.onClick();h.render();

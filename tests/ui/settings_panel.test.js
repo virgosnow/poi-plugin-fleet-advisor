@@ -4,6 +4,31 @@ const workbenches=tree=>{
   const found=[];const visit=node=>{if(!node||typeof node!=='object')return;if(['Workbench','CurrentFleet'].includes(node.type?.name))found.push(node);for(const child of node.children||[])visit(child);};
   visit(tree);return found;
 };
+
+test('experimental automation is opt-in, autosaves near its switch and preserves workbench instances',()=>{
+  const E=require('../../src/config/experimental_settings');let saved=E.normalize(),cursor=0;const states=[];
+  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
+    useState(initial){const i=cursor++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;
+      return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},
+    useRef:value=>({current:value}),useEffect:()=>{}};
+  const service={getExperimentalSettings:()=>saved,setExperimentalSettings:value=>(saved=E.normalize(value))};
+  const Panel=require('../../src/ui/shell/panel')(React,{getController:()=>service,getStore:()=>({}),subscribe:()=>()=>{}});
+  const render=()=>{cursor=0;return Panel();};
+  const find=(n,p)=>n&&typeof n==='object'&&(p(n)?n:n.children?.map(c=>find(c,p)).find(Boolean));
+  const toggle=tree=>find(tree,n=>n.props['aria-label']==='自动操作开关');
+  let tree=render();const instances=workbenches(tree).map(n=>[n.type,n.props.key]);
+  assert.equal(toggle(tree).props['aria-checked'],'false');
+  assert(workbenches(tree).every(n=>n.props.automaticOperations===false));
+  toggle(tree).props.onClick();tree=render();assert.equal(saved.automaticOperations,true);
+  assert(workbenches(tree).every(n=>n.props.automaticOperations===true));
+  assert.deepEqual(workbenches(tree).map(n=>[n.type,n.props.key]),instances);
+  service.setExperimentalSettings=()=>{throw Error('无法写入');};
+  toggle(tree).props.onClick();tree=render();assert.equal(toggle(tree).props['aria-checked'],'true');
+  const section=find(tree,n=>n.props['aria-label']==='实验功能');
+  assert(find(section,n=>n.props.role==='alert'&&n.props['data-tooltip']==='无法写入'));
+  states[1]=true;tree=render();assert.equal(toggle(tree).props.disabled,true);
+  toggle(tree).props.onClick();assert.equal(saved.automaticOperations,true);
+});
 test('sortie and expedition exclusion controls autosave separately and propagate without unmounting drafts',()=>{
   const F=require('../../src/config/recommendation_filters');
   let saved=F.normalize(),cursor=0;const state=[];
@@ -132,7 +157,7 @@ test('home resets all draft instances and inline execution feedback preserves st
     useState(initial){const i=index++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;
       return [state[i],value=>{state[i]=typeof value==='function'?value(state[i]):value;}];},
     useRef:value=>{const i=refIndex++;return refs[i]||(refs[i]={current:value});},useEffect:()=>{}};
-  const controller={preview:()=>({done:false}),run:()=>new Promise(resolve=>{finish=resolve;}),stop:()=>{stops++;}};
+  const controller={getExperimentalSettings:()=>({automaticOperations:true}),preview:()=>({done:false}),run:()=>new Promise(resolve=>{finish=resolve;}),stop:()=>{stops++;}};
   const Panel=require('../../src/ui/shell/panel')(React,{getController:()=>controller,getStore:()=>({}),subscribe:()=>()=>{}});
   const find=(node,predicate)=>{if(!node||typeof node!=='object')return;return predicate(node)?node:node.children?.map(n=>find(n,predicate)).find(Boolean);};
   const render=()=>{index=0;refIndex=0;return Panel();};

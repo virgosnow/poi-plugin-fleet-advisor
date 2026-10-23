@@ -59,6 +59,7 @@ function contract(){return {
     disabled:'get_status.schemes.enabled=false prohibits save_scheme with SCHEME_CACHE_DISABLED. Existing schemes remain readable/deletable and still consume the shared budget. Inline schemes and recommendation tools remain available.',
     validate:'Optional snapshot validation returns warnings without blocking save. Execute still requires fresh preview.'},
   execution:{planTtlMinutes:5,idempotency:'Persisted per operation key; do not generate a new key after uncertain response.',
+    permission:'Automatic operations default OFF, including settings migrated from older versions. The player must enable Settings > Experimental features > Automatic operations. get_status.experimentalSettings.automaticOperations and capabilities.execute expose this permission. MCP cannot enable it. Queries, recommendations, evaluation and preview remain available while OFF.',
     concurrency:'All HTTP clients share the same execution lock. Queries/recommendations do not authorize execution.',
     stopping:'cancel_job stops future steps only; completed game changes cannot roll back.'},
   errorShape:{code:'Stable machine-readable code.',message:'Diagnostic text; do not parse it as a code.',details:'Optional structured detail.',

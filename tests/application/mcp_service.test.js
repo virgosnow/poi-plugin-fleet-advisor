@@ -64,6 +64,7 @@ test('fixed preview rejects drift, execution is idempotent and concurrent jobs a
     assert.deepEqual(preview.pinnedScheme,{fleet:1,ships:[{id:1}]});
     assert.throws(()=>service.executePlan({planId:preview.planId,idempotencyKey:'first'}),e=>e.code==='PERMISSION_DENIED');
     service.setMcpEnabled(true);
+    service.setExperimentalSettings({automaticOperations:true});
     const accepted=service.executePlan({planId:preview.planId,idempotencyKey:'first'});
     assert.equal(accepted.state,'accepted');
     assert.equal(service.executePlan({planId:preview.planId,idempotencyKey:'first'}).jobId,accepted.jobId);
@@ -90,6 +91,7 @@ test('real unified planner keeps exact equipment IDs when MCP executes a preview
     assert.deepEqual(plan.pinnedScheme.ships[0].slots,[101,102]);
     assert.equal(plan.pinnedScheme.ships[0].id,1);
     service.setMcpEnabled(true);
+    service.setExperimentalSettings({automaticOperations:true});
     const accepted=service.executePlan({planId:plan.planId,idempotencyKey:'fixed-equipment'});
     await new Promise(resolve=>setImmediate(resolve));
     assert.deepEqual(received,plan.pinnedScheme);
@@ -109,6 +111,7 @@ test('cancel stops only the active job and restart marks unfinished work interru
     const service=new FleetAdvisorService({controller,getStore:()=>data,storageDir:dir});
     const snapshot=service.createSnapshot(),plan=service.previewFleet({snapshotId:snapshot.snapshotId,scheme:{fleet:1,ships:[{id:1}]}});
     service.setMcpEnabled(true);
+    service.setExperimentalSettings({automaticOperations:true});
     const accepted=service.executePlan({planId:plan.planId,idempotencyKey:'cancel-me'});
     await new Promise(resolve=>setImmediate(resolve));
     assert.equal(service.cancelJob({jobId:accepted.jobId}).state,'stopping');
@@ -132,6 +135,7 @@ test('persistence failure disables MCP enablement without breaking panel executi
     const controller={running:false,preview:()=>({pinned:{org:{ships:[{id:1}]}}}),
       run:async()=>{runs++;return {ok:true,done:true,changed:0};},stop(){},dispose(){}};
     const service=new FleetAdvisorService({controller,getStore:()=>data,storageDir:dir});
+    service.setExperimentalSettings({automaticOperations:true});
     service.persist=()=>{throw Error('disk unavailable');};
     assert.throws(()=>service.setMcpEnabled(true),e=>e.code==='PERSISTENCE_UNAVAILABLE');
     assert.equal(service.getStatus().mcpEnabled,false);

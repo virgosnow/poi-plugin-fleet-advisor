@@ -72,7 +72,7 @@ const TOOL_DEFS=Object.freeze([
     {snapshotId,...source,...mapArgs,heldSlots},['snapshotId','area'],true,exactlyOneSource),
   tool('preview_fleet','Build a read-only executable plan for a complete scheme or schemeName. Pins owned instances, lists donors/changes. Snapshot must still match live account; plan expires after 5 minutes.',
     {snapshotId,...source},['snapshotId'],true,exactlyOneSource),
-  tool('execute_plan','GAME WRITE: apply previewed fleet members/order/equipment, possibly changing donor ships. Requires MCP enabled and idle executor. Reuse idempotencyKey after uncertain transport; do not retry partial jobs with a new key.',
+  tool('execute_plan','GAME WRITE: apply previewed fleet members/order/equipment, possibly changing donor ships. Requires MCP enabled, automatic operations enabled by the player in experimental settings (default OFF), and idle executor. Reuse idempotencyKey after uncertain transport; do not retry partial jobs with a new key.',
     {planId:uuid('From preview_fleet.'),idempotencyKey:str('Caller-generated operation key.',{minLength:1,maxLength:128})},['planId','idempotencyKey'],false),
   tool('get_job','Read job progress/result/verification/partialApplied. Supply jobId or original idempotencyKey. After failure/cancel/interruption, inspect a new snapshot before replanning.',
     {jobId:uuid('Accepted job ID.'),idempotencyKey:str('Original operation key.')},[],true,{anyOf:[{required:['jobId']},{required:['idempotencyKey']}]}),

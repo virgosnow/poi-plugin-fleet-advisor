@@ -126,7 +126,7 @@ When expedition `recommendations` is empty, `closestRecommendation` may contain 
 1. Observe: `get_status` → `create_snapshot` → `query_fleets` / `query_fleet_presets` → `query_fleet_status`. A returned scheme can be copied into a different destination fleet by changing its `fleet`, then evaluated/previewed.
 2. Normal map: `query_normal_map` → choose exact `routes[].key` → `recommend_normal_fleet` with routeKey + optional locks → use returned scheme → optionally `query_equipment_options` / edit scheme / `recommend_normal_equipment` → `evaluate_normal_route`.
 3. Expedition: `query_expeditions` → `recommend_expedition_fleet` → select success/great result → optionally `recommend_expedition_equipment` → `evaluate_expedition`.
-4. Apply: `preview_fleet` on the full scheme → inspect affected ships/transfers → `execute_plan` using its planId and one unique idempotencyKey → poll `get_job` → capture a new snapshot. Only this flow changes the game.
+4. Apply: first check `get_status.experimentalSettings.automaticOperations` / `capabilities.execute`. Automatic operations default **OFF**, including migrated older settings. Only the player can enable Settings → Experimental features → Automatic operations; MCP cannot grant this permission. Then `preview_fleet` on the full scheme → inspect affected ships/transfers → `execute_plan` using its planId and one unique idempotencyKey → poll `get_job` → capture a new snapshot. Only this flow changes the game. Turning the permission OFF blocks new executions and stops subsequent steps of an accepted job; queries, recommendations, evaluation, preview and job inspection remain available. Already sent game changes cannot be undone.
 
 Example read-only tool call:
 
@@ -152,6 +152,8 @@ Plans expire in five minutes and are invalidated by relevant live account change
 ### Errors, resources and verification
 
 Tool errors use `result.isError=true`, with `structuredContent.error:{code,message,details,retryable,nextAction}`. Invalid arguments, unknown keys, impossible/duplicate manual locks and contradictory sources fail explicitly. `INVALID_QUERY`, `INVALID_SCHEME`, `SNAPSHOT_EXPIRED`, `STATE_CHANGED`, `PLAN_EXPIRED`, `BUSY`, `PERMISSION_DENIED`, `JOB_NOT_FOUND` and scheme-cache errors are stable codes. `retryable` never authorizes replaying a partially applied game operation. Origin/Host rejection uses HTTP 403, oversized input 413; unknown methods/tools use JSON-RPC errors.
+
+`AUTOMATIC_OPERATIONS_DISABLED` is non-retryable: ask the player to enable automatic operations in experimental settings. Enabling MCP alone does not grant execution permission. Reusing a previously accepted idempotency key may still return that same historical job; it never starts another operation.
 
 `resources/list` exposes `poi-plugin-fleet-advisor://contract/v2`; `resources/read` returns the same JSON contract as `get_contract`. Tool schemas reject unknown parameters without coercion or silent stripping.
 
@@ -488,7 +490,7 @@ Exactly one of `scheme` / `schemeName` is required.
 
 #### `fleet_advisor_execute_plan`
 
-GAME WRITE: apply previewed fleet members/order/equipment, possibly changing donor ships. Requires MCP enabled and idle executor. Reuse idempotencyKey after uncertain transport; do not retry partial jobs with a new key.
+GAME WRITE: apply previewed fleet members/order/equipment, possibly changing donor ships. Requires MCP enabled, automatic operations enabled by the player in experimental settings (default OFF), and idle executor. Reuse idempotencyKey after uncertain transport; do not retry partial jobs with a new key.
 
 Effect: **game write**.
 

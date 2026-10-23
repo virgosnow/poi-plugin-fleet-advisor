@@ -34,6 +34,7 @@ const RETRYABLE=new Set(['PLUGIN_OFFLINE','STORE_NOT_READY','SNAPSHOT_EXPIRED','
 const NEXT_ACTION={PLUGIN_OFFLINE:'启动 poi 并启用舰队参谋',STORE_NOT_READY:'等待游戏数据加载后重新建立快照',
   SNAPSHOT_EXPIRED:'重新建立快照',STATE_CHANGED:'重新建立快照并预览',PLAN_EXPIRED:'重新预览',
   BUSY:'查询当前任务并等待终态',PERMISSION_DENIED:'由用户在插件面板开启 MCP 接入',
+  AUTOMATIC_OPERATIONS_DISABLED:'Ask the player to enable Settings > Experimental features > Automatic operations. Queries, recommendations, evaluation and preview remain available.',
   SCHEME_NAME_EXISTS:'换名保存或确认后带 overwrite 重新保存',SCHEME_NOT_FOUND:'先用 fleet_advisor_query_schemes 核对名称',
   INVALID_SCHEME:'按合同 schemeSchema 修正方案结构',SCHEME_LIMIT_REACHED:'删除不用的方案后再保存',
   SCHEME_STORE_UNAVAILABLE:'检查插件存储目录是否可写',

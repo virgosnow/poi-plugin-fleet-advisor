@@ -21,7 +21,7 @@ test('panel preview and execution finish without asynchronous log errors and rec
   for(const [preview,run,expected] of [[()=>plan,async()=>({ok:true,done:true,changed:0}),/success · 已符合方案/],
     [()=>{throw Error('preview failed');},async()=>({}),/error · 未能完成 · preview failed/]]){
     const logs=[];
-    const Panel=createPanel(React,{getController:()=>({preview,run}),getStore:()=>state,subscribe:()=>()=>{},appendLog:x=>logs.push(x)});
+    const Panel=createPanel(React,{getController:()=>({preview,run,getExperimentalSettings:()=>({automaticOperations:true})}),getStore:()=>state,subscribe:()=>()=>{},appendLog:x=>logs.push(x)});
     const findWorkbench=node=>node?.type?.name==='Workbench'?node:
       (node?.children||[]).flat(Infinity).map(findWorkbench).find(Boolean);
     const workbench=findWorkbench(Panel());

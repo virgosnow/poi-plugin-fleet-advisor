@@ -12,6 +12,7 @@ const {RecommendationWorker}=require('../infrastructure/workers/recommendation_w
 const {McpHttpServer,DEFAULT_HTTP_PORT}=require('../bridge/http_server');
 const selectionFilters=require('../config/recommendation_filters');
 const computationSettings=require('../config/computation_settings');
+const experimentalSettings=require('../config/experimental_settings');
 const {inspectCache,maintainCache}=require('../infrastructure/cache/recommendation_cache');
 
 const PLAN_TTL_MS=5*60*1000;
@@ -41,6 +42,7 @@ class FleetAdvisorService {
     this.listeners=new Set();this.epoch=crypto.randomUUID();this.activeJobId=null;this.bridge=null;this.disposed=false;
     this.stateFile=path.join(storageDir,'mcp-state.json');
     this.mcpEnabled=false;this.persistenceReady=false;this.httpPort=DEFAULT_HTTP_PORT;
+    this.experimentalSettings=experimentalSettings.normalize();
     this.recommendationFilters=selectionFilters.normalize();
     try{fs.mkdirSync(storageDir,{recursive:true,mode:0o700});this.persistenceReady=true;this.load();}
     catch(e){this.mcpEnabled=false;this.storageError=e.message;}
@@ -53,6 +55,7 @@ class FleetAdvisorService {
       const saved=JSON.parse(fs.readFileSync(this.stateFile,'utf8'));
       this.recommendationFilters=selectionFilters.normalize(saved.recommendationFilters);
       this.computationSettings=computationSettings.normalize(saved.computationSettings);
+      this.experimentalSettings=experimentalSettings.normalize(saved.experimentalSettings);
       this.mcpEnabled=saved.mcpEnabled===true;
       if(Number.isInteger(saved.httpPort)&&saved.httpPort>=1&&saved.httpPort<=65535)this.httpPort=saved.httpPort;
       for(const job of saved.jobs||[]){
@@ -68,7 +71,7 @@ class FleetAdvisorService {
       this.persist();
     }catch(_){
       // Corrupt persistence must never silently grant execution permission.
-      this.mcpEnabled=false;this.jobs.clear();this.keys.clear();
+      this.mcpEnabled=false;this.experimentalSettings=experimentalSettings.normalize();this.jobs.clear();this.keys.clear();
     }
   }
   persist() {
@@ -79,7 +82,7 @@ class FleetAdvisorService {
       }
     }
     const record={mcpEnabled:this.mcpEnabled,httpPort:this.httpPort,recommendationFilters:this.recommendationFilters,
-      computationSettings:this.computationSettings,jobs:[...this.jobs.values()]};
+      computationSettings:this.computationSettings,experimentalSettings:this.experimentalSettings,jobs:[...this.jobs.values()]};
     const temp=this.stateFile+'.tmp';fs.writeFileSync(temp,JSON.stringify(record,null,2),{mode:0o600});fs.renameSync(temp,this.stateFile);
   }
   saveJobState(job){
@@ -93,6 +96,23 @@ class FleetAdvisorService {
   subscribe(listener){this.listeners.add(listener);return()=>this.listeners.delete(listener);}
   getRecommendationFilters(){return selectionFilters.normalize(this.recommendationFilters);}
   getComputationSettings(){return computationSettings.normalize(this.computationSettings);}
+  getExperimentalSettings(){return experimentalSettings.normalize(this.experimentalSettings);}
+  setExperimentalSettings(value){
+    if(!this.persistenceReady)throw error('PERSISTENCE_UNAVAILABLE','设置不可写');
+    try{experimentalSettings.validate(value);}catch(e){throw error('INVALID_QUERY',e.message);}
+    const previous=this.experimentalSettings;
+    this.experimentalSettings=experimentalSettings.normalize({...previous,...value});
+    try{this.persist();}catch(e){this.experimentalSettings=previous;throw error('PERSISTENCE_UNAVAILABLE','实验功能设置保存失败：'+e.message);}
+    this.emit({type:'experimentalSettings'});
+    // Disabling revokes queued work too. A request already sent to the game
+    // cannot be undone; cancellation stops the subsequent steps.
+    if(!this.experimentalSettings.automaticOperations&&this.activeJobId)this.cancelJob({jobId:this.activeJobId});
+    return this.getExperimentalSettings();
+  }
+  assertAutomaticOperations(){
+    if(!this.experimentalSettings.automaticOperations)
+      throw error('AUTOMATIC_OPERATIONS_DISABLED','自动操作已关闭；请在设置的“实验功能”中开启“自动操作”');
+  }
   async getComputationStatus(){
     await this.cacheReady;
     return {settings:this.getComputationSettings(),...computationSettings.resources(this.computationSettings),
@@ -189,11 +209,12 @@ class FleetAdvisorService {
     return {contractVersion:'2',sessionEpoch:this.epoch,dataReady,dataReason:reason,
       mcpEnabled:this.mcpEnabled,activeJobId:this.activeJobId,
       recommendationFilters:this.getRecommendationFilters(),
+      experimentalSettings:this.getExperimentalSettings(),
       bridgeReady:!!this.bridge,instanceId:this.bridge?.instanceId||null,
       mcpHttp:{port:this.bridge?.httpPort||null,wanted:this.httpPort,
         address:this.bridge?.httpAddress||null,
         active:!!this.bridge,error:this.bridgeError||null},
-      capabilities:{snapshot:true,preview:true,execute:true,structuralEvaluation:true,numericEvaluation:true,
+      capabilities:{snapshot:true,preview:true,execute:this.experimentalSettings.automaticOperations,structuralEvaluation:true,numericEvaluation:true,
         numericMetrics:['airPower','lineOfSight','speed','openingASW'],route:true,eventRoutes:false,
         normalRouteBranches:true,normalRouteAirControl:true,
         normalFleetRecommendation:true,expeditionFleetRecommendation:true,
@@ -406,6 +427,7 @@ class FleetAdvisorService {
   async finishJob(job,scheme,beforeFingerprint){
     try{
       if(job.state==='stopping')throw error('CANCELLED','任务在启动前已停止');
+      this.assertAutomaticOperations();
       job.state='running';job.updatedAt=nowIso();
       if(!this.saveJobState(job)&&job.source==='mcp')
         throw error('PERSISTENCE_UNAVAILABLE','任务记录不可写，Agent 执行未启动');
@@ -434,6 +456,7 @@ class FleetAdvisorService {
       return {jobId:prior.jobId,state:this.jobs.get(prior.jobId)?.state||'interrupted',duplicate:true};
     }
     if(!this.mcpEnabled)throw error('PERMISSION_DENIED','请先在插件面板开启 MCP 接入');
+    this.assertAutomaticOperations();
     if(!this.persistenceReady)throw error('PERSISTENCE_UNAVAILABLE','任务记录不可写，无法保证幂等执行');
     this.assertIdle();
     const plan=this.plans.get(planId);
@@ -448,6 +471,7 @@ class FleetAdvisorService {
   }
   async run(kind,scheme){
     if(kind!=='fleet')throw error('INVALID_SCHEME','面板仅接受统一舰队方案');
+    this.assertAutomaticOperations();
     this.assertIdle();
     const plan=this.controller.preview('fleet',scheme),targets=plan.pinned.org.ships.map(x=>x.id);
     const beforeFingerprint=fingerprint(this.getStore());
