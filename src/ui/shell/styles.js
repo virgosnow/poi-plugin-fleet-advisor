@@ -149,3 +149,12 @@ module.exports+=`
 
 module.exports+=require('../fleet/current_fleet_styles');
 module.exports+=require('../expedition/expedition_styles');
+module.exports+=require('../components/quest_section_styles');
+
+// Keep disclosure feedback consistent across pages and poi's host styles.
+module.exports+=`
+.paa summary,.paa button[aria-expanded]:not(:disabled),.paa select:not(:disabled){cursor:pointer}
+.paa summary *,.paa summary::before,.paa summary::after,.paa summary::marker,.paa button[aria-expanded] *,.paa button[aria-expanded]::before,.paa button[aria-expanded]::after{cursor:inherit}
+.paa button[aria-expanded]:disabled{cursor:default}
+.paa .paa-area-picker .paa-area-trigger:hover:not(:disabled){color:var(--paa-text)}
+`;

@@ -15,6 +15,8 @@ for(let offset=0;offset+512<=tar.length;) {
 assert.equal(metadata?.name,'poi-plugin-fleet-advisor','Incorrect published package identity');
 assert.equal(metadata.poiPlugin.id,metadata.name,'poi identity differs from package name');
 assert.equal(metadata.poiPlugin.title,'舰队参谋','Incorrect Chinese title');
+for(const name of ['data/quests/requirements.json','src/domain/quests/quest_requirements.js','src/domain/quests/fleet_requirements.js','src/infrastructure/quests/quest_observer.js','src/infrastructure/quests/quest_auto_read.js','src/host/quest_reader.js','src/ui/components/quest_section.js','src/ui/components/quest_section_styles.js'])
+  assert(names.includes('package/'+name),'Missing related task runtime '+name);
 assert.notEqual(metadata.private,true,'Private packages cannot be published');
 assert(!names.some(n=>/normal_routes_source_nga\.json|\/fixtures\/sources\/|\/logs\/|\/\.cache\/|mcp-state\.json|\/\.npmrc$|\/\.env(?:\.|$)/.test(n)),'Private or captured source material in package');
 for(const required of ['package/index.js','package/src/vision/worker.js','package/src/execution/request_monitor.js','package/data/org_sort_new.json','package/data/org_sort_level.json','package/data/org_clear_escorts.json','package/data/equip_borrow.json','package/data/equip_categories.json','package/data/equip_clear_all.json','package/data/equipment_rules.json','package/data/expedition_requirements.json','package/data/normal_routes/1-1.json','package/data/normal_routes/7-5.json','package/data/level_digits.json'])assert(names.includes(required),'Missing '+required);

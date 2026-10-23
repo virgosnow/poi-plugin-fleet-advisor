@@ -21,6 +21,13 @@ module.exports=React=>{
   const readyIcon=ready=>h('svg',{className:'paa-exp-ready-icon',viewBox:'0 0 16 16',width:14,height:14,fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
     ready===false?[h('path',{key:'outline',d:'M8 2 15 14H1Z'}),h('path',{key:'mark',d:'M8 6v4m0 2v.1'})]:
       [h('circle',{key:'outline',cx:8,cy:8,r:6}),h('path',{key:'mark',d:ready?'m5 8 2 2 4-4':'M5 8h6'})]);
+  const toggleOutcomeSpace=(event,disabled)=>{
+    if(disabled||event.defaultPrevented||event.button!==undefined&&event.button!==0)return;
+    const card=event.currentTarget,target=event.target?.nodeType===3?event.target.parentElement:event.target;
+    if(!target||target.closest?.('summary, .paa-exp-requirements-content, .paa-exp-shortfalls'))return;
+    if(card.ownerDocument?.getSelection?.()?.isCollapsed===false)return;
+    card.querySelector('.paa-exp-requirements > summary')?.click();
+  };
   function overview({mission,master,missionMasters={},missionProgress={},fleets=[],useItems={},expedition,rate,income,hasShips,incomeUnit='trip',onIncomeUnitChange,onMissionChange,disabled=false}){
     const conditions=E.requirements(expedition,mission),missing=conditions.filter(c=>c.sat===false);
     const ready=!expedition?'待核对':expedition.eligible?'全部满足':`${missing.length} 项待调整`;
@@ -44,10 +51,11 @@ module.exports=React=>{
       h('section',{className:'paa-exp-time','aria-label':'远征时间'},
         h('div',{className:'paa-exp-section-head'},h('h4',null,'远征时间'),h('span',{className:'paa-exp-duration'},
           h('svg',{viewBox:'0 0 16 16',width:14,height:14,fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('circle',{cx:8,cy:8,r:6}),h('path',{d:'M8 4v4l3 2'})),duration||'—'))),
-      h('section',{className:'paa-exp-outcome','aria-label':'出航条件','data-ready':expedition?.eligible},
+      h('section',{className:'paa-exp-outcome','aria-label':'出航条件','data-ready':expedition?.eligible,
+        onClick:event=>toggleOutcomeSpace(event,disabled)},
         h('details',{key:mission?.missionId,className:'paa-exp-requirements','aria-label':'出航条件'},
           h('summary',null,'出航条件',h('span',{className:'paa-exp-ready','data-ready':expedition?.eligible},readyIcon(expedition?.eligible),h('span',null,ready))),
-          conditionList(conditions)),
+          h('div',{className:'paa-exp-requirements-content'},conditionList(conditions))),
         missing.length?h('div',{className:'paa-exp-shortfalls','aria-label':'未满足的出航条件'},h('div',{className:'paa-exp-condition-caption'},'参考编成 · 尚未满足出航条件'),conditionList(missing)):null),
       h('section',{className:'paa-exp-income','data-rate':rateState,'aria-label':(incomeUnit==='hour'?'每小时':'单次')+incomeLabel},
         h('div',{className:'paa-exp-section-head'},h('div',{className:'paa-exp-income-title'},h('h4',null,incomeLabel),basePreview||!income?h('span',null,basePreview?'未扣补给 · 未计加成':'待核算补给'):null),

@@ -2,10 +2,10 @@
 const M=require('./model'),css=require('./styles');
 const createWorkbench=require('../workbench/workbench');
 // React comes from poi's entry point, keeping a single host React instance.
-module.exports=function createPanel(React,{getController,getStore,subscribe,appendLog,getMcpStatus,setMcpEnabled,setMcpHttpPort}){
+module.exports=function createPanel(React,{getController,getStore,subscribe,appendLog,getMcpStatus,setMcpEnabled,setMcpHttpPort,setQuestPageActive}){
   const log=entry=>{try{if(appendLog)appendLog(entry);}catch(e){}};
   const h=React.createElement,settingFeedback=require('../settings/settings_feedback');
-  const Workbench=createWorkbench(React,{getController,getStore,subscribe});
+  const Workbench=createWorkbench(React,{getController,getStore,subscribe,setQuestPageActive});
   const CurrentFleet=require('../fleet/current_fleet')(React,{getStore});
   const ExecutionFeedback=require('../components/execution_feedback')(React,{subscribe,getStore});
   const filterSettings=require('../settings/recommendation_settings')(React);

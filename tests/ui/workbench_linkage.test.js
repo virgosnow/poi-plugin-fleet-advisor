@@ -158,6 +158,44 @@ function harness(kind='normal',automaticFilters){
   return {render,find,control,chooseGoal,get,set,service,calls,store,effects};
 }
 
+test('related tasks occupy the bottom of the correct left workbench and follow the draft context',()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind),slots=[W.entry(h.store,2),null,W.entry(h.store,1),null,null,null];
+    h.set('slots',slots);h.set('fleet',3);h.set('area','2-5');h.set('missionId',23);
+    const left=h.find(h.render(),n=>n.props.className==='paa-wb-left'),tasks=left.children.at(-1);
+    assert.equal(typeof tasks.type,'function');
+    assert.equal(tasks.props.kind,kind);assert.equal(tasks.props.deckId,3);
+    assert.equal(tasks.props.slots,slots);
+    assert.equal(tasks.props.mapId,kind==='normal'?'2-5':undefined);
+    assert.equal(tasks.props.missionId,kind==='expedition'?23:undefined);
+    assert.equal(h.calls.fleet+h.calls.equipment,0);
+  }
+});
+
+test('task observations refresh on resume without running route inspection or changing draft revision',()=>{
+  const h=harness(),revision=h.get('revision'),oldInterval=global.setInterval,oldClear=global.clearInterval;
+  const callbacks=[];global.setInterval=fn=>{callbacks.push(fn);return 1;};global.clearInterval=()=>{};
+  try{
+    const poll=h.effects.find(e=>String(e.fn).includes('setQuestState(previous=>'));
+    h.store.questState={known:true,tasks:[{api_no:201,api_state:1}]};
+    const cleanup=poll.fn();
+    assert.equal(h.get('questState'),h.store.questState,'resuming the page must not wait for the first poll');
+    h.store.questState={known:true,tasks:[{api_no:201,api_state:2}]};callbacks[0]();
+    assert.equal(h.get('questState'),h.store.questState);
+    assert.equal(h.get('revision'),revision);assert.equal(h.calls.fleet+h.calls.equipment,0);
+    cleanup();
+  }finally{global.setInterval=oldInterval;global.clearInterval=oldClear;}
+});
+
+test('task page synchronization does not invalidate fleet previews or recommendation snapshots',()=>{
+  const {businessState,fingerprint}=require('../../src/application/snapshots');
+  const state=fixture(),before=fingerprint(state),snapshot=JSON.stringify(businessState(state));
+  state.questState={known:true,tasks:[{api_no:201,api_state:1}]};
+  assert.equal(fingerprint(state),before);assert.equal(JSON.stringify(businessState(state)),snapshot);
+  state.questState={known:true,tasks:[{api_no:201,api_state:2}]};
+  assert.equal(fingerprint(state),before);assert.equal(JSON.stringify(businessState(state)),snapshot);
+});
+
 test('expedition starts from its persisted goal and default changes preserve existing drafts',()=>{
   const h=harness('expedition',{defaultGoal:'success'});
   assert.equal(h.get('goal'),'success');
@@ -819,7 +857,7 @@ test('route details render separate combinations and clear current-rule highligh
   h.set('area','5-2');h.set('mapRoute','B>C>D>F>O');h.set('slots',slots);
   h.set('report',W.inspect(h.service,h.store,slots,{kind:'normal',fleet:1,area:'5-2',target:'boss',phase:'',missionId:1,revision:0}));
   let tree=h.render();
-  const detail=h.find(tree,n=>n.type==='details'&&n.props.className==='paa-wb-route-requirements');
+  const detail=h.find(tree,n=>n.props.className==='paa-wb-route-requirements');
   const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
   assert(text(detail).includes('≥ 63 且 < 70'));
   const combinations=h.find(detail,n=>n.type==='ul'&&n.children.length===5);
@@ -1033,6 +1071,54 @@ test('route warnings stay on the left and no stale chance or duplicate LoS badge
   h.set('slots',[]);tree=h.render();left=h.find(tree,n=>n.props.className==='paa-wb-left');
   assert.match(text(left),/待核对编成/);assert(!text(left).includes('80%'));
   assert(!h.find(left,n=>n.props.className==='paa-wb-arrival-icon'),'unreviewed drafts keep a neutral status');
+});
+
+test('arrival status expands route requirements while notes and route warnings remain visible',()=>{
+  const h=harness(),slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
+  h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
+  h.set('report',W.inspect(h.service,h.store,slots,settings));
+  const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
+  let tree=h.render(),card=h.find(tree,n=>n.props.className==='paa-wb-route-status');
+  let control=h.find(card,n=>n.props.className==='paa-wb-arrival');
+  let rules=h.find(card,n=>n.props.className==='paa-wb-route-requirements');
+  assert.equal(control.type,'button');assert.equal(control.props['aria-expanded'],false);
+  assert.equal(control.props['aria-controls'],rules.props.id);assert.equal(rules.props.hidden,true);
+  assert.match(text(control),/到达概率 80%/);
+  assert(!text(card).includes('所选路线的舰种与带路要求'),'the arrival row is the only disclosure heading');
+  const warning=h.find(card,n=>n.props['aria-label']==='路线条件');
+  assert(warning);assert(!h.find(rules,n=>n===warning),'warnings must not disappear with collapsed rules');
+  const note=h.find(card,n=>n.props.className==='paa-wb-arrival-note');
+  if(note)assert(!h.find(rules,n=>n===note),'arrival notes remain outside the disclosure');
+  control.props.onClick();tree=h.render();card=h.find(tree,n=>n.props.className==='paa-wb-route-status');
+  control=h.find(card,n=>n.props.className==='paa-wb-arrival');rules=h.find(card,n=>n.props.className==='paa-wb-route-requirements');
+  assert.equal(control.props['aria-expanded'],true);assert.equal(rules.props.hidden,false);
+  assert(h.find(rules,n=>n.props.className==='paa-wb-route-rule'&&n.props['data-state']==='matched'));
+  control.props.onClick();assert.equal(h.get('routeRulesOpen'),false);
+  const empty=harness(),unselected=empty.render(),status=empty.find(unselected,n=>n.props.className==='paa-wb-arrival');
+  assert.equal(status.type,'div');assert.equal(status.props['aria-expanded'],undefined);
+  assert(!empty.find(unselected,n=>n.props.className==='paa-wb-route-requirements'));
+  assert.equal(h.calls.fleet+h.calls.equipment,0,'expanding rules does not launch recommendations');
+});
+
+test('route card whitespace expands rules without toggling reading, selection or disabled controls',()=>{
+  const h=harness(),slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
+  h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
+  h.set('report',W.inspect(h.service,h.store,slots,settings));
+  const card=props=>h.find(h.render(props),node=>node.props.className==='paa-wb-route-status');
+  const click=(target={},selection=null,extra={})=>({button:0,target,currentTarget:{ownerDocument:{getSelection:()=>selection},contains:()=>true},...extra});
+  assert.equal(card().props['data-expandable'],true);
+  card().props.onClick(click());assert.equal(h.get('routeRulesOpen'),true,'card padding opens the requirements');
+  const protectedTarget={closest:()=>({})};
+  card().props.onClick(click(protectedTarget));assert.equal(h.get('routeRulesOpen'),true,'native header and details clicks are handled independently');
+  card().props.onClick(click({}, {isCollapsed:false,anchorNode:{}}));assert.equal(h.get('routeRulesOpen'),true,'copying text must not close the card');
+  card().props.onClick(click({},null,{defaultPrevented:true}));assert.equal(h.get('routeRulesOpen'),true);
+  card().props.onClick(click({},null,{button:2}));assert.equal(h.get('routeRulesOpen'),true);
+  card().props.onClick(click());assert.equal(h.get('routeRulesOpen'),false,'the outer card also closes the requirements');
+  const disabled=card({busy:true});assert.equal(disabled.props['data-expandable'],false);
+  disabled.props.onClick(click());assert.equal(h.get('routeRulesOpen'),false);
+  const fresh=harness(),empty=fresh.find(fresh.render(),node=>node.props.className==='paa-wb-route-status');assert.equal(empty.props['data-expandable'],false);
+  empty.props.onClick(click());assert.equal(h.get('routeRulesOpen'),false);
+  assert.equal(h.calls.fleet+h.calls.equipment,0,'card toggles never run a recommendation');
 });
 
 test('progress renders one compact boss row per stage, including completed and unobserved maps',()=>{

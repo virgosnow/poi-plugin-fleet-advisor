@@ -20,18 +20,65 @@ function appendLog(entry){
 const {PoiHost}=require('./src/host/poi_host');
 const {readStore}=require('./src/host/store');
 const {WorkerObserver}=require('./src/vision/worker_observer');
-let controller=null,service=null,expeditionProgress=null,progressListener=null;
+const questHandoff=Symbol.for('poi-plugin-fleet-advisor.quest-handoff');
+const questReadLedger=Symbol.for('poi-plugin-fleet-advisor.quest-read-ledger');
+let controller=null,service=null,expeditionProgress=null,questObserver=null,progressListener=null;
+let questAutoRead=null,questReader=null,questTimer=null,requestListener=null,networkListener=null,startListener=null;
+const questPages=new Set();
+function tickQuests(){
+  const reader=questAutoRead;
+  if(reader)void reader.tick().catch(()=>{}).finally(()=>{
+    if(questAutoRead===reader)window[questReadLedger]=reader.snapshot();
+  });
+}
+function setQuestPageActive(owner,active){
+  if(!['normal','expedition'].includes(owner)||!questAutoRead)return;
+  questAutoRead.setActive(owner,active);
+  if(active)questPages.add(owner);else questPages.delete(owner);
+  if(questPages.size&&!questTimer){questTimer=setInterval(tickQuests,500);tickQuests();}
+  if(!questPages.size&&questTimer){clearInterval(questTimer);questTimer=null;}
+}
 const currentStore=()=>{
   const state=readStore(window);
-  return expeditionProgress?{...state,expeditionProgress:expeditionProgress.view(state)}:state;
+  return {...state,...(expeditionProgress?{expeditionProgress:expeditionProgress.view(state)}:{}),
+    ...(questObserver?{questState:questObserver.view(state)}:{})};
 };
 exports.pluginDidLoad=()=>{
   if(service)return;
   require('./src/ui/shell/plugin_brand').register(require('@fortawesome/fontawesome-svg-core').library,window.document);
   expeditionProgress=new (require('./src/infrastructure/persistence/expedition_progress').ExpeditionProgress)(path.join(os.homedir(),'.poi-plugin-fleet-advisor'),{
     getStore:()=>readStore(window),load:()=>require('./src/host/expedition_reader').readExpeditionProgress(window,require('@electron/remote'))});
-  progressListener=event=>{try{expeditionProgress?.observe(event.detail,readStore(window));}catch(error){}};
+  questObserver=new (require('./src/infrastructure/quests/quest_observer').QuestObserver)({getState:()=>readStore(window)});
+  const observedQuests=window[questHandoff];delete window[questHandoff];
+  if(observedQuests)questObserver.restore(observedQuests,readStore(window));
+  questReader=new (require('./src/host/quest_reader').QuestReader)({window,
+    getRemote:()=>require('@electron/remote'),getStore:()=>readStore(window),
+    isBusy:()=>!!(controller?.running||service?.activeJobId||window.__fleetAdvisorUpdateBusy)});
+  questAutoRead=new (require('./src/infrastructure/quests/quest_auto_read').QuestAutoRead)({
+    getContext:()=>questReader.context({cached:questObserver.view().known}),getQuestState:()=>questObserver.view(),
+    read:async options=>{
+      const observer=questObserver,reader=questReader;
+      const result=await reader.read(options);
+      // Natural task responses take priority; never replace a newer task
+      // selection with a direct-read snapshot that started earlier.
+      if(result?.list&&questObserver===observer&&!observer.view().known&&
+        (await reader.context({cached:true})).sessionKey===options.sessionKey)observer.acceptList(result.list);
+      return result;
+    }});
+  questAutoRead.restore(window[questReadLedger]);
+  progressListener=event=>{
+    try{questReader?.observeResponse(event.detail);}catch(error){}
+    try{expeditionProgress?.observe(event.detail,readStore(window));}catch(error){}
+    try{questObserver?.observe(event.detail,readStore(window));}catch(error){}
+  };
+  requestListener=event=>{try{questReader?.observeRequest(event.detail);}catch(error){}};
+  networkListener=()=>{try{questReader?.observeFailure();}catch(error){}};
+  startListener=()=>{try{questReader?.observeStart();}catch(error){}};
   window.addEventListener('game.response',progressListener);
+  window.addEventListener('game.request',requestListener);
+  window.addEventListener('network.error',networkListener);
+  window.addEventListener('network.invalid.result',networkListener);
+  window.addEventListener('game.start',startListener);
   expeditionProgress.view(readStore(window));
   controller=new Controller({getStore:currentStore,
     createHost:()=>new PoiHost({window,remote:require('@electron/remote')}),
@@ -52,8 +99,19 @@ exports.pluginDidLoad=()=>{
 exports.pluginWillUnload=()=>{const previous=service,progress=expeditionProgress;
   require('./src/ui/shell/plugin_brand').unregister(window.document);
   if(progressListener)window.removeEventListener('game.response',progressListener);
-  service=null;controller=null;expeditionProgress=null;progressListener=null;
-  return Promise.all([previous?.dispose(),progress?.dispose()]);};
+  if(requestListener)window.removeEventListener('game.request',requestListener);
+  if(networkListener){window.removeEventListener('network.error',networkListener);window.removeEventListener('network.invalid.result',networkListener);}
+  if(startListener)window.removeEventListener('game.start',startListener);
+  if(questTimer)clearInterval(questTimer);questTimer=null;questPages.clear();
+  if(questAutoRead)window[questReadLedger]=questAutoRead.snapshot();
+  questAutoRead?.dispose();const readerCleanup=questReader?.dispose();
+  questAutoRead=null;questReader=null;requestListener=null;networkListener=null;startListener=null;
+  // Development hot reloads transfer only recent, actually observed task rows
+  // in memory. A normal unload never retains this cache.
+  if(window.__fleetAdvisorUpdateBusy&&questObserver)window[questHandoff]=questObserver.snapshot();
+  questObserver?.dispose();
+  service=null;controller=null;expeditionProgress=null;questObserver=null;progressListener=null;
+  return Promise.all([previous?.dispose(),progress?.dispose(),readerCleanup]);};
 
 exports.reactClass=require('./src/ui/shell/panel')(React,{
   getController:()=>service,
@@ -74,5 +132,6 @@ exports.reactClass=require('./src/ui/shell/panel')(React,{
     return enabled;
   },
   setMcpHttpPort:port=>service?.setHttpPort(port),
+  setQuestPageActive,
   appendLog
 });

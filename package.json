@@ -48,6 +48,7 @@
     "data/icons/material/",
     "README.md",
     "data/expedition_requirements.json",
+    "data/quests/",
     "data/normal_routes/",
     "data/normal_route_guides.json",
     "data/sortie/",

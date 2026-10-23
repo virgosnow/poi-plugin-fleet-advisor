@@ -47,6 +47,20 @@ async function main() {
   const {routeOptions}=require(path.join(root,'package/src/domain/routes/route_plans.js'));
   if(routeOptions('2-5')[0].label!=='下路空母流（C→E→I→O）')throw new Error('Packed route guide failed');
   require(path.join(root,'package/src/domain/routes/route_speed.js'));
+  const questCatalog=require(path.join(root,'package/data/quests/requirements.json'));
+  const firstSortie=questCatalog.quests.find(quest=>quest.code==='B1');
+  const {listRelatedQuests}=require(path.join(root,'package/src/domain/quests/quest_requirements.js'));
+  const related=listRelatedQuests({state:require('../../tests/helpers/workbench_fixture')(),mapId:'1-1',slots:[],
+    questState:{known:true,tasks:[{api_no:firstSortie.ids[0],api_state:1,api_title:firstSortie.title}]}});
+  if(related.tasks.length!==1||related.tasks[0].status!=='unknown')throw Error('Packed task catalog or empty-draft check failed');
+  require(path.join(root,'package/src/infrastructure/quests/quest_observer.js'));
+  const {QuestAutoRead}=require(path.join(root,'package/src/infrastructure/quests/quest_auto_read.js'));
+  require(path.join(root,'package/src/host/quest_reader.js'));
+  let questReads=0;
+  const bootstrap=new QuestAutoRead({stableMs:0,getContext:()=>({sessionKey:'package-smoke',ready:true,idle:true,compatible:true}),
+    getQuestState:()=>({known:false}),read:async()=>{questReads++;throw Error('Simulated task read failure');}});
+  bootstrap.setActive('normal',true);await bootstrap.tick();bootstrap.setActive('expedition',true);await bootstrap.tick();
+  bootstrap.dispose();if(questReads!==1)throw Error('Packed task bootstrap retried a failed read');
   // No development map PNGs may be needed in a clean installed package.
   const maps=path.join(root,'package/data/sortie/maps'),mapIndex=require(path.join(maps,'index.json'));
   if(fs.readdirSync(maps).some(n=>/^\d+-\d+\.png$/.test(n)))throw Error('Packed development maps');

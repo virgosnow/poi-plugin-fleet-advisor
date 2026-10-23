@@ -20,6 +20,7 @@ function harness(t,create,options){
   const render=next=>{props={...props,...next};for(let turn=0;turn<15;turn++){changed=false;index=0;pending=[];tree=Component(props);for(const effect of pending)effect();if(!changed)return tree;}throw Error('Render did not settle');};
   t.after(()=>{for(const hook of hooks)hook?.cleanup?.();});
   return {render,get tree(){return tree;},set(name,value){const i=names.indexOf(name);assert(i>=0,name);hooks[i].value=value;},
+    get(name){const i=names.indexOf(name);assert(i>=0,name);return hooks[i].value;},
     flushChecks(){const active=timeouts.filter(timer=>timer.active&&timer.ms===80);for(const timer of active){timer.active=false;timer.fn();}render();return active.length;},intervals,timeouts};
 }
 
@@ -67,6 +68,23 @@ test('a never-opened workbench does not build catalogs, validate or calculate un
   const h=harness(t,require('../../src/ui/workbench/workbench'),{getStore:()=>store,getController:()=>({getRecommendationFilters:()=>({}),createSnapshot:()=>{snapshots++;return {snapshotId:'test'};},listNormalMaps:()=>({maps:[]})})});
   h.render({kind:'normal',hidden:true,busy:false});h.render({busy:true});h.render({busy:false});
   assert.equal(snapshots,0);assert.equal(inspect.mock.callCount(),0);assert.equal(rows.mock.callCount(),0);assert.equal(h.flushChecks(),0);
+});
+
+test('quest bootstrap follows the visible editable page without changing drafts or invoking recommendations',t=>{
+  const mapLoading=require.cache[require.resolve('../../src/ui/maps/map_loading')]||require('../../src/ui/maps/map_loading')&&require.cache[require.resolve('../../src/ui/maps/map_loading')];
+  t.mock.method(mapLoading,'exports',()=>()=>({status:'ready'}));
+  const store=fixture(),calls=[],service={getRecommendationFilters:()=>({}),createSnapshot:()=>({snapshotId:'read-only'}),listNormalMaps:()=>({maps:[]})};
+  const h=harness(t,require('../../src/ui/workbench/workbench'),{getStore:()=>store,getController:()=>service,
+    setQuestPageActive:(owner,active)=>calls.push([owner,active])});
+  h.render({kind:'normal',hidden:true,busy:false});assert.equal(calls.at(-1)[1],false);
+  h.render({hidden:false});assert.deepEqual(calls.at(-1),['normal',true]);
+  const slots=[W.entry(store,2),null,null,null,null,null];h.set('slots',slots);h.render();
+  h.set('working',true);h.render();assert.equal(calls.at(-1)[1],false);
+  h.set('working',false);h.render();assert.equal(calls.at(-1)[1],true);
+  h.render({busy:true});assert.equal(calls.at(-1)[1],false);
+  h.render({busy:false,hidden:true});assert.equal(calls.at(-1)[1],false);
+  h.render({hidden:false});assert.equal(calls.at(-1)[1],true);
+  assert.equal(h.get('slots'),slots,'page activation preserves the selected draft');
 });
 
 test('current fleets retain visible members and mechanisms while busy and read fresh data once on resume',t=>{

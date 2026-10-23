@@ -5,11 +5,12 @@ const {fleetMechanisms,fleetSpeed,aircraftCapacity}=require('../../domain/combat
 const routePreview=require('../maps/route_preview'),shipDrag=require('../components/ship_drag');
 const {retain,hiddenPage}=require('../components/retained_view');
 const blank=()=>Array(6).fill(null),pad=rows=>rows.concat(Array(Math.max(0,6-rows.length)).fill(null));
-module.exports=function createWorkbench(React,{getController,getStore,subscribe}){
+module.exports=function createWorkbench(React,{getController,getStore,subscribe,setQuestPageActive}){
   const expeditionView=require('../expedition/expedition_view')(React);
   const h=React.createElement,EquipmentIcon=require('../components/equipment_icon')(React);
   const mechanismBadges=require('../components/mechanism_badges')(React);
   const ExecutionCard=require('../components/execution_card')(React,{subscribe,getStore});
+  const QuestSection=require('../components/quest_section')(React);
   const AreaPicker=require('../components/area_picker')(React);
   const useMapLoading=require('../maps/map_loading')(React,{getStore});
   const summaryMetric=(reading,kind)=>{
@@ -61,6 +62,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe}
     const [activity,setActivity]=React.useState(''),[notice,setNotice]=React.useState('');
     const [mapRoute,setMapRoute]=React.useState('');
     const [mapExpanded,setMapExpanded]=React.useState(false);
+    const [questState,setQuestState]=React.useState(()=>getStore().questState);
+    const [routeRulesOpen,setRouteRulesOpen]=React.useState(false);
     const grid=React.useRef(null),alive=React.useRef(true),positions=React.useRef(new Map()),popupList=React.useRef(null);
     const resultViews=React.useRef(new Map());
     const previousDefaultGoal=React.useRef(defaultGoal);
@@ -68,6 +71,10 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe}
     const operation=React.useRef(0),routeCache=React.useRef(null),latest=React.useRef(null),prepared=React.useRef(false);
     const observed=React.useRef(null),view=React.useRef(null),page=React.useRef(null),resumePending=React.useRef(false),initialized=React.useRef(false),routeSelection=React.useRef(null);
     const paused=busy||hidden;
+    React.useEffect(()=>{
+      setQuestPageActive?.(kind,!paused&&!working);
+      return()=>setQuestPageActive?.(kind,false);
+    },[kind,paused,working]);
     if(paused)resumePending.current=true;
     if(!observed.current)observed.current=getStore();
     if(choices.length)prepared.current=true;
@@ -125,7 +132,13 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe}
     React.useEffect(()=>{
       if(paused)return;
       let previous=getStore();
+      // A hidden page may have missed task-list responses. Show the latest
+      // statuses on resume instead of flashing the old synchronization hint.
+      setQuestState(previous.questState);
       const timer=setInterval(()=>{const next=getStore();
+        // Quest changes update this small read-only section without invalidating
+        // the route/loadout inspection or the recommendation caches.
+        setQuestState(previous=>previous===next.questState?previous:next.questState);
         if(['ships','equips','fleets','repairs','basic','maps'].some(k=>next.info?.[k]!==previous.info?.[k])||next.const!==previous.const||next.expeditionProgress!==previous.expeditionProgress){previous=next;setRevision(x=>x+1);}
       },1000);return()=>clearInterval(timer);
     },[paused]);
@@ -378,12 +391,20 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe}
                   h('span',{className:'paa-wb-progress-unknown',role:'img','aria-label':`${gauge.label} · 进度未知`}),
                 h('span',{className:'paa-wb-progress-value'},gauge.detail)))):
               null),
-            stableResult('route',h('div',{className:'paa-wb-route-status'},
-              h('div',{className:'paa-wb-arrival',role:'status','data-tone':arrival.tone},
-                h('span',null,arrival.label),h('strong',null,arrivalIcon(arrival.tone),arrival.value),arrival.note&&!routeSearchFailed?h('small',null,arrival.note):null),
+            stableResult('route',h('div',{className:'paa-wb-route-status','data-expandable':!!routeRequirements.length&&!disabled,onClick:event=>{
+              if(disabled||!routeRequirements.length||event.defaultPrevented||event.button>0)return;
+              if(event.target.closest?.('.paa-wb-arrival,.paa-wb-route-requirements,a,button,input,select,textarea,summary,[role="button"],[role="region"]'))return;
+              const selection=event.currentTarget.ownerDocument?.getSelection();
+              if(selection&&!selection.isCollapsed&&event.currentTarget.contains(selection.anchorNode))return;
+              setRouteRulesOpen(open=>!open);
+            }},
+              h(routeRequirements.length?'button':'div',{className:'paa-wb-arrival','data-tone':arrival.tone,
+                ...(routeRequirements.length?{type:'button',disabled,'aria-expanded':routeRulesOpen,'aria-controls':`${kind}-route-requirements`,onClick:()=>setRouteRulesOpen(open=>!open)}:{role:'status'})},
+                h('span',null,arrival.label),h('strong',null,arrivalIcon(arrival.tone),arrival.value)),
+            arrival.note&&!routeSearchFailed?h('small',{className:'paa-wb-arrival-note'},arrival.note):null,
             reasons.length?h('div',{className:'paa-wb-route-warnings',role:'region',tabIndex:0,'aria-label':'路线条件'},...reasons.map((reason,i)=>h('p',{key:i},reason))):null,
             ['notFound','unconfirmed'].includes(selectedRoute?.status)?h('div',{className:'paa-wb-route-warnings',role:'region',tabIndex:0,'aria-label':'推荐路线受阻条件'},...(selectedRoute.diagnostics?.briefWarnings?.length?selectedRoute.diagnostics.briefWarnings:['未找到符合所选路线的编成']).map((text,i)=>h('p',{key:i},text))):null,
-            routeRequirements.length?h('details',{className:'paa-wb-route-requirements'},h('summary',null,'所选路线的舰种与带路要求'),
+            routeRequirements.length?h('div',{id:`${kind}-route-requirements`,className:'paa-wb-route-requirements',hidden:!routeRulesOpen},
               h('div',{key:`${area}:${phase}:${mapRoute}`,className:'paa-wb-route-rules-scroll',role:'region',tabIndex:0,'aria-label':'详细带路规则'},
               selectedRoute?.source?h('a',{href:selectedRoute.source,target:'_blank',rel:'noopener noreferrer'},'攻略来源'):h('small',{className:'paa-muted'},'推定路线'),
               h('small',{className:'paa-muted'},'各点从上到下判断；概率判定未命中时继续下一条。随机分岐不保证走所选出口。'),
@@ -396,7 +417,9 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe}
                   conditionView(r.conditionTree,r.active,String(i+1)))))))):null),
             h('div',{className:'paa-wb-threat','aria-live':'polite'},h('div',{className:'paa-wb-section-head'},h('h4',null,threat.title)),
               threat?.enemies?.length?h('div',{className:'paa-wb-enemies'},...threat.enemies.slice(0,2).map((e,i)=>h('div',{key:i},portrait({name:e.name,portrait:V.portraitUrl(store,e.apiId)}),h('span',null,e.name,h('small',null,`${(e.nodes||[]).join(' / ')} 点`))))):h('span',null,threat?.status==='none'?'此处没有记录到战斗敌舰':'敌情资料不足，暂不能比较'),
-              ...(threat.warnings||[]).map((warning,i)=>h('small',{key:i,className:'paa-muted'},warning)))))),
+              ...(threat.warnings||[]).map((warning,i)=>h('small',{key:i,className:'paa-muted'},warning))))),
+          h(QuestSection,{state:store,slots,deckId:fleet,kind,mapId:kind==='normal'?area:undefined,
+            missionId:kind==='expedition'?missionId:undefined,questState,paused})),
         h('section',{className:'paa-wb-right','aria-busy':working},commandControls,
           error?h('p',{className:'paa-operation-feedback','data-state':'error',role:'alert'},error):null,
           operationFeedback,

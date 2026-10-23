@@ -21,6 +21,11 @@ module.exports=`
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-duration{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;color:var(--paa-text);font-weight:700}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-requirements{margin:0!important;padding:0;border:0}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-requirements>summary{padding:0;min-height:22px;font-weight:600;color:var(--paa-text)}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-outcome,
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-requirements>summary,
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-requirements>summary *,
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-requirements>summary::after{cursor:pointer}
+.paa-workbench[data-kind=expedition] .paa-wb-left :is(.paa-exp-requirements-content,.paa-exp-shortfalls){cursor:auto}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-ready{display:inline-flex;align-items:center;justify-content:flex-end;gap:6px;margin-left:auto;min-width:0;font-size:18px;line-height:24px;font-weight:700;white-space:normal;text-align:right}
 .paa-exp-ready-icon{flex:none}
 .paa-exp-shortfalls{margin-top:8px}.paa-exp-requirements[open]+.paa-exp-shortfalls{display:none}
