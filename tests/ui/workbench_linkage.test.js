@@ -714,7 +714,9 @@ test('manual branch directions appear before filling a fleet and never claim a m
 });
 
 test('expanded map keeps the selected route and node without changing the fleet draft',()=>{
-  const h=harness();h.set('mapRoute','lower');h.set('slots',[W.entry(h.store,2)]);
+  const h=harness();h.set('mapRoute','lower');h.set('slots',[1,2,3,4,5,6].map(id=>W.entry(h.store,id)));
+  for(const id of [1,2,3,4,5,6])h.store.info.ships[id].api_sakuteki=[200,200];
+  h.set('report',W.inspect(h.service,h.store,h.get('slots'),{kind:'normal',fleet:1,area:'3-5',target:'boss',phase:'',missionId:1,revision:0}));
   const before=JSON.stringify(h.get('slots'));let tree=h.render();
   const viewport=h.find(tree,n=>n.props.className==='paa-map-viewport');
   assert(viewport.children.some(n=>n?.props?.className==='paa-map-expand'),'magnifier belongs to the map viewport');
@@ -1130,6 +1132,51 @@ test('a route recommendation inspects the final changed hulls before the first c
     assert(marker,`first render must include ${edge.from}>${edge.to}`);assert.equal(marker.props['data-probability'],edge.probability);
   }
   assert(!h.find(tree,n=>n.props.className==='paa-map-probability'&&n.props['data-edge']==='G>I'));
+});
+
+test('merged 1-4 map highlights follow the actual fleet while keeping genuine random alternatives',()=>{
+  const store=fixture(),overview=W.mapOverview('1-4'),option=overview.options.find(o=>o.name==='上路护航流');
+  const {evaluateNormalRoute}=require('../../src/domain/routes/normal_routes');
+  const {profileForRoute}=require('../../src/domain/routes/sortie_profile');
+  const draw=require('../../src/ui/maps/route_preview');
+  const h=(type,props,...children)=>({type,props:props||{},children});
+  const collect=(tree,p)=>!tree||typeof tree!=='object'?[]:[...(p(tree)?[tree]:[]),...(tree.children||[]).flatMap(n=>collect(n,p))];
+  const inspect=()=>{
+    const route=evaluateNormalRoute(store,{area:'1-4',scheme:W.scheme([1,2,3,4].map(id=>W.entry(store,id)),1)});
+    return W.selectedMapProfile(overview,option.key,profileForRoute('1-4',route),route);
+  };
+  store.const.$ships[1].api_stype=16;store.const.$ships[4].api_stype=7; // AV + 2 DD + CVL: F -> E only.
+  const fixed=inspect();
+  assert.deepEqual(fixed.highlightPaths,[['B','C','F','E','H','L']]);
+  for(const fixedNodes of [false,true]){
+    const tree=draw(h,{profile:fixed,compact:true,fixedNodes,showDetails:false,showPaths:false,onNode:()=>{}});
+    const edges=collect(tree,n=>n.props.className==='paa-real-route').map(n=>n.props.key);
+    assert(edges.includes('F>E'));assert(edges.includes('E>H'));
+    assert(!edges.includes('F>H'));assert(!edges.includes('E>F'));assert(!edges.includes('H>E'));
+    assert(collect(tree,n=>n.props.key==='muted-F>H').length,'the real map keeps the alternate physical connection muted');
+  }
+  store.const.$ships[1].api_stype=3;store.const.$ships[4].api_stype=2; // CL + 3 DD: F -> E/H is 80/20.
+  const random=inspect();assert.deepEqual(random.highlightPaths,option.paths);
+  assert(random.edgeProbabilities.some(e=>e.from==='F'&&e.to==='H'&&e.probability===0.2));
+  assert.deepEqual(W.selectedMapProfile(overview,option.key).highlightPaths,option.paths,'without a fleet, preview the whole selected style');
+});
+
+test('pending or stale fleet inspections do not preview full styles until the fleet is cleared',()=>{
+  const h=harness(),option=W.mapOverview('1-4').options.find(o=>o.name==='上路护航流');
+  h.store.const.$ships[1].api_stype=16;h.store.const.$ships[4].api_stype=7;
+  h.set('area','1-4');h.set('mapRoute',option.key);h.set('slots',[1,2,3,4].map(id=>W.entry(h.store,id)));
+  const settings={kind:'normal',fleet:1,area:'1-4',target:'boss',phase:'',missionId:1,revision:0};
+  const report=W.inspect(h.service,h.store,h.get('slots'),settings);assert(report.valid);h.set('report',report);
+  const highlighted=(tree,key)=>h.find(tree,n=>n.props.className==='paa-real-route'&&n.props.key===key);
+  let tree=h.render();assert(highlighted(tree,'F>E'));assert(!highlighted(tree,'F>H'));
+  h.set('report',{valid:false});tree=h.render();
+  assert(!h.find(tree,n=>n.props.className==='paa-real-route'),'pending inspection cannot restore blocked alternatives');
+  h.set('report',report);h.set('area','2-3');h.set('mapRoute',W.mapOverview('2-3').options[0].key);
+  assert(!h.find(h.render(),n=>n.props.className==='paa-real-route'),'old map results cannot highlight the new map');
+  h.set('area','1-4');h.set('mapRoute',option.key);h.set('report',{valid:false});
+  h.find(h.render(),n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();
+  tree=h.render();assert(highlighted(tree,'F>E'));assert(highlighted(tree,'F>H'),'empty fleet previews the whole merged style again');
+  assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
 });
 
 test('phase changes refresh immediately while cleared or genuinely stale contexts never reuse old probabilities',()=>{

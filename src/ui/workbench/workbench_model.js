@@ -197,18 +197,27 @@ function routeEdgeProbabilities(route,option){
   return [...edges.values()].filter(edge=>!edge.conflicting&&edge.probability<1-1e-9)
     .map(({from,to,probability})=>({from,to,probability}));
 }
-function selectedMapProfile(overview,selection,actual,route){
+function selectedMapProfile(overview,selection,actual,route,hasFleet=!!route?.ships?.length){
   const option=overview.options.find(o=>o.key===selection);
   if(option?.phase)overview={...overview,profile:require('../../domain/routes/sortie_profile').previewForMap(overview.profile.area,{phase:option.phase})};
-  const paths=option?require('../../domain/routes/route_plans').optionPaths(option):[selection?selection.split('>'):[]];
-  const selected=paths.flatMap(nodes=>{
+  const plans=require('../../domain/routes/route_plans');
+  const requested=option?plans.optionPaths(option):[selection?selection.split('>'):[]];
+  const current=route?.area===overview.profile.area&&route.ships?.length&&(!option?.phase||option.phase===route.phase);
+  // The full style is a preview only for an empty draft. A blocked fleet or
+  // stale inspection must not make impossible alternatives look reachable.
+  // Unknown (but not disproved) branches remain visible alongside random ones.
+  const paths=!hasFleet?requested:current?requested.filter(nodes=>plans.planningPath(route,nodes,
+    {allowTentative:false,includeLosRequirements:false}).chance.max!==0):[];
+  // Reference targets/encounters remain available even for a blocked draft;
+  // highlightPaths alone describes the currently traversable alternatives.
+  const selected=(paths.length?paths:requested).flatMap(nodes=>{
     const same=p=>p.nodes.join('>')===nodes.join('>');
     const actualPath=actual?.area===overview.profile.area?actual.routePaths?.find(same):null;
     const path=actualPath||overview.profile.routePaths?.find(same);return path?[path]:[];
   });
-  return {...overview.profile,...(option?.strategy||option?.paths?{highlightPaths:paths}:{}),
-    edgeProbabilities:route?.area===overview.profile.area?routeEdgeProbabilities(route,option):[],
-    referenceOnly:!selected.some(p=>actual?.area===overview.profile.area&&actual.routePaths?.includes(p)),pathCount:selected.length,
+  return {...overview.profile,highlightPaths:paths,
+    edgeProbabilities:hasFleet&&current?routeEdgeProbabilities(route,option):[],
+    referenceOnly:!paths.length||!selected.some(p=>actual?.area===overview.profile.area&&actual.routePaths?.includes(p)),pathCount:selected.length,
     routePaths:selected,examples:selected.map(p=>p.nodes),threat:selected.length?
       require('../../domain/routes/route_threats').routeThreat(overview.profile.mapPreview.nodes,selected):overview.profile.threat};
 }

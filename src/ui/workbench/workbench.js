@@ -283,7 +283,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       let income=null;try{if(kind==='expedition'&&rows.length)income=W.income(store,slots,missionId);}catch(_){}
       const dirty=report.settingsKey!==JSON.stringify(settings)||JSON.stringify(report.scheme)!==JSON.stringify(W.scheme(slots,fleet));
       const overview=kind==='normal'?W.mapOverview(area,target,phase,selectionSettings,store):null;
-      const mapProfile=overview?W.selectedMapProfile(overview,mapRoute,dirty?null:report.profile,!dirty&&report.valid?report.route:null):null;
+      const mapProfile=overview?W.selectedMapProfile(overview,mapRoute,dirty?null:report.profile,!dirty&&report.valid?report.route:null,rows.length>0):null;
       const speedReading=kind==='expedition'?null:fleetSpeed(store,slots);
       const mechanisms=kind==='expedition'?E.shipBadges(expeditionStatus):fleetMechanisms(store,slots,speedReading,mapProfile);
       const threat=mapProfile?W.displayThreat(mapProfile,nodeId):null;

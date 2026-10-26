@@ -264,7 +264,7 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
         h('button',{type:'button',className:'paa-map-popover-close','aria-label':'关闭节点详情',onClick:()=>onBackground?.()},'×'),...detail):null),
     h('div',{className:'paa-map-legend','aria-label':'地图节点图例'},
       ...Object.entries(TYPES).filter(([kind])=>!['start','unknown'].includes(kind)&&
-        layout.nodes.some(node=>(!path.length||active.has(node.id))&&typeOf(node.kind)===TYPES[kind])).map(([kind,type])=>
+        layout.nodes.some(node=>(!travels.length||active.has(node.id))&&typeOf(node.kind)===TYPES[kind])).map(([kind,type])=>
         h('span',{key:kind,'data-kind':kind,style:{'--paa-node-color':nodeColor(kind,type),
           '--paa-node-background':compactBackgrounds[kind]||'#303b4b'}},compact?
           h('svg',{viewBox:'-20 -20 40 40',className:'paa-map-legend-marker','aria-hidden':true},
