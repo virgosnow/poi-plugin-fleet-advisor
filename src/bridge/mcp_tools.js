@@ -16,8 +16,8 @@ const source={scheme:schemeSchema,schemeName};
 const exactlyOneSource={oneOf:[{required:['scheme']},{required:['schemeName']}]};
 const slot={oneOf:[int(0,4),enumOf(['ex'],'Expansion slot.')],description:'Zero-based normal slot 0..4, or ex. Five-slot ships supported.'};
 const nullableItem={oneOf:[int(1),{type:'integer',const:-1},{type:'null'}]};
-const heldSlots={type:'array',maxItems:6,description:'Position-indexed draft with null holes. pin=true retains this hull position. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty.',items:{oneOf:[{type:'null'},object({
-  id:int(1),pin:bool('Keep ship at this array position.'),slots:{type:'array',maxItems:5,items:nullableItem},ex:nullableItem,
+const heldSlots={type:'array',maxItems:6,description:'Position-indexed draft with null holes. pin or keep retains the hull and, by default, its position. Set holdPosition=false to allow fleet sorting. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty.',items:{oneOf:[{type:'null'},object({
+  id:int(1),pin:bool('Retain this hull. Its array position is held unless holdPosition=false.'),holdPosition:bool('Default true. Set false to retain the hull/equipment while allowing fleet sorting.'),slots:{type:'array',maxItems:5,items:nullableItem},ex:nullableItem,
   keep:object(Object.fromEntries(['0','1','2','3','4','ex'].map(k=>[k,{type:'boolean',const:true}]))),
 },['id'])]}};
 const mapArgs={area:str('Normal map ID, e.g. 5-2.',{pattern:'^[1-7]-[1-6]$'}),

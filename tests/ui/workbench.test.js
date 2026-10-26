@@ -103,7 +103,6 @@ test('replacement shortlist uses same ship type and leaves all ships available w
   assert(similar.every(r=>r.typeId===2));
   assert.equal(similar.find(r=>r.id===3).fleetLabel,'第 3 舰队');
   assert(similar.find(r=>r.id===3).unavailable);
-  assert(similar.at(-1).unavailable);
   assert(W.replacementCandidates(store,slots,0,'','all').some(r=>r.typeId===1));
   assert(W.replacementCandidates(store,slots,2).some(r=>r.typeId===1));
   assert.equal(W.replacementCandidates(store,slots,0,'不存在').length,0);
@@ -126,6 +125,48 @@ test('autocomplete preserves fixed positions and manual equipment without duplic
   assert.equal(next[0].slots[0],111);assert.equal(next[2].slots[0],-1);
   assert.equal(JSON.stringify(old),before);
   assert.throws(()=>W.merge(store,old,{ships:[{id:1}]}),/没有保留/);
+});
+
+test('normal completion follows the recommended formation while retaining manual hulls and equipment ownership',()=>{
+  const store=fixture(),old=[{...W.entry(store,2),pin:true,slots:[111,-1],keep:{0:true}},null,
+    {...W.entry(store,1),pin:true},null,null,null],before=JSON.stringify(old);
+  const holds=W.recommendationHolds(old,{preservePositions:false});
+  assert(holds.filter(Boolean).every(h=>h.holdPosition===false));
+  const next=W.merge(store,old,{ships:[{id:1,slots:[111,-1]},{id:3,slots:[-1,-1]},
+    {id:2,slots:[-1,-1]}]},{preservePositions:false});
+  assert.deepEqual(next.filter(Boolean).map(s=>s.id),[1,3,2]);
+  assert(next[0].pin&&next[2].pin);assert(next[2].keep[0]);
+  assert.equal(next[2].slots[0],111);assert.equal(next[0].slots[0],-1);
+  assert.equal(JSON.stringify(old),before);
+  assert.throws(()=>W.merge(store,old,{ships:[{id:1}]},{preservePositions:false}),/没有保留/);
+});
+
+test('explicit Asashio search spans ship types and automatic preferences while retaining availability reasons',()=>{
+  const store=fixture(),selection={kind:'normal',filters:{minLevel:90}},slots=[W.entry(store,1)];
+  store.const.$ships[2].api_name='朝潮改二丁';store.const.$ships[2].api_yomi='あさしお';
+  store.const.$ships[3].api_name='朝潮改';store.const.$ships[3].api_yomi='あさしお';
+  store.info.ships[2].api_cond=20;store.info.ships[2].api_locked=0;
+  let candidates=W.replacementCandidates(store,slots,0,'朝潮','similar',selection);
+  assert.deepEqual(candidates.map(r=>r.id),[2,3]);
+  assert(!candidates[0].unavailable);assert(candidates[0].preferenceReasons.includes('士气低于 40'));
+  assert(candidates[0].preferenceReasons.includes('等级低于 90'));
+  assert(candidates[0].preferenceReasons.includes('未锁定'));
+  store.info.fleets[2].api_ship=[2];store.info.fleets[2].api_mission=[1,1];
+  store.info.repairs=[{api_ship_id:3}];
+  candidates=W.replacementCandidates(store,slots,0,'朝潮','similar',selection);
+  assert.equal(candidates.find(r=>r.id===2).unavailable,'远征中');
+  assert.equal(candidates.find(r=>r.id===3).unavailable,'修理中');
+  store.info.repairs=[];
+  assert.equal(W.roster(store,[W.entry(store,2)],1,'朝潮').find(r=>r.id===3).unavailable,'同舰已编入');
+});
+
+test('ship choices put first-fleet members first and sort each group by descending level',()=>{
+  const store=fixture();
+  store.info.fleets[0].api_ship=[4,2];
+  for(const [id,level]of [[1,99],[2,20],[3,95],[4,80],[5,90],[6,85],[7,1],[8,2]])store.info.ships[id].api_lv=level;
+  const rows=W.replacementCandidates(store,[],0,'','all',{kind:'normal',filters:{minLevel:90}});
+  assert.deepEqual(rows.map(r=>r.id),[4,2,1,3,5,6,8,7]);
+  assert.equal(rows[0].fleet,1);assert.equal(rows[1].fleetLabel,'第 1 舰队');
 });
 test('income deducts expedition supply and does not fabricate missing master data',()=>{
   const store=fixture(),slots=[W.entry(store,1),W.entry(store,2)];

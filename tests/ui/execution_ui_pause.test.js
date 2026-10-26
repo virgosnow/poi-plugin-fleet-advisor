@@ -35,7 +35,9 @@ for(const kind of ['normal','expedition'])test(`${kind} application freezes calc
   const inspect=t.mock.method(W,'inspect'),summary=t.mock.method(W,'fleetSummary'),rows=t.mock.method(V,'fleetRows'),preview=t.mock.method(service,'preview'),changes=t.mock.method(W,'changeSummary'),options=t.mock.method(W,'equipmentOptions');
   const spies=[inspect,summary,rows,preview,changes];
   const h=harness(t,require('../../src/ui/workbench/workbench'),{getStore:()=>store,getController:()=>service});
-  h.render({kind,busy:false,hidden:false});h.set('slots',[W.entry(store,1),W.entry(store,2),null,null,null,null]);h.render();h.flushChecks();
+  h.render({kind,busy:false,hidden:false});h.set('slots',[W.entry(store,1),W.entry(store,2),null,null,null,null]);
+  h.set('choices',[{key:'completed'}]); // Applying starts from a completed, inspected draft.
+  h.render();h.flushChecks();
   for(const outcome of ['success','error','stopped']){
     const oldText=text(find(h.tree,n=>n.props.className==='paa-wb-ships'));
     h.set('popup',{index:0,slot:0});h.render({busy:true});const before=spies.map(spy=>spy.mock.callCount());

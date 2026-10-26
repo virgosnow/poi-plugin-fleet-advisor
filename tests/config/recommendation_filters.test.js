@@ -27,15 +27,18 @@ test('independent defaults, remodel graph, inclusive level boundary and sortie-s
     assert.deepEqual(relaxed(8),[]);assert.deepEqual(relaxed(2),[]);
   }
 });
-test('fleet search and replacement candidates share exclusions; explicit draft ships stay available',()=>{
+test('fleet search filters automatic choices while manual candidates remain visible with reasons',()=>{
   const s=source(),R=require('../../src/recommendation/index'),W=require('../../src/ui/workbench/workbench_model');
   const r=R.recommendNormalFleet(s,{area:'1-1'});
   assert(r.recommendations.length);assert(r.recommendations.every(r=>r.scheme.ships.every(s=>[2,3,8].includes(s.id))));
   const fixed=R.recommendNormalFleet(s,{area:'1-1',fixedShipIds:[1]});
   assert(fixed.recommendations.length);assert(fixed.recommendations.every(r=>r.scheme.ships.some(s=>s.id===1)));
   const slots=[W.entry(s,1)];
-  const eligible=W.replacementCandidates(s,slots,0,'','all',{kind:'normal',filters:F.DEFAULTS.normal}).map(r=>r.id);
-  assert(eligible.includes(1),'current explicit ship stays visible');assert(!eligible.includes(4));assert(!eligible.includes(5));
+  const candidates=W.replacementCandidates(s,slots,0,'','all',{kind:'normal',filters:F.DEFAULTS.normal});
+  const eligible=candidates.map(r=>r.id);
+  assert(eligible.includes(1),'current explicit ship stays visible');assert(eligible.includes(4));assert(eligible.includes(5));
+  assert.deepEqual(candidates.find(r=>r.id===4).preferenceReasons,['等级低于 30']);
+  assert.deepEqual(candidates.find(r=>r.id===5).preferenceReasons,['士气低于 40']);
   assert(W.replacementCandidates(s,slots,0,'','all').some(r=>r.id===4),'manual JSON is not filtered');
   s.info.fleets[0].api_ship=[1,2,3];
   const expedition=R.recommendExpeditionFleet(s,{missionId:1,fleet:2});

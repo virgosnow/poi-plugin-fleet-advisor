@@ -121,6 +121,7 @@ function recommendationArgs(store,args){
     if(h===null)continue;
     const ship=store.info.ships[h?.id],count=store.const.$ships[ship?.api_ship_id]?.api_slot_num;
     if(!ship||ids.has(h.id))throw error('INVALID_QUERY','Each held slot must identify a unique owned ship');
+    if(h.holdPosition!==undefined&&typeof h.holdPosition!=='boolean')throw error('INVALID_QUERY','holdPosition must be boolean');
     if(!h.pin&&!Object.keys(h.keep||{}).length)continue;
     ids.add(h.id);fixed.add(h.id);
     if(args.excludedShipIds?.includes(h.id))throw error('INVALID_QUERY','Held and excluded ship IDs overlap');
@@ -150,7 +151,7 @@ function verifyConstraints(result,args,equipmentOnly=false){
     if(args.fixedShipIds?.some(id=>!ships.some(s=>s.id===id)))throw error('INVALID_QUERY','Recommendation did not preserve every fixed hull');
     (args.heldSlots||[]).forEach((held,position)=>{
       if(!held)return;
-      const ship=ships[position];
+      const ship=held.holdPosition===false?ships.find(s=>s.id===held.id):ships[position];
       if(ship?.id!==held.id)throw error('INVALID_QUERY','No recommendation can preserve the requested hull positions');
       for(const key of Object.keys(held.keep||{}))if((key==='ex'?ship.ex:ship.slots?.[key])!==(key==='ex'?held.ex:held.slots[key]))
         throw error('INVALID_QUERY','Recommendation did not preserve a manually held equipment slot');

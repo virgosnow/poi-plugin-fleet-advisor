@@ -58,7 +58,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const [error,setError]=React.useState('');
     const [popup,setPopup]=React.useState(null),[search,setSearch]=React.useState('');
     const [equipmentCategory,setEquipmentCategory]=React.useState('all');
-    const [candidateScope,setCandidateScope]=React.useState('similar'),[draftContext,setDraftContext]=React.useState(null);
+    const [shipType,setShipType]=React.useState('all'),[draftContext,setDraftContext]=React.useState(null);
     const [pathIndex,setPathIndex]=React.useState(0),[nodeId,setNodeId]=React.useState(null);
     const [revision,setRevision]=React.useState(0);
     const [activity,setActivity]=React.useState(''),[notice,setNotice]=React.useState('');
@@ -107,7 +107,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const phaseForRoute=value=>phase||(kind==='normal'?
       require('../../domain/routes/route_plans').routeOptions(area,target).find(row=>row.key===value)?.phase:'')||'';
     const inspectSelection=value=>{
-      if(kind!=='normal'||!slots.some(Boolean))return;
+      if(kind!=='normal'||!prepared.current||!slots.some(Boolean))return;
       const current=getStore(),nextSettings={...settings,phase:phaseForRoute(value)};
       if(report.valid&&report.settingsKey===JSON.stringify(nextSettings)&&
         JSON.stringify(report.scheme)===JSON.stringify(W.scheme(slots,fleet))&&current.info===store.info&&current.const===store.const)return;
@@ -128,7 +128,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       operation.current++;routeCache.current=null;prepared.current=false;resultViews.current.clear();
       commit(blank());setChoices([]);setExcluded([]);setPopup(null);setSearch('');
       setWorking(false);setActivity('');
-      setCandidateScope('similar');setEquipmentCategory('all');setMissionId(value);setGoal(defaultGoal);
+      setShipType('all');setEquipmentCategory('all');setMissionId(value);setGoal(defaultGoal);
     };
     React.useEffect(()=>{
       alive.current=true;
@@ -164,7 +164,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       if(!resumePending.current&&report.valid&&report.settingsKey===JSON.stringify(settings)&&
         JSON.stringify(report.scheme)===JSON.stringify(W.scheme(slots,fleet)))return;
       const timer=setTimeout(()=>{if(alive.current){
-        const current=getStore(),next=W.inspect(getController(),current,slots,settings);
+        const current=getStore(),next=kind==='normal'&&!prepared.current?{valid:false}:W.inspect(getController(),current,slots,settings);
         observed.current=current;resumePending.current=false;setReport(next);
       }},80);
       return()=>clearTimeout(timer);
@@ -195,13 +195,14 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       document.addEventListener('keydown',escape);return()=>document.removeEventListener('keydown',escape);
     },[popup]);
     const open=(index,slot)=>{
+      observed.current=getStore();
       const current=slot==='ex'?slots[index]?.ex:slots[index]?.slots[slot];
-      const category=slot!==undefined&&current>0?W.equipmentOptions(store,slots,index,slot).find(row=>row.id===current)?.categoryId:null;
-      setSearch('');setEquipmentCategory(category===null||category===undefined?'all':String(category));setCandidateScope('similar');setPopup({index,slot});
+      const category=slot!==undefined&&current>0?W.equipmentOptions(observed.current,slots,index,slot).find(row=>row.id===current)?.categoryId:null;
+      setSearch('');setEquipmentCategory(category===null||category===undefined?'all':String(category));setShipType('all');setPopup({index,slot});
     };
-    React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;},[popup,search,equipmentCategory]);
+    React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;},[popup,search,equipmentCategory,shipType]);
     const choosePlan=(row,key=conditionKey,selectedRoute='')=>{
-      const current=getStore(),next=W.merge(current,slots,row.scheme),
+      const current=getStore(),next=W.merge(current,slots,row.scheme,{preservePositions:kind!=='normal'}),
         nextRoute=row.routeKey||selectedRoute||row.guideStyle||(row.profile?.examples?.[0]||[]).join('>');
       if(!row.planningOnly)getController().preview('fleet',W.scheme(next,fleet));
       const inspection=W.inspect(getController(),current,next,{...settings,phase:phaseForRoute(nextRoute)});
@@ -226,7 +227,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           const service=getController(),{snapshotId}=service.createSnapshot();
           const query={snapshotId,fleet,fixedShipIds:slots.filter(s=>s&&(s.pin||Object.keys(s.keep).length)).map(s=>s.id),excludedShipIds:excluded,limit:3};
           found=await (kind==='normal'?service.recommendNormalFleet({...query,area,target,phase:phase||undefined,
-            airGoal:'superiority',preference:'all',byRoute:true,heldSlots:W.recommendationHolds(slots)}):service.recommendExpeditionFleet({...query,missionId,goal:requestedGoal,heldSlots:W.recommendationHolds(slots),
+            airGoal:'superiority',preference:'all',byRoute:true,heldSlots:W.recommendationHolds(slots,{preservePositions:false})}):service.recommendExpeditionFleet({...query,missionId,goal:requestedGoal,heldSlots:W.recommendationHolds(slots),
               ...(slots[0]&&(slots[0].pin||Object.keys(slots[0].keep).length)?{fixedFlagshipId:slots[0].id}:{})}));
         }
         if(!alive.current||token!==operation.current||![origin,key].includes(latest.current))return;
@@ -368,7 +369,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         h('div',{className:'paa-wb-gears'},...s.slots.map((_,k)=>gearSlot(k)),store.info.ships[s.id].api_slot_ex!==0?gearSlot('ex'):h('div',{className:'paa-wb-gear-unopened'},'增 · 未开启')),
         h(ExecutionCard,{running:!!(busy&&!hidden&&executionPlan?.fleet===fleet&&executionPlan.targets?.[i]===s.id),stopping,fleet,index:i,ship:s.id}));
     };
-    const popupRows=popup&&!paused&&!resumePending.current?(popup.slot===undefined?W.replacementCandidates(store,slots,popup.index,search,candidateScope,{kind,filters:selectionSettings}):W.equipmentOptions(store,slots,popup.index,popup.slot,search)):[];
+    const popupRows=popup&&!paused&&!resumePending.current?(popup.slot===undefined?W.replacementCandidates(store,slots,popup.index,search,'all',{kind,filters:selectionSettings})
+      .filter(row=>shipType==='all'||row.typeId===Number(shipType)):W.equipmentOptions(store,slots,popup.index,popup.slot,search)):[];
     const currentEquipment=popup?.slot!==undefined?(popup.slot==='ex'?slots[popup.index]?.ex:slots[popup.index]?.slots[popup.slot]):null;
     const equipmentGroups=new Map();
     if(popup?.slot!==undefined)for(const row of popupRows){
@@ -384,7 +386,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       else{const s=next[popup.index],k=popup.slot;next[popup.index]={...s,slots:s.slots.slice(),keep:{...s.keep,[k]:true}};
         if(k==='ex')next[popup.index].ex=row.id;else next[popup.index].slots[k]=row.id;}
       commit(next);setPopup(null);
-      if(popup.slot===undefined)return refreshEquipment(next);
+      if(popup.slot===undefined&&(kind!=='normal'||prepared.current))return refreshEquipment(next);
     };
     const field=(label,value,onChange,options)=>h('label',{className:'paa-wb-field'},h('span',null,label),h('select',{'aria-label':label,value,disabled,onChange:e=>onChange(e.target.value)},...options.map(([value,name,optionDisabled])=>h('option',{key:value,value,disabled:optionDisabled},name))));
     const normalRouteControl=kind==='normal'?h('div',{className:'paa-wb-section-head paa-wb-route-picker'},h('h3',null,'路线'),
@@ -477,15 +479,17 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         h('div',{className:'paa-wb-section-head'},h('h3',null,`第 ${popup.index+1} 位 · ${popup.slot===undefined?'选择舰娘':popup.slot==='ex'?'补强增设':`第 ${Number(popup.slot)+1} 槽`}`),h('button',{type:'button',onClick:()=>setPopup(null)},'关闭')),
         h('div',{className:'paa-wb-popup-filters'},h('input',{autoFocus:true,type:'search',value:search,'aria-label':'搜索候选',placeholder:popup.slot===undefined?'舰名 / 舰种 / ID':'装备名称 / 分类 / ID',onChange:e=>setSearch(e.target.value)}),
           popup.slot!==undefined?h('select',{'aria-label':'装备分类',value:selectedCategory,onChange:e=>setEquipmentCategory(e.target.value)},
-            h('option',{value:'all'},'全部分类'),...[...equipmentGroups].map(([id,group])=>h('option',{key:id,value:id},`${group.name} (${group.rows.length})`))):null),
-        popup.slot===undefined&&slots[popup.index]?h('div',{className:'paa-wb-candidate-tabs','aria-label':'候选范围'},...[["similar","同舰种"],["all","全部舰娘"]].map(([value,label])=>h('button',{key:value,type:'button','aria-pressed':candidateScope===value,onClick:()=>setCandidateScope(value)},label)),h('span',{className:'paa-muted'},kind==='expedition'?'换入后自动推荐远征装备':kind==='normal'?'换入后自动推荐装备':'换入后核对编成')):null,
+            h('option',{value:'all'},'全部分类'),...[...equipmentGroups].map(([id,group])=>h('option',{key:id,value:id},`${group.name} (${group.rows.length})`))):
+            h('select',{'aria-label':'舰种',value:shipType,onChange:e=>setShipType(e.target.value)},h('option',{value:'all'},'全部舰种'),
+              ...Object.entries(W.TYPES).map(([id,label])=>h('option',{key:id,value:id},label)))),
+        popup.slot===undefined?h('p',{className:'paa-muted'},kind==='expedition'?'换入后自动推荐远征装备':kind==='normal'&&!prepared.current?'先保留当前装备，一键补全后统一配装':'换入后自动推荐装备'):null,
         h('div',{className:'paa-wb-popup-list',ref:popupList},...visiblePopupRows.flatMap((row,i)=>[
           popup.slot!==undefined&&(i===0||row.categoryId!==visiblePopupRows[i-1].categoryId)?h('h4',{key:`category-${row.categoryId}`,className:'paa-wb-equipment-group'},row.category):null,
           h('button',{key:row.id,type:'button',className:popup.slot===undefined?undefined:'paa-wb-equipment-option','aria-current':row.id===currentEquipment?'true':undefined,...popup.slot===undefined?{}:V.equipmentTooltipProps(row),disabled:disabled||!!row.unavailable,onClick:()=>pick(row)},
-          popup.slot===undefined?portrait(row):h(EquipmentIcon,{item:row}),h('span',{className:popup.slot===undefined?undefined:'paa-wb-equipment-label'},h('strong',null,row.name),popup.slot===undefined?h('small',null,`${row.type} · Lv.${row.level} · ${row.fleetLabel} · 疲劳 ${row.cond}${row.unavailable?' · '+row.unavailable:''}`):
+          popup.slot===undefined?portrait(row):h(EquipmentIcon,{item:row}),h('span',{className:popup.slot===undefined?undefined:'paa-wb-equipment-label'},h('strong',null,row.name),popup.slot===undefined?h('small',null,`${row.type} · Lv.${row.level} · ${row.fleetLabel} · 疲劳 ${row.cond}${row.unavailable?' · '+row.unavailable:row.preferenceReasons.length?' · 自动筛选：'+row.preferenceReasons.join('、')+'（可手动选入）':''}`):
             row.stars>0||row.proficiency>0?h('span',{className:'paa-wb-equipment-quality'},[row.stars>0?`★${row.stars}`:'',row.proficiency>0?`熟练 ${row.proficiency}`:''].filter(Boolean).join(' · ')):null,
             popup.slot!==undefined&&row.statsSummary?h('span',{className:'paa-wb-equipment-stats'},row.statsSummary):null,
-            row.id===currentEquipment?h('span',{className:'paa-wb-equipment-current'},'当前'):null))]),!visiblePopupRows.length?h('p',{className:'paa-muted'},candidateScope==='similar'&&popup.slot===undefined?'没有匹配舰娘，可切换全部舰娘或修改搜索。':'没有匹配项，请修改搜索。'):null),
+            row.id===currentEquipment?h('span',{className:'paa-wb-equipment-current'},'当前'):null))]),!visiblePopupRows.length?h('p',{className:'paa-muted'},popup.slot===undefined?'没有匹配舰娘，请调整舰种或搜索。':'没有匹配项，请修改搜索。'):null),
         h('div',{className:'paa-wb-popup-bottom'},h('span',{className:'paa-muted'},popup.slot===undefined?`${popupRows.length} 项${popupRows.length>80?' · 输入名称缩小范围':''}`:`${visiblePopupRows.length} 种配置`),
           popup.slot!==undefined?h('button',{type:'button',disabled,onClick:()=>pick({id:-1})},'清空此槽'):null,
           popup.slot!==undefined&&slots[popup.index].keep[popup.slot]?h('button',{type:'button',onClick:()=>{const next=slots.slice(),s=next[popup.index];next[popup.index]={...s,keep:{...s.keep}};delete next[popup.index].keep[popup.slot];commit(next);setPopup(null);}},'交给自动配装'):null))):null);

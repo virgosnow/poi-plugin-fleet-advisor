@@ -117,11 +117,11 @@ function holdDraftEquipment(store,scheme,slots){
   const entries=scheme.ships.map(s=>({...s,slots:(s.slots||usableSlots(store,s.id)).slice(),ex:(s.ex??store.info.ships[s.id].api_slot_ex)>0?s.ex??store.info.ships[s.id].api_slot_ex:-1}));
   if(held.some(h=>!entries.some(s=>s.id===h.id)))throw error('INVALID_QUERY','固定舰娘未保留');
   const owners=new Map(),output=Array(6).fill(null);
-  slots.forEach((h,i)=>{if(!held.includes(h))return;const entry=entries.find(s=>s.id===h.id);output[i]=entry;
+  slots.forEach((h,i)=>{if(!held.includes(h))return;const entry=entries.find(s=>s.id===h.id);if(h.holdPosition!==false)output[i]=entry;
     for(const key of Object.keys(h.keep||{})){const id=(key==='ex'?h.ex:h.slots[key])>0?(key==='ex'?h.ex:h.slots[key]):-1;if(key==='ex')entry.ex=id;else entry.slots[key]=id;
       if(id>0)owners.set(id,{id:h.id,key:String(key)});}
   });
-  const remaining=entries.filter(s=>!held.some(h=>h.id===s.id));
+  const remaining=entries.filter(s=>!held.some(h=>h.holdPosition!==false&&h.id===s.id));
   for(let i=0;i<output.length;i++)if(!output[i])output[i]=remaining.shift()||null;
   for(const s of entries){const keep=(id,key)=>!owners.has(id)||owners.get(id).id===s.id&&owners.get(id).key===String(key)?id:-1;
     s.slots=s.slots.map(keep);s.ex=keep(s.ex,'ex');}

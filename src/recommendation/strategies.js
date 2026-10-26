@@ -447,10 +447,11 @@ function guideReady(policy,area,phase,store,scheme,rows,route,profile){
 }
 function specialPositionLocks(ctx,heldSlots){
   const locked=new Map();
-  (heldSlots||[]).forEach((s,i)=>{if(s&&(s.pin||Object.keys(s.keep||{}).length))locked.set(i,s.id);});
+  const held=(heldSlots||[]).filter(s=>s&&(s.pin||Object.keys(s.keep||{}).length));
+  (heldSlots||[]).forEach((s,i)=>{if(held.includes(s)&&s.holdPosition!==false)locked.set(i,s.id);});
   // Explicit held positions take precedence; legacy fixedShipIds retain their
   // existing prefix positions when there is no draft-position information.
-  if(!locked.size)ctx.fixed.forEach((id,i)=>locked.set(i,id));
+  if(!held.length)ctx.fixed.forEach((id,i)=>locked.set(i,id));
   return locked;
 }
 function specialFleetSeeds(ctx,policies,heldSlots,night){

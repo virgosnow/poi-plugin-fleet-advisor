@@ -159,6 +159,73 @@ function harness(kind='normal',automaticFilters){
   return {render,find,control,chooseGoal,get,set,service,calls,store,effects};
 }
 
+test('adding ships before normal-map completion retains worn gear and skips fitting and route inspection',async()=>{
+  const h=harness();let previews=0;
+  const preview=h.service.preview;h.service.preview=(...args)=>{previews++;return preview(...args);};
+  h.store.const.$equips[500]={api_id:500,api_name:'现有主炮',api_type:[0,0,1,1],api_houg:5};
+  h.store.const.$shipTypes[2]={api_equip_type:{1:1}};
+  for(const id of [2,3]){
+    h.store.info.equips[id+100]={api_id:id+100,api_slotitem_id:500};
+    h.store.info.ships[id].api_slot=[id+100,-1];
+  }
+  const pick=async(index,id)=>{
+    h.set('popup',{index});
+    const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+    await list.children.find(n=>n?.type==='button'&&n.props.key===id).props.onClick();
+    assert.deepEqual(h.get('slots')[index].slots,h.store.info.ships[id].api_slot);
+    assert.equal(h.get('working'),false);
+  };
+  await pick(0,2);await pick(1,3);
+  assert.equal(h.calls.equipment+h.calls.fleet,0);assert.equal(previews,0);
+  await h.control(h.render(),'攻略流派').props.onChange({target:{value:'upper'}});
+  assert.equal(previews,0,'selecting a route before completion does not inspect the partial fleet');
+  h.render();
+  const inspectEffect=h.effects.filter(e=>String(e.fn).includes('resumePending.current=false;setReport(next)')).at(-1);
+  const cleanup=inspectEffect.fn();await new Promise(r=>setTimeout(r,110));cleanup?.();
+  assert.equal(previews,0);assert.equal(h.get('report').valid,false);
+  assert.equal(h.calls.equipment+h.calls.fleet,0);
+  h.service.recommendNormalFleet=args=>{
+    h.calls.fleet++;
+    assert.deepEqual(args.fixedShipIds,[2,3]);
+    assert(args.heldSlots.filter(Boolean).every(s=>s.holdPosition===false));
+    return {recommendations:[{guideStyle:'upper',scheme:W.scheme([3,1,2,4,5,6].map(id=>W.entry(h.store,id)),1)}]};
+  };
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert.equal(h.get('error'),'');assert.deepEqual(h.get('slots').map(s=>s.id),[3,1,2,4,5,6]);
+  assert(h.get('slots')[0].pin&&h.get('slots')[2].pin);
+  assert.equal(h.calls.fleet,1);assert(previews>0,'completion inspects the final formation');
+  h.find(h.render(),n=>n.type?.name==='AreaPicker').props.onChange('1-1');
+  await pick(0,2);assert.equal(h.calls.equipment,0,'changing maps resets the deferred fitting state');
+});
+
+test('ship picker searches filtered-out Asashio and supports ship types without changing the game',async()=>{
+  const h=harness('normal',{minLevel:90});
+  h.store.const.$ships[2].api_name='朝潮改二丁';h.store.info.ships[2].api_cond=20;
+  h.store.info.fleets[0].api_ship=[2,4];h.store.info.ships[4].api_lv=70;
+  const before=JSON.stringify(h.store);
+  h.set('popup',{index:0});
+  const list=()=>h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+  const ids=()=>list().children.filter(n=>n?.type==='button').map(n=>n.props.key);
+  assert.deepEqual(ids().slice(0,2),[4,2]);
+  assert.equal(h.control(h.render(),'舰种').props.value,'all');
+  h.control(h.render(),'舰种').props.onChange({target:{value:'2'}});
+  assert(ids().every(id=>h.store.const.$ships[h.store.info.ships[id].api_ship_id].api_stype===2));
+  h.control(h.render(),'搜索候选').props.onChange({target:{value:'朝潮'}});
+  assert.deepEqual(ids(),[2]);
+  const choice=list().children.find(n=>n?.props?.key===2);
+  assert.equal(choice.props.disabled,false,'automatic level and morale filters cannot hide explicit choices');
+  assert(h.find(choice,n=>n.type==='small'&&n.children.some(s=>typeof s==='string'&&s.includes('士气低于 40'))));
+  await choice.props.onClick();assert.equal(h.get('slots')[0].id,2);assert.equal(h.calls.equipment,0);
+  h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
+  assert.equal(h.control(h.render(),'舰种').props.value,'all','opening a new picker resets hidden type filters');
+  h.control(h.render(),'舰种').props.onChange({target:{value:'3'}});
+  assert.deepEqual(ids(),[1]);
+  h.control(h.render(),'搜索候选').props.onChange({target:{value:'朝潮'}});
+  assert.deepEqual(ids(),[],'an explicit ship-type filter also applies to search');
+  assert.equal(h.calls.equipment+h.calls.fleet,0);
+  assert.equal(JSON.stringify(h.store),before);
+});
+
 test('related tasks occupy the bottom of the correct left workbench and follow the draft context',()=>{
   for(const kind of ['normal','expedition']){
     const h=harness(kind),slots=[W.entry(h.store,2),null,W.entry(h.store,1),null,null,null];
@@ -1132,7 +1199,7 @@ test('same-scheme route switches and pin or keep changes retain inspected probab
   assert.equal(h.get('error'),'');assert(h.get('report').valid);
   assert.deepEqual(h.get('report').scheme,W.scheme(h.get('slots'),1));
   assert(h.find(h.render(),n=>n.props.className==='paa-map-probability'),'the first completed render has the new route probabilities');
-  const inspectEffect=h.effects.filter(e=>String(e.fn).includes('const current=getStore(),next=W.inspect')).at(-1);
+  const inspectEffect=h.effects.filter(e=>String(e.fn).includes('resumePending.current=false;setReport(next)')).at(-1);
   assert.equal(inspectEffect.fn(),undefined,'an already matching report must not schedule another delayed inspection');
 });
 
@@ -1209,6 +1276,7 @@ test('phase changes refresh immediately while cleared or genuinely stale context
   const h=harness(),slots=[W.entry(h.store,2)],base={kind:'normal',fleet:1,area:'7-3',target:'boss',phase:'gauge1',missionId:1,revision:0};
   const options=require('../../src/domain/routes/route_plans').routeOptions('7-3','boss'),first=options.find(o=>o.phase==='gauge1'),second=options.find(o=>o.phase==='gauge2');
   assert(first&&second);h.set('area','7-3');h.set('slots',slots);h.set('mapRoute',first.key);
+  h.set('choices',[{key:first.key}]);
   const original=W.inspect(h.service,h.store,slots,base);assert(original.valid);h.set('report',original);
   h.control(h.render(),'参考路线').props.onChange({target:{value:second.key}});
   const report=h.get('report');assert(report.valid);assert.notEqual(report,original);

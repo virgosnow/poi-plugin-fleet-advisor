@@ -28,15 +28,18 @@ function roster(store,slots=[],index=-1,search=''){
     const ship=store.info.ships[row.id],master=store.const.$ships[ship.api_ship_id];
     const type=TYPES[master.api_stype]||store.const.$shipTypes?.[master.api_stype]?.api_name||'未知舰种';
     const fleetIndex=(store.info.fleets||[]).findIndex(f=>(f.api_ship||[]).includes(row.id));
-    return {...row,type,typeId:master.api_stype,fleetLabel:fleetIndex<0?'未编入舰队':`第 ${fleetIndex+1} 舰队`,cond:ship.api_cond,portrait:V.portraitUrl(store,ship.api_ship_id),
+    return {...row,type,typeId:master.api_stype,fleet:fleetIndex<0?null:fleetIndex+1,fleetLabel:fleetIndex<0?'未编入舰队':`第 ${fleetIndex+1} 舰队`,cond:ship.api_cond,portrait:V.portraitUrl(store,ship.api_ship_id),
       unavailable:row.unavailable||(used.has(family(store,row.id))?'同舰已编入':null)};
   }).filter(row=>!term||normalizeName(row.name+' '+row.type+' '+row.id).toLowerCase().includes(term));
 }
 function replacementCandidates(store,slots,index,search='',scope='similar',selection){
   const current=slots[index],typeId=store.const.$ships[store.info.ships[current?.id]?.api_ship_id]?.api_stype;
   const excluded=selection?require('../../config/recommendation_filters').evaluator(store,selection.kind,selection.filters):()=>[];
-  return roster(store,slots,index,search).filter(r=>(r.id===current?.id||excluded(r.id).length===0)&&(scope==='all'||!typeId||r.typeId===typeId))
-    .sort((a,b)=>Number(!!a.unavailable)-Number(!!b.unavailable)||b.level-a.level||a.id-b.id);
+  // Explicit selections override automatic preferences. First-fleet members
+  // lead each list, then both groups descend by level. Search spans ship types.
+  return roster(store,slots,index,search).filter(r=>search.trim()||scope==='all'||!typeId||r.typeId===typeId)
+    .map(r=>({...r,preferenceReasons:excluded(r.id)}))
+    .sort((a,b)=>Number(b.fleet===1)-Number(a.fleet===1)||b.level-a.level||a.id-b.id);
 }
 function changeSummary(store,slots,fleet){
   const before=(store.info.fleets?.[fleet-1]?.api_ship||[]).filter(id=>id>0),after=slots.filter(Boolean).map(s=>s.id);
@@ -99,21 +102,23 @@ function equipmentOptions(store,slots,index,slot,search=''){
 }
 // Only user constraints belong to the full-search input. Automatic output is
 // discarded by the planner anyway; sending it back would change the disk cache
-// key after the first completion. Preserve holes: held positions affect order.
-function recommendationHolds(slots){
+// key after the first completion. Position holds are optional: choosing a hull
+// in the normal-map workbench does not lock its eventual formation position.
+function recommendationHolds(slots,{preservePositions=true}={}){
   return slots.map(s=>{
     if(!s||!s.pin&&!Object.keys(s.keep||{}).length)return null;
     const keep={...s.keep},held=k=>Object.prototype.hasOwnProperty.call(keep,k);
-    return {id:s.id,pin:!!s.pin,keep,slots:s.slots.map((id,k)=>held(k)?id:null),ex:held('ex')?s.ex:null};
+    return {id:s.id,pin:!!s.pin,keep,slots:s.slots.map((id,k)=>held(k)?id:null),ex:held('ex')?s.ex:null,
+      ...(!preservePositions?{holdPosition:false}:{})};
   });
 }
-function merge(store,old,candidate){
+function merge(store,old,candidate,{preservePositions=true}={}){
   const proposed=candidate.ships.map(x=>({...entry(store,x.id),...clone(x),pin:false,keep:{}}));
   const held=old.filter(s=>s&&(s.pin||Object.keys(s.keep||{}).length));
   for(const s of held)if(!proposed.some(x=>x.id===s.id))throw Error('推荐没有保留手动指定的舰娘，当前编成未改变');
-  const pending=proposed.filter(x=>!held.some(s=>s.id===x.id)),out=Array(6).fill(null);
+  const pending=proposed.filter(x=>!preservePositions||!held.some(s=>s.id===x.id)),out=Array(6).fill(null);
   old.forEach((s,i)=>{if(!held.includes(s))return;const next=proposed.find(x=>x.id===s.id);next.pin=s.pin;next.keep={...s.keep};
-    for(const k of Object.keys(s.keep)){if(k==='ex')next.ex=s.ex;else next.slots[k]=s.slots[k];}out[i]=next;});
+    for(const k of Object.keys(s.keep)){if(k==='ex')next.ex=s.ex;else next.slots[k]=s.slots[k];}if(preservePositions)out[i]=next;});
   for(let i=0;i<6;i++)if(!out[i])out[i]=pending.shift()||null;
   // A held equipment instance has one owner; remove the planner's other use.
   const heldItems=new Map();held.forEach(s=>Object.keys(s.keep).forEach(k=>{const id=k==='ex'?s.ex:s.slots[k];if(id>0)heldItems.set(id,{id:s.id,k});}));

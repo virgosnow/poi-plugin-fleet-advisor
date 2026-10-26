@@ -31,6 +31,52 @@ test('final order brings the powerful third-position battleship forward with its
   for(const entry of choices[0].scheme.ships)assert.deepEqual(entry,scheme.ships.find(e=>e.id===entry.id));
   assert.equal(JSON.stringify({store,scheme}),before);
 });
+
+test('manually selected hulls can be reordered through fitting and final order without losing held gear',()=>{
+  const {store,scheme,rows,profile}=fixture();
+  const {holdDraftEquipment}=require('../../src/recommendation/context');
+  const {specialPositionLocks}=require('../../src/recommendation/strategies');
+  const {recommendationArgs,verifyConstraints}=require('../../src/application/page_queries');
+  store.const.$shipTypes[2]={api_equip_type:{1:1}};
+  const heldSlots=scheme.ships.map(e=>({...e,pin:true,holdPosition:false,keep:{0:true}}));
+  // All guns must be legal on their owner when the application validates holds.
+  for(const type of [2,9,5,3,7])store.const.$shipTypes[type]={api_equip_type:{1:1}};
+  const args=recommendationArgs(store,{heldSlots}),before=JSON.stringify({scheme,heldSlots});
+  const locks=specialPositionLocks({fixed:args.fixedShipIds},heldSlots);
+  assert.equal(locks.size,0,'required hulls must not become implicit fixed positions');
+  const choice=fleetOrderChoices(store,scheme,profile,rows,{locked:locks})[0];
+  assert.equal(choice.scheme.ships[0].id,3);
+  const fitted=holdDraftEquipment(store,choice.scheme,heldSlots);
+  assert.deepEqual(fitted.ships.map(s=>s.id),choice.scheme.ships.map(s=>s.id));
+  assert.doesNotThrow(()=>verifyConstraints({scheme:fitted},args));
+  for(const entry of fitted.ships)assert.equal(entry.slots[0],heldSlots.find(h=>h.id===entry.id).slots[0]);
+  const badGear={...fitted,ships:fitted.ships.map(s=>s.id===3?{...s,slots:[-1,...s.slots.slice(1)]}:s)};
+  assert.throws(()=>verifyConstraints({scheme:badGear},args),/equipment slot/);
+  assert.throws(()=>verifyConstraints({scheme:fitted},{heldSlots:heldSlots.map(h=>({...h,holdPosition:true}))}),/hull positions/);
+  assert.throws(()=>recommendationArgs(store,{heldSlots:[{...heldSlots[0],holdPosition:'false'}]}),/boolean/);
+  assert.equal(JSON.stringify({scheme,heldSlots}),before);
+});
+
+test('full normal-map search sorts an entirely manual fleet and keeps each ship with its reserved gear',()=>{
+  const {store,scheme}=fixture(),W=require('../../src/ui/workbench/workbench_model');
+  const {recommendNormalFleet}=require('../../src/recommendation');
+  const {recommendationArgs,verifyConstraints}=require('../../src/application/page_queries');
+  for(const type of [2,3])store.const.$shipTypes[type]={api_equip_type:{1:1,10:1,19:1}};
+  for(const entry of scheme.ships){
+    store.const.$ships[entry.id].api_stype=entry.id===1?3:2;
+    store.info.ships[entry.id].api_slot=entry.slots.slice();
+  }
+  const draft=scheme.ships.map(s=>({...s,pin:true,keep:{0:true}}));
+  const args=recommendationArgs(store,{area:'3-5',byRoute:true,airGoal:'ignore',
+    heldSlots:W.recommendationHolds(draft,{preservePositions:false})});
+  const result=recommendNormalFleet(store,args);
+  assert(result.recommendations.length,JSON.stringify({reason:result.reason,routes:result.routeResults?.map(r=>({key:r.key,status:r.status,message:r.message}))}));assert.doesNotThrow(()=>verifyConstraints(result,args));
+  const row=result.recommendations.find(r=>r.scheme.ships[0].id===3);
+  assert(row,'the powerful manually added ship can move from third position to flagship');
+  const final=W.merge(store,draft,row.scheme,{preservePositions:false});
+  assert.deepEqual(final.map(s=>s.id),row.scheme.ships.map(s=>s.id));
+  for(const entry of final)assert.equal(entry.slots[0],draft.find(s=>s.id===entry.id).slots[0]);
+});
 test('night CI reads the fixed flagship bonus instead of treating all positions equally',()=>{
   const {store,scheme,rows,profile}=fixture();
   store.const.$equips[5]={api_id:5,api_name:'测试鱼雷',api_type:[0,0,5,5],api_raig:10};

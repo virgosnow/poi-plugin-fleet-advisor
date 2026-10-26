@@ -372,7 +372,7 @@ Effect: **read-only**.
 | `fleet` | integer | no | Default 2. minimum=2; maximum=4 |
 | `fixedShipIds` | array<integer> | no | Owned ship INSTANCE IDs, not catalog IDs. maxItems=6 |
 | `excludedShipIds` | array<integer> | no | — |
-| `heldSlots` | array<null or object> | no | Position-indexed draft with null holes. pin=true retains this hull position. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty. maxItems=6 |
+| `heldSlots` | array<null or object> | no | Position-indexed draft with null holes. pin or keep retains the hull and, by default, its position. Set holdPosition=false to allow fleet sorting. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty. maxItems=6 |
 | `fixedFlagshipId` | integer | no | minimum=1 |
 | `limit` | integer | no | minimum=1; maximum=5 |
 
@@ -391,7 +391,7 @@ Exactly one of `scheme` / `schemeName` is required.
 | `schemeName` | string | no | Exact local scheme name. minLength=1; maxLength=64 |
 | `missionId` | integer | yes | minimum=1 |
 | `goal` | `success` / `great` | no | success: prefer unsparkled automatic hulls, meet dispatch requirements, then optimize net income; spare slots may hold drums that improve great-success probability. great: prioritize estimated great-success probability. Manual hulls/equipment remain fixed. |
-| `heldSlots` | array<null or object> | no | Position-indexed draft with null holes. pin=true retains this hull position. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty. maxItems=6 |
+| `heldSlots` | array<null or object> | no | Position-indexed draft with null holes. pin or keep retains the hull and, by default, its position. Set holdPosition=false to allow fleet sorting. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty. maxItems=6 |
 
 #### `fleet_advisor_query_normal_maps`
 
@@ -451,7 +451,7 @@ Effect: **read-only**.
 | `fleet` | integer | no | Observed/destination fleet number, 1-based. minimum=1; maximum=4 |
 | `fixedShipIds` | array<integer> | no | Owned ship INSTANCE IDs, not catalog IDs. maxItems=6 |
 | `excludedShipIds` | array<integer> | no | — |
-| `heldSlots` | array<null or object> | no | Position-indexed draft with null holes. pin=true retains this hull position. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty. maxItems=6 |
+| `heldSlots` | array<null or object> | no | Position-indexed draft with null holes. pin or keep retains the hull and, by default, its position. Set holdPosition=false to allow fleet sorting. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty. maxItems=6 |
 | `byRoute` | boolean | no | Default true; false uses preference search and is incompatible with routeKey. |
 | `preference` | `all` / `shortest` / `strongest` / `lowestConsumption` | no | Preference search only; default all. |
 | `airGoal` | `ignore` / `superiority` / `supremacy` | no | MCP default superiority. Conservative aircraft-loss estimates are not combat guarantees. |
@@ -474,7 +474,7 @@ Exactly one of `scheme` / `schemeName` is required.
 | `target` | string | no | Destination node or boss (default). 1-6 requires target=N. pattern=^(boss\|[A-Z][0-9]?)$ |
 | `phase` | `gauge1` / `gauge2` / `gauge3` / `gimmick` | no | Optional gauge phase. Route recommendations otherwise include stage quotas; single-map evaluation uses observed stage, or phase 1 planning if unknown. |
 | `routeKey` | string | no | Exact query_normal_map.routes[].key, including merged branches and speed strategies. |
-| `heldSlots` | array<null or object> | no | Position-indexed draft with null holes. pin=true retains this hull position. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty. maxItems=6 |
+| `heldSlots` | array<null or object> | no | Position-indexed draft with null holes. pin or keep retains the hull and, by default, its position. Set holdPosition=false to allow fleet sorting. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty. maxItems=6 |
 
 #### `fleet_advisor_preview_fleet`
 
