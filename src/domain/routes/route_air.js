@@ -216,7 +216,10 @@ function simulateAirPath(air,nodes,details=true){
 // The ordinary path above remains untouched for fleets without jets. Jet
 // attrition precedes the SAME node's ordinary air check, including the Boss.
 function simulateJetAirPath(air,nodes,details){
-  const slots=air.slots.map(s=>({...s,remaining:s.planes.slice(),jet:jets.spec(s.masterId,s.aircraftType)}));
+  const slots=air.slots.map(s=>({remaining:s.planes.slice(),aircraftType:s.aircraftType,
+    effectiveAntiAir:s.effectiveAntiAir,proficiencyBonus:s.proficiencyBonus,
+    masterId:s.masterId,shipId:s.shipId,slot:s.slot,bomb:s.bomb,jetSteel:s.jetSteel,
+    jet:jets.spec(s.masterId,s.aircraftType)}));
   const jetSlots=slots.filter(s=>jets.isJet(s.aircraftType)&&s.remaining[1]>0);
   const bad=jetSlots.find(s=>!s.jet);
   if(bad)return {status:'unknown',reason:bad.aircraftType===58?'喷式舰攻的强袭与损耗规则未确认':'喷气机钢材或射击回避资料缺失'};
@@ -253,7 +256,7 @@ function simulateJetAirPath(air,nodes,details){
         const spent=Math.min(budget[side],requiredSteel[side]);budget[side]-=spent;debit[side]+=spent;
       }
       for(const slot of jetSlots){
-        const before=slot.remaining.slice();
+        const before=details?slot.remaining.slice():null;
         for(let side=0;side<2;side++)if(active[side]){
           // No enemy jets in covered normal maps: the jet-only air contest
           // uses supremacy's reduced self-loss envelope before interception.
@@ -304,6 +307,18 @@ function simulateJetAirPath(air,nodes,details){
 }
 const simulationCache=new WeakMap();
 const marginCache=new WeakMap();
+// Trial fits revisit more than 256 aircraft combinations on complex routes.
+// One shared LRU budget bounds all references in this worker, rather than
+// multiplying a larger per-route allowance by every reachable route.
+const marginEntries=new Map(),MARGIN_LIMIT=16384;
+function saveMargins(cache,key,value){
+  const entry={cache,key,value};cache.set(key,entry);marginEntries.set(entry,true);
+  if(marginEntries.size>MARGIN_LIMIT){
+    const oldest=marginEntries.keys().next().value;
+    oldest.cache.delete(oldest.key);marginEntries.delete(oldest);
+  }
+  return value;
+}
 const pathPlans=new WeakMap();
 function simulationPaths(reference){
   if(pathPlans.has(reference))return pathPlans.get(reference);
@@ -322,15 +337,19 @@ function simulationPaths(reference){
 const slotKeys=new WeakMap();
 // Slot objects are often reused by loadout trials. Check their scalar inputs
 // before reusing a signature: callers may also edit metrics in place.
-function aircraftKey(slot){
+function aircraftKey(slot,identity=true){
   const {aircraftType:t,planes:p,effectiveAntiAir:a,proficiencyBonus:b}=slot;
   const old=slotKeys.get(slot);
   if(old&&old.t===t&&old.p0===p[0]&&old.p1===p[1]&&old.a0===a[0]&&old.a1===a[1]&&
-    old.b0===b[0]&&old.b1===b[1]&&(!jets.isJet(t)||old.mid===slot.masterId&&old.steel===slot.jetSteel&&old.bomb===slot.bomb&&old.sid===slot.shipId&&old.slot===slot.slot))return old.key;
+    old.b0===b[0]&&old.b1===b[1]&&(!jets.isJet(t)||old.mid===slot.masterId&&old.steel===slot.jetSteel&&old.bomb===slot.bomb&&old.sid===slot.shipId&&old.slot===slot.slot))return identity?old.key:old.marginKey;
   const value={t,p0:p[0],p1:p[1],a0:a[0],a1:a[1],b0:b[0],b1:b[1]};
   value.key=[t,p[0],p[1],a[0],a[1],b[0],b[1]].join(',');
-  if(jets.isJet(t)){Object.assign(value,{mid:slot.masterId,steel:slot.jetSteel,bomb:slot.bomb,sid:slot.shipId,slot:slot.slot});value.key+=','+[slot.masterId,slot.jetSteel,slot.bomb,slot.shipId,slot.slot].join(',');}
-  slotKeys.set(slot,value);return value.key;
+  if(jets.isJet(t)){
+    Object.assign(value,{mid:slot.masterId,steel:slot.jetSteel,bomb:slot.bomb,sid:slot.shipId,slot:slot.slot});
+    value.key+=','+[slot.masterId,slot.jetSteel].join(',');value.marginKey=value.key;
+    value.key+=','+[slot.bomb,slot.shipId,slot.slot].join(',');
+  }else value.marginKey=value.key;
+  slotKeys.set(slot,value);return identity?value.key:value.marginKey;
 }
 function estimateRouteAir(air,reference){
   if(!air||reference.status!=='known')return {status:'unknown',reason:reference.reason||'路线制空资料不足'};
@@ -339,7 +358,7 @@ function estimateRouteAir(air,reference){
   // mutable store identity. Rank/equipment/plane changes invalidate naturally.
   if(air.status!=='range'||!Array.isArray(air.slots)||air.slots.some(s=>s.unknown||
     !s.planes||!s.effectiveAntiAir||!s.proficiencyBonus))return {status:'unknown',reason:'缺少航空槽位计算资料'};
-  const key=air.slots.map(aircraftKey).sort().join(';');
+  const key=air.slots.map(slot=>aircraftKey(slot)).sort().join(';');
   let cached=simulationCache.get(reference);if(!cached){cached=new Map();simulationCache.set(reference,cached);}
   if(cached.has(key))return cached.get(key);
   const plan=simulationPaths(reference),simulations=plan.unique.map(nodes=>simulateAirPath(air,nodes));
@@ -361,17 +380,21 @@ function estimateRouteAirMargins(air,reference){
     air.slots.some(s=>s.unknown||!s.planes||!s.effectiveAntiAir||!s.proficiencyBonus))return null;
   // Slot order/ship identity cannot affect integer air power or per-slot loss.
   // Multiplicity is retained: identical aircraft in two slots count twice.
-  const key=air.slots.map(aircraftKey).sort().join(';'),full=simulationCache.get(reference);
-  if(full?.has(key))return full.get(key).margins;
+  const key=air.slots.map(slot=>aircraftKey(slot,false)).sort().join(';'),full=simulationCache.get(reference);
+  const fullKey=full&&air.slots.some(slot=>jets.isJet(slot.aircraftType))?
+    air.slots.map(slot=>aircraftKey(slot)).sort().join(';'):key;
+  if(full?.has(fullKey))return full.get(fullKey).margins;
   let cached=marginCache.get(reference);if(!cached){cached=new Map();marginCache.set(reference,cached);}
-  if(cached.has(key))return cached.get(key);
+  if(cached.has(key)){
+    const entry=cached.get(key);marginEntries.delete(entry);marginEntries.set(entry,true);return entry.value;
+  }
   const margins={superiority:{min:Infinity,max:Infinity},supremacy:{min:Infinity,max:Infinity}};
   for(const nodes of simulationPaths(reference).unique){
     const value=simulateAirPath(air,nodes,false);
-    if(value.status!=='estimated')return boundedSet(cached,key,null,256);
+    if(value.status!=='estimated')return saveMargins(cached,key,null);
     for(const goal of ['superiority','supremacy'])for(const side of ['min','max'])
       margins[goal][side]=Math.min(margins[goal][side],value.margins[goal][side]);
   }
-  return boundedSet(cached,key,margins,256);
+  return saveMargins(cached,key,margins);
 }
 module.exports={routeAirReference,estimateRouteAir,estimateRouteAirMargins,simulateAirPath,stageOneLoss};

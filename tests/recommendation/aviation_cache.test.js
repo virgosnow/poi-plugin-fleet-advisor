@@ -21,6 +21,60 @@ function fixture(){
 }
 const scheme=store=>({fleet:1,ships:[{id:1,slots:store.info.ships[1].api_slot.slice(),ex:-1}]});
 
+test('immutable search batches share stock indexes without retaining live ownership or availability',()=>{
+  const store=fixture(),plain=availableEquipment(store),scope=new Map();
+  const read=()=>withEquipmentIndexCache(store,()=>availableEquipment(store),scope);
+  const first=read();assert.deepEqual(first,plain);assert.equal(read(),first);
+  assert.notEqual(availableEquipment(store),first,'live reads never use a previous search');
+  store.info.ships[1].api_slot[0]=201;
+  store.info.fleets[0].api_ship=[1,-1,-1,-1,-1,-1];store.info.fleets[0].api_mission=[1,1];
+  const fresh=withEquipmentIndexCache(store,()=>availableEquipment(store));
+  assert(!fresh.some(item=>item.id===201),'a new search sees gear on an expedition ship');
+  assert(first.some(item=>item.id===201),'the old immutable catalogue is not edited');
+});
+
+test('shared stock catalogues are read-only inputs to automatic fitting',()=>{
+  const store=fixture();
+  withEquipmentIndexCache(store,()=>{
+    const inventory=availableEquipment(store),before=JSON.stringify(inventory);
+    inventory.forEach(Object.freeze);Object.freeze(inventory);
+    const {completeCombatLoadout}=require('../../src/recommendation/loadout/loadout_policy');
+    const {airLoadout}=require('../../src/recommendation/fitting');
+    const base=completeCombatLoadout(store,scheme(store),inventory,{area:'5-2'});
+    airLoadout(store,base,inventory,90);
+    assert.equal(JSON.stringify(inventory),before);
+  });
+});
+
+test('batch contexts share immutable rosters, distinguish constraints and isolate scoring callbacks',()=>{
+  const {context}=require('../../src/recommendation/context'),store=fixture();
+  const args={fleet:1,automaticFilters:{minLevel:1,excludeUnremodeled:false,excludeUnlocked:false}};
+  withEquipmentIndexCache(store,()=>{
+    const a=context(store,args,1),b=context(store,structuredClone(args),1);
+    assert.notEqual(a,b);assert.equal(a.roster,b.roster);assert.equal(a.preview,b.preview);
+    a.combatScore=()=>99;assert.equal(b.combatScore,undefined);
+    const c=context(store,{...args,excludedShipIds:[1]},1);
+    assert(!c.roster.some(row=>row.id===1));assert(a.roster.some(row=>row.id===1));
+    assert.notEqual(context(store,{...args,fleet:2},1).preview,a.preview);
+    context(store,{...args,fleet:null},1);
+    assert.throws(()=>context(store,{...args,fleet:NaN},1),/fleet/);
+    assert.throws(()=>context(store,{...args,fixedShipIds:null},1),/fixedShipIds/);
+  });
+  const first=context(store,args,1);store.info.ships[1].api_lv=1;
+  const next=context(store,{...args,automaticFilters:{...args.automaticFilters,minLevel:30}},1);
+  assert(first.roster.some(row=>row.id===1));assert(!next.roster.some(row=>row.id===1));
+});
+
+test('hull ASW sampling is reused within a search and refreshed after observed stats change',()=>{
+  const {aswPotential,context}=require('../../src/recommendation/context'),store=fixture();
+  const args={fleet:1,automaticFilters:{minLevel:1,excludeUnremodeled:false,excludeUnlocked:false}};
+  const read=()=>aswPotential(store,context(store,args,1).byId.get(3));
+  const first=withEquipmentIndexCache(store,read);
+  assert(Number.isFinite(first));store.info.ships[3].api_taisen[0]+=30;
+  const expected=read();assert.notEqual(expected,first);
+  assert.equal(withEquipmentIndexCache(store,read),expected);
+});
+
 test('repeated air fits reuse per-slot metrics only inside an immutable search scope',()=>{
   const store=fixture(),inventory=availableEquipment(store),base=scheme(store),original=metrics.airPower;
   const file=require.resolve('../../src/recommendation/fitting');delete require.cache[file];let calls=0;

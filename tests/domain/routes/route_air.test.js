@@ -153,6 +153,35 @@ test('equivalent aircraft inputs reuse estimates while changed planes and equipm
   assert.notEqual(other,first);assert.equal(other.paths[0].steps[0].node,'E');
 });
 
+test('trial margin reuse survives broad outfit searches without rerunning the same aircraft physics',()=>{
+  let reads=0;
+  const node={...combat('Z'),boss:true,get enemyAirPower(){reads++;return 100;}};
+  const route={status:'known',nodes:[node],paths:[['Z']]},air=aircraft(25,20);
+  const first=estimateRouteAirMargins(air,route);
+  for(let i=1;i<=400;i++)estimateRouteAirMargins(aircraft(25,20+i/10),route);
+  const before=reads;
+  assert.equal(estimateRouteAirMargins(structuredClone(air),route),first);
+  assert.equal(reads,before,'ordinary outfit sweeps should not evict the recent trial');
+  assert.deepEqual(first,simulateAirPath(air,[node],false).margins);
+});
+
+test('jet margin reuse ignores report identity but retains steel, aircraft and proficiency inputs',()=>{
+  const route={status:'known',nodes:[combat('A',0),boss],paths:[['A','Z']]};
+  const air=aircraft(34,12,57);
+  Object.assign(air.slots[0],{masterId:199,shipId:1,slot:0,bomb:15,jetSteel:1000});
+  const first=estimateRouteAirMargins(air,route),other=structuredClone(air);
+  Object.assign(other.slots[0],{shipId:2,slot:3,bomb:11});
+  assert.equal(estimateRouteAirMargins(other,route),first,'identities and bomb power cannot change plane losses');
+  const full=estimateRouteAir(air,route),next=estimateRouteAir(other,route);
+  assert.notEqual(next,full,'full reports must retain the participating ship and slot');
+  assert.equal(next.paths[0].jetStages[0].attacks[0].shipId,2);
+  for(const changes of [{jetSteel:0},{masterId:200},{planes:[18,18]},{proficiencyBonus:[2,2]}]){
+    const changed=structuredClone(other);Object.assign(changed.slots[0],changes);
+    const actual=estimateRouteAirMargins(changed,route);
+    assert.notEqual(actual,first);assert.deepEqual(actual,simulateAirPath(changed,route.nodes,false).margins);
+  }
+});
+
 test('editing an existing slot invalidates its signature including array replacements and unknown states',()=>{
   const route=reference('5-4','BEHIJMP'),fleet=aircraft();
   for(const [key,index,value]of [['planes',0,18],['planes',1,20],['effectiveAntiAir',0,25],

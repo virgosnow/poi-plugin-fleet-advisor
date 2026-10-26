@@ -3,6 +3,8 @@
 const {createFleetPlanner}=require('../domain/fleet/fleet_plan');
 const {error}=require('../shared/errors');
 const selectionFilters=require('../config/recommendation_filters');
+const {snapshotMemo}=require('../domain/fleet/equipment_planner');
+const {openingASW,aswStats}=require('../domain/combat/opening_asw');
 
 const integerIds=(value,name)=>{
   if(value===undefined)return [];
@@ -46,17 +48,32 @@ function remodelTierLookup($ships){
 // scoring because it also models swapped equipment.
 function oaswCapableNow(store,row){
   const state={slots:row.ship.api_slot||[],ex:row.ship.api_slot_ex};
-  return require('../domain/combat/opening_asw').openingASW(store,{id:row.id,ship:row.ship,master:row.master,before:state,after:state}).eligible===true;
+  return snapshotMemo(store,'currentOpeningAsw',row.id,()=>
+    openingASW(store,{id:row.id,ship:row.ship,master:row.master,before:state,after:state}).eligible===true);
 }
 
 function aswPotential(store,row){
   if(![1,2,3,4,21,22].includes(row.stype))return -Infinity;
-  const before={slots:row.ship.api_slot||[],ex:row.ship.api_slot_ex};
-  const bare=require('../domain/combat/opening_asw').aswStats(store,{ship:row.ship,master:row.master,before,after:{slots:[],ex:-1}});
-  // Do not retain the currently worn equipment's blue bonus in hull ranking.
-  return (bare.total??0)+(oaswCapableNow(store,row)?100:0);
+  return snapshotMemo(store,'hullAswPotential',row.id,()=>{
+    const before={slots:row.ship.api_slot||[],ex:row.ship.api_slot_ex};
+    const bare=aswStats(store,{ship:row.ship,master:row.master,before,after:{slots:[],ex:-1}});
+    // Do not retain the currently worn equipment's blue bonus in hull ranking.
+    return (bare.total??0)+(oaswCapableNow(store,row)?100:0);
+  });
 }
-function context(store,{fleet,fixedShipIds,excludedShipIds,automaticFilters},defaultFleet){
+function context(store,args,defaultFleet){
+  const {fleet,fixedShipIds,excludedShipIds,automaticFilters}=args;
+  const selected=fleet??defaultFleet;
+  if(!Number.isInteger(selected)||selected<1||selected>4||!store.info.fleets[selected-1])
+    throw error('INVALID_QUERY','fleet 必须是已有的 1–4 舰队');
+  const fixed=integerIds(fixedShipIds,'fixedShipIds'),excluded=integerIds(excludedShipIds,'excludedShipIds');
+  const filters=selectionFilters.normalizeGroup(defaultFleet===2?'expedition':'normal',automaticFilters);
+  const key=JSON.stringify([defaultFleet,selected,fixed,excluded,filters]);
+  // Batch-local scoring callbacks may be assigned to the wrapper. The roster,
+  // filters and preview indexes belong to this immutable search, not a batch.
+  return {...snapshotMemo(store,'recommendationContexts',key,()=>buildContext(store,args,defaultFleet))};
+}
+function buildContext(store,{fleet,fixedShipIds,excludedShipIds,automaticFilters},defaultFleet){
   const selected=fleet??defaultFleet;
   if(!Number.isInteger(selected)||selected<1||selected>4||!store.info.fleets[selected-1])
     throw error('INVALID_QUERY','fleet 必须是已有的 1–4 舰队');

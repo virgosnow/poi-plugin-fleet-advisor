@@ -4,6 +4,7 @@
 const fs=require('fs'),path=require('path');
 const {error}=require('../../shared/errors');
 const {projectFleet,evaluateCandidate}=require('../fleet/fleet_metrics');
+const {createFleetPlanner}=require('../fleet/fleet_plan');
 const {losPredicate}=require('../fleet/line_of_sight');
 const {snapshotMemo}=require('../fleet/equipment_planner');
 const {effectiveRule,referenceWeights}=require('./route_policy');
@@ -92,7 +93,6 @@ function resolveFleet(store,fleet,scheme){
 function resolveFleetUncached(store,fleet,scheme){
   let plan;
   if(scheme){
-    const {createFleetPlanner}=require('../fleet/fleet_plan');
     plan=createFleetPlanner(()=>store).preview('fleet',scheme);
   }else{
     const data=store.info.fleets[fleet-1];

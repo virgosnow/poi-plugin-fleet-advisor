@@ -1,6 +1,8 @@
 'use strict';
 const {canEquip,acceptsOtherSlot}=require('../../domain/fleet/equipment_rules');
 const {orderCarrierUtility,orderAircraftSlots}=require('../../domain/fleet/equipment_order');
+const {snapshotMemo}=require('../../domain/fleet/equipment_planner');
+const {openingASW}=require('../../domain/combat/opening_asw');
 const {smallCarrierSlot,carrierUtility}=require('./carrier_policy');
 const type=m=>Number(m?.api_type?.[2]);
 const master=(store,id)=>store.const.$equips[store.info.equips[id]?.api_slotitem_id];
@@ -40,12 +42,18 @@ function aswEscortIds(store,entries,limit){
   return new Set(rows.map(entry=>{
     const ship=store.info.ships[entry.id],sm=store.const.$ships[ship.api_ship_id];
     const before={slots:ship.api_slot,ex:ship.api_slot_ex};
-    const reading=require('../../domain/combat/opening_asw').openingASW(store,{id:entry.id,ship,master:sm,before,after:entry});
+    const reading=snapshotMemo(store,'loadoutOpeningAsw',JSON.stringify(entry),()=>
+      openingASW(store,{id:entry.id,ship,master:sm,before,after:entry}));
     return {id:entry.id,score:(reading.eligible?10000:0)+(reading.totalAswEstimate||0)};
   }).sort((a,b)=>b.score-a.score||a.id-b.id).slice(0,limit).map(row=>row.id));
 }
 
 function availableEquipment(store){
+  // One immutable search shares the same stock/ownership catalogue across
+  // batches. Allocation and held-slot decisions remain local to each fit.
+  return snapshotMemo(store,'combatInventory',0,()=>buildAvailableEquipment(store));
+}
+function buildAvailableEquipment(store){
   const sources=new Map();
   for(const [shipId,ship] of Object.entries(store.info.ships))
     for(const id of [...(ship.api_slot||[]),ship.api_slot_ex])if(id>0)sources.set(id,Number(shipId));

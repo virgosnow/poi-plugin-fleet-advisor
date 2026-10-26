@@ -3,6 +3,7 @@
 // Tokai sorties or favorable engagement. These are not sortie success rates.
 // https://wikiwiki.jp/kancolle/戦闘について/与ダメージの算定に関わる要素の考察#AntiSubmarine
 const {bonus,openingASW}=require('./opening_asw');
+const {consumption}=require('../routes/sortie_profile');
 const catalog=new Map(require('../../../data/sortie/enemy_catalog.json').enemies.map(e=>[e.apiId,e]));
 const number=v=>v==null||!Number.isFinite(Number(v))?null:Number(v);
 const first=v=>number(Array.isArray(v)?v[0]:v);
@@ -79,14 +80,18 @@ function aswDamage(attack,enemy,{formation='lineAhead',engagement=1,bonus=1,ammo
   const result={status:'known',power,min,max,mean:total,killOnHit:kill,disableOnHit:disable};
   cache.set(key,result);return result;
 }
-const profiles=new WeakMap(),readings=new WeakMap();
+const profiles=new WeakMap(),readings=new WeakMap(),encounters=new Map();
 function submarineEncounters(profile){
   if(!profile||typeof profile!=='object')return [];
   if(profiles.has(profile))return profiles.get(profile);
   const paths=profile.routePaths?.length?profile.routePaths.map(p=>p.nodes):profile.examples||[];
   if(!profile.area||!paths.length)return [];
-  const selected=new Set(paths.flat());let data;
-  try{data=require(`../../../data/sortie/encounters/${profile.area}.json`);}catch(_){return [];}
+  const selected=new Set(paths.flat());
+  if(!encounters.has(profile.area)){
+    try{encounters.set(profile.area,require(`../../../data/sortie/encounters/${profile.area}.json`));}
+    catch(_){return [];}
+  }
+  const data=encounters.get(profile.area);
   const result=[];
   for(const id of selected){
     const node=data.nodes[id];if(!node||!['asw','battle'].includes(node.kind))continue;
@@ -100,10 +105,11 @@ function submarineEncounters(profile){
       });
       if(subs.length)forms.set(JSON.stringify(subs),subs);
     }
+    if(!forms.size)continue;
     // Ammo is measured on entry to this node, independently for every
     // alternative path. A later branch must not drain an earlier ASW battle.
     const ammo=paths.filter(path=>path.includes(id)).map(path=>{
-      const costs=path.slice(0,path.indexOf(id)).map(n=>require('../routes/sortie_profile').consumption(data.nodes[n]||{},profile.area).ammo);
+      const costs=path.slice(0,path.indexOf(id)).map(n=>consumption(data.nodes[n]||{},profile.area).ammo);
       return costs.some(v=>v===null)?null:Math.min(1,Math.max(0,1-costs.reduce((a,b)=>a+b,0))*2);
     });
     if(forms.size)result.push({id,kind:node.kind,boss:profile.targetNodes?.includes(id)||false,
