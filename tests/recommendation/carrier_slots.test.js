@@ -466,6 +466,44 @@ test('surplus small-slot fighter cover can become legal fixed firepower while re
   assert.deepEqual(held.ships[0].slots.slice(2),[301,302]);
 });
 
+test('air fitting orders newly chosen firepower utility after the fighter in equal small slots',()=>{
+  const store=carrierFixture([24,18,2,2]);store.info.ships[1].api_slot=[101,201,301,302];
+  const emptyAir={...reference,enemyAirPower:0,nodes:[{id:'Z',boss:true,enemyAirPower:0}]};
+  const fitted=airLoadout(store,scheme(store),availableEquipment(store),1,emptyAir);
+  assert.deepEqual(types(store,fitted.ships[0]),[8,7,6,35]);
+});
+
+test('one escort carrier near supremacy may spend a utility slot while retaining both large attack slots',()=>{
+  const store=carrierFixture([14,19,2,2]);store.info.ships[1].api_slot=[201,101,501,301];
+  const ref={...reference,enemyAirPower:20,nodes:[{id:'Z',boss:true,enemyAirPower:20}]};
+  const initial=scheme(store),before=JSON.stringify([store,initial]);
+  const start=reading(store,initial,ref);assert(start.estimate.margins.superiority.min>=0);
+  assert(start.estimate.margins.supremacy.min<0);
+  const fitted=airLoadout(store,initial,availableEquipment(store),30,ref),result=reading(store,fitted,ref);
+  assert(result.estimate.margins.supremacy.min>=0);
+  assert.deepEqual(fitted.ships[0].slots.slice(0,2),initial.ships[0].slots.slice(0,2));
+  assert(healthySupremacy(store,fitted,result.air,result.estimate));
+  assert(affordableSupremacy(store,initial,fitted));
+  assert.equal(JSON.stringify([store,initial]),before);
+  const held=airLoadout(store,initial,availableEquipment(store),30,ref,'superiority',[{id:1,keep:{2:true}}]);
+  assert.equal(held.ships[0].slots[2],501);
+  assert.deepEqual(held.ships[0].slots.slice(0,2),initial.ships[0].slots.slice(0,2));
+  assert(reading(store,held,ref).estimate.margins.supremacy.min<0);
+});
+
+test('a lone carrier never sacrifices an attack slot for optional supremacy or claims an unknown result',()=>{
+  const store=carrierFixture([34,21,18,9]);store.info.ships[1].api_slot=[101,201,102,301];
+  const initial=scheme(store),ref={...reference,enemyAirPower:42,nodes:[{id:'Z',boss:true,enemyAirPower:42}]};
+  const fitted=airLoadout(store,initial,availableEquipment(store),63,ref);
+  assert.equal(types(store,fitted.ships[0]).filter(t=>[7,8].includes(t)).length,3);
+  assert(reading(store,fitted,ref).estimate.margins.supremacy.min<0);
+  const unknown={...ref,paths:[['A','Z']],nodes:[
+    {id:'A',enemyAirPower:20,antiAir:{status:'unknown',reason:'缺失防空'}},...ref.nodes]};
+  const uncertain=airLoadout(store,initial,availableEquipment(store),63,unknown);
+  assert.equal(reading(store,uncertain,unknown).estimate.status,'unknown');
+  assert.equal(types(store,uncertain.ships[0]).filter(t=>[7,8].includes(t)).length,3);
+});
+
 test('LoS repair fits at most one automatic Saiun across the fleet even when a second would raise LoS',()=>{
   const {store,base,profile}=fiveTwoLoSFixture(200);
   const fitted=gearVariant(store,base,availableEquipment(store),'los',profile,'5-2',undefined,{allowCombatLoss:true});

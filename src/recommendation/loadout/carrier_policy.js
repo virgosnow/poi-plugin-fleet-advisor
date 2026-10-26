@@ -34,8 +34,8 @@ function carrierSummary(store,scheme){
 // https://wikiwiki.jp/kancolle/航空戦#AirSupremacy
 function healthySupremacy(store,scheme,air,estimate){
   const rows=carrierSummary(store,scheme);
-  return rows.length>=2&&estimate?.margins?.supremacy?.min>=0&&
-    (air?.slots||[]).filter(s=>[6,56].includes(s.aircraftType)&&s.planes?.[0]>0&&s.effectiveAntiAir?.[0]>=10).length>=2&&
+  return rows.length>=1&&estimate?.margins?.supremacy?.min>=0&&
+    (air?.slots||[]).filter(s=>[6,56].includes(s.aircraftType)&&s.planes?.[0]>0&&s.effectiveAntiAir?.[0]>=10).length>=Math.min(2,rows.length)&&
     rows.every(row=>[7,8].every(t=>row.attacks.some(a=>a.type===t&&a.large))||
       row.jetFighter&&row.attacks.some(a=>a.type===57&&a.large));
 }

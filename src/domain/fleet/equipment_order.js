@@ -12,8 +12,8 @@ function categoryIndex(store){
 }
 // Reconnaissance needs a positive slot, but does not benefit from its size.
 // Fixed firepower equipment can use zero-plane slots. Only move utility down
-// into smaller slots: the displaced fighter/attacker gains capacity, so this
-// never buys a tidier layout by weakening fighter cover or strike capacity.
+// into smaller slots (later slots on a capacity tie): the displaced aircraft
+// gains or retains capacity, never weakening fighter cover or strike capacity.
 function orderCarrierUtility(store,scheme,heldSlots=[]){
   const held=new Map(heldSlots.filter(Boolean).map(e=>[e.id,e.keep||{}]));
   let changed=false;
@@ -31,9 +31,10 @@ function orderCarrierUtility(store,scheme,heldSlots=[]){
       try{return R.canEquip(store,entry.id,id,k)&&R.acceptsOtherSlot(store,entry.id,id,k);}catch(_){return false;}
     };
     let moved=false;
-    for(const to of slots.map((_,k)=>k).sort((a,b)=>capacity(a)-capacity(b)||a-b)){
+    for(const to of slots.map((_,k)=>k).sort((a,b)=>capacity(a)-capacity(b)||b-a)){
       if(locks[to]||rank(slots[to])===0)continue;
-      const from=slots.map((id,k)=>({id,k})).filter(p=>!locks[p.k]&&capacity(p.k)>capacity(to)&&
+      const from=slots.map((id,k)=>({id,k})).filter(p=>!locks[p.k]&&
+        (capacity(p.k)>capacity(to)||capacity(p.k)===capacity(to)&&p.k<to)&&
         rank(p.id)<rank(slots[to])&&legal(p.id,to)&&legal(slots[to],p.k)&&
         // Swapping with an empty slot must not introduce a compacted gap.
         !(slots[to]<=0&&slots.some((id,k)=>k>p.k&&k!==to&&id>0)))

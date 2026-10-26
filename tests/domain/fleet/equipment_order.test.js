@@ -74,3 +74,16 @@ test('carrier utility ordering does not create an automatic gap when a later emp
   assert(sorted.ships[0].slots.slice(0,3).every(id=>id>0));
   assert.deepEqual(sorted.ships[0].slots.slice(3),[-1,-1]);
 });
+
+test('light-carrier firepower utility uses the smaller slot, or the later slot on a capacity tie',()=>{
+  for(const capacities of [[14,19,4,2],[14,19,2,2]]){
+    const store=carrierFixture(capacities),scheme={fleet:1,ships:[{id:1,slots:[201,200,204,203],ex:-1}]};
+    const before=JSON.stringify([store,scheme]),fitted=orderCarrierUtility(store,scheme);
+    assert.deepEqual(fitted.ships[0].slots,[201,200,203,204]);
+    assert.equal(orderCarrierUtility(store,fitted),fitted);
+    assert.equal(JSON.stringify([store,scheme]),before);
+    for(const k of [2,3]){
+      assert.equal(orderCarrierUtility(store,scheme,[{id:1,keep:{[k]:true}}]),scheme);
+    }
+  }
+});

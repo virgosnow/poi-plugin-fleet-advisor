@@ -496,13 +496,18 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     const current=entry.slots||usableSlots(store,entry.id),next=slots.get(entry.id);
     return next.some((id,i)=>id!==current[i])?{...entry,slots:next}:{...entry};
   });
-  const fitted=entries.some(entry=>entry.slots)?{fleet:scheme.fleet,ships:entries}:null;
+  const fitted=entries.some(entry=>entry.slots)?orderCarrierUtility(store,{fleet:scheme.fleet,ships:entries},placementHolds):null;
+  const carrierCount=entries.filter(entry=>[7,11,18].includes(Number(store.const.$ships[store.info.ships[entry.id].api_ship_id]?.api_stype))).length;
   if(fitted&&goal==='superiority'&&reference?.status==='known'&&reference.enemyAirPower>0&&
-    entries.filter(entry=>[7,11,18].includes(Number(store.const.$ships[store.info.ships[entry.id].api_ship_id]?.api_stype))).length>=2&&
+    carrierCount>=1&&
     total().min>=required){
     const target=Number(reference.supremacy??reference.enemyAirPower*3);
     const strikeCore=new Set();
     for(const entry of fitted.ships){
+      // A lone carrier can improve cover or spend utility, but never buy the
+      // optional air tier by giving up an existing attack-aircraft slot.
+      if(carrierCount===1)for(const p of positions.filter(p=>p.shipId===entry.id&&
+        [7,8,11,57].includes(typeOf(entry.slots[p.slot]))))strikeCore.add(entry.id+':'+p.slot);
       // Reserve the strongest large-slot bomber and torpedo plane before
       // buying AS+ with an expendable third strike slot.
       for(const type of [7,8]){
@@ -514,7 +519,9 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
       }
     }
     const upgraded=airLoadout(store,fitted,inventory,target,reference,'supremacy',heldSlots,{protectedAttackSlots:strikeCore});
-    if(upgraded&&affordableSupremacy(store,fitted,upgraded)){
+    const attacks=value=>value.ships.reduce((n,e)=>n+e.slots.filter(id=>[7,8,11,57].includes(typeOf(id))).length,0);
+    if(upgraded&&affordableSupremacy(store,fitted,upgraded)&&
+      (carrierCount>1||attacks(upgraded)>=attacks(fitted))){
       const air=airPower(store,upgraded.ships.map(entry=>{
         const ship=store.info.ships[entry.id];return {id:entry.id,ship,master:store.const.$ships[ship.api_ship_id],
           before:{slots:ship.api_slot,ex:ship.api_slot_ex},after:entry};
