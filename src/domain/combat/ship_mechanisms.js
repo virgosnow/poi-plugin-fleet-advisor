@@ -13,6 +13,7 @@ const nightCI=require('./night_cutin');
 const carrierCI=require('./carrier_cutin');
 const tooltip=require('../../shared/mechanism_text'),spotting=require('./day_spotting');
 const openingPower=require('./opening_attack_power');
+const jets=require('./jet_aviation');
 const {cap}=require('./attack_power');
 const SPEED_LABELS={slow:'低速',fast:'高速',fastPlus:'高速+',fastest:'最速'};
 const SPEED_CODES={slow:5,fast:10,fastPlus:15,fastest:20};
@@ -184,15 +185,7 @@ function carrierCutIn(target,flagship,context,store){
   const type=Number(target.master.api_stype);if(![7,11,18].includes(type))return null;
   const slots=aircraftSlots(target);
   const combinations=rows=>{
-    const count=type=>rows.filter(r=>r.equipment.type===type&&Number(r.equipment.master?.api_type?.[0])!==21).length;
-    const f=count(6),b=count(7),a=count(8),jf=count(56),jb=count(57),modes=[];
-    if(jf&&jb>=2)modes.push('jFjBjB');
-    if(jf&&jb)modes.push('jFjB');
-    if(jf&&b&&a)modes.push('jFBA');
-    if(f&&b&&a)modes.push('FBA');
-    if(b>=2&&a)modes.push('BBA');
-    if(b&&a)modes.push('BA');
-    return modes;
+    return jets.carrierModes(rows.filter(r=>Number(r.equipment.master?.api_type?.[0])!==21).map(r=>r.equipment.type));
   };
   const equipped=combinations(slots);if(!equipped.length)return null;
   const live=combinations(slots.filter(r=>r.planes>0));
@@ -325,6 +318,7 @@ function fleetMechanisms(store,entries,speedReading,profile,{conditionalGroundDo
     for(const variant of ['aircraft','seaplane']){
       const openingAir=openingAviation(target,variant,store);if(openingAir)badges.push(openingAir);
     }
+    const jet=jets.assaultBadge(target,store,profile);if(jet)badges.push(jet);
     const carrier=carrierCutIn(target,flagship,carrierContext,store);if(carrier)badges.push(carrier);
     const nightAir=nightAviation(target,store);if(nightAir)badges.push(carrierNightCutIn(target,nightAir,flagship,store)||nightAir);
     const contact=nightContact(target);if(contact)badges.push(contact);

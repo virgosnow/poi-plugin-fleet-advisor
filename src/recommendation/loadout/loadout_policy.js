@@ -83,7 +83,7 @@ function combatPools(inventory){
     .sort((a,b)=>score(b.master)-score(a.master)||a.id-b.id);
   const air=m=>Number(m.api_raig||0)+Number(m.api_baku||0)+Number(m.api_houm||0);
   const pools={guns:select([1,2,3]),torpedo:select([5,32]),opening:select([22],m=>Number(m.api_raig||0)),
-    fighter:select([6],m=>Number(m.api_tyku||0)),carrierUtility:carrierUtility(inventory),
+    fighter:select([6,56],m=>Number(m.api_tyku||0)),carrierUtility:carrierUtility(inventory),
     bomber:select([7,8,11,57,58],air),torpedoPlane:select([8,58],air),divePlane:select([7,57],air),
     recon:select([10,41],m=>Number(m.api_saku||0)),
     waterRecon:select([10],m=>Number(m.api_saku||0)),
@@ -118,7 +118,7 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
         const chosen=items.find(i=>{
           if(used.has(i.id))return false;
           const t=type(i.master);
-          if([6,7,8,9,10,11,41,45,57,58].includes(t)&&(k==='ex'||capacity(k)<=0))return false;
+          if([6,7,8,9,10,11,41,45,56,57,58].includes(t)&&(k==='ex'||capacity(k)<=0))return false;
           try{return canEquip(store,entry.id,i.id,k)&&(!i.sourceShipId||i.sourceShipId===entry.id||acceptsOtherSlot(store,entry.id,i.id,k));}catch(_){return false;}
         });
         if(chosen){if(k==='ex')entry.ex=chosen.id;else entry.slots[k]=chosen.id;used.add(chosen.id);return true;}
@@ -151,7 +151,7 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
       // reserve small slots for utility, even when air superiority is secure.
       const strikeSlots=large.length?large:airSlots.filter(k=>capacity(k)>0).slice(0,1);
       const utilitySlots=airSlots.filter(k=>!strikeSlots.includes(k)).reverse();
-      if(area!=='1-1'&&entry.slots.length>1&&!count([6]))assign(pool.fighter,[...utilitySlots,...airSlots]);
+      if(area!=='1-1'&&entry.slots.length>1&&!count([6,56]))assign(pool.fighter,[...utilitySlots,...airSlots]);
       if(!count([8,58]))assign(pool.torpedoPlane,strikeSlots);
       if(!count([7,57]))assign(pool.divePlane,strikeSlots);
       while(assign(pool.bomber,strikeSlots)){};

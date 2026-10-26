@@ -9,6 +9,7 @@ const aswCombat=require('../domain/combat/asw_combat');
 const {routeAirReference,estimateRouteAir}=require('../domain/routes/route_air');
 const {aswPotential,num,shipCost,usableSlots}=require('./context');
 const {healthySupremacy,supportedAirGoal}=require('./loadout/carrier_policy');
+const jets=require('../domain/combat/jet_aviation');
 
 function airGoalScore(result,airGoal,area,profile){
   const reference=routeAirReference(result,area,profile);
@@ -132,8 +133,8 @@ function aircraftStrike(store,rows,scheme,shipTypes,equipmentTypes){
       if(!equipmentTypes.includes(Number(master?.api_type?.[2])))return power;
       const planes=Number(row.ship.api_onslot?.[slot]);
       const count=Number.isFinite(planes)?planes:Number(row.master.api_maxeq?.[slot]||0);
-      return power+(Number(master.api_raig||0)+Number(master.api_baku||0))*
-        Math.sqrt(Math.max(0,count));
+      const raw=(Number(master.api_raig||0)+Number(master.api_baku||0))*Math.sqrt(Math.max(0,count));
+      return power+(Number(master.api_type?.[2])===57?Math.max(0,(jets.jetPower(Number(master.api_baku),count,{phase:'ordinary'})||0)-25/Math.SQRT2):raw);
     },0);
   },0);
 }
@@ -153,7 +154,7 @@ function seaplaneStrike(store,rows,scheme){
   },0);
 }
 const carrierStrike=(store,rows,scheme)=>
-  aircraftStrike(store,rows,scheme,[7,11,18],[7,8]);
+  aircraftStrike(store,rows,scheme,[7,11,18],[7,8,57]);
 const aviationBattleshipStrike=(store,rows,scheme)=>
   aircraftStrike(store,rows,scheme,[10],[7]);
 const openingAirStrike=(store,rows,scheme)=>
@@ -185,6 +186,82 @@ function specialAttackScore(store,rows,scheme,profile){
   return {bonus,label:badge.label,participants:badge.participants,detail:badge.detail};
 }
 
+function jetScore(store,scheme,air,airScore,profile){
+  const equipped=scheme.ships.flatMap(entry=>entry.slots.flatMap((id,slot)=>{
+    const instance=store.info.equips[id],master=store.const.$equips[instance?.api_slotitem_id],type=Number(master?.api_type?.[2]);
+    if(!jets.isJet(type))return [];
+    const ship=store.info.ships[entry.id],sm=store.const.$ships[ship.api_ship_id];
+    return [{shipId:entry.id,slot,type,master,planes:Number(ship.api_onslot?.[slot]??sm.api_maxeq?.[slot])}];
+  }));
+  if(!equipped.length)return null; // No jet trace, CI projection or new cost on the ordinary fast path.
+  const reference=airScore.routeAirReference,estimate=airScore.routeAirEstimate||estimateRouteAir(air,reference);
+  const reasons=[],departure=equipped.filter(e=>e.type===57).reduce((n,e)=>n+Math.max(0,(jets.jetPower(Number(e.master.api_baku),e.planes,{phase:'ordinary'})||0)-25/Math.SQRT2),0);
+  let assaultMin=0,assaultMax=0,ordinary=departure,steel=0;
+  if(estimate.status==='estimated'){
+    const paths=(estimate.paths||[]).map(path=>{
+      const ordinarySteps=(path.steps||[]).filter(s=>['battle','aerialCombat'].includes(reference.nodes.find(n=>n.id===s.node)?.kind));
+      const divisor=Math.max(1,ordinarySteps.length);
+      const strikes=(path.jetStages||[]).flatMap(s=>s.attacks);
+      const low=strikes.reduce((n,s)=>n+Math.max(0,s.power[0]-(s.power[0]>0?25:0)),0)/divisor;
+      const high=strikes.reduce((n,s)=>n+Math.max(0,s.power[1]-(s.power[1]>0?25:0)),0)/divisor;
+      const normal=ordinarySteps.reduce((sum,s)=>sum+(s.aircraft||[]).filter(a=>a.type===57)
+        .reduce((n,a)=>n+a.power.reduce((v,p)=>v+Math.max(0,p-(p>0?25/Math.SQRT2:0)),0)/2,0),0)/divisor;
+      return {low,high,normal,steel:(path.steelConsumed?.min+path.steelConsumed?.max)/2/divisor||0};
+    });
+    if(paths.length)assaultMin=Math.min(...paths.map(p=>p.low));
+    assaultMax=Math.max(...paths.map(p=>p.high),0);
+    ordinary=paths.length?paths.reduce((n,p)=>n+p.normal,0)/paths.length:departure;
+    steel=paths.length?paths.reduce((n,p)=>n+p.steel,0)/paths.length:0;
+  }else{
+    reasons.push(estimate.reason||'喷气沿途损耗待确认');
+    if(jets.steelAvailable(store)!==0&&reference.nodes.some(n=>jets.applicable(n)!==false))
+      assaultMax=equipped.filter(e=>e.type===57).reduce((n,e)=>n+Math.max(0,(jets.jetPower(Number(e.master.api_baku),e.planes)||0)-25),0);
+  }
+  // Conditional shelling opportunities matter when a jet replaces the only B
+  // of an ordinary FBA. Reuse the real CI constants/rates; multipliers are NOT
+  // probabilities. This is a bounded ranking correction, not expected damage.
+  const carrierCI=require('../domain/combat/carrier_cutin'),metrics=require('../domain/fleet/fleet_metrics');
+  const targets=metrics.projectFleet(store,{organization:{targets:scheme.ships.map(e=>e.id)},
+    equipment:{expected:scheme.ships.map(e=>({shipId:e.id,state:e}))}});
+  const context=carrierCI.createContext(store,targets,profile,{airReference:reference,airEstimate:estimate});
+  const shellingSteps=(estimate.paths||[]).flatMap(p=>(p.steps||[])
+    .filter(s=>reference.nodes.find(n=>n.id===s.node)?.kind==='battle'));
+  const ciStates=shellingSteps.flatMap(s=>[s.before.min,s.before.max].map(power=>
+    power>=s.required.supremacy?'supremacy':power>=s.required.superiority?'superiority':'none'));
+  let ciAdjustment=0;
+  for(const target of targets.filter(t=>equipped.some(e=>e.shipId===t.id)&&reference.nodes.some(n=>n.kind==='battle'))){
+    const types=target.after.slots.flatMap((id,k)=>{const e=target.items.find(e=>e.id===id);return e&&Number(target.master.api_maxeq?.[k])>0?[e.type]:[];});
+    const actual=jets.carrierModes(types),jetBombers=types.filter(t=>t===57).length;
+    // A freed jet slot could carry a B OR an A. Otherwise two jets would
+    // unfairly avoid the lost-FBA cost merely because both were treated as B.
+    const ordinaryChoices=Array.from({length:jetBombers+1},(_,torpedoCount)=>{
+      let seen=0;return jets.carrierModes(types.map(t=>t===57?(seen++<torpedoCount?8:7):t===56?6:t));
+    });
+    const powers=carrierCI.attackPowers(target,store,[...new Set([...actual,...ordinaryChoices.flat()])]);
+    const multipliers={...Object.fromEntries(Object.entries(jets.CI).map(([k,v])=>[k,v.multiplier])),FBA:1.25,BBA:1.2,BA:1.15};
+    const expected=modes=>{
+      if(!modes.length)return 1;
+      const read=carrierCI.read(context,target,scheme.ships[0].id===target.id,modes);
+      if(read.rates.superiority.total===null){reasons.push(read.reason);return null;}
+      // Respect each selected node's ordinary air state AFTER jet losses.
+      // Bound endpoints are ranking inputs, not equally likely outcomes.
+      const values=(ciStates.length?ciStates:['superiority']).map(state=>state==='none'?1:
+        1+read.rates[state].rows.reduce((n,r)=>n+r.rate*(multipliers[r.label]-1),0));
+      return values.reduce((n,v)=>n+v,0)/values.length;
+    };
+    const own=expected(actual),baselines=ordinaryChoices.map(expected),baseline=baselines.some(v=>v===null)?null:Math.max(...baselines);
+    if(powers.basePower!==null&&own!==null&&baseline!==null)ciAdjustment+=(own-baseline)*powers.basePower*0.5;
+    else reasons.push('喷气炮击／CI参考攻击力待确认');
+  }
+  // Interval midpoints are ranking policy, never a claimed shoot-down or hit
+  // probability. Steel's small cost weight is policy, not a game formula.
+  const assault=(assaultMin+assaultMax)/2,steelPenalty=steel*0.02;
+  const unsupported=equipped.some(e=>e.type===58);
+  return {status:reasons.length?'unknown':'bounded',assault:{min:assaultMin,max:unsupported?null:assaultMax},ordinary:unsupported?null:ordinary,
+    steelPerBattle:estimate.status==='estimated'?steel:null,steelPenalty,ciAdjustment,reasons:[...new Set(reasons.filter(Boolean))],
+    adjustment:assault+ordinary-departure+ciAdjustment-steelPenalty};
+}
+
 function routeRank(result,profile,rows,preference,airGoal,area,store,scheme,byRoute=false){
   return routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute)(preference);
 }
@@ -200,6 +277,7 @@ function routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute=false
   const nightSupport=profile?.counts?.night?.maximum?nightReadiness(store,scheme):null;
   const specialAttack=specialAttackScore(store,rows,scheme,profile);
   const airScore=airGoalScore(result,airGoal,area,profile);
+  const jet=jetScore(store,scheme,air,airScore,profile);
   const groundAttack=fleetGroundScore(store,scheme,profile,entry=>plannedCombatStat(store,rows.find(r=>r.id===entry.id),scheme,'api_karyoku','api_houg'),
     {airReference:airScore.routeAirReference,airEstimate:airScore.routeAirEstimate});
   const carrier=carrierStrike(store,rows,scheme);
@@ -210,7 +288,7 @@ function routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute=false
   // tier. Never reward an unarmed fighter mule or sacrifice the carrier's BA.
   const supremacyPreference=airGoal==='superiority'&&healthySupremacy(store,scheme,air,airScore.routeAirEstimate)&&
     supportedAirGoal(air,airScore.routeAirReference,'supremacy')?carrier*0.3:0;
-  const strength=combat.strength+strike*0.7+
+  const strength=combat.strength+strike*0.7+(jet?.adjustment||0)*0.7+
     supremacyPreference+(airGoal==='ignore'?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5);
   const cost=rows.reduce((sum,row)=>sum+shipCost(row),0);
   const battleCount=profile?.counts?
@@ -259,7 +337,7 @@ function routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute=false
       (nightSupport?.supportTier||0)*1e7+specialAttack.bonus+groundAttack.bonus*100+
       (profile?.counts?.night?.maximum>=2&&!nightSupport?.zuiunEquipped?Math.max(0,Math.min(2,nightSupport?.flareCarriers||0)-1)*1000:0)+preferenceScore+probability-
       airScore.airGoalShortfall*10000,
-    ...airScore,opportunisticSupremacy:supremacyPreference>0,nightSupport,specialAttack,groundAttack,
+    ...airScore,...jet?{jetAviation:jet}:{},opportunisticSupremacy:supremacyPreference>0,nightSupport,specialAttack,groundAttack,
     routePriority,routeChance:chance,assumedChance:assumed,
     graphHops:result.reachableHops||null,strengthProxy:strength,
     carrierStrikeProxy:carrier,aviationBattleshipStrikeProxy:aviationBattleship,

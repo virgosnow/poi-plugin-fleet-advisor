@@ -2,10 +2,11 @@
 
 // Candidate metrics are calculated from the same immutable store and pinned
 // instance allocation as Controller.preview(). No game operation is needed.
-const RULE_VERSION='candidate-metrics-2026-10-21-los-bonuses';
+const RULE_VERSION='candidate-metrics-2026-10-26-ship-jets';
 const {lineOfSight}=require('./line_of_sight');
 const {openingASW}=require('../combat/opening_asw');
-const AIR_TYPES=new Set([6,7,8,11,26,45,56,57]);
+const jets=require('../combat/jet_aviation');
+const AIR_TYPES=new Set([6,7,8,11,26,45,56,57,58]);
 const PROFICIENCY_RANGES=[[0,9],[10,24],[25,39],[40,54],[55,69],[70,84],[85,99],[100,120]];
 const FIGHTER_BONUS=[0,0,2,5,9,14,14,22];
 const BOMBER_BONUS=[0,0,1,1,1,3,3,6];
@@ -38,7 +39,7 @@ function projectFleet(store,plan){
 
 function aircraftImprovement(equipment){
   const star=Number(equipment.instance?.api_level||0);
-  if(equipment.type===6||equipment.type===45)return [0.2*star,0.2*star];
+  if([6,45,56].includes(equipment.type))return [0.2*star,0.2*star];
   if(equipment.type===7&&star>0){
     // Some fighter-bombers have an AA improvement bonus; ordinary dive
     // bombers do not. Without a versioned item rule, preserve both cases.
@@ -56,6 +57,7 @@ function airPower(store,projected,conditions={}){
         master:master(store,equipmentId),type:typeOf(store,equipmentId)};
       if(!equipment.master){slots.push({shipId:target.id,slot,itemId:equipmentId,unknown:'equipmentMaster'});return;}
       if(!AIR_TYPES.has(equipment.type))return;
+      if(equipment.type===58){slots.push({shipId:target.id,slot,itemId:equipmentId,unknown:'喷式舰攻的制空与损耗规则未确认'});return;}
       const observed=Number(target.ship.api_onslot?.[slot]);
       const capacity=Number(target.master.api_maxeq?.[slot]);
       if(!valid(observed)&&!valid(capacity)){slots.push({shipId:target.id,slot,itemId:equipmentId,unknown:'slotCapacity'});return;}
@@ -65,7 +67,7 @@ function airPower(store,projected,conditions={}){
       const rank=Number(equipment.instance?.api_alv||0);
       if(!Number.isInteger(rank)||rank<0||rank>7){slots.push({shipId:target.id,slot,itemId:equipmentId,unknown:'proficiency'});return;}
       const aa=Number(equipment.master.api_tyku||0),[impLo,impHi]=aircraftImprovement(equipment);
-      const bonus=equipment.type===6||equipment.type===45?FIGHTER_BONUS[rank]
+      const bonus=[6,45,56].includes(equipment.type)?FIGHTER_BONUS[rank]
         :equipment.type===11?BOMBER_BONUS[rank]:0;
       const [profLo,profHi]=PROFICIENCY_RANGES[rank];
       const compute=(count,imp,prof)=>count>0?Math.floor((aa+imp)*Math.sqrt(count)+bonus+Math.sqrt(prof/10)):0;
@@ -73,11 +75,14 @@ function airPower(store,projected,conditions={}){
       lower+=min;upper+=max;
       slots.push({shipId:target.id,slot,itemId:equipmentId,planes:counts,proficiencyRank:rank,min,max,
         aircraftType:equipment.type,effectiveAntiAir:[aa+impLo,aa+impHi],
-        proficiencyBonus:[bonus+Math.sqrt(profLo/10),bonus+Math.sqrt(profHi/10)]});
+        proficiencyBonus:[bonus+Math.sqrt(profLo/10),bonus+Math.sqrt(profHi/10)],
+        ...(jets.isJet(equipment.type)?{masterId:equipment.instance.api_slotitem_id,
+          jetSteel:jets.steelAvailable(store),bomb:Number(equipment.master.api_baku||0)}:{})});
     });
   }
   const unknown=slots.filter(entry=>entry.unknown);
-  if(unknown.length)return {status:'unknown',reason:'部分航空槽位缺少搭载数或熟练度',slots};
+  if(unknown.length)return {status:'unknown',reason:unknown.some(s=>String(s.unknown).startsWith('喷式'))?
+    '喷式舰攻的制空与损耗规则未确认':'部分航空槽位缺少搭载数或熟练度',slots};
   const result={status:'range',min:lower,max:upper,slots,
     assumptions:['母港观测搭载数；候选新装机在未补给槽位使用观测数与最大数的范围',
       '内部熟练度按可见段位的上下限计算；不包含基地航空队与道中损耗']};

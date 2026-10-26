@@ -32,6 +32,8 @@ assert(names.includes('package/src/execution/navigation.js'),'Missing shared nav
 for(const id of [1,2,3,4,5,6,7,8,10,11,12])assert(names.includes(`package/data/icons/material/0${id}.png`),'Missing bundled material icon '+id);
 assert(names.includes('package/data/icons/items/59.png'),'Missing bundled Irako icon');
 assert(names.includes('package/src/domain/routes/route_air.js'),'Missing route-local air thresholds');
+for(const name of ['src/domain/combat/jet_aviation.js','src/recommendation/loadout/jet_fitting.js','data/icons/material/jet-assault.svg'])
+  assert(names.includes('package/'+name),'Missing ship-borne jet mechanism '+name);
 for(const file of ['src/config/computation_settings.js','src/ui/settings/computation_settings.js'])assert(names.includes('package/'+file),'Missing resource settings '+file);
 assert(names.includes('package/src/shared/name_matching.js'),'Missing shared name matching');
 for(const name of ['src/application/fleet_advisor_service.js','src/application/page_queries.js','src/application/contract.js','src/application/snapshots.js','src/domain/fleet/fleet_metrics.js','src/domain/routes/normal_routes.js','src/domain/routes/route_threats.js','src/recommendation/loadout/night_equipment.js','src/bridge/http_server.js','src/bridge/mcp_http.js','src/bridge/mcp_tools.js','src/bridge/tool_validation.js','src/bridge/service_api.js','docs/MCP_API.md'])

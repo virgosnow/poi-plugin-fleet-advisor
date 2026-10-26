@@ -4,6 +4,7 @@
 const catalog=new Map(require('../../../data/sortie/enemy_catalog.json').enemies.map(e=>[e.apiId,e]));
 const pending=require('../../../data/sortie/adjudications.json').entries.filter(e=>e.status==='pending');
 const cache=new Map();
+const jets=require('../combat/jet_aviation');
 const noAirBattle=new Set(['start','noBattle','item','resources','transport','whirlpool','activeBranch','airRecon','nightBattle']);
 const valid=n=>Number.isFinite(n)&&n>=0;
 function noCombatAircraft(ship){
@@ -16,7 +17,7 @@ function noCombatAircraft(ship){
     typeof e.name==='string'&&/砲|魚雷|レーダ|電探|ソナー|爆雷|探照灯|FCS|機銃|偵察|水偵|観測/.test(e.name));
 }
 function antiAirEnvelope(patterns){
-  let proportion=0,fixed=0;
+  let proportion=0,fixed=0;const profiles=[];
   for(const p of patterns){
     const ships=[...(p.enemyShips||[]),...(p.escortFleet?.enemyShips||[])].map(s=>catalog.get(s.apiId));
     if(!ships.length||ships.some(s=>!s))return {status:'unknown',reason:'敌方防空资料缺失'};
@@ -36,11 +37,12 @@ function antiAirEnvelope(patterns){
       const weighted=ships[i].stats['加重対空値'];
       const combinedFactor=combined?(i<(p.enemyShips||[]).length?0.8:0.48):1;
       if(!valid(weighted)||!valid(defense))return {status:'unknown',reason:'敌方防空数值缺失'};
+      profiles.push({weighted,defense,combinedFactor});
       proportion=Math.max(proportion,weighted*combinedFactor/400);
       fixed=Math.max(fixed,Math.floor((weighted+defense)*combinedFactor*0.09375));
     }
   }
-  return {status:'known',proportion,fixed};
+  return {status:'known',proportion,fixed,...profiles.length?{profiles}:{}};
 }
 function nodeAir(area,id,node,cross){
   if(!node)return {id,enemyAirPower:null,issues:['节点敌情缺失']};
@@ -99,7 +101,10 @@ function nodeAir(area,id,node,cross){
   const crossPatterns=pending.some(e=>e.area===area&&e.node===id&&e.kind==='compositionConflict')?
     (cross?.kcwikiVariants||[]).map(v=>({enemyShips:(v.apiIds||[]).map(apiId=>({apiId})),
       escortFleet:v.escortApiIds?.length?{enemyShips:v.escortApiIds.map(apiId=>({apiId}))}:null})):[];
-  return {id,kind:node.kind,boss:!!node.boss,antiAir:antiAirEnvelope([...patterns,...crossPatterns]),
+  const knownShips=patterns.flatMap(p=>[...(p.enemyShips||[]),...(p.escortFleet?.enemyShips||[])]).map(s=>catalog.get(s.apiId));
+  const pureSubmarines=knownShips.length>0&&knownShips.every(s=>s&&['潜水艦','潜水空母'].includes(s.shipType));
+  const enemyJets=knownShips.some(s=>s?.equipment?.some(e=>/噴式.*(?:戦闘|爆撃)|jet.*(?:fighter|bomber)/i.test(e.name||'')));
+  return {id,kind:node.kind,boss:!!node.boss,pureSubmarines,enemyJets,antiAir:antiAirEnvelope([...patterns,...crossPatterns]),
     enemyAirPower:issues.length||bounds.length?null:maximum,knownEnemyAirPower:maximum,
     upperBound:!issues.length&&bounds.length?Math.max(maximum,...bounds):null,
     issues:[...new Set([...issues,...(bounds.length?['敌制空数值存在来源差异']:[])])]};
@@ -148,13 +153,14 @@ function airState(own,enemy){
 function slotPower(slot,count,side){
   return count>0?Math.floor(slot.effectiveAntiAir[side]*Math.sqrt(count)+slot.proficiencyBonus[side]):0;
 }
-function stageOneLoss(count,state,maximum){
-  return Math.floor(count*lossConstant[state]*(maximum?7:3)/120+1e-10);
+function stageOneLoss(count,state,maximum,scale=1){
+  return Math.floor(count*lossConstant[state]*(maximum?7:3)/120*scale+1e-10);
 }
 function simulateAirPath(air,nodes,details=true){
   const issues=[];
   if(air?.status!=='range'||!Array.isArray(air.slots)||air.slots.some(s=>s.unknown||
     !s.planes||!s.effectiveAntiAir||!s.proficiencyBonus))return {status:'unknown',reason:'缺少航空槽位计算资料'};
+  if(air.slots.some(s=>jets.isJet(s.aircraftType)&&s.planes[1]>0))return simulateJetAirPath(air,nodes,details);
   if(air.slots.some(s=>s.planes[1]>0&&![6,7,8,11,45].includes(s.aircraftType)))
     return {status:'unknown',reason:'喷气或特殊机种的额外航空阶段尚未支持'};
   // Explicit, stable object shape avoids allocating/copying unrelated metric
@@ -206,6 +212,96 @@ function simulateAirPath(air,nodes,details=true){
     terminal:issues.length?null:nodes.at(-1)?.noAirBattle?{node:nodes.at(-1).id,
       before:{min:power(0),max:power(1)},required:{superiority:0,supremacy:0}}:steps.at(-1)||null};
 }
+
+// The ordinary path above remains untouched for fleets without jets. Jet
+// attrition precedes the SAME node's ordinary air check, including the Boss.
+function simulateJetAirPath(air,nodes,details){
+  const slots=air.slots.map(s=>({...s,remaining:s.planes.slice(),jet:jets.spec(s.masterId,s.aircraftType)}));
+  const jetSlots=slots.filter(s=>jets.isJet(s.aircraftType)&&s.remaining[1]>0);
+  const bad=jetSlots.find(s=>!s.jet);
+  if(bad)return {status:'unknown',reason:bad.aircraftType===58?'喷式舰攻的强袭与损耗规则未确认':'喷气机钢材或射击回避资料缺失'};
+  if(slots.some(s=>![6,7,8,11,45,56,57].includes(s.aircraftType)))return {status:'unknown',reason:'特殊机种的航空阶段未确认'};
+  const steel=jetSlots[0]?.jetSteel;
+  const eligible=nodes.some(n=>!n.noAirBattle&&jets.applicable(n)!==false);
+  if(eligible&&(steel===null||steel===undefined))return {status:'unknown',reason:'当前钢材资料缺失，喷气强袭时机待确认'};
+  if(nodes.some(n=>!n.noAirBattle&&n.enemyJets))return {status:'unknown',reason:'敌方喷气机的喷气阶段比例击坠规则未确认'};
+  const budget=[steel??0,steel??0],debit=[0,0],issues=[],steps=[],jetStages=[];
+  const margins={superiority:{min:Infinity,max:Infinity},supremacy:{min:Infinity,max:Infinity}};
+  const power=side=>slots.reduce((sum,s)=>sum+slotPower(s,s.remaining[side],side),0);
+  const snapshot=()=>({min:power(0),max:power(1)});
+  const intercept=(slot,node,side)=>{
+    if(side===1)return;
+    const n=slot.remaining[0];
+    const loss=slot.jet?jets.antiAirLoss(n,node,slot.jet):node.antiAir?.status==='known'?
+      Math.floor(n*node.antiAir.proportion)+node.antiAir.fixed:null;
+    if(loss===null){issues.push(`${node.id} 点：${node.antiAir?.reason||'敌方防空资料缺失'}`);return;}
+    slot.remaining[0]=Math.max(0,n-loss);
+  };
+  let boss=null,count=0;
+  for(const node of nodes){
+    if(node.noAirBattle)continue;
+    const enemy=valid(node.enemyAirPower)?node.enemyAirPower:node.upperBound;
+    if(!valid(enemy)){issues.push(`${node.id} 点敌制空资料不足`);break;}
+    const applies=jets.applicable(node);
+    if(applies===null){issues.push(`${node.id} 点喷气阶段适用性未确认`);break;}
+    let jetStage;
+    if(applies){
+      const active=[0,1].map(side=>budget[side]>0&&jetSlots.some(s=>s.remaining[side]>0));
+      const requiredSteel=[0,0],attacks=[];
+      for(let side=0;side<2;side++)if(active[side]){
+        requiredSteel[side]=jetSlots.reduce((sum,s)=>sum+jets.steelCost(s.masterId,s.aircraftType,s.remaining[side]),0);
+        const spent=Math.min(budget[side],requiredSteel[side]);budget[side]-=spent;debit[side]+=spent;
+      }
+      for(const slot of jetSlots){
+        const before=slot.remaining.slice();
+        for(let side=0;side<2;side++)if(active[side]){
+          // No enemy jets in covered normal maps: the jet-only air contest
+          // uses supremacy's reduced self-loss envelope before interception.
+          slot.remaining[side]=Math.max(0,slot.remaining[side]-stageOneLoss(slot.remaining[side],'supremacy',side===0,jets.PHASES.proportionalLoss));
+          if(slot.aircraftType===57)intercept(slot,node,side);
+        }
+        if(details&&slot.aircraftType===57){
+          const power=slot.remaining.map((n,side)=>active[side]?(jets.jetPower(slot.bomb,n)||0):0);
+          // The higher-plane endpoint can exhaust steel one battle earlier.
+          // Then attack opportunity is discontinuous: bound the unknown
+          // intermediate outcomes instead of emitting a reversed interval.
+          if(active[0]!==active[1]){
+            power[0]=0;power[1]=jets.jetPower(slot.bomb,Math.max(...slot.remaining))||0;
+          }
+          attacks.push({shipId:slot.shipId,slot:slot.slot,masterId:slot.masterId,before,planes:slot.remaining.slice(),power});
+        }
+      }
+      if(details){jetStage={node:node.id,active,requiredSteel,steelRemaining:budget.slice(),attacks};jetStages.push(jetStage);}
+    }
+    const rounds=node.kind==='aerialCombat'?2:1;
+    for(let round=1;round<=rounds;round++){
+      const before=snapshot(),required={superiority:Math.max(1,Math.ceil(enemy*1.5)),supremacy:Math.max(1,enemy*3)};
+      for(const goal of ['superiority','supremacy'])for(const side of ['min','max'])margins[goal][side]=Math.min(margins[goal][side],before[side]-required[goal]);
+      count++;
+      const step=details?{node:node.id,round,before,required,boss:!!node.boss,...round===1&&jetStage?{jetAssault:jetStage}:{}}:null;
+      if(details){steps.push(step);if(node.boss&&round===1)boss=step;}
+      const states=[airState(before.min,enemy),airState(before.max,enemy)];
+      for(const slot of slots){
+        for(let side=0;side<2;side++)slot.remaining[side]=Math.max(0,slot.remaining[side]-
+          stageOneLoss(slot.remaining[side],states[side],side===0,slot.jet?jets.PHASES.proportionalLoss:1));
+        if(node.kind!=='aerialRaid'&&[7,8,11,57].includes(slot.aircraftType)&&slot.remaining[1]>0)intercept(slot,node,0);
+      }
+      if(details){
+        step.after=snapshot();
+        step.aircraft=slots.map(s=>({shipId:s.shipId,slot:s.slot,masterId:s.masterId,type:s.aircraftType,
+          planes:s.remaining.slice(),...(s.jet?.role==='bomber'?{power:s.remaining.map(n=>jets.jetPower(s.bomb,n,{phase:'ordinary'})||0)}:{})}));
+      }
+      if(issues.length)break;
+    }
+    if(issues.length)break;
+  }
+  if(!count)for(const g of Object.keys(margins))margins[g]={min:0,max:0};
+  const status=issues.length?'unknown':'estimated';
+  if(!details)return {status,margins:issues.length?null:margins};
+  return {status,reason:[...new Set(issues)].join('；'),steps,boss:issues.length?null:boss,
+    margins:issues.length?null:margins,jetStages,steelConsumed:{min:Math.min(...debit),max:Math.max(...debit)},
+    terminal:issues.length?null:nodes.at(-1)?.noAirBattle?{node:nodes.at(-1).id,before:snapshot(),required:{superiority:0,supremacy:0}}:steps.at(-1)||null};
+}
 const simulationCache=new WeakMap();
 const marginCache=new WeakMap();
 const pathPlans=new WeakMap();
@@ -230,9 +326,10 @@ function aircraftKey(slot){
   const {aircraftType:t,planes:p,effectiveAntiAir:a,proficiencyBonus:b}=slot;
   const old=slotKeys.get(slot);
   if(old&&old.t===t&&old.p0===p[0]&&old.p1===p[1]&&old.a0===a[0]&&old.a1===a[1]&&
-    old.b0===b[0]&&old.b1===b[1])return old.key;
+    old.b0===b[0]&&old.b1===b[1]&&(!jets.isJet(t)||old.mid===slot.masterId&&old.steel===slot.jetSteel&&old.bomb===slot.bomb&&old.sid===slot.shipId&&old.slot===slot.slot))return old.key;
   const value={t,p0:p[0],p1:p[1],a0:a[0],a1:a[1],b0:b[0],b1:b[1]};
   value.key=[t,p[0],p[1],a[0],a[1],b[0],b[1]].join(',');
+  if(jets.isJet(t)){Object.assign(value,{mid:slot.masterId,steel:slot.jetSteel,bomb:slot.bomb,sid:slot.shipId,slot:slot.slot});value.key+=','+[slot.masterId,slot.jetSteel,slot.bomb,slot.shipId,slot.slot].join(',');}
   slotKeys.set(slot,value);return value.key;
 }
 function estimateRouteAir(air,reference){
@@ -252,7 +349,9 @@ function estimateRouteAir(air,reference){
     min:Math.min(...simulations.map(p=>p.margins[goal].min)),max:Math.min(...simulations.map(p=>p.margins[goal].max))}]));
   const result={status:unknown?'unknown':'estimated',reason:unknown?.reason,paths,margins,
     boss:paths.length===1?paths[0].boss:null,terminal:paths.length===1?paths[0].terminal:null,
-    basis:'逐槽顺序计算空战击坠范围及普通对空炮火上限；敌编成取已收录最强条件，攻击机下限不计射击回避；航空战点计算两轮且不预扣敌机，不计基地航空队、支援及敌舰击沉；区间为保守估算，不是概率或实战保证'};
+    basis:air.slots.some(s=>jets.isJet(s.aircraftType))?
+      '逐点先算喷气强袭及其迎击，再核对该点普通制空并计算第二次迎击；喷气机普通比例损耗按60%，已收录射击回避分别取整；钢材按每战开始残机数扣除，不预扣敌机，不模拟击沉。区间为保守边界，不是概率或实战保证':
+      '逐槽顺序计算空战击坠范围及普通对空炮火上限；敌编成取已收录最强条件，攻击机下限不计射击回避；航空战点计算两轮且不预扣敌机，不计基地航空队、支援及敌舰击沉；区间为保守估算，不是概率或实战保证'};
   return boundedSet(cached,key,result,256);
 }
 // Trial fits only compare margins. Use the same loss simulator without

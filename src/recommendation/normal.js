@@ -8,6 +8,7 @@ const {groundLoadout,groundLoadouts}=require('./loadout/ground_fitting');
 const {aviationBattleshipLoadouts}=require('./loadout/aviation_fitting');
 const {routeGroundTargets}=require('../domain/combat/installation_attack');
 const {nightLoadout}=require('./loadout/night_equipment');
+const {jetLoadouts}=require('./loadout/jet_fitting');
 const {specialAttackCores,arrangeSpecialAttack}=require('../domain/combat/special_attacks');
 const {speed}=require('../domain/fleet/fleet_metrics');
 const routes=require('../domain/routes/normal_routes');
@@ -244,12 +245,14 @@ function calculateBatch(store,batch){
       routeAirReference({},area,{examples:seed.scores.routeAirReference.paths}):seed.scores.routeAirReference;
     let attempts=0;
     for(const kind of gearKinds){
-      if(kind==='aviation'){
-        for(const variant of aviationBattleshipLoadouts(store,seed.scheme,inventory,{area,profile:seed.profile,heldSlots:args.heldSlots})){
+      if(kind==='jets'||kind==='aviation'){
+        const variants=kind==='jets'?jetLoadouts(store,seed.scheme,inventory,{heldSlots:args.heldSlots}):
+          aviationBattleshipLoadouts(store,seed.scheme,inventory,{area,profile:seed.profile,heldSlots:args.heldSlots});
+        for(const variant of variants){
           attempts++;singles.push(evaluate(rows,variant));
           if(airGoal!=='ignore'){
-            const air=airLoadout(store,variant,inventory,seed.scores.airGoalRequired,reference,airGoal,args.heldSlots);
-            if(air){attempts++;singles.push(evaluate(rows,air));}
+            const fitted=airLoadout(store,variant,inventory,seed.scores.airGoalRequired,reference,airGoal,args.heldSlots);
+            if(fitted){attempts++;singles.push(evaluate(rows,fitted));}
           }
         }
         continue;
@@ -562,6 +565,7 @@ function* searchNormalFleet(store,args,selectedOptions){
     ...seeds.filter(seed=>guideSeedKeys.has(idsKey(seed.rows)))]
     .map(row=>[idsKey(row.rows),row])).values()];
   const gearKinds=airGoal==='ignore'?['los','routing']:['air','los','routing'];
+  if(inventory.some(i=>[56,57].includes(Number(i.master.api_type[2]))))gearKinds.push('jets');
   if(gearSeeds.some(seed=>seed.scheme.ships.some(e=>Number(store.const.$ships[store.info.ships[e.id].api_ship_id]?.api_stype)===10)))gearKinds.push('aviation');
   if(area==='1-1')gearKinds.push('opening');
   if(initialWantsAsw)gearKinds.push('asw');
@@ -965,6 +969,13 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
     if(kind==='ground')for(const fitted of groundLoadouts(store,base,inventory,{profile:initial.profile,heldSlots,airReference:initial.scores.routeAirReference}))evaluate(fitted);
     const single=variant(base,kind);if(single)evaluate(single);
     const next=variant(combined,kind);if(next){const result=evaluate(next);if(result)combined=result.scheme;}
+  }
+  if(inventory.some(i=>[56,57].includes(Number(i.master.api_type[2]))))for(const seed of [base,combined]){
+    for(const fitted of jetLoadouts(store,seed,inventory,{heldSlots})){
+      evaluate(fitted);
+      const air=airLoadout(store,fitted,inventory,initial.scores.airGoalRequired,initial.scores.routeAirReference,'superiority',heldSlots);
+      if(air)evaluate(air);
+    }
   }
   if(selectedRoute?.strategy)for(const row of candidates.filter(r=>routePlans.strategyAssessment(r.route,selectedRoute).speedMet)
     .sort((a,b)=>b.scores.rank-a.scores.rank).slice(0,4)){

@@ -23,6 +23,8 @@ module.exports=`
 .paa-wb-mechanism[data-category=asw]{--mechanism-color:#2c788b}
 :is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme="dark"]) .paa-wb-mechanism[data-category=asw]{--mechanism-color:#7fc9d6}
 .paa-wb-mechanism[data-category=aviation]{--mechanism-color:var(--paa-accent)}
+.paa-wb-mechanism[data-category=jet]{--mechanism-color:#657486}
+:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme="dark"]) .paa-wb-mechanism[data-category=jet]{--mechanism-color:#d4dde6}
 .paa-wb-mechanism[data-category=ground]{--mechanism-color:#97623a}
 :is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme="dark"]) .paa-wb-mechanism[data-category=ground]{--mechanism-color:#dbb08a}
 .paa-wb-mechanism[data-category=special]{--mechanism-color:#906817}

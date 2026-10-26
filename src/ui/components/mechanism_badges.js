@@ -1,5 +1,6 @@
 'use strict';
 const {equipmentIconUrl}=require('../models/presentation_model');
+const jetIcon=require('url').pathToFileURL(require('path').join(__dirname,'../../../data/icons/material/jet-assault.svg')).href;
 // Visible bounds in the existing game equipment sprites, without their transparent margins.
 const frames={
   2:[5,7,36,30,45],3:[10,12,37,29,54],5:[11,16,32,22,54],
@@ -31,6 +32,8 @@ function createMechanismIcon(React){
         ...categories.map(c=>h('span',{key:c.id},mechanismIcon({...badge,categories:undefined,variant:c.id}))));
     }
     const props={className:'paa-wb-mechanism-icon',width:14,height:14,'aria-hidden':true,focusable:false};
+    if(badge.key==='jet-assault')return h('span',{className:props.className,'aria-hidden':true,'data-mechanism-art':'jet',
+      style:{width:16,height:14,backgroundColor:'currentColor',maskImage:`url("${jetIcon}")`,maskSize:'contain',maskPosition:'center',maskRepeat:'no-repeat'}});
     // Morale has no equipment category; retain its flag and the existing sparkle above.
     if(badge.key==='expedition-morale')return h('svg',{...props,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.35,strokeLinecap:'round',strokeLinejoin:'round'},
       h('path',{d:'M4 14V2l8 1v6L4 8M2 14h4'}));
@@ -54,11 +57,11 @@ function createMechanismIcon(React){
   };
 };
 
-const groups={ground:'ground',aaci:'air',barrage:'air',asw:'asw','asw-synergy':'asw',torpedo:'torpedo',spotting:'day','opening-air':'aviation','carrier-ci':'day',night:'night','night-contact':'night','night-air':'night','night-carrier-ci':'night','night-zuiun':'night','special-shelling':'special','special-night':'special','special-submarine':'special',smoke:'support',illumination:'support',speed:'speed'};
+const groups={ground:'ground',aaci:'air',barrage:'air',asw:'asw','asw-synergy':'asw',torpedo:'torpedo',spotting:'day','opening-air':'aviation','jet-assault':'jet','carrier-ci':'day',night:'night','night-contact':'night','night-air':'night','night-carrier-ci':'night','night-zuiun':'night','special-shelling':'special','special-night':'special','special-submarine':'special',smoke:'support',illumination:'support',speed:'speed'};
 // Shared by editable drafts and current fleets. Keep identity and all special
 // attacks first, followed by opening, daytime and nighttime abilities.
 const order={speed:0,'expedition-morale':1,'special-shelling':2,'special-submarine':2,'special-night':2,
-  torpedo:10,'opening-air':11,asw:12,'asw-synergy':13,aaci:14,barrage:15,smoke:16,
+  'jet-assault':9,torpedo:10,'opening-air':11,asw:12,'asw-synergy':13,aaci:14,barrage:15,smoke:16,
   ground:20,spotting:21,'carrier-ci':22,illumination:30,'night-contact':31,
   'night-air':33,'night-carrier-ci':33,'night-zuiun':34,night:35};
 module.exports=React=>{

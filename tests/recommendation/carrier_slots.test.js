@@ -32,6 +32,77 @@ function complete(store,heldSlots=[]){return completeCombatLoadout(store,emptyLo
   availableEquipment(store),{area:'2-1',heldSlots}).ships[0];}
 const reference={status:'known',enemyAirPower:10,paths:[['Z']],nodes:[{id:'Z',boss:true,enemyAirPower:10}]};
 
+function jetCarrierFixture(){
+  const store=carrierFixture([34,21,12,6]);store.info.resources=[1000,1000,1000,1000];
+  Object.assign(store.const.$shipTypes[11].api_equip_type,{56:1,57:1});
+  for(const [id,t,bomb,aa] of [[199,57,15,6],[200,57,11,12],[548,56,0,17]]){
+    store.const.$equips[id]={api_id:id,api_name:`喷气${id}`,api_type:[0,0,t,t],api_baku:bomb,api_tyku:aa};
+    const iid=10000+id;store.info.equips[iid]={api_id:iid,api_slotitem_id:id,api_level:0,api_alv:7};
+  }
+  store.info.ships[1].api_slot=[101,201,301,401];store.info.ships[1].api_lucky=[15,50];
+  return store;
+}
+
+test('jet alternatives compare both bomber roles, jet fighter CIs and conventional outfits using unique inventory instances',()=>{
+  const {jetLoadouts}=require('../../src/recommendation/loadout/jet_fitting');
+  const store=jetCarrierFixture(),before=JSON.stringify(store),base=scheme(store);
+  const alternatives=jetLoadouts(store,base,availableEquipment(store));
+  assert(alternatives.length<=12);
+  for(const mid of [199,200,548])assert(alternatives.some(s=>s.ships[0].slots.some(id=>store.info.equips[id]?.api_slotitem_id===mid)));
+  assert(alternatives.some(s=>types(store,s.ships[0]).includes(56)&&types(store,s.ships[0]).includes(57)));
+  for(const s of alternatives){
+    const all=s.ships.flatMap(e=>e.slots.concat(e.ex)).filter(id=>id>0);
+    assert.equal(new Set(all).size,all.length);assert(all.every(id=>store.info.equips[id]));
+    assert(s.ships[0].slots.slice(2).every(id=>type(store,id)!==57));
+  }
+  base.ships[0].slots[1]=10199;
+  assert(jetLoadouts(store,base,availableEquipment(store)).some(s=>types(store,s.ships[0]).includes(7)));
+  assert.equal(JSON.stringify(store),before);
+});
+
+test('jet alternatives preserve manual equipment and do not assume all carriers can equip jets',()=>{
+  const {jetLoadouts}=require('../../src/recommendation/loadout/jet_fitting');
+  const store=jetCarrierFixture(),base=scheme(store);base.ships[0].slots[0]=10199;
+  const held=[{...base.ships[0],keep:{0:true,1:true,2:true,3:true}}];
+  assert.deepEqual(jetLoadouts(store,base,availableEquipment(store),{heldSlots:held}),[]);
+  delete store.const.$shipTypes[11].api_equip_type[56];delete store.const.$shipTypes[11].api_equip_type[57];
+  store.info.ships[1].api_slot=[101,201,301,401];
+  assert.deepEqual(jetLoadouts(store,scheme(store),availableEquipment(store)),[]);
+});
+
+test('jet scoring separates assault, ordinary strike, conditional shelling and per-battle steel; no jets retain the fast path',()=>{
+  const {routeRank,carrierStrike}=require('../../src/recommendation/scoring');
+  const {projectFleet}=require('../../src/domain/fleet/fleet_metrics');
+  const store=jetCarrierFixture(),profile={area:'1-1',examples:[['A','C']],counts:{surface:{maximum:2},air:{maximum:0},asw:{maximum:0},night:{maximum:0}}};
+  // Keep this numeric scoring fixture inside the recorded blue-bonus range.
+  store.const.$ships[1]={...store.const.$ships[6001],api_id:1,api_ctype:0,api_aftershipid:0};store.info.ships[1].api_ship_id=1;
+  for(const [old,id] of [[9001,8],[9002,7],[9003,6],[9004,9],[9005,35],[9006,2]]){
+    store.const.$equips[id]={...store.const.$equips[old],api_id:id};
+    for(const e of Object.values(store.info.equips))if(e.api_slotitem_id===old)e.api_slotitem_id=id;
+  }
+  const score=()=>{
+    const s=scheme(store),ship=store.info.ships[1],master=store.const.$ships[ship.api_ship_id];
+    const targets=projectFleet(store,{organization:{targets:[1]},equipment:{expected:[{shipId:1,state:s.ships[0]}]}});
+    const result={chanceRange:[1,1],verdict:'guaranteed',airControl:{fleetAirPower:airPower(store,targets)}};
+    const rows=[{id:1,ship,master,stype:11,level:50,fuel:80,ammo:80}];
+    return {scores:routeRank(result,profile,rows,'strongest','superiority',profile.area,store,s,true),strike:carrierStrike(store,rows,s)};
+  };
+  assert.equal(score().scores.jetAviation,undefined);
+  store.info.ships[1].api_slot[1]=10199;
+  const normalSteel=score(),jet=normalSteel.scores.jetAviation;
+  assert.equal(jet.status,'bounded',jet.reasons.join('；'));assert(jet.assault.min>0);assert(jet.steelPerBattle>0);
+  assert(jet.ciAdjustment<0,'replacing the only normal B loses FBA; a jet is not a normal B');
+  assert.equal(normalSteel.scores.carrierStrikeProxy,normalSteel.strike,'ordinary attack proxy excludes the additional assault');
+  store.info.resources[2]=0;
+  const empty=score();assert.deepEqual(empty.scores.jetAviation.assault,{min:0,max:0});
+  assert.equal(empty.scores.jetAviation.steelPerBattle,0);assert.equal(empty.strike,normalSteel.strike);
+  profile.area='1-5';profile.examples=[['A','D','E','J']];
+  const noAssault=score().scores.jetAviation;assert.equal(noAssault.assault.max,0);assert.equal(noAssault.steelPerBattle,0);
+  store.const.$equips[199].api_type=[0,0,58,58];profile.area='1-1';profile.examples=[['A','C']];
+  const unsupported=score().scores.jetAviation;assert.equal(unsupported.status,'unknown');
+  assert.equal(unsupported.assault.max,null);assert.equal(unsupported.ordinary,null,'unknown jet-attacker power is not a numeric zero');
+});
+
 test('Kaga reserves 12- and 3-plane slots for utility and keeps both attack types in larger slots',()=>{
   const store=carrierFixture(),before=JSON.stringify(store),entry=complete(store),fitted=types(store,entry);
   assert(fitted.slice(0,3).includes(7));assert(fitted.slice(0,3).includes(8));
@@ -367,7 +438,7 @@ test('automatic carrier utility does not duplicate reconnaissance across hulls b
   assert.equal(manual.ships[0].slots[4],401);assert.equal(manual.ships[1].slots[4],402);
 });
 
-test('air fitting offers a conventional bomber for unmodeled jets without removing BA or overriding manual jets',()=>{
+test('unmodeled jets stay explicit while separate conventional alternatives retain BA and manual jets',()=>{
   const store=carrierFixture([34,21,12,9]);
   store.const.$equips[9010]={api_id:9010,api_name:'喷气舰爆',api_type:[0,0,57,57],api_baku:15,api_tyku:6};
   store.const.$shipTypes[11].api_equip_type[57]=1;
@@ -376,9 +447,9 @@ test('air fitting offers a conventional bomber for unmodeled jets without removi
   const before=JSON.stringify(store);
   assert.equal(reading(store,scheme(store),reference).estimate.status,'unknown');
   const fitted=airLoadout(store,scheme(store),availableEquipment(store),15,reference);
-  assert.deepEqual(types(store,fitted.ships[0]).slice(0,2),[8,7]);
-  assert(types(store,fitted.ships[0]).includes(6));
-  assert(reading(store,fitted,reference).estimate.margins.superiority.min>=0);
+  assert.equal(type(store,fitted.ships[0].slots[1]),57);
+  const alternatives=require('../../src/recommendation/loadout/jet_fitting').jetLoadouts(store,scheme(store),availableEquipment(store));
+  assert(alternatives.some(s=>types(store,s.ships[0]).includes(7)&&types(store,s.ships[0]).includes(8)));
   const held=airLoadout(store,scheme(store),availableEquipment(store),15,reference,'superiority',[{id:1,keep:{1:true}}]);
   assert.equal(held?.ships[0].slots[1]??710,710);
   assert.equal(JSON.stringify(store),before);

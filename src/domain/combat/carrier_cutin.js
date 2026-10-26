@@ -4,7 +4,8 @@
 const {combatBonuses}=require('./equipment_bonuses');
 const {airPower}=require('../fleet/fleet_metrics');
 const {routeAirReference,estimateRouteAir}=require('../routes/route_air');
-const coefficients={jFjBjB:135,jFjB:125,jFBA:115,FBA:125,BBA:140,BA:155};
+const jets=require('./jet_aviation');
+const coefficients={...Object.fromEntries(Object.entries(jets.CI).map(([k,v])=>[k,v.observationConstant])),FBA:125,BBA:140,BA:155};
 const value=v=>{const n=Array.isArray(v)?v[0]:v;return n==null||n===''||!Number.isFinite(Number(n))?null:Number(n);};
 const ids=s=>(s.slots||[]).concat(s.ex).filter(id=>id>0);
 const raw=e=>value(e.master?.api_saku??0);
@@ -90,12 +91,12 @@ function read(context,target,flagship,modes,{blocked=false,uncertain=false,const
 }
 function attackPowers(target,store,modes){
   const attack=require('./attack_power'),base=attack.fireBase(target,store),blue=combatBonuses(store,target);
-  const multipliers={jFjBjB:1.35,jFjB:1.3,jFBA:1.27,FBA:1.25,BBA:1.2,BA:1.15};
+  const multipliers={...Object.fromEntries(Object.entries(jets.CI).map(([k,v])=>[k,v.multiplier])),FBA:1.25,BBA:1.2,BA:1.15};
   const aircraft=target.items.filter(e=>[7,8,57,58].includes(e.type)&&target.after.slots.includes(e.id));
   const torpedo=aircraft.reduce((n,e)=>n+Number(e.master.api_raig||0),0)+blue.torpedo;
   const bomb=aircraft.reduce((n,e)=>n+Number(e.master.api_baku||0),0)+blue.bomber;
   const power=base.value===null||!blue.known?null:attack.cap(Math.floor((base.value+torpedo+Math.floor(bomb*1.3))*1.5)+55,220);
-  return {rows:modes.map(label=>({label,hits:1,power:power===null?null:Math.floor(power*multipliers[label])})),
+  return {basePower:power,rows:modes.map(label=>({label,hits:1,power:power===null?null:Math.floor(power*multipliers[label])})),
     reasons:[...new Set([...base.reasons,...blue.reasons])]};
 }
 module.exports={createContext,read,attackPowers};

@@ -27,7 +27,7 @@ function orderCarrierUtility(store,scheme,heldSlots=[]){
     const capacity=k=>Number(ship.api_onslot?.[k]??master.api_maxeq?.[k]??0);
     const legal=(id,k)=>{
       if(id<=0)return true;
-      if([6,7,8,9,11,45,57,58].includes(type(id))&&capacity(k)<=0)return false;
+      if([6,7,8,9,11,45,56,57,58].includes(type(id))&&capacity(k)<=0)return false;
       try{return R.canEquip(store,entry.id,id,k)&&R.acceptsOtherSlot(store,entry.id,id,k);}catch(_){return false;}
     };
     let moved=false;

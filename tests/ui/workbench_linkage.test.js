@@ -519,6 +519,20 @@ test('mechanism masks reuse bundled game silhouettes and inherit each badge colo
   assert.equal(icon({key:'speed'}),null);assert.equal(icon({key:'expedition-morale',label:'✦ 有闪 65'}),null);
 });
 
+test('jet assault has its own original silver icon and precedes torpedo and ordinary aviation without changing badge dimensions',()=>{
+  const fs=require('fs'),{fileURLToPath}=require('url'),React={createElement:(type,props,...children)=>({type,props,children})};
+  const badges=require('../../src/ui/components/mechanism_badges')(React)([
+    {key:'opening-air',label:'开幕航空攻击',state:'ready'},{key:'torpedo',label:'先制雷击',state:'ready'},
+    {key:'jet-assault',label:'喷气强袭',state:'ready'}]);
+  assert.deepEqual(badges.map(b=>b.props['data-mechanism']),['jet-assault','torpedo','opening-air']);
+  assert.equal(badges[0].props['data-category'],'jet');assert.equal(badges[0].props.className,'paa-wb-mechanism');
+  const icon=require('../../src/ui/components/mechanism_badges').createIcon(React)({key:'jet-assault'});
+  assert.equal(icon.props.style.width,16);assert.equal(icon.props.style.height,14);
+  assert.equal(icon.props.style.backgroundColor,'currentColor');
+  const asset=fileURLToPath(icon.props.style.maskImage.match(/^url\("(.+)"\)$/)[1]);
+  assert.match(asset,/jet-assault\.svg$/);assert.match(fs.readFileSync(asset,'utf8'),/<path/);
+});
+
 test('combined ground icons retain each game silhouette once inside a single noninteractive group',()=>{
   const icon=require('../../src/ui/components/mechanism_badges').createIcon({createElement:(type,props,...children)=>({type,props,children})});
   for(const ids of [['landing','rocket'],['landing','aircraft']]){

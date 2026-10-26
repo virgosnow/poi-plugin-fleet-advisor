@@ -1,7 +1,8 @@
 'use strict';
 // Full-resupply, normal-hit UI references. Not a battle simulation or a
-// recommendation score. See docs/ui.md for the source and excluded modifiers.
+// recommendation score. See docs/ARCHITECTURE.md for mechanism boundaries.
 const {cap,torpedoPanel}=require('./attack_power'),{bonus}=require('./opening_asw'),{combatBonuses}=require('./equipment_bonuses');
+const jet=require('./jet_aviation');
 const compact=s=>String(s||'').normalize('NFKC').replace(/\s/g,'');
 const number=v=>v==null||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const first=v=>number(Array.isArray(v)?v[0]:v);
@@ -77,11 +78,12 @@ function aviationPowers(target,store,slots,allocationSlots=slots){
   if(unsupported)reasons.add('喷式舰攻攻击倍率未收录');
   const extra=(eligible[0]?.slot===slot?planeBonus:0)+(e.type===8?crew.torpedo:crew.bomber);
   const base=!blue.known||ambiguous||n===null||n<0||value===null||value<0||improvement===null||unsupported?null:(value+improvement+extra)*Math.sqrt(n)+25;
-  const powers=n===0?[]:base===null?[null]:e.type===8?[cap(base*.8,170),cap(base*1.5,170)]:[cap(jets?base*.7+.5:base,170)];
+  const powers=n===0?[]:base===null?[null]:e.type===8?[cap(base*.8,170),cap(base*1.5,170)]:
+    [jets?jet.jetPower(value,n,{phase:'ordinary',extra:(improvement||0)+extra}):cap(base,170)];
   if(n===null)reasons.add(`第 ${slot+1} 槽容量待确认`);if(improvement===null)reasons.add(`第 ${slot+1} 槽改修资料缺失`);
   const line=n===0?'攻击力：不可用':`攻击力：${powers.map(p=>p??'待确认').join(' 或 ')} × 1击`;
-  return {slot,name:e.master.api_name,planes:n,powers,...jets?{jetAssault:base===null||n===0?null:cap((value+(improvement||0))*Math.sqrt(n)+25,170)}:{},
-   detail:`第 ${slot+1} 槽 ${e.master.api_name}（${n??'待确认'} 架）\n${jets?'航空战':''}${line}${jets?`\n喷式强袭攻击力：${base===null?'待确认':n===0?'不可用':cap((value+(improvement||0))*Math.sqrt(n)+25,170)} × 1击`:''}`};
+  return {slot,name:e.master.api_name,planes:n,powers,...jets?{jetAssault:jet.jetPower(value,n)}:{},
+   detail:`第 ${slot+1} 槽 ${e.master.api_name}（${n??'待确认'} 架）\n${line}`};
  });
  return {rows,reasons:[...reasons],notes:rows.some(r=>r.powers.length===2)?['舰攻两档威力各约50%。']:[],detail:rows.map(r=>r.detail).join('\n')};
 }

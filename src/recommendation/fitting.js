@@ -2,6 +2,7 @@
 // Equipment variants for route constraints and combat roles; preserve held slots.
 const {canEquip,acceptsOtherSlot}=require('../domain/fleet/equipment_rules');
 const {orderCarrierUtility}=require('../domain/fleet/equipment_order');
+const jets=require('../domain/combat/jet_aviation');
 const {airPower,speed}=require('../domain/fleet/fleet_metrics');
 const routes=require('../domain/routes/normal_routes');
 const routePlans=require('../domain/routes/route_plans');
@@ -116,14 +117,14 @@ function gearVariant(store,scheme,inventory,kind,profile,area,phase,{stopWhen,ma
     // Preserve surface-combat equipment on mixed routes; on pure submarine
     // routes, keep existing ASW gear and replace ordinary gear if needed.
     if(previous>0&&kind==='los'){
-      const carrier=[7,11,18].includes(stype),attack=[7,8].includes(previousType);
+      const carrier=[7,11,18].includes(stype),attack=[7,8,57,58].includes(previousType);
       const previousMaster=store.const.$equips[store.info.equips[previous]?.api_slotitem_id];
-      if([6,45,33,39,30].includes(previousType)||[33,34,87].includes(Number(previousMaster?.api_id))||Number(previousMaster?.api_type?.[3])===50||antiGroundStrength(previousMaster)>0||
+      if([6,45,56,33,39,30].includes(previousType)||[33,34,87].includes(Number(previousMaster?.api_id))||Number(previousMaster?.api_type?.[3])===50||antiGroundStrength(previousMaster)>0||
         profile?.counts?.asw?.maximum>0&&[14,15,40].includes(previousType))continue;
       if(!allowCombatLoss&&stype===2&&[1,5].includes(previousType)&&
         slots.filter(id=>[1,5].includes(typeOf(id))).length<=
           requiredDestroyerGuns(area,phase,profile))continue;
-      if(attack&&carrier&&slots.filter(id=>[7,8].includes(typeOf(id))).length<=1)
+      if(attack&&carrier&&slots.filter(id=>[7,8,57,58].includes(typeOf(id))).length<=1)
         continue;
       if(!allowCombatLoss&&[1,2,3,4,5].includes(previousType)&&
         slots.filter(id=>[1,2,3,4,5].includes(typeOf(id))).length<=
@@ -239,8 +240,8 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
   if(!positions.length)return null;
   const typeOf=id=>id>0?Number(store.const.$equips[
     store.info.equips[id]?.api_slotitem_id]?.api_type?.[2]):null;
-  const fighters=inventory.filter(row=>[6,45].includes(Number(row.master.api_type[2])));
-  const attackers=inventory.filter(row=>[7,8].includes(Number(row.master.api_type[2])));
+  const fighters=inventory.filter(row=>[6,45,56].includes(Number(row.master.api_type[2])));
+  const attackers=inventory.filter(row=>[7,8,57].includes(Number(row.master.api_type[2])));
   const occupiedEx=new Set(scheme.ships.map(entry=>entry.ex??store.info.ships[entry.id].api_slot_ex)
     .filter(id=>id>0));
   const used=new Set([...slots.values()].flat().filter(id=>id>0).concat([...occupiedEx]));
@@ -271,7 +272,7 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     });
     try{return reading();}finally{for(const [position,id]of before)slots.get(position.shipId)[position.slot]=id;}
   };
-  const attackCount=shipId=>slots.get(shipId).filter(id=>[7,8,11].includes(typeOf(id))).length;
+  const attackCount=shipId=>slots.get(shipId).filter(id=>[7,8,11,57].includes(typeOf(id))).length;
   const allowed=(position,item)=>{
     if(held.get(position.shipId)?.[position.slot])return false;
     if(used.has(item.id)||occupiedEx.has(item.id))return false;
@@ -308,7 +309,7 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
   // strike plane and manual holds, and never weaken an already met air goal.
   for(const position of positions.filter(p=>[7,11,18].includes(p.stype)&&small(p))){
     const old=slots.get(position.shipId)[position.slot];
-    if(old>0&&![7,8].includes(typeOf(old))||[7,8].includes(typeOf(old))&&attackCount(position.shipId)<=1)continue;
+    if(old>0&&![7,8,57].includes(typeOf(old))||[7,8,57].includes(typeOf(old))&&attackCount(position.shipId)<=1)continue;
     const minimum=Math.min(required,total().min);
     const item=alternatives(position,utility).find(item=>
       (Number(item.master.api_type[2])!==9||!slots.get(position.shipId).some(id=>typeOf(id)===9))&&
@@ -321,24 +322,21 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
       Number(position.master.api_maxeq?.[position.slot]||0);
     const type=Number(item.master.api_type[2]);
     const hasType=slots.get(position.shipId).some(id=>typeOf(id)===type);
+    if(type===57){
+      const ordinary=jets.jetPower(Number(item.master.api_baku||0),planes,{phase:'ordinary'})||0;
+      const assault=jets.steelAvailable(store)>0&&reference?.nodes?.some(n=>jets.applicable(n)===true)?jets.jetPower(Number(item.master.api_baku||0),planes)||0:0;
+      return ordinary+assault+(hasType?0:40);
+    }
     return (Number(item.master.api_raig||0)+Number(item.master.api_baku||0))*
       Math.sqrt(Math.max(0,planes))+Number(item.master.api_houg||0)*1.5+(hasType?0:40);
   };
-  // Offer a conventional strike outfit when the route-loss model cannot
-  // assess a jet's extra air stage. Keep the original seed and manual jets;
-  // do not obtain a "known" air result by replacing them with reconnaissance.
-  if(reference?.status==='known')for(const position of positions){
-    const jetType=typeOf(slots.get(position.shipId)[position.slot]);
-    if(![57,58].includes(jetType)||protectedAttackSlots.has(position.shipId+':'+position.slot))continue;
-    const choices=alternatives(position,attackers.filter(item=>Number(item.master.api_type[2])===(jetType===57?7:8)))
-      .sort((a,b)=>attackValue(position,b)-attackValue(position,a)||a.id-b.id);
-    if(choices.length)replace(position,choices[0].id);
-  }
+  // Conventional and jet strike outfits are enumerated by jetLoadouts. Do
+  // not normalize a legal jet away merely to avoid its extra air phase.
   const bestFighter=(where,allowAttackLoss)=>{
     let best=null;
     for(const position of positions.filter(where)){
       const old=slots.get(position.shipId)[position.slot],oldType=typeOf(old);
-      if([7,8,11].includes(oldType)&&(!allowAttackLoss||attackCount(position.shipId)<=1))continue;
+      if([7,8,11,57].includes(oldType)&&(!allowAttackLoss||attackCount(position.shipId)<=1))continue;
       if(position.stype===10){
         if(old>0&&![6,7,9,10,11,12,13,21,24,27,35,39,45].includes(oldType))continue;
         if([10,11].includes(oldType)&&!slots.get(position.shipId).some((id,k)=>k!==position.slot&&[10,11].includes(typeOf(id))))continue;
@@ -350,12 +348,12 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
         if(position.stype===3||position.stype===5||position.stype===6){
           if(type!==45)continue;
         }else if(position.stype===10){if(![6,45].includes(type))continue;}
-        else if(![7,11,18].includes(position.stype)||type!==6)continue;
+        else if(![7,11,18].includes(position.stype)||![6,56].includes(type))continue;
         const next=contribution(position,item.id);
         const minGain=next.min-prior.min,maxGain=next.max-prior.max;
         if(minGain<=0&&maxGain<=0)continue;
         const candidate={position,item,minGain,maxGain,
-          attackLoss:Number([7,8,11].includes(oldType))};
+          attackLoss:Number([7,8,11,57].includes(oldType))};
         if(!best||minGain>best.minGain||minGain===best.minGain&&
           (maxGain>best.maxGain||maxGain===best.maxGain&&
             candidate.attackLoss<best.attackLoss))best=candidate;
@@ -373,7 +371,7 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
   };
   // Keep normal carrier fighter cover when carriers are present. Small-ship
   // fleets can instead use one compatible water fighter in a spare slot.
-  const hasFighter=()=>positions.some(p=>[6,45].includes(typeOf(slots.get(p.shipId)[p.slot]))&&
+  const hasFighter=()=>positions.some(p=>[6,45,56].includes(typeOf(slots.get(p.shipId)[p.slot]))&&
     contribution(p,slots.get(p.shipId)[p.slot]).min>0);
   if(uncontested&&!hasFighter()){
     const carrier=bestFighter(p=>[7,11,18].includes(p.stype),false)||
@@ -408,7 +406,7 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     let best=null;
     for(const position of positions.filter(p=>[7,11,18].includes(p.stype)&&!small(p))){
       const old=slots.get(position.shipId)[position.slot],oldType=typeOf(old);
-      if(![7,8].includes(oldType))continue;
+      if(![7,8,57].includes(oldType))continue;
       const previous=inventory.find(item=>item.id===old);if(!previous)continue;
       const prior=contribution(position,old);
       for(const item of alternatives(position,attackers.filter(item=>Number(item.master.api_type[2])===oldType))){
@@ -430,13 +428,13 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
   // Once the target is secure, trade surplus fighters back for strike planes.
   // Retain only swaps that keep the conservative air-power bound above target.
   if(total().min>=required)for(const position of positions){
-    if(![7,11,18].includes(position.stype)||typeOf(slots.get(position.shipId)[position.slot])!==6)
+    if(![7,11,18].includes(position.stype)||![6,56].includes(typeOf(slots.get(position.shipId)[position.slot])))
       continue;
     if(small(position)&&attackCount(position.shipId)>0){
       // Use spare fighter cover for fixed firepower before considering any
       // extra fragile strike slot. Retain a fighter for the ship's FBA outfit.
-      if(slots.get(position.shipId).filter(id=>typeOf(id)===6).length>1){
-        const fixed=alternatives(position,utility.filter(i=>Number(i.master.api_type[2])!==6))
+      if(slots.get(position.shipId).filter(id=>[6,56].includes(typeOf(id))).length>1){
+        const fixed=alternatives(position,utility.filter(i=>![6,56].includes(Number(i.master.api_type[2]))))
           .sort((a,b)=>Number(b.master.api_houg||0)-Number(a.master.api_houg||0)||a.id-b.id)
           .find(item=>trial([[position,item.id]])>=required&&
             (!reference||trial([[position,item.id]],()=>estimateRouteAirMargins(totalAir(),reference)?.[goal]?.min>=0))&&
@@ -445,7 +443,7 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
       }
       continue;
     }
-    if(uncontested&&positions.filter(p=>[6,45].includes(typeOf(slots.get(p.shipId)[p.slot]))).length<=1)continue;
+    if(uncontested&&positions.filter(p=>[6,45,56].includes(typeOf(slots.get(p.shipId)[p.slot]))).length<=1)continue;
     const old=slots.get(position.shipId)[position.slot],prior=contribution(position,old);
     const current=total().min;
     const choices=alternatives(position,attackers,true).map(item=>{
