@@ -77,7 +77,7 @@ test('hull ASW sampling is reused within a search and refreshed after observed s
 
 test('repeated air fits reuse per-slot metrics only inside an immutable search scope',()=>{
   const store=fixture(),inventory=availableEquipment(store),base=scheme(store),original=metrics.airPower;
-  const file=require.resolve('../../src/recommendation/fitting');delete require.cache[file];let calls=0;
+  const file=require.resolve('../../src/recommendation/loadout/air_fitting');delete require.cache[file];let calls=0;
   metrics.airPower=(...args)=>{calls++;return original(...args);};
   try{
     const {airLoadout}=require(file),plain=airLoadout(store,base,inventory,90);
@@ -107,8 +107,20 @@ test('cached suitability never caches stock allocation or manual holds',()=>{
   });
 });
 
+test('reused exact air fits isolate output edits and held slots',()=>{
+  const store=fixture(),inventory=availableEquipment(store),base=scheme(store);
+  const {airLoadout}=require('../../src/recommendation/loadout/air_fitting');
+  withEquipmentIndexCache(store,()=>{
+    const result=airLoadout(store,base,inventory,90),expected=structuredClone(result);
+    result.ships[0].slots[0]=-1;
+    assert.deepEqual(airLoadout(store,base,inventory,90),expected);
+    const held=[{...base.ships[0],keep:{0:true,1:true,2:true,3:true}}];
+    assert.deepEqual(airLoadout(store,base,inventory,90,undefined,'superiority',held).ships[0].slots,base.ships[0].slots);
+  });
+});
+
 test('new search scopes observe changed capacity, steel and equipment instead of reusing old slot facts',()=>{
-  const store=fixture(),original=metrics.airPower,file=require.resolve('../../src/recommendation/fitting');
+  const store=fixture(),original=metrics.airPower,file=require.resolve('../../src/recommendation/loadout/air_fitting');
   delete require.cache[file];const seen=[];
   metrics.airPower=(...args)=>{const value=original(...args);seen.push(...value.slots);return value;};
   try{

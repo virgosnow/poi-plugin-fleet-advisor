@@ -292,7 +292,28 @@ function evaluatePoint(rules,ships,metrics,prepared){
 function rulesFor(map,node,phase){
   return map.machineRules?.[`${node}#${phase}`]??map.machineRules?.[node];
 }
-function graphChance(map,node,targets,ships,metrics,seen=new Set(),phase=null,assumeTentative=true){
+const compiledRoutePoints=new WeakMap();
+function createRouteAssessor(ships,metrics){
+  const readings=new Map();
+  return (rules,visited)=>{
+    let prepared=compiledRoutePoints.get(rules);
+    if(!prepared){
+      const history=new Set();
+      const scan=value=>{if(!value||typeof value!=='object')return;
+        if(value.pathIncludes)history.add(value.pathIncludes);
+        for(const child of Object.values(value))scan(child);};
+      scan(rules);
+      prepared={run:preparePoint(rules),history:[...history]};compiledRoutePoints.set(rules,prepared);
+    }
+    let rows=readings.get(rules);if(!rows){rows=new Map();readings.set(rules,rows);}
+    // Only path-dependent rules distinguish visited histories. Missing history
+    // remains unknown; it must not be confused with an empty visited set.
+    const key=prepared.history.length?visited?prepared.history.map(id=>visited.includes(id)?1:0).join(''):'unknown':'';
+    if(!rows.has(key))rows.set(key,prepared.run(ships,visited?{...metrics,visitedNodes:visited}:metrics));
+    return rows.get(key);
+  };
+}
+function graphChance(map,node,targets,ships,metrics,seen=new Set(),phase=null,assumeTentative=true,assess){
   if(phase&&map.unavailableByPhase?.[phase]?.includes(node))return [0,0,[]];
   const availabilityUnknown=phase&&map.uncertainAvailabilityByPhase?.[phase]?.includes(node);
   if(targets.includes(node))return availabilityUnknown?[0,1,[]]:[1,1,[]];
@@ -302,15 +323,15 @@ function graphChance(map,node,targets,ships,metrics,seen=new Set(),phase=null,as
     map.terminalNodes.includes(node)||map.bossNodes.includes(node))return [0,0,[]];
   const next=new Set(seen);next.add(node);
   const fixedEdge=map.fixedEdges?.[`${node}#${phase}`]??map.fixedEdges?.[node];
-  if(fixedEdge)return graphChance(map,fixedEdge,targets,ships,metrics,next,phase,assumeTentative);
+  if(fixedEdge)return graphChance(map,fixedEdge,targets,ships,metrics,next,phase,assumeTentative,assess);
   const point=map.branchPoints.find(item=>item.from===node&&(!phase||!item.phase||item.phase===phase));
   if(!point||!rulesFor(map,node,phase))return [0,1,[]];
-  const assessment=evaluatePoint(rulesFor(map,node,phase),ships,{...metrics,visitedNodes:[...seen]});
+  const assessment=assess(rulesFor(map,node,phase),[...seen]);
   const destinations=!assumeTentative&&assessment.status==='tentative'?
     assessment.possibleDestinations:assessment.destinations;
   if(!destinations.length)return [0,1,[]];
   const children=destinations.map(destination=>
-    graphChance(map,destination,targets,ships,metrics,next,phase,assumeTentative));
+    graphChance(map,destination,targets,ships,metrics,next,phase,assumeTentative,assess));
   const tentativePoints=[...new Set([
     ...(assessment.tentative?[node]:[]),
     ...children.filter(child=>child[1]>0).flatMap(child=>child[2]),
@@ -326,20 +347,20 @@ function graphChance(map,node,targets,ships,metrics,seen=new Set(),phase=null,as
 }
 // Count graph edges on paths that can reach the requested point. This is a
 // route-length proxy (the source tables do not classify every node as battle).
-function reachableHops(map,node,targets,ships,metrics,seen=new Set(),phase=null){
+function reachableHops(map,node,targets,ships,metrics,seen=new Set(),phase=null,assess){
   if(phase&&map.unavailableByPhase?.[phase]?.includes(node))return [];
   if(targets.includes(node))return [0];
   if(seen.has(node)||map.deadEnds?.includes(node)||map.terminalNodes.includes(node)||
     map.bossNodes.includes(node))return [];
   const next=new Set(seen);next.add(node);
   const fixed=map.fixedEdges?.[`${node}#${phase}`]??map.fixedEdges?.[node];
-  if(fixed)return reachableHops(map,fixed,targets,ships,metrics,next,phase).map(n=>n+1);
+  if(fixed)return reachableHops(map,fixed,targets,ships,metrics,next,phase,assess).map(n=>n+1);
   const rules=rulesFor(map,node,phase);
   if(!rules)return [];
-  const assessment=evaluatePoint(rules,ships,{...metrics,visitedNodes:[...seen]});
+  const assessment=assess(rules,[...seen]);
   const destinations=assessment.status==='tentative'?assessment.possibleDestinations:assessment.destinations;
   return (destinations||[]).flatMap((to,i)=>assessment.probabilities?.[i]?.probability===0?[]:
-    reachableHops(map,to,targets,ships,metrics,next,phase).map(n=>n+1));
+    reachableHops(map,to,targets,ships,metrics,next,phase,assess).map(n=>n+1));
 }
 function evaluateNormalRoute(store,options){
   const timing=perf.begin('route.evaluate');
@@ -354,6 +375,7 @@ function evaluateNormalRouteCore(store,{area,target='boss',fleet=1,scheme,phase}
   if(phase!==undefined&&!['gauge1','gauge2','gauge3','gimmick'].includes(phase))
     throw error('INVALID_QUERY','phase 须为 gauge1、gauge2、gauge3 或 gimmick');
   const {ships,metrics}=resolveFleet(store,fleet,scheme);
+  const assess=createRouteAssessor(ships,metrics);
   const airControl=assessAirControl(map,metrics.airPower,phase);
   const unmappedLandingCraft=ships.filter(ship=>ship.landingCraftEquipped===null)
     .map(ship=>ship.name);
@@ -369,15 +391,15 @@ function evaluateNormalRouteCore(store,{area,target='boss',fleet=1,scheme,phase}
       return {from:point.from,phase:point.phase||null,
     destinations:point.destinations,clauses:point.clauses,
     assessment:fixed?{status:'fixed',destinations:[fixed],reason:'已校订固定连接'}:
-      rulesFor(map,point.from,phase)?evaluatePoint(rulesFor(map,point.from,phase),ships,metrics):
+    rulesFor(map,point.from,phase)?assess(rulesFor(map,point.from,phase)):
       {status:'unknown',destinations:point.destinations,reason:'该分岐点尚未完成机器规则校订'}};});
   let verdict='unknown',probability=null,assumedChanceRange=null,tentativePoints=[];
   // Only maps with a reviewed, complete start-to-target graph may emit a
   // reachability verdict. Other maps retain the per-point evidence only.
   let chanceRange=null;
   if(map.graphComplete){
-    const assumed=graphChance(map,'start',targetNodes,ships,metrics,new Set(),phase||null);
-    const conservative=graphChance(map,'start',targetNodes,ships,metrics,new Set(),phase||null,false);
+    const assumed=graphChance(map,'start',targetNodes,ships,metrics,new Set(),phase||null,true,assess);
+    const conservative=graphChance(map,'start',targetNodes,ships,metrics,new Set(),phase||null,false,assess);
     chanceRange=conservative.slice(0,2);
     tentativePoints=assumed[2];
     if(tentativePoints.length)assumedChanceRange=assumed.slice(0,2);
@@ -387,7 +409,7 @@ function evaluateNormalRouteCore(store,{area,target='boss',fleet=1,scheme,phase}
       minimum===maximum?'possibleRandom':'possibleUnverified';
     probability=minimum===maximum&&verdict!=='likelyGuaranteed'?minimum:null;
   }
-  const hops=map.graphComplete?reachableHops(map,'start',targetNodes,ships,metrics,new Set(),phase||null):[];
+  const hops=map.graphComplete?reachableHops(map,'start',targetNodes,ships,metrics,new Set(),phase||null,assess):[];
   return {area,target,targetNodes,phase:phase||null,fleet,ships,
     lineOfSight:metrics.lineOfSight,speed:metrics.speed,openingASW:metrics.openingASW,
     airControl,bossNodes:map.bossNodes,

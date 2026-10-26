@@ -6,6 +6,7 @@ const catalog=new Map(require('../../../data/sortie/enemy_catalog.json').enemies
 const pending=require('../../../data/sortie/adjudications.json').entries.filter(e=>e.status==='pending');
 const cache=new Map();
 const jets=require('../combat/jet_aviation');
+const {createMarginPlan}=require('./air_margin_plan');
 const noAirBattle=new Set(['start','noBattle','item','resources','transport','whirlpool','activeBranch','airRecon','nightBattle']);
 const valid=n=>Number.isFinite(n)&&n>=0;
 function noCombatAircraft(ship){
@@ -341,7 +342,7 @@ function simulationPaths(reference){
     if(!seen.has(key)){seen.set(key,unique.length);unique.push(relevant);}
     indices.push(seen.get(key));
   }
-  const result={unique,indices};pathPlans.set(reference,result);return result;
+  const result={unique,indices,trial:createMarginPlan(unique,{airState,stageOneLoss,slotPower})};pathPlans.set(reference,result);return result;
 }
 const slotKeys=new WeakMap();
 // Slot objects are often reused by loadout trials. Check their scalar inputs
@@ -392,23 +393,48 @@ function estimateRouteAirMargins(air,reference){
   const timing=perf.begin('air.trial');
   try{return estimateRouteAirMarginsCore(air,reference);}finally{perf.end(timing);}
 }
-function estimateRouteAirMarginsCore(air,reference){
+function estimateRouteAirMinimum(air,reference){
+  const timing=perf.begin('air.trial.minimum');
+  try{return estimateRouteAirMarginsCore(air,reference,true);}finally{perf.end(timing);}
+}
+// A failed inequality needs only one failing battle, not a full report. This
+// never substitutes a partial value for a margin or changes ranking numbers.
+// null means unknown, so callers retain their existing unknown-data policy.
+function routeAirMeets(air,reference,goal,minimum=0){
+  if(!air||reference?.status!=='known'||air.status!=='range'||!Array.isArray(air.slots)||
+    air.slots.some(s=>s.unknown||!s.planes||!s.effectiveAntiAir||!s.proficiencyBonus))return null;
+  const keys=air.slots.map(s=>aircraftKey(s,false)),signature=keys.slice().sort().join(';');
+  let cache=marginCache.get(reference);if(!cache){cache=new Map();marginCache.set(reference,cache);}
+  const minimumEntry=cache.get('min:'+signature)||cache.get(signature);
+  if(minimumEntry)return minimumEntry.value?minimumEntry.value[goal].min>=minimum:null;
+  const key='test:'+goal+':'+minimum+':'+signature,entry=cache.get(key);
+  if(entry){marginEntries.delete(entry);marginEntries.set(entry,true);perf.count('air.test.hit');return entry.value;}
+  const result=simulationPaths(reference).trial(air,keys,true,{goal:goal==='supremacy'?1:0,minimum});
+  perf.count('air.test.miss');
+  if(result!==undefined)return saveMargins(cache,key,result);
+  const margins=estimateRouteAirMinimum(air,reference);
+  return saveMargins(cache,key,margins?margins[goal].min>=minimum:null);
+}
+function estimateRouteAirMarginsCore(air,reference,minimumOnly=false){
   if(!air||reference.status!=='known'||air.status!=='range'||!Array.isArray(air.slots)||
     air.slots.some(s=>s.unknown||!s.planes||!s.effectiveAntiAir||!s.proficiencyBonus))return null;
   // Slot order/ship identity cannot affect integer air power or per-slot loss.
   // Multiplicity is retained: identical aircraft in two slots count twice.
-  const key=air.slots.map(slot=>aircraftKey(slot,false)).sort().join(';'),full=simulationCache.get(reference);
-  const fullKey=full&&air.slots.some(slot=>jets.isJet(slot.aircraftType))?
-    air.slots.map(slot=>aircraftKey(slot)).sort().join(';'):key;
-  if(full?.has(fullKey)){perf.count('air.trial.fullHit');return full.get(fullKey).margins;}
+  const slotSignatures=air.slots.map(slot=>aircraftKey(slot,false));
+  const signature=slotSignatures.slice().sort().join(';'),key=(minimumOnly?'min:':'')+signature,full=simulationCache.get(reference);
   let cached=marginCache.get(reference);if(!cached){cached=new Map();marginCache.set(reference,cached);}
   if(cached.has(key)){
     perf.count('air.trial.hit');
     const entry=cached.get(key);marginEntries.delete(entry);marginEntries.set(entry,true);return entry.value;
   }
+  const fullKey=full&&air.slots.some(slot=>jets.isJet(slot.aircraftType))?
+    air.slots.map(slot=>aircraftKey(slot)).sort().join(';'):signature;
+  if(full?.has(fullKey)){perf.count('air.trial.fullHit');return saveMargins(cached,key,full.get(fullKey).margins);}
   perf.count('air.trial.miss');
+  const plan=simulationPaths(reference),fast=plan.trial(air,slotSignatures,minimumOnly);
+  if(fast!==undefined)return saveMargins(cached,key,fast);
   const margins={superiority:{min:Infinity,max:Infinity},supremacy:{min:Infinity,max:Infinity}};
-  for(const nodes of simulationPaths(reference).unique){
+  for(const nodes of plan.unique){
     const value=simulateAirPath(air,nodes,false);
     if(value.status!=='estimated')return saveMargins(cached,key,null);
     for(const goal of ['superiority','supremacy'])for(const side of ['min','max'])
@@ -416,4 +442,4 @@ function estimateRouteAirMarginsCore(air,reference){
   }
   return saveMargins(cached,key,margins);
 }
-module.exports={routeAirReference,estimateRouteAir,estimateRouteAirMargins,simulateAirPath,stageOneLoss};
+module.exports={routeAirReference,estimateRouteAir,estimateRouteAirMargins,estimateRouteAirMinimum,routeAirMeets,simulateAirPath,stageOneLoss};

@@ -286,4 +286,5 @@ function createEquipmentPlanner(getStore) {
   freeListAll=indexed('free',freeListAll);
   return {resolvePlan,currentState,sameState,occupiedMap,sourceMap,availableShip,otherPickerList,freeListAll,freePickerList,t3of,canEquip,categoryFor,categoryAccepts,get groupDefs(){return groupDefs();}};
 }
-module.exports={createEquipmentPlanner,withEquipmentIndexCache,snapshotMemo};
+module.exports={createEquipmentPlanner,withEquipmentIndexCache,snapshotMemo,
+  hasEquipmentIndexCache:snapshot=>indexScopes.has(snapshot)};

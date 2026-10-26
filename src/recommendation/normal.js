@@ -1,7 +1,7 @@
 'use strict';
 const perf=require('../shared/performance_trace');
 // Bounded normal-map search, batch evaluation and final loadout validation.
-const {withEquipmentIndexCache}=require('../domain/fleet/equipment_planner');
+const {withEquipmentIndexCache,snapshotMemo}=require('../domain/fleet/equipment_planner');
 const {error}=require('../shared/errors');
 const {canEquip,acceptsOtherSlot}=require('../domain/fleet/equipment_rules');
 const {orderEquipment,orderAircraftSlots}=require('../domain/fleet/equipment_order');
@@ -77,10 +77,14 @@ function candidateEvaluator(store,args,ctx,inventory){
   const available=new Map(inventory.map(i=>[i.id,i]));
   const fittingProfile=previewForMap(area,{target,phase});
   const initialWantsAsw=aswEscortLimit(fittingProfile)>0;
+  const cache=snapshotMemo(store,'search.candidates',JSON.stringify(args),()=>new Map());
   return (rows,schemeOverride,preserveLoadout=false)=>{
     try{
       const heldScheme=holdDraftEquipment(store,schemeOverride||emptyLoadout(store,schemeOf(ctx.fleet,rows),args.heldSlots),args.heldSlots);
       const scheme=orderAircraftSlots(store,preserveLoadout?heldScheme:completeCombatLoadout(store,heldScheme,inventory,{area,asw:initialWantsAsw,profile:fittingProfile,heldSlots:args.heldSlots}),args.heldSlots);
+      const signature=JSON.stringify(scheme);
+      if(cache.has(signature)){perf.count('candidate.hit');return {...cache.get(signature),donorShipIds:[]};}
+      perf.count('candidate.miss');
       if(!jetCutInAllowed(store,scheme,args.heldSlots))return null;
       rows=scheme.ships.map(s=>ctx.byId.get(s.id));
       // Validate slot feasibility during search; build the costly click plan
@@ -108,6 +112,8 @@ function candidateEvaluator(store,args,ctx,inventory){
         routeAfterEquipPending:route.lineOfSight?.status==='estimate'&&
           route.chanceRange?.[0]!==1,
         donorShipIds:[]};
+      if(cache.size>=4096)cache.delete(cache.keys().next().value);
+      cache.set(signature,candidate);
       return candidate;
     }catch(_){/* invalid candidate, continue bounded search */}
   };
@@ -143,7 +149,13 @@ function calculateBatch(store,batch){
     return (batch.serial?[undefined]:items).map(shard=>routePlans.hullSeeds(ctx,
       {...batch.options,shard,partial:true},shipFamilyKey));
   }
-  const evaluate=candidateEvaluator(store,args,ctx,inventory);
+  const evaluator=candidateEvaluator(store,args,ctx,inventory);
+  const evaluate=(...values)=>{
+    const candidate=evaluator(...values);
+    if(candidate&&batch.routes&&!['seeds','combat','refinement'].includes(kind)&&candidate.scores.assumedChance[1]>0)
+      candidate.preparedPaths=candidatePathFacts(store,candidate,batch.routes,args,ctx);
+    return candidate;
+  };
   if(kind==='seeds')return items.map(ids=>{
     const candidate=evaluate(ids.map(id=>ctx.byId.get(id)));
     return batch.routes?{candidate,paths:candidatePathFacts(store,candidate,batch.routes,args,ctx)}:candidate;
@@ -396,6 +408,7 @@ function* searchNormalFleet(store,args,selectedOptions){
   const evaluateCandidate=candidateEvaluator(store,args,ctx,inventory);
   const collectCandidate=(candidate,asSeed=false,paths)=>{
     if(!candidate)return;
+    paths=paths||candidate.preparedPaths;
     if(paths)preparedPaths.set(candidate,new Map(paths));
     if(asSeed){const {scheme,route,profile,scores,scoresByPreference}=candidate;
       const seed={rows:scheme.ships.map(s=>ctx.byId.get(s.id)),scheme,route,profile,scores,scoresByPreference};
@@ -583,7 +596,7 @@ function* searchNormalFleet(store,args,selectedOptions){
   if(policy||byRoute)gearKinds.push('surface');
   if(gearSeeds.some(seed=>seed.profile?.counts?.night?.maximum))gearKinds.push('night');
   let variantAttempts=0;
-  const gearResults=yield {kind:'gear',args,gearKinds,items:gearSeeds.map(({scheme,profile,scores})=>
+  const gearResults=yield {kind:'gear',args,routes:requestedRoutes,gearKinds,items:gearSeeds.map(({scheme,profile,scores})=>
     ({scheme,profile,scores:{airGoalRequired:scores.airGoalRequired,routeAirReference:scores.routeAirReference}}))};
   for(const result of gearResults){variantAttempts+=result.attempts;for(const row of result.singles)collectCandidate(row);}
   for(const result of gearResults)for(const row of result.combined)collectCandidate(row);
@@ -602,7 +615,7 @@ function* searchNormalFleet(store,args,selectedOptions){
       .sort((a,b)=>Number(guideSeedKeys.has(idsKey(b.rows)))-Number(guideSeedKeys.has(idsKey(a.rows)))||pathRank(b,option,true)-pathRank(a,option,true)).slice(0,16);
     // Freeze this route's shortlist, fit independently, then append in the
     // original order BEFORE choosing the next route's shortlist.
-    const fitted=yield {kind:'path-fit',args,option,items:[...finalists,...repairable].map(seed=>({
+    const fitted=yield {kind:'path-fit',args,routes:requestedRoutes,option,items:[...finalists,...repairable].map(seed=>({
       scheme:seed.scheme,route:seed.route,profile:seed.profile,
       score:airGoal==='ignore'?null:pathScores(seed,option),nodes:planning(seed,option).nodes||option.nodes}))};
     for(const result of fitted){variantAttempts+=result.attempts;for(const row of result.candidates)collectCandidate(row);}
@@ -626,14 +639,14 @@ function* searchNormalFleet(store,args,selectedOptions){
     const hulls=[...new Map([...upgraded,...seeds.map(s=>s.rows)].filter(rows=>rows.length===6&&rows.every(canFit)&&
       routePlans.fleetRequirementAssessment({ships:rows.map(r=>({stype:r.stype,name:r.name}))},option).eligible)
       .map(rows=>[idsKey(rows),rows])).values()].slice(0,48);
-    const fittedRows=[],speedResults=yield {kind:'speed-fit',args,option,items:hulls.map(rows=>rows.map(r=>r.id))};
+    const fittedRows=[],speedResults=yield {kind:'speed-fit',args,routes:requestedRoutes,option,items:hulls.map(rows=>rows.map(r=>r.id))};
     for(const result of speedResults){
       variantAttempts+=result.attempts;
       for(const candidate of result.candidates){const row=collectCandidate(candidate);if(row)fittedRows.push(row);}
     }
     // Refit air and LoS after reserving propulsion. Otherwise a new heavy
     // speed fleet could satisfy the route but retain an unfitted air loadout.
-    const refitted=yield {kind:'speed-refit',args,option,items:fittedRows
+    const refitted=yield {kind:'speed-refit',args,routes:requestedRoutes,option,items:fittedRows
       .sort((a,b)=>pathRank(b,option,true)-pathRank(a,option,true)).slice(0,8)
       .map(row=>({scheme:row.scheme,score:pathScores(row,option)}))};
     for(const result of refitted){variantAttempts+=result.attempts;for(const row of result.candidates)collectCandidate(row);}
@@ -649,7 +662,7 @@ function* searchNormalFleet(store,args,selectedOptions){
       rank:row=>byRoute?pathRank(row,option,true):row.scores.rank,
       quality:row=>[Number(guideHull(policy,row.scheme.ships.map(s=>ctx.byId.get(s.id)))),
         (byRoute?pathScores(row,option):row.scores).airGoalTier,row.scores.strengthProxy]});
-    const fitted=yield {kind:'los-fit',args,option,items:finalists.map(seed=>({scheme:seed.scheme,route:seed.route}))};
+    const fitted=yield {kind:'los-fit',args,routes:requestedRoutes,option,items:finalists.map(seed=>({scheme:seed.scheme,route:seed.route}))};
     for(const result of fitted){variantAttempts+=result.attempts;for(const row of result.candidates)collectCandidate(row);}
   }
   // Improve a passing fleet locally instead of rebuilding every role at once.
@@ -743,7 +756,7 @@ function* searchNormalFleet(store,args,selectedOptions){
   const groundItems=[...new Map(groundFinalists.filter(v=>routeGroundTargets(v.profile).length).map(({row,profile})=>
     [JSON.stringify([row.scheme,profile.examples]),{scheme:row.scheme,profile,scores:row.scores}])).values()];
   if(groundItems.length){
-    const fitted=yield {kind:'gear',args,gearKinds:['ground'],items:groundItems,finalGround:true};
+    const fitted=yield {kind:'gear',args,routes:requestedRoutes,gearKinds:['ground'],items:groundItems,finalGround:true};
     for(const result of fitted){variantAttempts+=result.attempts;for(const row of result.singles)collectCandidate(row);}
   }
   // Later hull replacements can acquire a touch pair after the early special
@@ -800,7 +813,7 @@ function* searchNormalFleet(store,args,selectedOptions){
     return excess?[{scheme:row.scheme,profile,scores:pathScores(row,option)}]:[];
   }):[];
   if(escortItems.length){
-    const fitted=yield {kind:'gear',args,gearKinds:['surface'],items:escortItems};
+    const fitted=yield {kind:'gear',args,routes:requestedRoutes,gearKinds:['surface'],items:escortItems};
     for(const result of fitted){variantAttempts+=result.attempts;for(const row of result.singles)collectCandidate(row);}
   }
   // Restore effective ASW packages after late hull/LoS/surface refinements.
@@ -811,7 +824,7 @@ function* searchNormalFleet(store,args,selectedOptions){
     candidates.slice().sort((a,b)=>b.scores.rank-a.scores.rank).slice(0,3);
   const aswItems=aswFinalists.filter(row=>aswEscortLimit(row.profile)>0&&aswCombat.requiresAswPackages(row.profile));
   if(aswItems.length){
-    const fitted=yield {kind:'gear',args,gearKinds:['asw'],items:aswItems,finalAsw:true};
+    const fitted=yield {kind:'gear',args,routes:requestedRoutes,gearKinds:['asw'],items:aswItems,finalAsw:true};
     for(const result of fitted){variantAttempts+=result.attempts;for(const row of result.singles)collectCandidate(row);}
   }
   // Spend a small, separate budget only on well-understood ordinary routes.

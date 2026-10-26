@@ -1,5 +1,5 @@
 'use strict';
-const {estimateRouteAirMargins}=require('../../domain/routes/route_air');
+const {estimateRouteAirMinimum,routeAirMeets}=require('../../domain/routes/route_air');
 const jets=require('../../domain/combat/jet_aviation');
 // A conservative fitting preference, not a universal shoot-down threshold.
 const SMALL_CARRIER_SLOT=10;
@@ -67,17 +67,17 @@ function supportedAirGoal(air,reference,goal){
   if(reference?.status!=='known'||air?.status!=='range')return false;
   // Jets have an explicit pre-air loss model; use its actual conservative
   // margin rather than a generic fighter-bomber percentage substitute.
-  if(air.slots.some(s=>jets.isJet(s.aircraftType)))return estimateRouteAirMargins(air,reference)?.[goal]?.min>=0;
+  if(air.slots.some(s=>jets.isJet(s.aircraftType)))return routeAirMeets(air,reference,goal)===true;
   const enemy=reference.enemyAirPower??Math.max(0,...reference.nodes.map(n=>n.enemyAirPower??n.upperBound??NaN));
   if(enemy===0)return true;
   if(!Number.isFinite(enemy))return false;
   const required=Math.max(1,Number(reference[goal]??enemy*(goal==='supremacy'?3:1.5)));
   const slots=air.slots.filter(s=>[6,45,56].includes(s.aircraftType));
   const pure={status:'range',slots,min:slots.reduce((n,s)=>n+s.min,0),max:slots.reduce((n,s)=>n+s.max,0)};
-  const floor=estimateRouteAirMargins(pure,reference)?.[goal];
+  const floor=estimateRouteAirMinimum(pure,reference)?.[goal];
   if(!floor)return false;
   if(floor.min>=0)return true;
-  const margin=estimateRouteAirMargins(air,reference)?.[goal];
+  const margin=estimateRouteAirMinimum(air,reference)?.[goal];
   return required+floor.min>=required*0.8&&margin?.min>=required*0.2;
 }
 function affordableSupremacy(store,before,after){
