@@ -2,6 +2,7 @@
 // Equipment variants for route constraints and combat roles; preserve held slots.
 const {canEquip,acceptsOtherSlot}=require('../domain/fleet/equipment_rules');
 const {orderCarrierUtility}=require('../domain/fleet/equipment_order');
+const {snapshotMemo}=require('../domain/fleet/equipment_planner');
 const jets=require('../domain/combat/jet_aviation');
 const {airPower,speed}=require('../domain/fleet/fleet_metrics');
 const routes=require('../domain/routes/normal_routes');
@@ -234,14 +235,22 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     for(let slot=0;slot<slots.get(entry.id).length;slot++){
       if(Math.max(Number(master.api_maxeq?.[slot]||0),Number(ship.api_onslot?.[slot]||0))<=0)
         continue;
-      positions.push({shipId:entry.id,slot,ship,master,stype:Number(master.api_stype),memo:new Map()});
+      // Only immutable recommendation jobs share these facts. Live callers
+      // receive fresh maps; held slots and instance availability remain local.
+      const facts=snapshotMemo(store,'airFittingPositions',entry.id+':'+slot,()=>({air:new Map(),eligibility:new Map()}));
+      positions.push({shipId:entry.id,slot,ship,master,stype:Number(master.api_stype),memo:facts.air,eligibility:facts.eligibility});
     }
   }
   if(!positions.length)return null;
   const typeOf=id=>id>0?Number(store.const.$equips[
     store.info.equips[id]?.api_slotitem_id]?.api_type?.[2]):null;
-  const fighters=inventory.filter(row=>[6,45,56].includes(Number(row.master.api_type[2])));
-  const attackers=inventory.filter(row=>[7,8,57].includes(Number(row.master.api_type[2])));
+  const pools=snapshotMemo(store,'airFittingInventory',inventory,()=>({
+    fighters:inventory.filter(row=>[6,45,56].includes(Number(row.master.api_type[2]))),
+    attackers:inventory.filter(row=>[7,8,57].includes(Number(row.master.api_type[2]))),
+    utility:carrierUtility(inventory),
+    equivalentKeys:new Map(inventory.map(row=>{const item=store.info.equips[row.id];return [row.id,JSON.stringify([item.api_slotitem_id,item.api_level,item.api_alv])];}))
+  }));
+  const {fighters,attackers,equivalentKeys,utility}=pools;
   const occupiedEx=new Set(scheme.ships.map(entry=>entry.ex??store.info.ships[entry.id].api_slot_ex)
     .filter(id=>id>0));
   const used=new Set([...slots.values()].flat().filter(id=>id>0).concat([...occupiedEx]));
@@ -257,36 +266,38 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     const score=value.status==='range'?value:{min:0,max:0,slots:[]};
     memo.set(id,score);return score;
   };
-  const totalAir=()=>positions.reduce((sum,position)=>{
+  let currentAir=null,currentTotal=null;
+  const totalAir=()=>currentAir||(currentAir=positions.reduce((sum,position)=>{
       const value=contribution(position,slots.get(position.shipId)[position.slot]);
       sum.min+=value.min;sum.max+=value.max;sum.slots.push(...(value.slots||[]));return sum;
-    },{status:'range',min:0,max:0,slots:[]});
+    },{status:'range',min:0,max:0,slots:[]}));
   const total=()=>{
+    if(currentTotal)return currentTotal;
     const air=totalAir();
     const margin=reference?estimateRouteAirMargins(air,reference)?.[goal]:null;
-    return margin?{min:required+margin.min,max:required+margin.max}:air;
+    return currentTotal=margin?{min:required+margin.min,max:required+margin.max}:air;
   };
   const trial=(changes,reading=()=>total().min)=>{
+    const savedAir=currentAir,savedTotal=currentTotal;currentAir=currentTotal=null;
     const before=changes.map(([position,id])=>{
       const list=slots.get(position.shipId),old=list[position.slot];list[position.slot]=id;return [position,old];
     });
-    try{return reading();}finally{for(const [position,id]of before)slots.get(position.shipId)[position.slot]=id;}
+    try{return reading();}finally{for(const [position,id]of before)slots.get(position.shipId)[position.slot]=id;currentAir=savedAir;currentTotal=savedTotal;}
   };
   const attackCount=shipId=>slots.get(shipId).filter(id=>[7,8,11,57].includes(typeOf(id))).length;
   const allowed=(position,item)=>{
     if(held.get(position.shipId)?.[position.slot])return false;
     if(used.has(item.id)||occupiedEx.has(item.id))return false;
-    if(item.sourceShipId&&!chosen.has(item.sourceShipId)&&
-      !acceptsOtherSlot(store,position.shipId,item.id,position.slot))return false;
-    try{return canEquip(store,position.shipId,item.id,position.slot);}catch(_){return false;}
+    const borrow=!!item.sourceShipId&&!chosen.has(item.sourceShipId),key=item.id+':'+Number(borrow);
+    if(position.eligibility.has(key))return position.eligibility.get(key);
+    try{
+      const result=(!borrow||acceptsOtherSlot(store,position.shipId,item.id,position.slot))&&canEquip(store,position.shipId,item.id,position.slot);
+      position.eligibility.set(key,result);return result;
+    }catch(_){return false;}
   };
   // Select an AVAILABLE representative for this particular slot, never remove
   // copies from inventory. The currently installed instance can have different
   // observed plane counts, so keep it separate from otherwise identical copies.
-  const equivalentKeys=new Map(inventory.map(row=>{
-    const item=store.info.equips[row.id];
-    return [row.id,JSON.stringify([item.api_slotitem_id,item.api_level,item.api_alv])];
-  }));
   const alternatives=(position,items,lowestId=false)=>{
     const groups=new Map(),current=position.ship.api_slot[position.slot];
     for(const item of items){
@@ -298,13 +309,13 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     return [...groups.values()];
   };
   const replace=(position,id)=>{
+    currentAir=currentTotal=null;
     const list=slots.get(position.shipId),old=list[position.slot];
     if(old>0)used.delete(old);
     list[position.slot]=id;
     if(id>0)used.add(id);
   };
   const small=position=>smallCarrierSlot(position.ship,position.master,position.slot);
-  const utility=carrierUtility(inventory);
   // Retire expendable tiny strike slots before air fitting. Keep the last
   // strike plane and manual holds, and never weaken an already met air goal.
   for(const position of positions.filter(p=>[7,11,18].includes(p.stype)&&small(p))){

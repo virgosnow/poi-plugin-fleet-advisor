@@ -1,0 +1,95 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {withEquipmentIndexCache}=require('../../src/domain/fleet/equipment_planner');
+const metrics=require('../../src/domain/fleet/fleet_metrics');
+const carrierCI=require('../../src/domain/combat/carrier_cutin');
+const {availableEquipment}=require('../../src/recommendation/loadout/loadout_policy');
+function fixture(){
+  const store=require('../helpers/workbench_fixture')();store.info.resources=[1000,1000,1000,1000];
+  for(const id of [1,2]){
+    Object.assign(store.const.$ships[id],{api_ctype:0,api_stype:11,api_aftershipid:0,api_slot_num:4,api_maxeq:[34,21,12,6]});
+    Object.assign(store.info.ships[id],{api_slot:[101,102,103,104],api_onslot:[34,21,12,6],api_lucky:[20,50],api_sakuteki:[60,80]});
+  }
+  store.const.$shipTypes[11]={api_equip_type:{6:1,7:1,8:1,35:1,57:1}};
+  for(const [id,type,stats] of [[6,6,{api_tyku:10}],[7,7,{api_baku:13}],[8,8,{api_raig:13}],
+    [35,35,{api_houg:10}],[53,6,{api_tyku:15}],[54,6,{api_tyku:12}],
+    [199,57,{api_baku:15,api_tyku:6}],[200,57,{api_baku:11,api_tyku:12}]])
+    store.const.$equips[id]={api_id:id,api_name:`测试装备${id}`,api_type:[0,0,type,type],...stats};
+  for(const [id,mid] of [[101,8],[102,7],[103,6],[104,35],[201,53],[202,54],[301,199],[302,200]])
+    store.info.equips[id]={api_id:id,api_slotitem_id:mid,api_alv:7,api_level:0};
+  return store;
+}
+const scheme=store=>({fleet:1,ships:[{id:1,slots:store.info.ships[1].api_slot.slice(),ex:-1}]});
+
+test('repeated air fits reuse per-slot metrics only inside an immutable search scope',()=>{
+  const store=fixture(),inventory=availableEquipment(store),base=scheme(store),original=metrics.airPower;
+  const file=require.resolve('../../src/recommendation/fitting');delete require.cache[file];let calls=0;
+  metrics.airPower=(...args)=>{calls++;return original(...args);};
+  try{
+    const {airLoadout}=require(file),plain=airLoadout(store,base,inventory,90);
+    withEquipmentIndexCache(store,()=>{
+      const first=airLoadout(store,base,inventory,90),firstCalls=calls;
+      const second=airLoadout(store,base,inventory,90);
+      assert(firstCalls>0);assert.equal(calls,firstCalls,'the same slot metrics should not be rebuilt');
+      assert.deepEqual(first,plain);assert.deepEqual(second,plain);
+    });
+    const end=calls;airLoadout(store,base,inventory,90);assert(calls>end,'live callers must recalculate');
+  }finally{metrics.airPower=original;delete require.cache[file];}
+});
+
+test('cached suitability never caches stock allocation or manual holds',()=>{
+  const store=fixture(),inventory=availableEquipment(store),base=scheme(store);
+  const {airLoadout}=require('../../src/recommendation/fitting');
+  const occupied={fleet:1,ships:[base.ships[0],{id:2,slots:[201,-1,-1,-1],ex:-1}]};
+  const held=[{...occupied.ships[1],keep:{0:true,1:true,2:true,3:true}}];
+  const expected=airLoadout(store,occupied,inventory,90,undefined,'superiority',held);
+  withEquipmentIndexCache(store,()=>{
+    airLoadout(store,base,inventory,90);
+    const actual=airLoadout(store,occupied,inventory,90,undefined,'superiority',held);
+    assert.deepEqual(actual,expected);assert.equal(actual.ships[1].slots[0],201);
+    const ids=actual.ships.flatMap(e=>e.slots.concat(e.ex)).filter(id=>id>0);
+    assert.equal(ids.length,new Set(ids).size);
+    assert(!actual.ships[0].slots.includes(201));
+  });
+});
+
+test('new search scopes observe changed capacity, steel and equipment instead of reusing old slot facts',()=>{
+  const store=fixture(),original=metrics.airPower,file=require.resolve('../../src/recommendation/fitting');
+  delete require.cache[file];const seen=[];
+  metrics.airPower=(...args)=>{const value=original(...args);seen.push(...value.slots);return value;};
+  try{
+    const {airLoadout}=require(file),inventory=availableEquipment(store),base=scheme(store);
+    base.ships[0].slots[0]=301;
+    const held=[{...base.ships[0],keep:{0:true}}];
+    withEquipmentIndexCache(store,()=>airLoadout(store,base,inventory,90,undefined,'superiority',held));
+    assert(seen.some(s=>s.masterId===199&&s.jetSteel===1000));seen.length=0;
+    store.info.resources[2]=0;store.info.ships[1].api_onslot[0]=17;store.const.$ships[1].api_maxeq[0]=17;
+    store.const.$equips[199].api_tyku=8;
+    const expected=airLoadout(store,base,inventory,90,undefined,'superiority',held);seen.length=0;
+    const actual=withEquipmentIndexCache(store,()=>airLoadout(store,base,inventory,90,undefined,'superiority',held));
+    assert.deepEqual(actual,expected);
+    assert(seen.some(s=>s.masterId===199&&s.jetSteel===0&&s.planes[0]===17&&s.effectiveAntiAir[0]===8));
+  }finally{metrics.airPower=original;delete require.cache[file];}
+});
+
+test('jet CI power reuse keeps scores identical and distinguishes changed carrier loadouts',()=>{
+  const store=fixture(),original=carrierCI.attackPowers;let calls=0;
+  carrierCI.attackPowers=(...args)=>{calls++;return original(...args);};
+  try{
+    const {routeRank}=require('../../src/recommendation/scoring');
+    const base=scheme(store);base.ships[0].slots=[301,101,103,104];
+    const profile={area:'1-1',examples:[['A','C']],counts:{surface:{maximum:2},air:{maximum:0},asw:{maximum:0},night:{maximum:0}}};
+    const score=s=>{
+      const targets=metrics.projectFleet(store,{organization:{targets:[1]},equipment:{expected:[{shipId:1,state:s.ships[0]}]}});
+      const row={id:1,ship:store.info.ships[1],master:store.const.$ships[1],stype:11,level:50,fuel:80,ammo:80};
+      return routeRank({chanceRange:[1,1],verdict:'guaranteed',airControl:{fleetAirPower:metrics.airPower(store,targets)}},
+        profile,[row],'strongest','superiority','1-1',store,s,true);
+    };
+    const plain=score(base),changed={...base,ships:[{...base.ships[0],slots:[302,101,103,104]}]},expected=score(changed);
+    withEquipmentIndexCache(store,()=>{
+      assert.deepEqual(score(base),plain);const first=calls;
+      assert.deepEqual(score(base),plain);assert.equal(calls,first);
+      assert.deepEqual(score(changed),expected);assert(calls>first);
+    });
+  }finally{carrierCI.attackPowers=original;}
+});

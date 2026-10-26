@@ -10,6 +10,8 @@ const {routeAirReference,estimateRouteAir}=require('../domain/routes/route_air')
 const {aswPotential,num,shipCost,usableSlots}=require('./context');
 const {healthySupremacy,supportedAirGoal}=require('./loadout/carrier_policy');
 const jets=require('../domain/combat/jet_aviation');
+const carrierCI=require('../domain/combat/carrier_cutin'),metrics=require('../domain/fleet/fleet_metrics');
+const {snapshotMemo}=require('../domain/fleet/equipment_planner');
 
 function airGoalScore(result,airGoal,area,profile){
   const reference=routeAirReference(result,area,profile);
@@ -220,9 +222,10 @@ function jetScore(store,scheme,air,airScore,profile){
   // Conditional shelling opportunities matter when a jet replaces the only B
   // of an ordinary FBA. Reuse the real CI constants/rates; multipliers are NOT
   // probabilities. This is a bounded ranking correction, not expected damage.
-  const carrierCI=require('../domain/combat/carrier_cutin'),metrics=require('../domain/fleet/fleet_metrics');
-  const targets=metrics.projectFleet(store,{organization:{targets:scheme.ships.map(e=>e.id)},
-    equipment:{expected:scheme.ships.map(e=>({shipId:e.id,state:e}))}});
+  const targets=scheme.ships.map(entry=>snapshotMemo(store,'jetProjectedShips',JSON.stringify(entry),()=>{
+    const state={...entry,slots:entry.slots.slice()};
+    return metrics.projectFleet(store,{organization:{targets:[entry.id]},equipment:{expected:[{shipId:entry.id,state}]}})[0];
+  }));
   const context=carrierCI.createContext(store,targets,profile,{airReference:reference,airEstimate:estimate});
   const shellingSteps=(estimate.paths||[]).flatMap(p=>(p.steps||[])
     .filter(s=>reference.nodes.find(n=>n.id===s.node)?.kind==='battle'));
@@ -237,7 +240,8 @@ function jetScore(store,scheme,air,airScore,profile){
     const ordinaryChoices=Array.from({length:jetBombers+1},(_,torpedoCount)=>{
       let seen=0;return jets.carrierModes(types.map(t=>t===57?(seen++<torpedoCount?8:7):t===56?6:t));
     });
-    const powers=carrierCI.attackPowers(target,store,[...new Set([...actual,...ordinaryChoices.flat()])]);
+    const modes=[...new Set([...actual,...ordinaryChoices.flat()])];
+    const powers=snapshotMemo(store,'jetCarrierPowers',JSON.stringify([target.id,target.after,modes]),()=>carrierCI.attackPowers(target,store,modes));
     const multipliers={...Object.fromEntries(Object.entries(jets.CI).map(([k,v])=>[k,v.multiplier])),FBA:1.25,BBA:1.2,BA:1.15};
     const expected=modes=>{
       if(!modes.length)return 1;
