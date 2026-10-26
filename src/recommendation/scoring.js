@@ -155,7 +155,7 @@ function seaplaneStrike(store,rows,scheme){
 const carrierStrike=(store,rows,scheme)=>
   aircraftStrike(store,rows,scheme,[7,11,18],[7,8]);
 const aviationBattleshipStrike=(store,rows,scheme)=>
-  aircraftStrike(store,rows,scheme,[10],[8]);
+  aircraftStrike(store,rows,scheme,[10],[7]);
 const openingAirStrike=(store,rows,scheme)=>
   carrierStrike(store,rows,scheme)+aviationBattleshipStrike(store,rows,scheme)+
     seaplaneStrike(store,rows,scheme);

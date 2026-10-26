@@ -5,6 +5,7 @@ const {error}=require('../shared/errors');
 const {canEquip,acceptsOtherSlot}=require('../domain/fleet/equipment_rules');
 const {orderEquipment}=require('../domain/fleet/equipment_order');
 const {groundLoadout,groundLoadouts}=require('./loadout/ground_fitting');
+const {aviationBattleshipLoadouts}=require('./loadout/aviation_fitting');
 const {routeGroundTargets}=require('../domain/combat/installation_attack');
 const {nightLoadout}=require('./loadout/night_equipment');
 const {specialAttackCores,arrangeSpecialAttack}=require('../domain/combat/special_attacks');
@@ -166,7 +167,7 @@ function calculateBatch(store,batch){
     if(!trial)return result(null);
     const plan=routePlans.optionPlanning(trial.route,option),nodes=plan.nodes||option.nodes;
     if(plan.losShortfall>0){
-      const v=gearVariant(store,trial.scheme,inventory,'los',base.profile,area,phase,{maxPlacements:12,allowCombatLoss:true,
+      const v=gearVariant(store,trial.scheme,inventory,'los',base.profile,area,phase,{heldSlots:args.heldSlots,maxPlacements:12,allowCombatLoss:true,
         stopWhen:value=>{const route=routes.evaluateNormalRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:holdDraftEquipment(store,value,args.heldSlots)});
           const plan=routePlans.optionPlanning(route,option);return plan.chance.max>0&&plan.losShortfall===0;}});
       if(v){trial=evaluate(rows,v)||trial;attempts++;}
@@ -216,8 +217,14 @@ function calculateBatch(store,batch){
       const preparedRoute=fitted===item.scheme?item.route:
         routes.evaluateNormalRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:fitted});
       if(fitted!==item.scheme)evaluateFit(fitted);
+      if(airGoal!=='ignore'){
+        const profile=profileForRoute(area,preparedRoute,routePlans.optionPaths(option));
+        const reference=routeAirReference(preparedRoute,area,profile);
+        const air=airLoadout(store,fitted,inventory,reference[airGoal],reference,airGoal,args.heldSlots);
+        if(air)evaluateFit(air);
+      }
       if(routePlans.optionPlanning(preparedRoute,option).losShortfall){
-        const fit=gearVariant(store,fitted,inventory,'los',item.profile,area,phase,{maxPlacements:24,allowCombatLoss:true,
+        const fit=gearVariant(store,fitted,inventory,'los',item.profile,area,phase,{heldSlots:args.heldSlots,maxPlacements:24,allowCombatLoss:true,
           stopWhen:scheme=>{const held=holdDraftEquipment(store,scheme,args.heldSlots);
             const route=routes.evaluateNormalRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:held});
             const check=routePlans.optionPlanning(route,option);return check.chance.max>0&&check.losShortfall===0;}});
@@ -237,6 +244,16 @@ function calculateBatch(store,batch){
       routeAirReference({},area,{examples:seed.scores.routeAirReference.paths}):seed.scores.routeAirReference;
     let attempts=0;
     for(const kind of gearKinds){
+      if(kind==='aviation'){
+        for(const variant of aviationBattleshipLoadouts(store,seed.scheme,inventory,{area,profile:seed.profile,heldSlots:args.heldSlots})){
+          attempts++;singles.push(evaluate(rows,variant));
+          if(airGoal!=='ignore'){
+            const air=airLoadout(store,variant,inventory,seed.scores.airGoalRequired,reference,airGoal,args.heldSlots);
+            if(air){attempts++;singles.push(evaluate(rows,air));}
+          }
+        }
+        continue;
+      }
       if(kind==='asw'&&batch.finalAsw){
         const limit=aswEscortLimit(seed.profile),escorts=aswEscortIds(store,seed.scheme.ships,limit);
         for(const variant of fitAswLoadouts(store,seed.scheme,inventory,{profile:seed.profile,escorts,heldSlots:args.heldSlots})){
@@ -245,7 +262,7 @@ function calculateBatch(store,batch){
           if(!candidate||!seed.option)continue;
           const plan=routePlans.optionPlanning(candidate.route,seed.option);
           if(plan.losShortfall>0){
-            const fitted=gearVariant(store,candidate.scheme,inventory,'los',seed.profile,area,phase,{maxPlacements:24,allowCombatLoss:true,
+            const fitted=gearVariant(store,candidate.scheme,inventory,'los',seed.profile,area,phase,{heldSlots:args.heldSlots,maxPlacements:24,allowCombatLoss:true,
               stopWhen:value=>{const route=routes.evaluateNormalRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:holdDraftEquipment(store,value,args.heldSlots)});
                 const check=routePlans.optionPlanning(route,seed.option);return check.chance.max>0&&check.losShortfall===0;}});
             if(fitted){attempts++;singles.push(evaluate(rows,fitted));}
@@ -265,7 +282,7 @@ function calculateBatch(store,batch){
         kind==='surface'?surfaceLoadout(store,seed.scheme,inventory,area,phase,seed.profile,args.heldSlots):
         kind==='night'?seed.profile?.counts?.night?.maximum?
           nightLoadout(store,seed.scheme,inventory,{normalizeGuns:area==='5-3',nightBattles:seed.profile.counts.night.maximum,heldSlots:args.heldSlots}):null:
-        gearVariant(store,seed.scheme,inventory,kind,seed.profile,area,phase);
+        gearVariant(store,seed.scheme,inventory,kind,seed.profile,area,phase,{heldSlots:args.heldSlots});
       if(variant){attempts++;singles.push(evaluate(rows,variant));}
     }
     // A candidate may need more than one kind of equipment change: for example
@@ -281,7 +298,7 @@ function calculateBatch(store,batch){
           kind==='surface'?surfaceLoadout(store,combined,inventory,area,phase,seed.profile,args.heldSlots):
           kind==='night'?seed.profile?.counts?.night?.maximum?
             nightLoadout(store,combined,inventory,{normalizeGuns:area==='5-3',nightBattles:seed.profile.counts.night.maximum,heldSlots:args.heldSlots}):null:
-            gearVariant(store,combined,inventory,kind,seed.profile,area,phase);
+            gearVariant(store,combined,inventory,kind,seed.profile,area,phase,{heldSlots:args.heldSlots});
         if(variant){
           combined=variant;changes++;
           if(changes>1){attempts++;combinedRows.push(evaluate(rows,combined));}
@@ -545,6 +562,7 @@ function* searchNormalFleet(store,args,selectedOptions){
     ...seeds.filter(seed=>guideSeedKeys.has(idsKey(seed.rows)))]
     .map(row=>[idsKey(row.rows),row])).values()];
   const gearKinds=airGoal==='ignore'?['los','routing']:['air','los','routing'];
+  if(gearSeeds.some(seed=>seed.scheme.ships.some(e=>Number(store.const.$ships[store.info.ships[e.id].api_ship_id]?.api_stype)===10)))gearKinds.push('aviation');
   if(area==='1-1')gearKinds.push('opening');
   if(initialWantsAsw)gearKinds.push('asw');
   if(gearSeeds.some(seed=>routeGroundTargets(seed.profile).length))gearKinds.push('ground');
@@ -916,6 +934,11 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   };
   const initial=evaluate(base);
   if(!initial)throw error('INVALID_QUERY','当前舰娘或手动装备无法生成有效配装，当前编成已保留');
+  for(const fitted of aviationBattleshipLoadouts(store,base,inventory,{area,profile:initial.profile,heldSlots})){
+    evaluate(fitted);
+    const air=airLoadout(store,fitted,inventory,initial.scores.airGoalRequired,initial.scores.routeAirReference,'superiority',heldSlots);
+    if(air)evaluate(air);
+  }
   if(fittingOptions.asw&&aswCombat.requiresAswPackages(initial.profile))for(const fitted of fitAswLoadouts(store,base,inventory,{profile:initial.profile,
     escorts:aswEscortIds(store,base.ships,aswEscortLimit(initial.profile)),heldSlots})){
     evaluate(fitted);
@@ -936,7 +959,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
     kind==='ground'?groundLoadout(store,current,inventory,{profile:initial.profile,heldSlots,airReference:initial.scores.routeAirReference}):
     kind==='opening'?oneOneOpeningLoadout(store,current,inventory):
     kind==='night'?nightLoadout(store,current,inventory,{normalizeGuns:area==='5-3',nightBattles:initial.profile.counts.night.maximum,heldSlots}):
-    gearVariant(store,current,inventory,kind,initial.profile,area,phase);
+    gearVariant(store,current,inventory,kind,initial.profile,area,phase,{heldSlots});
   let combined=base;
   for(const kind of kinds){
     if(kind==='ground')for(const fitted of groundLoadouts(store,base,inventory,{profile:initial.profile,heldSlots,airReference:initial.scores.routeAirReference}))evaluate(fitted);
@@ -955,7 +978,12 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
       const next=routingLoadout(store,fitted,inventory,need,heldSlots);if(next)fitted=normalize(next);
     }
     if(fitted!==seed.scheme)evaluate(fitted);
-    const fit=gearVariant(store,fitted,inventory,'los',seed.profile,area,phase,{maxPlacements:24,allowCombatLoss:true,
+    const preparedRoute=routes.evaluateNormalRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:fitted});
+    const preparedProfile=profileForRoute(area,preparedRoute,routePlans.optionPaths(selectedRoute));
+    const reference=routeAirReference(preparedRoute,area,preparedProfile);
+    const air=airLoadout(store,fitted,inventory,reference.superiority,reference,'superiority',heldSlots);
+    if(air)evaluate(air);
+    const fit=gearVariant(store,fitted,inventory,'los',seed.profile,area,phase,{heldSlots,maxPlacements:24,allowCombatLoss:true,
       stopWhen:value=>{const route=routes.evaluateNormalRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:normalize(value)});
         const check=routePlans.optionPlanning(route,selectedRoute);return check.chance.max>0&&check.losShortfall===0;}});
     if(fit)evaluate(fit);

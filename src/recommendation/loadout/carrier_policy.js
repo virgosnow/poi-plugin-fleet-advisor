@@ -8,10 +8,11 @@ function carrierSlotSize(ship,master,slot){
 const smallCarrierSlot=(ship,master,slot)=>carrierSlotSize(ship,master,slot)<=SMALL_CARRIER_SLOT;
 function carrierUtility(inventory){
   const type=item=>Number(item.master.api_type?.[2]);
-  const rank=item=>type(item)===6?0:type(item)===9?1:2;
-  const value=item=>type(item)===6?Number(item.master.api_tyku||0):type(item)===9?
-    Number(item.master.api_saku||0):Number(item.master.api_houg||0)*3+Number(item.master.api_houm||0);
-  return inventory.filter(item=>[6,9].includes(type(item))||
+  const rank=item=>type(item)===6?0:1;
+  const value=item=>type(item)===6?Number(item.master.api_tyku||0):
+    Number(item.master.api_houg||0)*3+Number(item.master.api_houm||0);
+  // Reconnaissance is fitted for an actual LoS gap, not as spare-slot cargo.
+  return inventory.filter(item=>type(item)===6||
     [1,2,3,4,35].includes(type(item))&&Number(item.master.api_houg)>0)
     .sort((a,b)=>rank(a)-rank(b)||value(b)-value(a)||a.id-b.id);
 }

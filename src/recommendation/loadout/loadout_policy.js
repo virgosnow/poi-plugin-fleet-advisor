@@ -1,5 +1,6 @@
 'use strict';
 const {canEquip,acceptsOtherSlot}=require('../../domain/fleet/equipment_rules');
+const {orderCarrierUtility}=require('../../domain/fleet/equipment_order');
 const {smallCarrierSlot,carrierUtility}=require('./carrier_policy');
 const type=m=>Number(m?.api_type?.[2]);
 const master=(store,id)=>store.const.$equips[store.info.equips[id]?.api_slotitem_id];
@@ -84,7 +85,9 @@ function combatPools(inventory){
   const pools={guns:select([1,2,3]),torpedo:select([5,32]),opening:select([22],m=>Number(m.api_raig||0)),
     fighter:select([6],m=>Number(m.api_tyku||0)),carrierUtility:carrierUtility(inventory),
     bomber:select([7,8,11,57,58],air),torpedoPlane:select([8,58],air),divePlane:select([7,57],air),
-    recon:select([9,10,41],m=>Number(m.api_saku||0)),shell:select([19]),
+    recon:select([10,41],m=>Number(m.api_saku||0)),
+    waterRecon:select([10],m=>Number(m.api_saku||0)),
+    seaplaneBomber:select([11],m=>Number(m.api_baku||0)+Number(m.api_houm||0)*0.2),shell:select([19]),
     sonar:select([14,40],m=>Number(m.api_tais||0)),depth:select([15],m=>Number(m.api_tais||0)),
     submarineRadar:select([51],m=>attackValue(m)+Number(m.api_houk||0)+Number(m.api_saku||0)),
     auxiliary:select([12,13,21,27,39],m=>attackValue(m)+Number(m.api_souk||0)+Number(m.api_houk||0)+Number(m.api_saku||0))};
@@ -152,12 +155,18 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
       if(!count([8,58]))assign(pool.torpedoPlane,strikeSlots);
       if(!count([7,57]))assign(pool.divePlane,strikeSlots);
       while(assign(pool.bomber,strikeSlots)){};
-      for(const k of utilitySlots)assign(pool.carrierUtility.filter(i=>type(i.master)!==9||!count([9])),[k]);
+      for(const k of utilitySlots)assign(pool.carrierUtility.filter(i=>type(i.master)!==9||
+        !entries.some(e=>e.slots.some(id=>type(master(store,id))===9))),[k]);
     }else if(!pure){
       const target=asw&&(submarineObjective(profile)||escortSeed)&&[1,2,21,22].includes(stype)?1:2;
       while(count([1,2,3])<target&&assign(pool.guns)){};
       // Water tenders and aviation hulls need useful aircraft, not inherited cargo.
-      if(!count([9,10,11,41]))assign(area==='1-1'||stype===16?pool.bomber:pool.recon);
+      if(stype===10&&!count([10,11])){
+        const airSlots=positions.slice().sort((a,b)=>capacity(b)-capacity(a)||a-b);
+        const night=profile?.counts?.night?.maximum>0;
+        if(night){if(!assign(pool.waterRecon,airSlots.slice().reverse()))assign(pool.seaplaneBomber,airSlots);}
+        else if(!assign(pool.seaplaneBomber,airSlots))assign(pool.waterRecon,airSlots.slice().reverse());
+      }else if(stype!==10&&!count([10,11,41]))assign(area==='1-1'||stype===16?pool.bomber:pool.recon);
       if(area!=='1-1'&&[8,9,10].includes(stype)&&!count([19]))assign(pool.shell);
     }
     if(asw&&!pure&&escorts.has(entry.id)&&!count([14,40]))assign(pool.sonar);
@@ -189,7 +198,7 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
         smallCarrierSlot(ship,sm,k)&&!smallCarrierSlot(ship,sm,j))&&legal(entry,k,{id,sourceShipId:null}));
     if(later>=0){entry.slots[k]=entry.slots[later];entry.slots[later]=-1;}
   }
-  return {fleet:scheme.fleet,ships:entries};
+  return orderCarrierUtility(store,{fleet:scheme.fleet,ships:entries},heldSlots);
 }
 
 function explainLoadout(store,entry,{kind='normal',area,fleetEntries=[entry]}={}){

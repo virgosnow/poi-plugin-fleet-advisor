@@ -465,10 +465,10 @@ test('1-1 accepts one-gun Ise-class remodels and counts their opening aircraft',
     store.info.ships[id].api_onslot=[2,2,22,22,9];
     store.info.ships[id].api_karyoku=[100,100];
   }
-  store.const.$shipTypes[10]={api_equip_type:{3:1,8:1,11:1}};
+  store.const.$shipTypes[10]={api_equip_type:{3:1,7:1,11:1}};
   for(const [id,name,type,baku] of [
     [502,'試製41cm三連装砲',3,0],
-    [523,'彗星二二型(六三四空)',8,11],
+    [523,'彗星二二型(六三四空)',7,11],
     [524,'瑞雲12型',11,7]
   ])store.const.$equips[id]={api_id:id,api_name:name,
     api_type:[0,0,type,type],api_baku:baku};

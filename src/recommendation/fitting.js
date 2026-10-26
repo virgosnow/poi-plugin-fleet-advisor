@@ -1,8 +1,11 @@
 'use strict';
 // Equipment variants for route constraints and combat roles; preserve held slots.
 const {canEquip,acceptsOtherSlot}=require('../domain/fleet/equipment_rules');
+const {orderCarrierUtility}=require('../domain/fleet/equipment_order');
 const {airPower,speed}=require('../domain/fleet/fleet_metrics');
 const routes=require('../domain/routes/normal_routes');
+const routePlans=require('../domain/routes/route_plans');
+const {previewForMap}=require('../domain/routes/sortie_profile');
 const {speedLoadout}=require('../domain/routes/route_speed');
 const {emptyLoadout,completeCombatLoadout,aswEscortLimit,aswEscortIds,submarineObjective}=require('./loadout/loadout_policy');
 const aswCombat=require('../domain/combat/asw_combat');
@@ -17,7 +20,19 @@ function requiredDestroyerGuns(area,phase,profile){
     submarineObjective(profile))return 1;
   return 2;
 }
-function gearVariant(store,scheme,inventory,kind,profile,area,phase,{stopWhen,maxPlacements,allowCombatLoss=false}={}){
+function gearVariant(store,scheme,inventory,kind,profile,area,phase,{stopWhen,maxPlacements,allowCombatLoss=false,heldSlots=[]}={}){
+  // LoS is a routing constraint, not an attribute to maximize. In particular,
+  // a blocked hull/speed rule cannot justify replacing more attack aircraft.
+  const paths=kind==='los'?(profile?.routePaths?.length?profile.routePaths.map(p=>p.nodes):
+    profile?.examples?.length?profile.examples:previewForMap(area,{phase}).routePaths.map(p=>p.nodes)):[];
+  const gatedPaths=paths.filter(nodes=>routePlans.losGates(area,nodes,phase).length);
+  if(kind==='los'&&!gatedPaths.length)return null;
+  const losMet=value=>{
+    const target=profile?.targetNodes?.length===1?profile.targetNodes[0]:'boss';
+    const route=routes.evaluateNormalRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:value});
+    return gatedPaths.every(nodes=>routePlans.planningPath(route,nodes).losShortfall===0);
+  };
+  const holds=new Map(heldSlots.filter(Boolean).map(s=>[s.id,s.keep||{}]));
     const categories=kind==='asw'?new Set([14,15,40]):
     kind==='los'?new Set([9,10,11,12,13,93]):
     new Set([12,13,24,30,46,93]);
@@ -73,15 +88,27 @@ function gearVariant(store,scheme,inventory,kind,profile,area,phase,{stopWhen,ma
     Array.from({length:Math.max(...[...slotLists.values()].map(slots=>slots.length))},(_,slot)=>
       entries.map(entry=>({entry,slot}))).flat():
     entries.flatMap(entry=>slotLists.get(entry.id).map((_,slot)=>({entry,slot})))
-      .sort((a,b)=>kind==='los'?
-        Number(slotLists.get(a.entry.id)[a.slot]>0)-
-          Number(slotLists.get(b.entry.id)[b.slot]>0):0);
+      .sort((a,b)=>{
+        if(kind!=='los')return 0;
+        const priority=p=>{
+          const id=slotLists.get(p.entry.id)[p.slot],t=typeOf(id);
+          return id<=0?0:categories.has(t)?1:[7,8,57,58].includes(t)?3:2;
+        };
+        const order=priority(a)-priority(b);
+        if(order||priority(a)!==3)return order;
+        const capacity=p=>{
+          const ship=store.info.ships[p.entry.id],master=store.const.$ships[ship.api_ship_id];
+          return Number(ship.api_onslot?.[p.slot]??master.api_maxeq?.[p.slot]??0);
+        };
+        return capacity(a)-capacity(b);
+      });
   let placed=0;
   const current=()=>({fleet:scheme.fleet,ships:entries.map(e=>({...e,slots:slotLists.get(e.id)}))});
   for(const {entry,slot} of ordered){
     const slots=slotLists.get(entry.id);
     if(slot>=slots.length||placed>=(maxPlacements??(kind==='asw'?18:6)))continue;
-    if(stopWhen?.(current()))break;
+    if(holds.get(entry.id)?.[slot])continue;
+    if(stopWhen?.(current())||kind==='los'&&losMet(current()))break;
     if(kind==='asw'&&Number.isFinite(escortLimit)&&entries.filter(e=>reading(e).eligible===true).length>=escortLimit)break;
     const stype=Number(store.const.$ships[store.info.ships[entry.id].api_ship_id]?.api_stype);
     if(kind==='asw'&&!basicASW.has(stype))continue;
@@ -106,11 +133,18 @@ function gearVariant(store,scheme,inventory,kind,profile,area,phase,{stopWhen,ma
     const hasDepth=equippedTypes.includes(15);
     const chosen=rankedEquipment(previous,hasSonar,hasDepth).find(row=>{
       if(used.has(row.id))return false;
+      if(kind==='los'&&/彩雲/.test(row.master.api_name||'')&&entries.some(e=>
+        slotLists.get(e.id).concat(e.ex||-1).some(id=>id!==previous&&/彩雲/.test(
+          store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_name||''))))return false;
       if(kind==='los'&&losValue(row.id)<=losValue(previous)+0.25)return false;
       try{return canEquip(store,entry.id,row.id,slot);}catch(_){return false;}
     });
     if(!chosen)continue;
     slots[slot]=chosen.id;used.add(chosen.id);openingReadings.delete(entry.id);placed++;
+    if(kind==='los'){
+      const arranged=orderCarrierUtility(store,current(),heldSlots);
+      for(const e of arranged.ships)slotLists.set(e.id,e.slots);
+    }
   }
   for(const entry of entries){
     const slots=slotLists.get(entry.id);
@@ -181,6 +215,11 @@ function strategyFailure(store,ctx,option,inventory,heldSlots=[]){
   return `${option.name}未配成：${need}。${issues.join('；')}。请检查提速装备数量、补强增设及手动保留槽位，或更换难以提速的舰娘；不会降级推荐。`;
 }
 function airLoadout(store,scheme,inventory,required,reference,goal='superiority',heldSlots=[],{protectedAttackSlots=new Set()}={}){
+  const placementHolds=protectedAttackSlots.size?scheme.ships.map(entry=>({id:entry.id,keep:{
+    ...heldSlots.find(h=>h?.id===entry.id)?.keep,
+    ...Object.fromEntries((entry.slots||usableSlots(store,entry.id)).map((_,k)=>k)
+      .filter(k=>protectedAttackSlots.has(entry.id+':'+k)).map(k=>[k,true]))}})):heldSlots;
+  scheme=orderCarrierUtility(store,scheme,placementHolds);
   const uncontested=reference?.status==='known'&&reference.enemyAirPower===0&&reference.nodes.some(n=>!n.noAirBattle&&n.kind!=='asw');
   if(uncontested)required=Math.max(1,required||0);
   if(!Number.isFinite(required)||required<=0)return null;
@@ -232,7 +271,7 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     });
     try{return reading();}finally{for(const [position,id]of before)slots.get(position.shipId)[position.slot]=id;}
   };
-  const attackCount=shipId=>slots.get(shipId).filter(id=>[7,8].includes(typeOf(id))).length;
+  const attackCount=shipId=>slots.get(shipId).filter(id=>[7,8,11].includes(typeOf(id))).length;
   const allowed=(position,item)=>{
     if(held.get(position.shipId)?.[position.slot])return false;
     if(used.has(item.id)||occupiedEx.has(item.id))return false;
@@ -285,23 +324,38 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     return (Number(item.master.api_raig||0)+Number(item.master.api_baku||0))*
       Math.sqrt(Math.max(0,planes))+Number(item.master.api_houg||0)*1.5+(hasType?0:40);
   };
+  // Offer a conventional strike outfit when the route-loss model cannot
+  // assess a jet's extra air stage. Keep the original seed and manual jets;
+  // do not obtain a "known" air result by replacing them with reconnaissance.
+  if(reference?.status==='known')for(const position of positions){
+    const jetType=typeOf(slots.get(position.shipId)[position.slot]);
+    if(![57,58].includes(jetType)||protectedAttackSlots.has(position.shipId+':'+position.slot))continue;
+    const choices=alternatives(position,attackers.filter(item=>Number(item.master.api_type[2])===(jetType===57?7:8)))
+      .sort((a,b)=>attackValue(position,b)-attackValue(position,a)||a.id-b.id);
+    if(choices.length)replace(position,choices[0].id);
+  }
   const bestFighter=(where,allowAttackLoss)=>{
     let best=null;
     for(const position of positions.filter(where)){
       const old=slots.get(position.shipId)[position.slot],oldType=typeOf(old);
-      if([7,8].includes(oldType)&&(!allowAttackLoss||attackCount(position.shipId)<=1))continue;
+      if([7,8,11].includes(oldType)&&(!allowAttackLoss||attackCount(position.shipId)<=1))continue;
+      if(position.stype===10){
+        if(old>0&&![6,7,9,10,11,12,13,21,24,27,35,39,45].includes(oldType))continue;
+        if([10,11].includes(oldType)&&!slots.get(position.shipId).some((id,k)=>k!==position.slot&&[10,11].includes(typeOf(id))))continue;
+      }
       if(protectedAttackSlots.has(position.shipId+':'+position.slot))continue;
       const prior=contribution(position,old);
       for(const item of alternatives(position,fighters)){
         const type=Number(item.master.api_type[2]);
         if(position.stype===3||position.stype===5||position.stype===6){
           if(type!==45)continue;
-        }else if(![7,11,18].includes(position.stype)||type!==6)continue;
+        }else if(position.stype===10){if(![6,45].includes(type))continue;}
+        else if(![7,11,18].includes(position.stype)||type!==6)continue;
         const next=contribution(position,item.id);
         const minGain=next.min-prior.min,maxGain=next.max-prior.max;
         if(minGain<=0&&maxGain<=0)continue;
         const candidate={position,item,minGain,maxGain,
-          attackLoss:Number([7,8].includes(oldType))};
+          attackLoss:Number([7,8,11].includes(oldType))};
         if(!best||minGain>best.minGain||minGain===best.minGain&&
           (maxGain>best.maxGain||maxGain===best.maxGain&&
             candidate.attackLoss<best.attackLoss))best=candidate;
@@ -345,7 +399,7 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     }
     if(best)replace(best.position,best.item.id);
   }
-  improve(position=>[7,11,18].includes(position.stype),false);
+  improve(position=>[7,10,11,18].includes(position.stype),false);
   // A high-AA bomber (e.g. F4U-1D) may close the gap while retaining B+A.
   // Compare the full air contribution, including aircraft-type proficiency,
   // before sacrificing a strike slot to another pure fighter. B never counts
@@ -368,7 +422,7 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
     }
     if(!best)break;replace(best.position,best.item.id);
   }
-  improve(position=>[7,11,18].includes(position.stype),true);
+  improve(position=>[7,10,11,18].includes(position.stype),true);
   // Cruise-ship water fighters are a fallback once carrier non-attack slots
   // and expendable strike slots cannot close the gap. Eligibility is checked
   // on the actual ship and slot.
@@ -378,7 +432,19 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
   if(total().min>=required)for(const position of positions){
     if(![7,11,18].includes(position.stype)||typeOf(slots.get(position.shipId)[position.slot])!==6)
       continue;
-    if(small(position)&&attackCount(position.shipId)>0)continue;
+    if(small(position)&&attackCount(position.shipId)>0){
+      // Use spare fighter cover for fixed firepower before considering any
+      // extra fragile strike slot. Retain a fighter for the ship's FBA outfit.
+      if(slots.get(position.shipId).filter(id=>typeOf(id)===6).length>1){
+        const fixed=alternatives(position,utility.filter(i=>Number(i.master.api_type[2])!==6))
+          .sort((a,b)=>Number(b.master.api_houg||0)-Number(a.master.api_houg||0)||a.id-b.id)
+          .find(item=>trial([[position,item.id]])>=required&&
+            (!reference||trial([[position,item.id]],()=>estimateRouteAirMargins(totalAir(),reference)?.[goal]?.min>=0))&&
+            trial([[position,item.id]],()=>supportedAirGoal(totalAir(),reference,goal)));
+        if(fixed)replace(position,fixed.id);
+      }
+      continue;
+    }
     if(uncontested&&positions.filter(p=>[6,45].includes(typeOf(slots.get(p.shipId)[p.slot]))).length<=1)continue;
     const old=slots.get(position.shipId)[position.slot],prior=contribution(position,old);
     const current=total().min;
@@ -504,11 +570,11 @@ function oneOneOpeningLoadout(store,scheme,inventory){
     }else if(stype===10){
       // Ise-class remodels can launch carrier dive bombers as well as seaplane
       // bombers. Actual ship-specific equipment permissions still gate the swap.
-      if(!slots.some((id,slot)=>[8,11].includes(Number(currentMaster(id)?.api_type?.[2]))&&
+      if(!slots.some((id,slot)=>[7,11].includes(Number(currentMaster(id)?.api_type?.[2]))&&
         Number(ship.api_onslot?.[slot]??master.api_maxeq?.[slot]??0)>0)){
         if(slots.filter(id=>[2,3,4].includes(Number(currentMaster(id)?.api_type?.[2]))).length===1&&
           slots[1]<=0)equip([3],[],guns);
-        equip([8,11],[6,9,10,12,13,17,18,24,30,45,54,93]);
+        equip([7,11],[6,9,10,12,13,17,18,24,30,45,54,93]);
       }
     }else if([3,4,5,6,13,14,16].includes(stype)){
       if(!openingTorpedo(store,rows,{ships:[{id:entry.id,slots}]}).count)

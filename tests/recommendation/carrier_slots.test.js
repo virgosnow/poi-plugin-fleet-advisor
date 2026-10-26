@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fixture=require('../helpers/workbench_fixture');
 const {availableEquipment,emptyLoadout,completeCombatLoadout}=require('../../src/recommendation/loadout/loadout_policy');
-const {airLoadout}=require('../../src/recommendation/fitting');
+const {airLoadout,gearVariant}=require('../../src/recommendation/fitting');
 const {recommendNormalEquipment,recommendNormalFleet}=require('../../src/recommendation/index');
 const {airPower}=require('../../src/domain/fleet/fleet_metrics');
 const {estimateRouteAir}=require('../../src/domain/routes/route_air');
@@ -53,12 +53,12 @@ test('air fitting repairs the reported tiny attack slot without sacrificing the 
   assert(types(store,fitted).includes(8));assert(types(store,fitted).includes(7));
 });
 
-test('small carrier slots can use reconnaissance, then legal firepower equipment when fighters are unavailable',()=>{
-  for(const expected of [9,35,2]){
+test('small carrier slots prefer legal firepower over unnecessary reconnaissance when fighters are unavailable',()=>{
+  for(const expected of [35,2]){
     const store=carrierFixture([24,18,3]);
     for(const [id,item] of Object.entries(store.info.equips)){
       const t=type(store,id);
-      if(t===6||expected!==9&&t===9||expected===2&&t===35)delete store.info.equips[id];
+      if(t===6||expected===2&&t===35)delete store.info.equips[id];
     }
     assert.equal(type(store,complete(store).slots[2]),expected);
   }
@@ -156,12 +156,13 @@ test('optional supremacy requires high-performance fighters and keeps manual str
   const {store,base}=twoCarrierFixture();store.const.$equips[9003].api_tyku=9;
   const ref={...reference,enemyAirPower:75,nodes:[{id:'Z',boss:true,enemyAirPower:75}]};
   const fitted=airLoadout(store,base,availableEquipment(store),113,ref);
-  assert.deepEqual(fitted,base);
+  assert.equal(healthySupremacy(store,fitted,reading(store,fitted,ref).air,reading(store,fitted,ref).estimate),false);
+  fitted.ships.forEach((e,i)=>assert.deepEqual(e.slots.slice(0,3),base.ships[i].slots.slice(0,3)));
   store.const.$equips[9003].api_tyku=12;
   const stronger={...ref,enemyAirPower:100,nodes:[{id:'Z',boss:true,enemyAirPower:100}]};
   const held=base.ships.map(entry=>({id:entry.id,keep:{0:true,1:true,2:true}}));
   const manual=airLoadout(store,base,availableEquipment(store),150,stronger,'superiority',held);
-  assert.deepEqual(manual,base);
+  manual.ships.forEach((e,i)=>assert.deepEqual(e.slots.slice(0,3),base.ships[i].slots.slice(0,3)));
 });
 
 test('supremacy is assessed after sequential losses and rejected when enemy AA is unknown',()=>{
@@ -273,4 +274,136 @@ test('ground fitting can replace a conventional bomber with F4U-1D to unlock att
   const held=groundLoadouts(store,scheme(store),availableEquipment(store),{profile,heldSlots:[{id:1,keep:{1:true}}]});
   assert(held.every(s=>s.ships[0].slots[1]===201));
   assert.equal(JSON.stringify(store),before);
+});
+
+function fiveTwoLoSFixture(los=400){
+  const {store}=twoCarrierFixture();
+  for(const [id,name,caps] of [[1,'翔鶴改二甲',[34,21,12,9]],[2,'瑞鶴改二甲',[34,24,12,6]]]){
+    const s=store.info.ships[id],m=store.const.$ships[s.api_ship_id];
+    Object.assign(m,{api_name:name,api_slot_num:4,api_maxeq:caps});
+    Object.assign(s,{api_slot:[-1,-1,-1,-1],api_onslot:caps,api_sakuteki:[los,los]});
+  }
+  for(const id of [3,4,5,6]){
+    store.const.$ships[id].api_stype=id<5?5:2;
+    store.info.ships[id].api_sakuteki=[los,los];
+  }
+  for(const id of [402,403,404])store.info.equips[id]={...store.info.equips[401],api_id:id};
+  const initial={fleet:1,ships:[1,2,3,4,5,6].map(id=>({id,slots:store.info.ships[id].api_slot.slice(),ex:-1}))};
+  const base=completeCombatLoadout(store,initial,availableEquipment(store),{area:'5-2'});
+  return {store,base,profile:require('../../src/domain/routes/sortie_profile').previewForMap('5-2',
+    {paths:[['B','C','D','F','O']]})};
+}
+
+test('LoS fitting leaves attackers alone on maps without a LoS gate and on already-qualified 5-2 fleets',()=>{
+  const {store,base,profile}=fiveTwoLoSFixture(),before=JSON.stringify(store);
+  assert.equal(gearVariant(store,base,availableEquipment(store),'los',profile,'5-2'),null);
+  const noGate=require('../../src/domain/routes/sortie_profile').previewForMap('2-1');
+  assert.equal(gearVariant(store,base,availableEquipment(store),'los',noGate,'2-1'),null);
+  assert.equal(gearVariant(store,base,availableEquipment(store),'los',profile,'5-2',undefined,
+    {allowCombatLoss:true,stopWhen:()=>false}),null,'a non-LoS failure must not keep raising LoS');
+  assert.equal(JSON.stringify(store),before);
+});
+
+test('5-2 equipment and full-fleet recommendations retain large-slot BA once LoS is sufficient',()=>{
+  const {store,base}=fiveTwoLoSFixture(),before=JSON.stringify(store);
+  const args={area:'5-2',routeKey:'B>C>D>F>O'};
+  const equipment=recommendNormalEquipment(store,{...args,scheme:base});
+  const full=recommendNormalFleet(store,{...args,byRoute:true,airGoal:'superiority',fixedShipIds:[1,2,3,4,5,6]});
+  assert(full.recommendations.length>0);
+  for(const fitted of [equipment.scheme,...full.recommendations.map(r=>r.scheme)]){
+    for(const entry of fitted.ships.slice(0,2)){
+      assert(types(store,entry).slice(0,2).includes(7));
+      assert(types(store,entry).slice(0,2).includes(8));
+      assert(types(store,entry).slice(2).every(t=>![7,8].includes(t)));
+    }
+    const ids=fitted.ships.flatMap(e=>e.slots.concat(e.ex)).filter(id=>id>0);
+    assert.equal(new Set(ids).size,ids.length);
+    assert.equal(require('../../src/domain/routes/route_plans').planningPath(
+      require('../../src/domain/routes/normal_routes').evaluateNormalRoute(store,{...args,scheme:fitted}),
+      ['B','C','D','F','O']).chance.probability,1);
+  }
+  assert(full.recommendations.every(r=>r.scores.airGoalTier===3));
+  assert.equal(JSON.stringify(store),before);
+});
+
+test('LoS fitting stops after repairing the actual node coefficient and preserves manual slots',()=>{
+  const {store,base,profile}=fiveTwoLoSFixture(300),before=JSON.stringify(store);
+  const fitted=gearVariant(store,base,availableEquipment(store),'los',profile,'5-2',undefined,
+    {heldSlots:[{id:1,keep:{0:true}}]});
+  assert(fitted);assert.equal(fitted.ships[0].slots[0],base.ships[0].slots[0]);
+  const originalIds=new Set(base.ships.flatMap(e=>e.slots));
+  const additions=fitted.ships.flatMap(e=>e.slots).filter(id=>id>0&&!originalIds.has(id));
+  assert.equal(additions.length,1,'one reconnaissance aircraft closes this fixture LoS gap');
+  const recon=fitted.ships.find(e=>e.slots.some(id=>type(store,id)===9));
+  const slot=recon.slots.findIndex(id=>type(store,id)===9);
+  assert.equal(store.info.ships[recon.id].api_onslot[slot],Math.min(...store.info.ships[recon.id].api_onslot));
+  const route=require('../../src/domain/routes/normal_routes').evaluateNormalRoute(store,{area:'5-2',scheme:fitted});
+  const planning=require('../../src/domain/routes/route_plans').planningPath(route,['B','C','D','F','O']);
+  assert.equal(planning.losShortfall,0);assert.equal(planning.chance.probability,1);
+  assert.equal(gearVariant(store,fitted,availableEquipment(store),'los',profile,'5-2'),null);
+  assert.equal(JSON.stringify(store),before);
+});
+
+test('a real LoS shortfall uses compatible auxiliary slots before sacrificing carrier attackers',()=>{
+  const {store,base,profile}=fiveTwoLoSFixture(300);
+  store.const.$shipTypes[5]={api_equip_type:{12:1}};
+  store.const.$equips[9011]={api_id:9011,api_name:'索敌电探',api_type:[0,0,12,12],api_saku:20};
+  store.info.equips[801]={api_id:801,api_slotitem_id:9011,api_level:0};
+  const fitted=gearVariant(store,base,availableEquipment(store),'los',profile,'5-2');
+  assert(fitted);assert.deepEqual(fitted.ships.slice(0,2),base.ships.slice(0,2));
+  assert(fitted.ships.slice(2).some(e=>e.slots.includes(801)));
+  assert.equal(gearVariant(store,fitted,availableEquipment(store),'los',profile,'5-2'),null);
+});
+
+test('automatic carrier utility does not duplicate reconnaissance across hulls but keeps manual copies',()=>{
+  const {store}=twoCarrierFixture();
+  for(const [id,item] of Object.entries(store.info.equips))if(type(store,id)===6)delete store.info.equips[id];
+  store.info.equips[402]={...store.info.equips[401],api_id:402};
+  const initial={fleet:1,ships:[1,2].map(id=>({id,slots:[-1,-1,-1,-1,-1],ex:-1}))};
+  const fitted=completeCombatLoadout(store,initial,availableEquipment(store),{area:'2-1'});
+  assert.equal(fitted.ships.flatMap(e=>types(store,e)).filter(t=>t===9).length,0);
+  const held=initial.ships.map((e,i)=>({...e,slots:[-1,-1,-1,-1,401+i],keep:{4:true}}));
+  const manual=completeCombatLoadout(store,emptyLoadout(store,initial,held),availableEquipment(store),{area:'2-1',heldSlots:held});
+  assert.equal(manual.ships[0].slots[4],401);assert.equal(manual.ships[1].slots[4],402);
+});
+
+test('air fitting offers a conventional bomber for unmodeled jets without removing BA or overriding manual jets',()=>{
+  const store=carrierFixture([34,21,12,9]);
+  store.const.$equips[9010]={api_id:9010,api_name:'喷气舰爆',api_type:[0,0,57,57],api_baku:15,api_tyku:6};
+  store.const.$shipTypes[11].api_equip_type[57]=1;
+  store.info.equips[710]={api_id:710,api_slotitem_id:9010,api_level:0,api_alv:7};
+  store.info.ships[1].api_slot=[101,710,301,302];
+  const before=JSON.stringify(store);
+  assert.equal(reading(store,scheme(store),reference).estimate.status,'unknown');
+  const fitted=airLoadout(store,scheme(store),availableEquipment(store),15,reference);
+  assert.deepEqual(types(store,fitted.ships[0]).slice(0,2),[8,7]);
+  assert(types(store,fitted.ships[0]).includes(6));
+  assert(reading(store,fitted,reference).estimate.margins.superiority.min>=0);
+  const held=airLoadout(store,scheme(store),availableEquipment(store),15,reference,'superiority',[{id:1,keep:{1:true}}]);
+  assert.equal(held?.ships[0].slots[1]??710,710);
+  assert.equal(JSON.stringify(store),before);
+});
+
+test('surplus small-slot fighter cover can become legal fixed firepower while retaining FBA and route air control',()=>{
+  const store=carrierFixture([34,21,12,9]);store.info.ships[1].api_slot=[101,201,301,302];
+  const fitted=airLoadout(store,scheme(store),availableEquipment(store),15,reference);
+  assert(fitted.ships[0].slots.includes(501));
+  assert(types(store,fitted.ships[0]).includes(6));
+  assert.deepEqual(types(store,fitted.ships[0]).slice(0,2),[8,7]);
+  assert(reading(store,fitted,reference).estimate.margins.superiority.min>=0);
+  const held=airLoadout(store,scheme(store),availableEquipment(store),15,reference,'superiority',[{id:1,keep:{2:true,3:true}}]);
+  assert.deepEqual(held.ships[0].slots.slice(2),[301,302]);
+});
+
+test('LoS repair fits at most one automatic Saiun across the fleet even when a second would raise LoS',()=>{
+  const {store,base,profile}=fiveTwoLoSFixture(200);
+  const fitted=gearVariant(store,base,availableEquipment(store),'los',profile,'5-2',undefined,{allowCombatLoss:true});
+  assert(fitted);
+  assert.equal(fitted.ships.flatMap(e=>e.slots).filter(id=>type(store,id)===9).length,1);
+  const recon=fitted.ships.find(e=>e.slots.some(id=>type(store,id)===9));
+  const slot=recon.slots.findIndex(id=>type(store,id)===9);
+  assert.equal(store.info.ships[recon.id].api_onslot[slot],Math.min(...store.info.ships[recon.id].api_onslot));
+  const route=require('../../src/domain/routes/normal_routes').evaluateNormalRoute(store,{area:'5-2',scheme:fitted});
+  assert(require('../../src/domain/routes/route_plans').planningPath(route,['B','C','D','F','O']).losShortfall>0,
+    'an unresolved shortage must not be presented as passing');
 });
