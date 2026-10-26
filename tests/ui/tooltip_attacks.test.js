@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),{renderContent}=require('../../src/ui/components/tooltip');
-const doc={createElement:()=>({className:'',children:[],textContent:'',appendChild(child){this.children.push(child);}})};
+const doc={createElement:()=>({className:'',style:{},children:[],textContent:'',appendChild(child){this.children.push(child);}})};
 const render=(text,kind='special-shelling')=>{const tip=doc.createElement();renderContent(doc,tip,text,kind);return tip;};
 const descendants=node=>[node,...node.children.flatMap(descendants)];
 const find=(node,cls)=>descendants(node).filter(n=>n.className.split(' ').includes(cls));
@@ -32,6 +32,37 @@ test('slot attacks, CI alternatives and named ground targets each form their own
   assert.deepEqual(find(tip,'paa-tooltip-attack-title').map(n=>n.textContent),kind==='opening-air'?['流星改（24 架）','彗星（18 架）']:titles);assert.equal(tip.children.length,2);
   if(kind==='opening-air')assert.deepEqual(find(tip,'paa-tooltip-attack-label').map(n=>n.textContent),['槽位','装备','攻击力']);
  }
+});
+
+test('real jet badges render the same indexed aircraft table as opening air and keep steel outside it',()=>{
+ const store=require('../helpers/workbench_fixture')(),jet=require('../../src/domain/combat/jet_aviation');
+ store.info.resources=[1000,1000,1000,1000];
+ Object.assign(store.const.$ships[1],{api_stype:18,api_maxeq:[34,12]});
+ store.const.$shipTypes[18]={api_equip_type:{57:1}};
+ const items=[199,200].map((mid,i)=>{
+  const id=101+i,master={api_id:mid,api_name:i?'橘花改':'噴式景雲改',api_type:[0,0,57,57],api_baku:i?11:15};
+  const instance={api_id:id,api_slotitem_id:mid,api_level:0};store.info.equips[id]=instance;store.const.$equips[mid]=master;
+  return {id,type:57,master,instance};
+ });
+ const target={id:1,master:store.const.$ships[1],items,after:{slots:[101,102]}};
+ const badge=jet.assaultBadge(target,store),tip=render(badge.detail,badge.key);
+ const ordinary=render('有可用攻击机时固定发动\n\n第 1 槽 流星改（34 架）\n攻击力：74 或 138 × 1击\n第 2 槽 彗星（12 架）\n攻击力：67 × 1击\n\n开幕航空战中攻击敌舰。','opening-air');
+ assert.deepEqual(find(tip,'paa-tooltip-attack-label').map(n=>n.textContent),['槽位','装备','攻击力']);
+ assert.equal(find(tip,'paa-tooltip-attack-table')[0].className,find(ordinary,'paa-tooltip-attack-table')[0].className);
+ assert.deepEqual(find(tip,'paa-tooltip-attack-index').map(n=>n.textContent),['槽位','1','2']);
+ assert.deepEqual(find(tip,'paa-tooltip-attack-title').map(n=>n.textContent),['噴式景雲改（34 架）','橘花改（12 架）']);
+ assert.deepEqual(find(tip,'paa-tooltip-attack-value').map(n=>n.textContent),['112 × 1击','63 × 1击']);
+ assert.match(tip.children[2].textContent,/本舰钢材消耗：126／次/);
+ assert.equal(find(tip,'paa-tooltip-attack-notes').length,0,'no repeated per-slot steel rows');
+});
+
+test('attack table headers and cells share alignment with bounded position, name and power columns',()=>{
+ const tip=render('发动率：50.0%\n\n第 1 位 Nelson改\n昼战攻击力：168 × 1击\n夜战攻击力：240 × 1击\n第 3 位 长门改二\n昼战攻击力：99 × 1击\n夜战攻击力：140 × 1击');
+ const table=find(tip,'paa-tooltip-attack-table')[0],head=table.children[0].children[0].children,row=table.children[1].children[0].children;
+ assert(head[0].className.includes('paa-tooltip-align-center'));assert(row[0].className.includes('paa-tooltip-align-center'));
+ assert(head[1].className.includes('paa-tooltip-align-left'));assert(row[1].className.includes('paa-tooltip-align-left'));
+ for(const i of [2,3]){assert(head[i].className.includes('paa-tooltip-align-right'));assert(row[i].className.includes('paa-tooltip-align-right'));}
+ const widths=head.map(cell=>parseFloat(cell.style.width));assert.equal(widths.reduce((a,b)=>a+b,0),100);assert(Math.max(...widths)/Math.min(...widths)<=2);
 });
 
 test('unrecognized or mixed position headings remain intact instead of guessing a position',()=>{

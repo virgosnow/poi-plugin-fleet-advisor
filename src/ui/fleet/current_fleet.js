@@ -1,5 +1,6 @@
 'use strict';
 const F=require('./current_fleet_model'),V=require('../models/presentation_model');
+const T=require('../models/metric_tooltips');
 const {retain,hiddenPage}=require('../components/retained_view');
 const collapse=require('../components/collapse');
 const show=n=>Number.isFinite(n)?n:'—';
@@ -66,11 +67,11 @@ module.exports=(React,{getStore})=>{
       busy?h('button',{type:'button',ref:stopButtonRef,disabled:stopping,onClick:()=>{if(!stopping)onStop?.();}},stopping?'正在停止…':'停止操作'):null);
     const {store,reading,summaries,presets}=data,{fleets,current}=headings,air=reading.metrics.airPower,los=reading.metrics.lineOfSight;
     const losValue=c=>Number.isFinite(los?.scoresByCoefficient?.[c])?los.scoresByCoefficient[c].toFixed(1):'—';
-    const losDetail=['33 式索敌',...[1,2,3,4].map(c=>`系数 ${c}${c===4?'（主显示）':''}：${losValue(c)}`),los?.reason||'带路门槛以具体海域路线为准。'].join('\n');
+    const losDetail=T.los(los,null,{current:true});
     const portrait=row=>h('div',{className:'paa-wb-portrait'},h('span',null,row.name.slice(0,2)),row.portrait?h('img',{src:row.portrait,alt:'',draggable:false,onError:e=>{e.currentTarget.style.display='none';}}):null);
     const chevron=open=>h('svg',{className:'paa-fleet-chevron','data-open':!!open,viewBox:'0 0 16 16',width:12,height:12,fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'m6 3 5 5-5 5'}));
     const fold=(label,open,toggle,controls,ariaLabel)=>h('button',{type:'button',className:'paa-fleet-fold',disabled:busy,'aria-expanded':!!open,'aria-controls':controls,'aria-label':ariaLabel||label,onClick:toggle},label,chevron(open));
-    const part=(label,value,cls,detail,tier)=>h('div',{className:'paa-fleet-metric-part '+cls,'data-tooltip':detail,'data-tier':tier,tabIndex:cls==='los'?0:undefined},h('span',null,label),h('strong',null,value));
+    const part=(label,value,cls,detail,tier)=>h('div',{className:'paa-fleet-metric-part '+cls,...typeof detail==='object'?T.attributes(detail):{'data-tooltip':detail},'data-tier':tier,tabIndex:0},h('span',null,label),h('strong',null,value));
     const rendered=h('div',{className:'paa-workbench paa-current-status','data-kind':'manual',hidden,ref:content},h('div',{className:'paa-wb-columns'},
       h('section',{className:'paa-wb-left'},h('div',{className:'paa-fleet-section-heading'},h('h3',null,'舰队总览')),
         h('div',{className:'paa-fleet-selector-body'},
@@ -99,9 +100,9 @@ module.exports=(React,{getStore})=>{
         operationFeedback,
         h('div',{className:'paa-fleet-metrics','aria-label':'舰队状态指标'},
           h('div',{className:'paa-fleet-metric combat'},h('div',{className:'paa-fleet-metric-heading'},h('span',null,'战斗')),
-            h('div',{className:'paa-fleet-metric-parts'},part('速力',reading.speed.valueLabel||'—','speed',reading.speed.detail,reading.speed.tier||0),
+            h('div',{className:'paa-fleet-metric-parts'},part('速力',reading.speed.valueLabel||'—','speed',T.speed(reading.speed),reading.speed.tier||0),
               part('索敌',losValue(4),'los',losDetail),
-              part('制空值',air?.status==='range'?(air.min===air.max?air.min:`${air.min}–${air.max}`):'—','air','按当前实际搭载数计算；熟练度不可见部分保留区间。'))),
+              part('制空值',air?.status==='range'?(air.min===air.max?air.min:`${air.min}–${air.max}`):'—','air',T.air(store,air,null,{current:true})))),
           h('div',{className:'paa-fleet-metric expedition'},h('span',null,'远征'),h('div',{className:'paa-fleet-metric-parts'},
             part('有闪',`${reading.expedition.sparkled}/${reading.ships.length}`,'morale',reading.expedition.unknownMorale?'部分舰娘士气待同步':'士气 ≥ 50 计入有闪。'),
             part('运输桶',reading.expedition.drums,'',`载桶舰：${reading.expedition.carriers} 艘`),
@@ -118,7 +119,7 @@ module.exports=(React,{getStore})=>{
                   [ship.fuel,ship.ammo].some(p=>p.current===null||p.max===null)?h('span',{className:'paa-muted'},'补给待同步'):null,
                 collapse(h,{open:shipDetails[ship.id],id:`paa-fleet-stats-${ship.id}`},h('dl',{className:'paa-fleet-ship-stats','aria-label':'当前面板属性'},...ship.stats.map(s=>h('div',{key:s.label},h('dt',null,s.label),h('dd',null,show(s.value))))))):null),
             h('div',{className:'paa-wb-mechanisms','aria-label':'战斗与远征机制'},...badges(ship.badges)),
-            h('div',{className:'paa-wb-gears'},...(ship.equipment||[]).map(eq=>h('div',{key:eq.slot,className:'paa-wb-gear','data-tooltip':eq.id>0&&!eq.item?'装备资料待同步':V.equipmentTooltip(eq.item)||'空槽',tabIndex:0},
+            h('div',{className:'paa-wb-gears'},...(ship.equipment||[]).map(eq=>h('div',{key:eq.slot,className:'paa-wb-gear',...eq.id>0&&!eq.item?{'data-tooltip':'装备资料待同步'}:V.equipmentTooltipProps(eq.item),tabIndex:0},
               h('span',{className:'paa-wb-slot-label'},eq.slot==='ex'?'增':eq.slot+1),eq.item?h(EquipmentIcon,{item:eq.item}):h('span',{className:'paa-wb-gear-empty'},eq.id>0?'?':'＋'),
               h('span',{className:'paa-wb-gear-name'},eq.item?eq.item.tooltip.replace(/^.*? · /,''):eq.id>0?`装备 #${eq.id}`:'空槽'),
               eq.capacity!==undefined?h('span',{className:'paa-wb-aircraft-count','data-tooltip':'当前搭载 / 最大搭载'},`${show(eq.planes)} / ${show(eq.capacity)} 架`):null)),!ship.unknown&&!ship.expansion?h('div',{className:'paa-wb-gear-unopened'},'增 · 未开启'):null))))))));

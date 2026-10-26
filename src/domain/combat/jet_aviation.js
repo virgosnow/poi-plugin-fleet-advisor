@@ -4,6 +4,7 @@
 // wikiwiki.jp/kancolle/航空戦#Airstrike / 対空砲火#avoid_AAfire
 // wikiwiki.jp/kancolle/震電改三(試製 噴式震電), checked 2026-10-26.
 const VERSION='ship-jets-2026-10-26';
+const tooltip=require('../../shared/mechanism_text');
 const TYPES={fighter:56,bomber:57,attacker:58};
 const PHASES={softCap:170,ordinaryPower:1/Math.SQRT2,proportionalLoss:0.6};
 const RULES={
@@ -82,12 +83,15 @@ function assaultBadge(target,store,profile){
   if(!live&&!unknown&&!illegal)reasons.push('喷气舰爆所在槽位容量为0');
   const nodes=selectedNodes(profile);
   if(nodes.length&&!nodes.some(n=>applicable(n)!==false))reasons.push('所选路线没有喷式强袭适用节点');
-  const detail=['喷式强袭',...rows.flatMap(r=>[
-    `第${r.slot+1}槽：${r.name}，${r.planes??'待确认'}架`,
-    `攻击力：${r.power??'待确认'} × 1击`,
-    `钢材消耗：${r.steel??'待确认'}／次`]),
-    '普通航空战前逐槽攻击敌舰。','满载基础参考；未扣敌甲。',...reasons].join('\n');
-  return {key:'jet-assault',label:'喷式强袭',state:illegal||steel===0||!live&&!unknown?'blocked':unknown?'unknown':'ready',
+  const state=illegal||steel===0||!live&&!unknown?'blocked':unknown?'unknown':'ready';
+  const totalSteel=rows.every(r=>r.steel!==null)?rows.reduce((sum,r)=>sum+r.steel,0):null;
+  const detail=tooltip(state==='ready'?'有可用喷气攻击机时固定发动':state==='unknown'?'发动情况：待确认':'当前无法发动',
+    rows.flatMap(r=>[
+      `第 ${r.slot+1} 槽 ${r.name}（${r.planes??'待确认'} 架）`,
+      r.planes===0||r.legal===false?'攻击力：不可用':`攻击力：${r.power??'待确认'} × 1击`]),
+    [`本舰钢材消耗：${totalSteel??'待确认'}／次`,
+      '普通航空战前攻击敌舰。','按出击前满载；未计损耗与暴击。',...reasons]);
+  return {key:'jet-assault',label:'喷式强袭',state,
     attacks:rows,steelAvailable:steel,reasons,detail};
 }
 function antiAirLoss(count,node,jet){

@@ -92,7 +92,7 @@ function inspect(store,fleet,presetId=null){
     const repair=store.info.repairs?.find(r=>Number(r.api_ship_id)===s.id);
     const hp=pair(ship.api_nowhp,ship.api_maxhp),ratio=hp.max>0&&hp.current!==null?hp.current/hp.max:null;
     const health=ratio===null?'待同步':ratio<=.25?'大破':ratio<=.5?'中破':ratio<=.75?'小破':ratio<1?'轻伤':'完好';
-    const equipment=s.slots.map((id,k)=>({slot:k,item:V.equipmentItem(store,id,k),id,capacity:aircraftCapacity(master,store.const.$equips[store.info.equips[id]?.api_slotitem_id],k),planes:number(ship.api_onslot?.[k])}));
+    const equipment=s.slots.map((id,k)=>({slot:k,item:V.withAirPower(V.equipmentItem(store,id,k),metrics.airPower,s.id,{current:true}),id,capacity:aircraftCapacity(master,store.const.$equips[store.info.equips[id]?.api_slotitem_id],k),planes:number(ship.api_onslot?.[k])}));
     if(ship.api_slot_ex!==0)equipment.push({slot:'ex',item:V.equipmentItem(store,s.ex,'ex'),id:s.ex});
     return {id:s.id,name:master.api_name,level:number(ship.api_lv),type:W.TYPES[master.api_stype]||'未知舰种',portrait:V.portraitUrl(store,ship.api_ship_id),
       hp,health,ratio,repair:repair||ship.api_situation===2?repair||{}:null,fuel:pair(ship.api_fuel,master.api_fuel_max),ammo:pair(ship.api_bull,master.api_bull_max),

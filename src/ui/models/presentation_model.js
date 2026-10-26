@@ -6,16 +6,34 @@ const equipmentIconUrl=type=>equipmentIcons.get(Number(type))||null;
 const {shipName}=require('../shell/model');
 const {referenceWeights}=require('../../domain/routes/route_policy');
 function equipmentTooltip(item){return [item?.tooltip,item?.statsText].filter(Boolean).join('\n');}
+function equipmentTooltipProps(item,notes=[]){
+  if(!item)return {'data-tooltip':'空槽'};
+  const values=[...(item.stats||[]),...(item.airPowerText!==undefined?[['制空值',item.airPowerText]]:[])],rows=[];
+  for(let i=0;i<values.length;i+=2)rows.push([...values[i],...(values[i+1]||['',''])]);
+  return require('./metric_tooltips').attributes({title:item.tooltip||item.name,compact:true,sections:values.length?
+    [{layout:'equipment-stats',columns:['属性','数值','属性','数值'],rows,numeric:[1,3]}]:[],notes:[...notes,item.airPowerBasis,
+      item.stats?.length?'基础属性；改修与舰娘适配加成另计。':item.stats?'无基础数值加成。':'装备属性资料待同步。'].filter(Boolean)},
+    [equipmentTooltip(item),item.airPowerText!==undefined?`制空值：${item.airPowerText}`:'',...notes].filter(Boolean).join('\n'));
+}
+function withAirPower(item,reading,shipId,{current=false}={}){
+  if(!item||![6,7,8,9,10,11,25,26,41,45,56,57,58,59].includes(item.aircraftType)||item.slot==='ex')return item;
+  const participates=[6,7,8,11,26,45,56,57,58].includes(item.aircraftType);
+  const slot=reading?.slots?.find(s=>s.shipId===shipId&&s.slot===item.slot&&s.itemId===item.id);
+  const known=slot&&!slot.unknown&&Number.isFinite(slot.min)&&Number.isFinite(slot.max);
+  const text=!participates?'0':!reading?'待计算':!known?'待确认':slot.min===slot.max?String(slot.min):`${slot.min}–${slot.max}`;
+  return {...item,airPowerText:text,airPowerBasis:current?'制空值按本槽当前搭载计算。':'制空值按本槽出击前满载计算。'};
+}
 function equipmentItem(store,id,slot){
   const item=store.info?.equips?.[id],master=store.const?.$equips?.[item?.api_slotitem_id];
   if(!master||id<=0)return null;
   const name=master.api_name||'未知装备',extra=slot==='ex';
   const interceptor=Number(master.api_type?.[2])===48;
   const fields=[['api_houg','火力'],['api_raig','雷装'],['api_baku','爆装'],['api_tyku','对空'],['api_tais','对潜'],['api_saku','索敌'],['api_houm',interceptor?'对爆':'命中'],['api_houk',interceptor?'迎击':'回避'],['api_souk','装甲']];
-  const stats=fields.flatMap(([key,label])=>{const n=Number(master[key]);return Number.isFinite(n)&&n!==0?[`${label} ${n>0?'+':''}${n}`]:[];});
-  if(Number(master.api_leng)>0)stats.push('射程 '+({1:'短',2:'中',3:'长',4:'超长',5:'超超长'}[master.api_leng]||master.api_leng));
-  if(Number(master.api_distance)>0)stats.push('航程 '+master.api_distance);
-  return {id,slot,extra,name,statsSummary:stats.map(s=>s.replace(' ','')).join(' '),statsText:stats.length?'基础属性：'+stats.join(' · '):'',icon:equipmentIconUrl(master.api_type?.[3]),
+  const values=fields.flatMap(([key,label])=>{const n=Number(master[key]);return Number.isFinite(n)&&n!==0?[[label,`${n>0?'+':''}${n}`]]:[];});
+  if(Number(master.api_leng)>0)values.push(['射程',({1:'短',2:'中',3:'长',4:'超长',5:'超超长'}[master.api_leng]||String(master.api_leng))]);
+  if(Number(master.api_distance)>0)values.push(['航程',String(master.api_distance)]);
+  const stats=values.map(row=>row.join(' '));
+  return {id,slot,extra,name,aircraftType:Number(master.api_type?.[2]),stats:values,statsSummary:stats.map(s=>s.replace(' ','')).join(' '),statsText:stats.length?'基础属性：'+stats.join(' · '):'',icon:equipmentIconUrl(master.api_type?.[3]),
     tooltip:`${extra?'增设':`${Number(slot)+1} 槽`} · ${name}`+(item.api_level>0?` ★${item.api_level}`:'')+(item.api_alv>0?` · 熟练度 ${item.api_alv}`:'')};
 }
 
@@ -54,7 +72,7 @@ function fleetRows(store,scheme){
       const tooltip=`${extra?'增设':`${slot+1} 槽`} · ${name}`+
         (item?.api_level>0?` ★${item.api_level}`:'')+
         (item?.api_alv>0?` · 熟练度 ${item.api_alv}`:'');
-      gearIcons.push({id,slot,extra,name,tooltip,
+      gearIcons.push(equipmentItem(store,id,slot)||{id,slot,extra,name,tooltip,
         icon:equipmentIconUrl(equipment?.api_type?.[3])});
       return tooltip;
     };
@@ -143,4 +161,4 @@ function mapLayout(preview){
     x:28+d*(width-56)/Math.max(1,layers-1),y:height/2+(i-(group.length-1)/2)*66})));
   return {width,height,nodes,edges:(preview.edges||[]).filter(e=>depth.has(e.from)&&depth.has(e.to))};
 }
-module.exports={equipmentIconUrl,equipmentItem,equipmentTooltip,rosterRows,nodeKind,portraitUrl,fleetRows,routeReasons,mapLayout};
+module.exports={equipmentIconUrl,equipmentItem,equipmentTooltip,equipmentTooltipProps,withAirPower,rosterRows,nodeKind,portraitUrl,fleetRows,routeReasons,mapLayout};

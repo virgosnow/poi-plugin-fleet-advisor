@@ -148,7 +148,9 @@ test('read-only status UI switches live fleets, refreshes data and offers no sch
   assert.deepEqual(parts.children.map(n=>n.props.className),['paa-fleet-metric-part speed','paa-fleet-metric-part los','paa-fleet-metric-part air']);
   const los=parts.children[1],scores=F.inspect(s,1).metrics.lineOfSight.scoresByCoefficient;
   assert(!find(tree,n=>n.type==='select'));assert.equal(los.children[1].children[0],scores[4].toFixed(1));assert.equal(los.props.tabIndex,0);
-  for(const c of [1,2,3,4])assert(los.props['data-tooltip'].includes(`系数 ${c}${c===4?'（主显示）':''}：${scores[c].toFixed(1)}`));
+  const losTable=JSON.parse(los.props['data-tooltip-content']);
+  assert.match(losTable.sections[0].title,/主显示系数 4/);
+  assert.deepEqual(losTable.sections[0].rows,[1,2,3,4].map(c=>[String(c),scores[c].toFixed(1)]));
   assert(!text(tree).includes('系数 4'));
   assert.equal(find(tree,n=>n.props.id==='paa-fleet-stats-1').props.inert,'');assert(!find(tree,n=>n.props.id==='paa-fleet-supply-details'));
   const attrLabel='测试舰1：属性';find(tree,n=>n.props['aria-label']===attrLabel).props.onClick();render();

@@ -1,6 +1,7 @@
 'use strict';
 const W=require('./workbench_model'),V=require('../models/presentation_model');
 const E=require('../expedition/expedition_model');
+const T=require('../models/metric_tooltips');
 const {fleetMechanisms,fleetSpeed,aircraftCapacity}=require('../../domain/combat/ship_mechanisms');
 const routePreview=require('../maps/route_preview'),shipDrag=require('../components/ship_drag');
 const {retain,hiddenPage}=require('../components/retained_view');
@@ -22,6 +23,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       [h('circle',{key:'circle',cx:8,cy:8,r:6}),h('path',{key:'mark',d:good?'m5 8 2 2 4-4':'M5 8h6'})]);
     return h('div',{className:'paa-wb-metric '+kind+(reading.bad?' insufficient':''),'data-tone':tone,
       'data-tooltip':[reading.hint,reading.detail].filter(Boolean).join('\n'),
+      'data-tooltip-content':reading.tooltipContent,tabIndex:0,
       'aria-label':`${kind==='air'?'制空':'33式索敌'} ${reading.value}，${reading.state}`},
       h('span',{className:'paa-wb-metric-state'},icon,reading.state),
       h('strong',{'data-label':kind==='air'?'我方':'33 式'},reading.value),
@@ -307,6 +309,10 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const checks=(expedition?.checks||[]).filter(c=>!c.sat);
       // Fleet power belongs to the draft; thresholds belong to the selected map path.
       const summary=W.fleetSummary(dirty?{}:report,mapProfile||report.profile,kind==='normal'?require('../../domain/routes/route_plans').optionPaths(selectedRoute):undefined);
+      if(kind==='normal'){
+        summary.air.tooltipContent=JSON.stringify(T.air(store,dirty?null:report.metrics?.airPower,summary.air));
+        summary.los.tooltipContent=JSON.stringify(T.los(dirty?null:report.metrics?.lineOfSight,summary.los));
+      }
       const changeSummary=rows.length&&!dirty&&report.valid?W.changeSummary(store,slots,fleet):'';
       return {contextKey:conditionKey,effectivePhase,changeSummary,rows,rowById,expeditionStatus,mission,map,expedition,rate,income,dirty,overview,mapProfile,speedReading,speedRequirement,mechanisms,threat,progress,routeOptions,selectedRoute,arrival,routeRequirements,routeSearchFailed,reasons,checks,summary};
     });
@@ -343,11 +349,11 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       if(!store.info.ships[s.id])return h('article',{key:s.id,className:'paa-wb-ship'},h('p',{className:'paa-error'},'舰娘数据已变化，请重新选择'),h('button',{type:'button',disabled,onClick:()=>open(i)},'重新选择'));
       const row=rowById.get(s.id),master=store.const.$ships[store.info.ships[s.id].api_ship_id];
       const gearSlot=k=>{
-        const item=row.gearIcons.find(x=>x.slot===k);
+        const item=V.withAirPower(row.gearIcons.find(x=>x.slot===k),dirty?null:report.metrics?.airPower,s.id);
         const equipment=store.const.$equips[store.info.equips[item?.id]?.api_slotitem_id];
         const planes=aircraftCapacity(master,equipment,k);
         return h('button',{key:k,type:'button',disabled:disabled,className:'paa-wb-gear'+(s.keep[k]?' kept':''),
-          'data-tooltip':(V.equipmentTooltip(item)||'空槽')+(planes!==undefined?` · 满载 ${planes??'未知'} 架`:'')+(s.keep[k]?' · 一键补全时保留':''),onClick:()=>open(i,k)},
+          ...V.equipmentTooltipProps(item,[planes!==undefined?`满载 ${planes??'未知'} 架`:'',s.keep[k]?'一键补全时保留':''].filter(Boolean)),onClick:()=>open(i,k)},
           h('span',{className:'paa-wb-slot-label'},k==='ex'?'增':Number(k)+1),item?h(EquipmentIcon,{item}):h('span',{className:'paa-wb-gear-empty'},'＋'),
           h('span',{className:'paa-wb-gear-name'},item?item.tooltip.replace(/^.*? · /,''):'空槽'),
           planes!==undefined?h('span',{className:'paa-wb-aircraft-count','data-planes':planes??'unknown','aria-label':planes===null?'满载数量未知':`满载 ${planes} 架`},`${planes??'—'} 架`):null,
@@ -449,7 +455,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           operationFeedback,
           kind==='expedition'?stableResult('expedition-metrics',expeditionView.metrics({status:expeditionStatus,mission,income})):null,
           kind==='normal'?stableResult('metrics',h('div',{className:'paa-wb-metrics','data-columns':3,'aria-label':'舰队速力、制空与索敌','aria-live':'polite'},
-            h('div',{className:'paa-wb-metric speed','data-tier':speedReading.tier,'data-has-requirement':speedRequirement.hint?'true':undefined,'data-tooltip':[speedRequirement.detail,speedReading.detail].filter(Boolean).join('\n\n')||'按当前编成与提速装备判定。','aria-label':`舰队速力：${speedReading.ships.length?speedReading.label:'—'}`},
+            h('div',{className:'paa-wb-metric speed','data-tier':speedReading.tier,'data-has-requirement':speedRequirement.hint?'true':undefined,...T.attributes(T.speed(speedReading,speedRequirement)),tabIndex:0,'aria-label':`舰队速力：${speedReading.ships.length?speedReading.label:'—'}`},
               h('svg',{className:'paa-wb-speed-gauge',viewBox:'0 0 19 14','aria-hidden':true},...[1,2,3,4].map(t=>h('rect',{key:t,x:(t-1)*5,y:14-t*3,width:3,height:t*3,rx:0.6,fill:t<=speedReading.tier?'currentColor':'none',stroke:'currentColor',strokeWidth:0.6,opacity:t<=speedReading.tier?1:0.28}))),
               h('strong',null,speedReading.ships.length?speedReading.label:'—'),
               speedRequirement.hint?h('small',null,speedRequirement.hint):null),
@@ -475,7 +481,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         popup.slot===undefined&&slots[popup.index]?h('div',{className:'paa-wb-candidate-tabs','aria-label':'候选范围'},...[["similar","同舰种"],["all","全部舰娘"]].map(([value,label])=>h('button',{key:value,type:'button','aria-pressed':candidateScope===value,onClick:()=>setCandidateScope(value)},label)),h('span',{className:'paa-muted'},kind==='expedition'?'换入后自动推荐远征装备':kind==='normal'?'换入后自动推荐装备':'换入后核对编成')):null,
         h('div',{className:'paa-wb-popup-list',ref:popupList},...visiblePopupRows.flatMap((row,i)=>[
           popup.slot!==undefined&&(i===0||row.categoryId!==visiblePopupRows[i-1].categoryId)?h('h4',{key:`category-${row.categoryId}`,className:'paa-wb-equipment-group'},row.category):null,
-          h('button',{key:row.id,type:'button',className:popup.slot===undefined?undefined:'paa-wb-equipment-option','aria-current':row.id===currentEquipment?'true':undefined,'data-tooltip':popup.slot===undefined?undefined:V.equipmentTooltip(row),disabled:disabled||!!row.unavailable,onClick:()=>pick(row)},
+          h('button',{key:row.id,type:'button',className:popup.slot===undefined?undefined:'paa-wb-equipment-option','aria-current':row.id===currentEquipment?'true':undefined,...popup.slot===undefined?{}:V.equipmentTooltipProps(row),disabled:disabled||!!row.unavailable,onClick:()=>pick(row)},
           popup.slot===undefined?portrait(row):h(EquipmentIcon,{item:row}),h('span',{className:popup.slot===undefined?undefined:'paa-wb-equipment-label'},h('strong',null,row.name),popup.slot===undefined?h('small',null,`${row.type} · Lv.${row.level} · ${row.fleetLabel} · 疲劳 ${row.cond}${row.unavailable?' · '+row.unavailable:''}`):
             row.stars>0||row.proficiency>0?h('span',{className:'paa-wb-equipment-quality'},[row.stars>0?`★${row.stars}`:'',row.proficiency>0?`熟练 ${row.proficiency}`:''].filter(Boolean).join(' · ')):null,
             popup.slot!==undefined&&row.statsSummary?h('span',{className:'paa-wb-equipment-stats'},row.statsSummary):null,

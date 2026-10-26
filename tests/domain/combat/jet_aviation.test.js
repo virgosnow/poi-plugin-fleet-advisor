@@ -42,6 +42,12 @@ test('legal, fully supplied jet bombers expose a separate per-slot assault badge
     assert.equal(badge.attacks[0].power,jet.jetPower(id===199?15:11,34));
     assert.match(badge.detail,/钢材消耗：(?:95|88)／次/);assert(!badge.detail.includes('发动率'));
     const ordinary=all.find(b=>b.key==='opening-air');assert(ordinary);
+    const parts=badge.detail.split('\n\n'),airParts=ordinary.detail.split('\n\n');
+    assert.equal(parts.length,3);
+    assert.equal(parts[0],'有可用喷气攻击机时固定发动');
+    assert.equal(parts[1].split('\n')[0],airParts[1].split('\n')[0]);
+    assert.equal(parts[1].split('\n')[1],`攻击力：${badge.attacks[0].power} × 1击`);
+    assert.match(parts[2],/^本舰钢材消耗：(?:95|88)／次\n普通航空战前攻击敌舰。\n按出击前满载；未计损耗与暴击。$/);
     assert(!ordinary.detail.includes('强袭攻击力'),'ordinary and jet phases have distinct tooltips');
     assert.equal(JSON.stringify(store),before);
   }
@@ -50,10 +56,30 @@ test('legal, fully supplied jet bombers expose a separate per-slot assault badge
 test('zero, unknown capacity and illegal jets have distinct blocked or unknown states',()=>{
   const zero=badges(fixture({capacity:0})).find(b=>b.key==='jet-assault');
   assert.equal(zero.state,'blocked');assert.equal(zero.attacks[0].power,null);
+  assert.match(zero.detail,/第 1 槽 噴式景雲改（0 架）\n攻击力：不可用/);
   const unknown=badges(fixture({capacity:null})).find(b=>b.key==='jet-assault');
   assert.equal(unknown.state,'unknown');assert.match(unknown.detail,/容量资料缺失/);
+  assert.match(unknown.detail,/第 1 槽 噴式景雲改（待确认 架）\n攻击力：待确认 × 1击/);
+  assert.match(unknown.detail,/本舰钢材消耗：待确认／次/);
   const illegal=badges(fixture({legal:false})).find(b=>b.key==='jet-assault');
   assert.equal(illegal.state,'blocked');assert.match(illegal.detail,/资格不符/);assert.equal(illegal.attacks[0].power,null);
+  assert.match(illegal.detail,/攻击力：不可用/);
+});
+
+test('multiple jet slots show compact attack rows and one rounded per-slot steel total',()=>{
+  const store=fixture();
+  store.const.$ships[1].api_maxeq=[34,12];store.const.$ships[1].api_slot_num=2;
+  store.info.equips[102]={...store.info.equips[101],api_id:102};
+  store.info.ships[1].api_slot=[101,102];
+  const badge=badges(store).find(b=>b.key==='jet-assault');
+  assert.equal(badge.detail.split('\n\n')[1],[
+    '第 1 槽 噴式景雲改（34 架）','攻击力：112 × 1击',
+    '第 2 槽 噴式景雲改（12 架）','攻击力：76 × 1击'
+  ].join('\n'));
+  assert.match(badge.detail,/本舰钢材消耗：129／次/);
+  assert.equal(badge.detail.match(/钢材消耗/g).length,1);
+  store.const.$ships[1].api_maxeq[1]=null;
+  assert.match(badges(store).find(b=>b.key==='jet-assault').detail,/本舰钢材消耗：待确认／次/,'do not present a known partial sum as the total');
 });
 
 test('jet fighters have fighter proficiency and no fictitious anti-ship jet assault',()=>{

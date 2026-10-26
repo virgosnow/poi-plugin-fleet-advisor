@@ -409,7 +409,7 @@ function losSummary(report,profile,routeNodes){
     const hint=`门槛 ≥ ${primary.requiredScore} · ${edge(primary)}`+(requirements.length>1?` · 共 ${requirements.length} 处`:'');
     const detail=requirements.map(r=>`${edge(r)}：门槛 ≥ ${r.requiredScore} · 系数 ${r.coefficient} · 当前 ${Number.isFinite(los?.scoresByCoefficient?.[r.coefficient])?los.scoresByCoefficient[r.coefficient].toFixed(1):'待计算'}`).join('\n');
     const compactHint=`${edge(primary)} · 门槛 ≥ ${primary.requiredScore} · 系数 ${coefficient}`;
-    return {label,value,coefficient,hint,compactHint,detail,state:!measured?'待计算':conservative?'索敌达标':
+    return {label,value,coefficient,hint,compactHint,detail,checks:requirements.map(r=>({edge:edge(r),coefficient:r.coefficient,requiredScore:r.requiredScore,score:los?.scoresByCoefficient?.[r.coefficient]})),state:!measured?'待计算':conservative?'索敌达标':
       fails?'索敌不足':meets?'估算达标':'索敌待确认',bad:fails,uncertain:measured&&!conservative&&!fails};
   }
   if(selected&&area&&(!gates.length||bypassed))return {label:'33 式索敌',value:'—',coefficient:null,
