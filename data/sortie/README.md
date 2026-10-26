@@ -62,4 +62,4 @@ python tools/data/update-encounters.py 3-1 3-2
 
 没有记载的概率、等级边界和消耗填 `null`。带问号的原文保留在 raw；敌情统计不替代带路规则。`pending` 可留在资料台账中，但不能作为已确认事实。
 
-维护时检查 `validation`、`coverageCheck`、`crossCheck` 和 `apiIdBackfill`，以 JSON 中的现行记录为准，不在文档重复维护疑点数量或修复清单。测试入口见[主文档](../../README.md#开发与验证)。
+维护时检查 `validation`、`coverageCheck`、`crossCheck` 和 `apiIdBackfill`，以 JSON 中的现行记录为准，不在文档重复维护疑点数量或修复清单。测试入口见[架构文档](../../docs/ARCHITECTURE.md#开发环境与验证)。
