@@ -101,8 +101,8 @@ MCP 服务采用 Node.js 内置 HTTP 实现，不捆绑协议 SDK 或客户端�
 - [伤害与适重](https://wikiwiki.jp/kancolle/戦闘について/与ダメージの算定に関わる要素の考察)、[改修效果](https://wikiwiki.jp/kancolle/改修工廠)、[夜战](https://wikiwiki.jp/kancolle/夜戦)、[甲板人员](https://wikiwiki.jp/kancolle/熟練甲板要員＋航空整備員)。
 - 各舰日文 Wiki 特殊攻击章节及[英文 Wiki Special Attacks](https://en.kancollewiki.net/Special_Attacks)。
 - 金刚型参考发动率及榛名电探修正依据 [NGA 41784769](https://bbs.nga.cn/read.php?tid=41784769)与第 26 楼；大和三舰齐射按前两舰计算，保留参考性质。模型细节见 `src/domain/combat/special_attacks.js`。
-- 舰载喷气航空依据[景云改：喷气强袭与钢耗](https://wikiwiki.jp/kancolle/噴式景雲改#JetAssault)、[橘花改](https://wikiwiki.jp/kancolle/橘花改)、[震电改三](https://wikiwiki.jp/kancolle/震電改三%28試製%20噴式震電%29)、[航空战](https://wikiwiki.jp/kancolle/航空戦#Airstrike)、[射击回避](https://wikiwiki.jp/kancolle/対空砲火#avoid_AAfire)和[战爆联合](https://wikiwiki.jp/kancolle/戦闘について#FAcutin)独立实现。另与 [noro6/kcTools 的模拟器](https://github.com/noro6/kcTools/blob/develop/js/simulator.js)核对阶段和取整顺序，不复制上游实现。公式、资料缺口和推荐策略边界见架构文档；不捆绑网页或上游应用。
+- 舰载喷气航空依据[景云改：喷式强袭与钢耗](https://wikiwiki.jp/kancolle/噴式景雲改#JetAssault)、[橘花改](https://wikiwiki.jp/kancolle/橘花改)、[震电改三](https://wikiwiki.jp/kancolle/震電改三%28試製%20噴式震電%29)、[航空战](https://wikiwiki.jp/kancolle/航空戦#Airstrike)、[射击回避](https://wikiwiki.jp/kancolle/対空砲火#avoid_AAfire)和[战爆联合](https://wikiwiki.jp/kancolle/戦闘について#FAcutin)独立实现。另与 [noro6/kcTools 的模拟器](https://github.com/noro6/kcTools/blob/develop/js/simulator.js)核对阶段和取整顺序，不复制上游实现。公式、资料缺口和推荐策略边界见架构文档；不捆绑网页或上游应用。
 
-喷气强袭图标 `data/icons/material/jet-assault.svg` 为本项目使用内置 image_gen 生成原创双发飞机后提取的剪影，不是游戏图标的提取或重绘；随本项目分发。原始生成图不进入发行包。
+喷式强袭图标 `data/icons/material/jet-assault.svg` 参考游戏喷气装备图标的斜俯视角，经内置 image_gen 重新绘制双发喷气机，再从透明剪影提取轮廓，并非直接提取游戏图标像素。参考素材的原有权利不因重绘而改变；原始生成图与处理记录保存在项目外，不进入发行包。
 
 参考攻击力按已实现的固定条件计算，未扣敌甲，不等同最终伤害或胜率。资料不足的条件、系数及发动率保留“待确认”或“参考”标记。

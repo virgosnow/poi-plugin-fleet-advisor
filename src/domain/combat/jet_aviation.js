@@ -78,16 +78,16 @@ function assaultBadge(target,store,profile){
       steel:steelCost(e.instance?.api_slotitem_id,e.type,planes),legal});
   }
   if(steel===null){unknown=true;reasons.push('当前钢材资料缺失');}
-  if(steel===0)reasons.push('钢材为0，不能喷气强袭；仍可参加普通航空战');
+  if(steel===0)reasons.push('钢材为0，不能喷式强袭；仍可参加普通航空战');
   if(!live&&!unknown&&!illegal)reasons.push('喷气舰爆所在槽位容量为0');
   const nodes=selectedNodes(profile);
-  if(nodes.length&&!nodes.some(n=>applicable(n)!==false))reasons.push('所选路线没有喷气强袭适用节点');
-  const detail=['喷气强袭',...rows.flatMap(r=>[
+  if(nodes.length&&!nodes.some(n=>applicable(n)!==false))reasons.push('所选路线没有喷式强袭适用节点');
+  const detail=['喷式强袭',...rows.flatMap(r=>[
     `第${r.slot+1}槽：${r.name}，${r.planes??'待确认'}架`,
     `攻击力：${r.power??'待确认'} × 1击`,
     `钢材消耗：${r.steel??'待确认'}／次`]),
     '普通航空战前逐槽攻击敌舰。','满载基础参考；未扣敌甲。',...reasons].join('\n');
-  return {key:'jet-assault',label:'喷气强袭',state:illegal||steel===0||!live&&!unknown?'blocked':unknown?'unknown':'ready',
+  return {key:'jet-assault',label:'喷式强袭',state:illegal||steel===0||!live&&!unknown?'blocked':unknown?'unknown':'ready',
     attacks:rows,steelAvailable:steel,reasons,detail};
 }
 function antiAirLoss(count,node,jet){

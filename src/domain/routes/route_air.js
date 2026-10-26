@@ -226,7 +226,7 @@ function simulateJetAirPath(air,nodes,details){
   if(slots.some(s=>![6,7,8,11,45,56,57].includes(s.aircraftType)))return {status:'unknown',reason:'特殊机种的航空阶段未确认'};
   const steel=jetSlots[0]?.jetSteel;
   const eligible=nodes.some(n=>!n.noAirBattle&&jets.applicable(n)!==false);
-  if(eligible&&(steel===null||steel===undefined))return {status:'unknown',reason:'当前钢材资料缺失，喷气强袭时机待确认'};
+  if(eligible&&(steel===null||steel===undefined))return {status:'unknown',reason:'当前钢材资料缺失，喷式强袭时机待确认'};
   if(nodes.some(n=>!n.noAirBattle&&n.enemyJets))return {status:'unknown',reason:'敌方喷气机的喷气阶段比例击坠规则未确认'};
   const budget=[steel??0,steel??0],debit=[0,0],issues=[],steps=[],jetStages=[];
   const margins={superiority:{min:Infinity,max:Infinity},supremacy:{min:Infinity,max:Infinity}};
@@ -369,7 +369,7 @@ function estimateRouteAir(air,reference){
   const result={status:unknown?'unknown':'estimated',reason:unknown?.reason,paths,margins,
     boss:paths.length===1?paths[0].boss:null,terminal:paths.length===1?paths[0].terminal:null,
     basis:air.slots.some(s=>jets.isJet(s.aircraftType))?
-      '逐点先算喷气强袭及其迎击，再核对该点普通制空并计算第二次迎击；喷气机普通比例损耗按60%，已收录射击回避分别取整；钢材按每战开始残机数扣除，不预扣敌机，不模拟击沉。区间为保守边界，不是概率或实战保证':
+      '逐点先算喷式强袭及其迎击，再核对该点普通制空并计算第二次迎击；喷气机普通比例损耗按60%，已收录射击回避分别取整；钢材按每战开始残机数扣除，不预扣敌机，不模拟击沉。区间为保守边界，不是概率或实战保证':
       '逐槽顺序计算空战击坠范围及普通对空炮火上限；敌编成取已收录最强条件，攻击机下限不计射击回避；航空战点计算两轮且不预扣敌机，不计基地航空队、支援及敌舰击沉；区间为保守估算，不是概率或实战保证'};
   return boundedSet(cached,key,result,256);
 }

@@ -519,18 +519,44 @@ test('mechanism masks reuse bundled game silhouettes and inherit each badge colo
   assert.equal(icon({key:'speed'}),null);assert.equal(icon({key:'expedition-morale',label:'✦ 有闪 65'}),null);
 });
 
-test('jet assault has its own original silver icon and precedes torpedo and ordinary aviation without changing badge dimensions',()=>{
+test('jet assault has its own silver icon and precedes torpedo and ordinary aviation without changing badge height',()=>{
   const fs=require('fs'),{fileURLToPath}=require('url'),React={createElement:(type,props,...children)=>({type,props,children})};
   const badges=require('../../src/ui/components/mechanism_badges')(React)([
     {key:'opening-air',label:'开幕航空攻击',state:'ready'},{key:'torpedo',label:'先制雷击',state:'ready'},
-    {key:'jet-assault',label:'喷气强袭',state:'ready'}]);
+    {key:'jet-assault',label:'喷式强袭',state:'ready'}]);
   assert.deepEqual(badges.map(b=>b.props['data-mechanism']),['jet-assault','torpedo','opening-air']);
   assert.equal(badges[0].props['data-category'],'jet');assert.equal(badges[0].props.className,'paa-wb-mechanism');
   const icon=require('../../src/ui/components/mechanism_badges').createIcon(React)({key:'jet-assault'});
-  assert.equal(icon.props.style.width,16);assert.equal(icon.props.style.height,14);
+  assert.equal(icon.props.style.width,18);assert.equal(icon.props.style.height,14);
   assert.equal(icon.props.style.backgroundColor,'currentColor');
   const asset=fileURLToPath(icon.props.style.maskImage.match(/^url\("(.+)"\)$/)[1]);
   assert.match(asset,/jet-assault\.svg$/);assert.match(fs.readFileSync(asset,'utf8'),/<path/);
+});
+
+test('jet SVG preserves selected twin-engine B instead of filling the transparent exterior',()=>{
+  const svg=require('fs').readFileSync(require('path').join(__dirname,'../../data/icons/material/jet-assault.svg'),'utf8');
+  const box=svg.match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+  assert(!svg.includes('transform='),'compare the actual exported coordinates');
+  const values=svg.match(/ d="([^"]+)"/)[1].match(/-?\d+(?:\.\d+)?/g).map(Number);
+  const polygon=[];for(let i=0;i<values.length;i+=2)polygon.push([values[i],values[i+1]]);
+  // Independent 48x32 alpha reference from selected B, before tracing its exterior.
+  const reference=[
+    '000000000000','000000000180','000000000300','000000000300','000000000300','000000020700','00000003c700','60000000ff00',
+    'f80000003f80','3e0000003ff0','1f8000007efe','0fe00003fe02','07fc001ffc00','03fe00fff800','01ff83ffe000','00ffefffc000',
+    '003fffff8000','007fffff0000','01fffffc0000','03f3fffc0000','03f3fffe0000','01e7ffff8000','001ffffff000','003ffffffc00',
+    '007ff8ffff00','00ffe01fffc0','01ff803fffe0','03fe007f3ff8','03f800fe03fe','03e000fc003f','000000f00000','000000400000'
+  ].map(row=>BigInt('0x'+row));
+  let intersection=0,union=0;
+  for(let y=0;y<32;y++)for(let x=0;x<48;x++){
+    const px=box[0]+(x+.5)*box[2]/48,py=box[1]+(y+.5)*box[3]/32;let inside=false;
+    for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
+      const [ax,ay]=polygon[i],[bx,by]=polygon[j];
+      if((ay>py)!==(by>py)&&px<(bx-ax)*(py-ay)/(by-ay)+ax)inside=!inside;
+    }
+    const expected=!!(reference[y]&(1n<<BigInt(47-x)));
+    if(inside&&expected)intersection++;if(inside||expected)union++;
+  }
+  assert(intersection/union>.97,'the silhouette must match B, including transparent space outside wings and tail');
 });
 
 test('combined ground icons retain each game silhouette once inside a single noninteractive group',()=>{

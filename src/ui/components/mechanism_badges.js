@@ -33,7 +33,7 @@ function createMechanismIcon(React){
     }
     const props={className:'paa-wb-mechanism-icon',width:14,height:14,'aria-hidden':true,focusable:false};
     if(badge.key==='jet-assault')return h('span',{className:props.className,'aria-hidden':true,'data-mechanism-art':'jet',
-      style:{width:16,height:14,backgroundColor:'currentColor',maskImage:`url("${jetIcon}")`,maskSize:'contain',maskPosition:'center',maskRepeat:'no-repeat'}});
+      style:{width:18,height:14,backgroundColor:'currentColor',maskImage:`url("${jetIcon}")`,maskSize:'contain',maskPosition:'center',maskRepeat:'no-repeat'}});
     // Morale has no equipment category; retain its flag and the existing sparkle above.
     if(badge.key==='expedition-morale')return h('svg',{...props,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.35,strokeLinecap:'round',strokeLinejoin:'round'},
       h('path',{d:'M4 14V2l8 1v6L4 8M2 14h4'}));

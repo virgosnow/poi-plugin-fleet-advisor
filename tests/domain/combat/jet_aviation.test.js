@@ -84,7 +84,7 @@ test('pure submarine, air raid and opening-night nodes add no jet assault or ste
     assert.equal(result.jetStages.length,0);assert.equal(result.steelConsumed.max,0);
     const store=fixture(),profile={examples:[['A']],mapPreview:{nodes:[{id:'A',kind}]}};
     const badge=fleetMechanisms(store,entries(store),undefined,profile).get(1).find(b=>b.key==='jet-assault');
-    assert.match(badge.detail,/没有喷气强袭适用节点/);
+    assert.match(badge.detail,/没有喷式强袭适用节点/);
   }
   assert.equal(simulateAirPath(air(),[{...node(),pureSubmarines:true}]).jetStages.length,0);
 });
