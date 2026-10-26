@@ -278,9 +278,9 @@ function groundCombatContext(store,scheme,profile,{airReference,airEstimate,scor
     return s+Math.max(0,observed-old)+recon(t);
   },0);
   const cache=scoreCache||new Map(),airKey=JSON.stringify([combatPlanes,[...states],encounters.map(n=>[n.node,n.night,n.targets]),surfaceNodes]);
-  const score=(entry,fallbackFire)=>{
+  const score=(entry,fallbackFire,{flagship=projected[0]?.id===entry.id}={})=>{
     const original=byId.get(entry.id);
-    const key=[entry.id,entry.slots.join(','),entry.ex,fallbackFire,fleetLoS-recon(original),projected[0]?.id,airKey].join(':');
+    const key=[entry.id,entry.slots.join(','),entry.ex,fallbackFire,fleetLoS-recon(original),flagship,airKey].join(':');
     if(cache.has(key))return cache.get(key);
     const target={...original,after:entry,
       items:itemsForEntry(store,entry).map(e=>({...e,type:type(e.master)}))};
@@ -311,7 +311,7 @@ function groundCombatContext(store,scheme,profile,{airReference,airEstimate,scor
       if(main&&secondary)modes.push({multiplier:1.1,hits:1,coefficient:120});
       if(main>=2)modes.push({multiplier:1.2,hits:2,coefficient:130});
     }
-    const nightMode=attack.groundNightMode(target),flagship=projected[0]?.id===entry.id;
+    const nightMode=attack.groundNightMode(target);
     const nightRate=nightMode.hits===2?1:nightMode.multiplier===1?0:
       nightCI.reading(target,flagship,[{...nightMode,coefficient:main>=3?140:130}],null).rows[0].rate??0;
     const rawLuck=Array.isArray(target.ship.api_lucky)?target.ship.api_lucky[0]:target.ship.api_lucky,

@@ -92,8 +92,25 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
     });
     try{return reading();}finally{for(const [position,id,value]of before){slots.get(position.shipId)[position.slot]=id;position.current=value;}currentAir=savedAir;currentTotal=savedTotal;}
   };
-  const trialPass=(changes,minimum=required)=>trial(changes,()=>reference?.status==='known'?
-    (routeAirMeets(totalAir(),reference,goal,minimum-required)??total().min>=minimum):total().min>=minimum);
+  const visited=new Set(reference?.paths?.flat()||[]);
+  const battleThresholds=(reference?.nodes||[]).filter(n=>visited.has(n.id)&&!n.noAirBattle)
+    .map(n=>Number.isFinite(n.enemyAirPower)?n.enemyAirPower:n.upperBound)
+    .filter(n=>Number.isFinite(n)&&n>=0).map(n=>Math.max(1,goal==='supremacy'?n*3:Math.ceil(n*1.5)));
+  const departureFloor=battleThresholds.length?Math.max(...battleThresholds):null;
+  const trialPass=(changes,minimum=required)=>{
+    // No phase can add aircraft. Reject a mathematically impossible trial
+    // before allocating/mutating its full slot list. Unknown route simulation
+    // uses departure air instead, so retain the weaker of both necessary bounds.
+    const floor=reference?.status==='known'?departureFloor===null?null:
+      Math.min(minimum,departureFloor+minimum-required):minimum;
+    if(floor!==null){
+      const departure=totalAir().min+changes.reduce((sum,[position,id])=>
+        sum+contribution(position,id).min-position.current.min,0);
+      if(departure<floor){perf.count('loadout.air.departureReject');return false;}
+    }
+    return trial(changes,()=>reference?.status==='known'?
+      (routeAirMeets(totalAir(),reference,goal,minimum-required)??total().min>=minimum):total().min>=minimum);
+  };
   const attackCount=shipId=>slots.get(shipId).filter(id=>[7,8,11,57].includes(typeOf(id))).length;
   const ciChecks=new Map();
   const legalLists=new Map();

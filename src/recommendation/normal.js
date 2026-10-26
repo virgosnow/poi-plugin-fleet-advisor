@@ -29,6 +29,7 @@ const {airLoadout,fitGuideStrategy,gearVariant,oneOneOpeningLoadout,routingLoado
 const {combatHullRanker,plannedCombatStat,plannedTorpedoStat,routeRank,routeRanker}=require('./scoring');
 const {positionUpgrades,combineUpgrades,finalHullUpgrades}=require('./refinement');
 const {routeDifficulty}=require('./route_economy');
+const {fleetOrderChoices}=require('./fleet_order');
 const {THREE_FIVE_MIN_LEVEL,THREE_FIVE_UPPER_MIN_AIR,guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,remainingSlots,specialFleetSeeds,specialPositionLocks,threeFiveSeeds,threeFiveStyle}=require('./strategies');
 
 function confirmedRouteEvidence(route,profile){
@@ -917,27 +918,49 @@ function* searchNormalFleet(store,args,selectedOptions){
   const defaultDiagnostics=!byRoute&&!options.length&&seeds.length?
     defaultRouteDiagnostics(seeds[0].route,seeds[0].profile,target):null;
   const confirmedCount=options.filter(item=>item.scores.airGoalTier===3).length;
+  const fleetOrdering={tried:0,improved:0,protected:0};
   return {area,target,phase:phase||null,preference,airGoal,fleet:ctx.fleet,
     ...(byRoute?{routeResults:routeResults.map(({item,...result})=>({...result,recommendationIndex:item?options.findIndex(o=>o.routeKey===result.key):null}))}:{}),
     airGoalSummary:{confirmedCount,returnedCount:options.length,
       status:airGoal==='ignore'?'notRequested':confirmedCount?'confirmedOptions':'noConfirmedOption',
       basis:'逐槽估算所选路线的道中飞机损耗，按各战制空判定前的保守制空下限配装；不采用固定百分比余量'},
     recommendations:options.map((item,i)=>{
-      const scheme=orderEquipment(store,item.scheme,args.heldSlots);
+      let scheme=orderEquipment(store,item.scheme,args.heldSlots);
       if(scheme!==item.scheme)ctx.preview.preview('fleet',scheme);
-      const route=scheme===item.scheme?item.route:routes.evaluateNormalRoute(store,{area,target,phase,fleet:ctx.fleet,scheme});
-      const profile=scheme===item.scheme?item.profile:profileForRoute(area,route,item.profile.routePaths?.map(p=>p.nodes));
-      const scores=scheme===item.scheme?item.scores:routeRank(route,profile,scheme.ships.map(s=>ctx.byId.get(s.id)),
+      let route=scheme===item.scheme?item.route:routes.evaluateNormalRoute(store,{area,target,phase,fleet:ctx.fleet,scheme});
+      let profile=scheme===item.scheme?item.profile:profileForRoute(area,route,item.profile.routePaths?.map(p=>p.nodes));
+      let scores=scheme===item.scheme?item.scores:routeRank(route,profile,scheme.ships.map(s=>ctx.byId.get(s.id)),
         item.preference||preference,airGoal,area,store,scheme,byRoute);
+      // Only the final equipped winner is reordered. No inventory search is
+      // restarted, and all route/air/LoS/preview constraints are checked again.
+      const option=byRoute?requestedRoutes.find(o=>o.key===item.routeKey):null;
+      const base={...item,scheme,route,profile,scores},oldPlan=option?planning(base,option):null;
+      const oldChance=option?strictChance(base,option):routePlans.planningPath(route,item.selectedPath||profile.examples?.[0]||[]).chance;
+      let orderReason=null;
+      perf.stage('selection.fleet-order',()=>{for(const choice of fleetOrderChoices(store,scheme,profile,scheme.ships.map(e=>ctx.byId.get(e.id)),
+        {locked:positionLocks,air:scores})){
+        fleetOrdering.tried++;
+        const trial=evaluateCandidate(choice.scheme.ships.map(e=>ctx.byId.get(e.id)),choice.scheme,true);
+        if(!trial)continue;
+        const next=option?pathScores(trial,option):trial.scoresByPreference[item.preference||preference];
+        const chance=option?strictChance(trial,option):routePlans.planningPath(trial.route,item.selectedPath||profile.examples?.[0]||[]).chance;
+        if(option&&(!validFor(trial,option)||planning(trial,option).losShortfall>oldPlan.losShortfall)||
+          chance.min<oldChance.min||chance.max<oldChance.max||
+          (trial.route.probability??trial.route.chanceRange?.[0]??0)<(route.probability??route.chanceRange?.[0]??0)||
+          next.airGoalTier<scores.airGoalTier||scores.routeAirEstimate?.margins?.supremacy?.min>=0&&!(next.routeAirEstimate?.margins?.supremacy?.min>=0)||
+          next.specialAttack.bonus<scores.specialAttack.bonus||base.guideSuitable&&!trial.guideSuitable||!executable(trial))continue;
+        scheme=trial.scheme;route=trial.route;profile=profileForRoute(area,route,option?routePlans.optionPaths(option):profile.routePaths?.map(p=>p.nodes));scores=next;
+        orderReason=choice.reason;fleetOrdering.improved++;if(choice.protection)fleetOrdering.protected++;break;
+      }});
       return {rank:i+1,preference:item.preference||preference,
       preferences:item.preferences,
       ...(byRoute?{routeKey:item.routeKey,selectedPath:item.selectedPath,pathChance:item.pathChance}:evidenceFor(item)),
       scheme,route:{...route,fixedArrivalCondition:routes.fixedArrivalCondition(route)},profile,
-      scores,donorShipIds:item.donorShipIds,guideStyle:item.guideStyle,
+      ...(orderReason?{fleetOrder:{reason:orderReason}}:{}),scores,donorShipIds:item.donorShipIds,guideStyle:item.guideStyle,
       routeAfterEquipPending:item.routeAfterEquipPending,
       note:'舰娘与装备来自快照；可组合建议水上战、对潜、对地、制空与索敌换装，借装来源见 donorShipIds；Boss 前弹药按满补给估算，随机路线显示范围'};}),
     search:{kind:'boundedHeuristic',attempted:seen.size,evaluated:seeds.length,
-      equipmentVariantsTried:variantAttempts,poolSize:pool.length,combatRefinement:refinement,specialPositioning:positioning,lightening,
+      equipmentVariantsTried:variantAttempts,poolSize:pool.length,combatRefinement:refinement,specialPositioning:positioning,lightening,fleetOrdering,
       ...(pathSeeds?{routeCompositionsTried:pathSeeds.attempted,routeCompositionSearchTruncated:pathSeeds.truncated}:{}),
       globalOptimal:false,reason:'按练度、作战角色、低耗与对潜能力保留不同候选，配装后复核路线并有界尝试局部战力升级；保留攻略、制空、索敌和手动条件，不保证全局最优'},
     ...(guided35?{guide:{source:'https://wikiwiki.jp/kancolle/北方海域/3-5',

@@ -328,4 +328,4 @@ function fleetMechanisms(store,entries,speedReading,profile,{conditionalGroundDo
   }));
 }
 
-module.exports={fleetMechanisms,fleetSpeed,aircraftCapacity};
+module.exports={fleetMechanisms,fleetSpeed,aircraftCapacity,nightAttack,nightAviation,carrierNightCutIn,nightZuiunAttack};
