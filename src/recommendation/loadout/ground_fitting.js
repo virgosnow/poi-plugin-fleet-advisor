@@ -52,7 +52,7 @@ function groundLoadoutsCore(store,scheme,inventory,{profile,heldSlots=[],airRefe
   let entries=scheme.ships.map(s=>({...s,slots:(s.slots||store.info.ships[s.id].api_slot).slice(),ex:s.ex??store.info.ships[s.id].api_slot_ex}));
   const carrierVariants=carrierGroundLoadout(store,{fleet:scheme.fleet,ships:entries},inventory,profile,locks,airReference);
   if(carrierVariants.length)entries=carrierVariants[0].ships;
-  const escorts=aswEscortIds(store,entries,aswEscortLimit(profile));
+  const escorts=aswEscortIds(store,entries,aswEscortLimit(profile,store));
   const protectedItem=(entry,id)=>protectedTypes.has(type(master(id)))&&
     (escorts.has(entry.id)||![14,15,40,44].includes(type(master(id))))&&!dedicated(master(id));
   // Effect groups retain instances and borrow/slot permissions. Select an

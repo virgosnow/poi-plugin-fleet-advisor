@@ -9,20 +9,23 @@ const master=(store,id)=>store.const.$equips[store.info.equips[id]?.api_slotitem
 const oneOneIrrelevant=new Set([14,15,17,18,19,24,30,37,40,42,43,44,46,54,93]);
 const attackValue=m=>Number(m?.api_houg||0)*3+Number(m?.api_houm||0)*2+Number(m?.api_raig||0);
 
-function selectedCombatNodes(profile){
+function selectedCombatNodes(profile,store){
+  return store?snapshotMemo(store,'loadout.combatNodes',profile,()=>readCombatNodes(profile)):readCombatNodes(profile);
+}
+function readCombatNodes(profile){
   const paths=profile?.routePaths?.length?profile.routePaths.map(path=>path.nodes):profile?.examples||[];
   const selected=paths.length?new Set(paths.flat()):null;
   return (profile?.mapPreview?.nodes||[]).filter(node=>!selected||selected.has(node.id));
 }
-function submarineObjective(profile){
-  return selectedCombatNodes(profile).some(node=>profile.targetNodes?.includes(node.id)&&
+function submarineObjective(profile,store){
+  return selectedCombatNodes(profile,store).some(node=>profile.targetNodes?.includes(node.id)&&
     (node.kind==='asw'||node.submarineFlagship===true));
 }
 // A surface-boss route needs an escort, not six dedicated ASW attackers.
 // Pure ASW routes and submarine objectives keep their full-fleet weighting.
-function aswEscortLimit(profile){
-  if(submarineObjective(profile))return Infinity;
-  const nodes=selectedCombatNodes(profile);
+function aswEscortLimit(profile,store){
+  if(submarineObjective(profile,store))return Infinity;
+  const nodes=selectedCombatNodes(profile,store);
   const pureAsw=(profile?.counts?.asw?.maximum||0)>0||nodes.some(node=>node.kind==='asw');
   const mixed=nodes.reduce((max,node)=>node.kind!=='battle'?max:Math.max(max,
     Math.min(profile?.targetNodes?.includes(node.id)?6:2,node.submarines?.maximum||0)),0);
@@ -110,12 +113,12 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
   const pool=combatPools(inventory),locks=new Map(heldSlots.filter(Boolean).map(s=>[s.id,s.keep||{}]));
   const entries=scheme.ships.map(s=>({...s,slots:s.slots.slice()}));
   const used=new Set(entries.flatMap(s=>s.slots.concat(s.ex)).filter(id=>id>0));
-  const limit=profile?aswEscortLimit(profile):area==='1-5'?Infinity:2;
+  const limit=profile?aswEscortLimit(profile,store):area==='1-5'?Infinity:2;
   const escorts=aswEscortIds(store,entries,asw?limit:0);
   // Keep a repairable escort seed for mixed bosses. Surface fitting also
   // compares the two-gun kit; forcing it here can remove the only LoS slot
   // before the route-specific fitting stage ever sees these stronger hulls.
-  const escortSeed=selectedCombatNodes(profile).some(node=>profile?.targetNodes?.includes(node.id)&&node.submarines?.maximum>0);
+  const escortSeed=selectedCombatNodes(profile,store).some(node=>profile?.targetNodes?.includes(node.id)&&node.submarines?.maximum>0);
   for(const entry of entries){
     const ship=store.info.ships[entry.id],sm=store.const.$ships[ship.api_ship_id],stype=Number(sm.api_stype),keep=locks.get(entry.id)||{};
     const carrier=[7,11,18].includes(stype),sub=[13,14].includes(stype),pure=area==='1-5';
@@ -168,7 +171,7 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
       for(const k of utilitySlots)assign(pool.carrierUtility.filter(i=>type(i.master)!==9||
         !entries.some(e=>e.slots.some(id=>type(master(store,id))===9))),[k]);
     }else if(!pure){
-      const target=asw&&(submarineObjective(profile)||escortSeed)&&[1,2,21,22].includes(stype)?1:2;
+      const target=asw&&(submarineObjective(profile,store)||escortSeed)&&[1,2,21,22].includes(stype)?1:2;
       while(count([1,2,3])<target&&assign(pool.guns)){};
       // Water tenders and aviation hulls need useful aircraft, not inherited cargo.
       if(stype===10&&!count([10,11])){

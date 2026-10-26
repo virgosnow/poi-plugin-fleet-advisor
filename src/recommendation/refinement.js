@@ -1,4 +1,5 @@
 'use strict';
+const {economicalReplacements}=require('./route_economy');
 const {hasDuplicateShipFamily}=require('./context');
 const roles=[[1,2],[3,4,21],[5,6],[7,11,18],[8,9,10],[13,14]];
 const sameRole=(a,b)=>a.stype===b.stype||roles.some(group=>group.includes(a.stype)&&group.includes(b.stype));
@@ -32,4 +33,23 @@ function combineUpgrades(rows,gains,lockedIds){
   }
   return combined;
 }
-module.exports={positionUpgrades,combineUpgrades};
+// Specialist fitting can promote a weak escort after early refinement. Hard
+// surface/installation routes still deserve a strong-DD comparison, without
+// enabling the easy-map economy policy. These are proposals only: the caller
+// retains the old winner and rechecks route, air, LoS, score and execution.
+function finalHullUpgrades(rows,roster,{lockedIds,score,difficulty,surface}){
+  if(!difficulty.enabled&&!surface)return [];
+  const changes=difficulty.enabled?economicalReplacements(rows,roster,{lockedIds,score,difficulty}):[];
+  const escortRows=rows.slice(),escorts=rows.flatMap((old,index)=>{
+    if(![1,2].includes(old.stype)||lockedIds.has(old.id))return [];
+    const row=roster.filter(r=>r.stype===2&&!escortRows.some(s=>s.id===r.id)&&score(r)>score(old)&&
+      !hasDuplicateShipFamily(escortRows.map((s,i)=>i===index?r:s)))
+      .sort((a,b)=>score(b)-score(a)||a.id-b.id)[0];
+    if(row)escortRows[index]=row;
+    return row?[{index,beforeId:old.id,row,gain:score(row)-score(old)}]:[];
+  });
+  return [combineUpgrades(rows,[...changes,...escorts],lockedIds),combineUpgrades(rows,changes,lockedIds),
+    ...changes.slice(0,2).map(c=>rows.map((r,i)=>i===c.index?c.row:r)),
+    ...escorts.slice(0,difficulty.enabled?1:2).map(c=>rows.map((r,i)=>i===c.index?c.row:r))];
+}
+module.exports={positionUpgrades,combineUpgrades,finalHullUpgrades};

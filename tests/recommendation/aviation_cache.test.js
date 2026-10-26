@@ -159,3 +159,16 @@ test('jet CI power reuse keeps scores identical and distinguishes changed carrie
     });
   }finally{carrierCI.attackPowers=original;}
 });
+
+test('route ASW facts share only immutable search scopes and live route edits remain visible',()=>{
+  const {aswEscortLimit,submarineObjective}=require('../../src/recommendation/loadout/loadout_policy');
+  const store=fixture(),profile={targetNodes:['B'],examples:[['A','B']],
+    counts:{surface:{maximum:1},asw:{maximum:1}},mapPreview:{nodes:[{id:'A',kind:'asw'},{id:'B',kind:'battle'}]}};
+  assert.equal(aswEscortLimit(profile,store),2);
+  withEquipmentIndexCache(store,()=>{
+    assert.equal(aswEscortLimit(profile,store),2);assert.equal(submarineObjective(profile,store),false);
+  });
+  profile.examples=[['C']];profile.targetNodes=['C'];profile.mapPreview.nodes.push({id:'C',kind:'asw'});
+  assert.equal(aswEscortLimit(profile,store),Infinity);
+  assert.equal(withEquipmentIndexCache(store,()=>aswEscortLimit(profile,store)),Infinity);
+});

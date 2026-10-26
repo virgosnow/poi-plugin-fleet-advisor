@@ -318,18 +318,27 @@ function simulateJetAirPathCore(air,nodes,details){
 const simulationCache=new WeakMap();
 const marginCache=new WeakMap();
 // Trial fits revisit more than 256 aircraft combinations on complex routes.
-// One shared LRU budget bounds all references in this worker, rather than
+// One shared clock budget bounds all references in this worker, rather than
 // multiplying a larger per-route allowance by every reachable route.
-const marginEntries=new Map(),MARGIN_LIMIT=16384;
+const marginEntries=[],MARGIN_LIMIT=16384;let marginHand=0;
 function saveMargins(cache,key,value){
-  const entry={cache,key,value};cache.set(key,entry);marginEntries.set(entry,true);
-  if(marginEntries.size>MARGIN_LIMIT){
-    const oldest=marginEntries.keys().next().value;
-    oldest.cache.delete(oldest.key);marginEntries.delete(oldest);
+  const entry={cache,key,value,hot:true};cache.set(key,entry);
+  if(marginEntries.length<MARGIN_LIMIT)marginEntries.push(entry);
+  else {
+    // Reads set a bit instead of deleting/reinserting Map entries hundreds of
+    // thousands of times. Recently used entries get one additional turn.
+    while(marginEntries[marginHand].hot){marginEntries[marginHand].hot=false;marginHand=(marginHand+1)%MARGIN_LIMIT;}
+    const expired=marginEntries[marginHand];
+    if(expired.cache.get(expired.key)===expired)expired.cache.delete(expired.key);
+    marginEntries[marginHand]=entry;marginHand=(marginHand+1)%MARGIN_LIMIT;
   }
   return value;
 }
-const pathPlans=new WeakMap();
+const pathPlans=new WeakMap(),sharedTrials=new Map(),nodeTokens=new WeakMap();let nextNodeToken=0;
+function nodeToken(node){
+  if(!nodeTokens.has(node))nodeTokens.set(node,++nextNodeToken);
+  return nodeTokens.get(node);
+}
 function simulationPaths(reference){
   if(pathPlans.has(reference))return pathPlans.get(reference);
   const byId=new Map(reference.nodes.map(n=>[n.id,n])),unique=[],indices=[],seen=new Map();
@@ -342,9 +351,23 @@ function simulationPaths(reference){
     if(!seen.has(key)){seen.set(key,unique.length);unique.push(relevant);}
     indices.push(seen.get(key));
   }
-  const result={unique,indices,trial:createMarginPlan(unique,{airState,stageOneLoss,slotPower})};pathPlans.set(reference,result);return result;
+  // Routes that differ only at quiet starting branches have identical air
+  // calculations. Share only their numerical trial, never the labelled report.
+  // Node object identities retain every enemy/AA field and unknown condition.
+  const trialKey=unique.map(nodes=>nodes.map(nodeToken).join(',')).sort().join(';');
+  let trial=sharedTrials.get(trialKey);
+  if(!trial){trial=createMarginPlan(unique,{airState,stageOneLoss,slotPower});boundedSet(sharedTrials,trialKey,trial,256);}
+  const result={unique,indices,trial};pathPlans.set(reference,result);return result;
 }
 const slotKeys=new WeakMap();
+const aircraftTokens=new Map();let nextAircraftToken=0;
+function aircraftToken(key){
+  if(aircraftTokens.has(key))return aircraftTokens.get(key);
+  // Tokens are never recycled: an evicted signature can lose reuse, but can
+  // never alias a different physical aircraft state retained in a trial cache.
+  if(aircraftTokens.size>=32768)aircraftTokens.delete(aircraftTokens.keys().next().value);
+  const token=++nextAircraftToken;aircraftTokens.set(key,token);return token;
+}
 // Slot objects are often reused by loadout trials. Check their scalar inputs
 // before reusing a signature: callers may also edit metrics in place.
 function aircraftKey(slot,identity=true){
@@ -359,6 +382,7 @@ function aircraftKey(slot,identity=true){
     value.key+=','+[slot.masterId,slot.jetSteel].join(',');value.marginKey=value.key;
     value.key+=','+[slot.bomb,slot.shipId,slot.slot].join(',');
   }else value.marginKey=value.key;
+  value.marginKey=aircraftToken(value.marginKey);
   slotKeys.set(slot,value);return identity?value.key:value.marginKey;
 }
 function estimateRouteAir(air,reference){
@@ -403,13 +427,13 @@ function estimateRouteAirMinimum(air,reference){
 function routeAirMeets(air,reference,goal,minimum=0){
   if(!air||reference?.status!=='known'||air.status!=='range'||!Array.isArray(air.slots)||
     air.slots.some(s=>s.unknown||!s.planes||!s.effectiveAntiAir||!s.proficiencyBonus))return null;
-  const keys=air.slots.map(s=>aircraftKey(s,false)),signature=keys.slice().sort().join(';');
-  let cache=marginCache.get(reference);if(!cache){cache=new Map();marginCache.set(reference,cache);}
+  const keys=air.slots.map(s=>aircraftKey(s,false)),signature=keys.slice().sort().join(';'),plan=simulationPaths(reference);
+  let cache=marginCache.get(plan.trial);if(!cache){cache=new Map();marginCache.set(plan.trial,cache);}
   const minimumEntry=cache.get('min:'+signature)||cache.get(signature);
-  if(minimumEntry)return minimumEntry.value?minimumEntry.value[goal].min>=minimum:null;
+  if(minimumEntry){minimumEntry.hot=true;return minimumEntry.value?minimumEntry.value[goal].min>=minimum:null;}
   const key='test:'+goal+':'+minimum+':'+signature,entry=cache.get(key);
-  if(entry){marginEntries.delete(entry);marginEntries.set(entry,true);perf.count('air.test.hit');return entry.value;}
-  const result=simulationPaths(reference).trial(air,keys,true,{goal:goal==='supremacy'?1:0,minimum});
+  if(entry){entry.hot=true;perf.count('air.test.hit');return entry.value;}
+  const result=plan.trial(air,keys,true,{goal:goal==='supremacy'?1:0,minimum});
   perf.count('air.test.miss');
   if(result!==undefined)return saveMargins(cache,key,result);
   const margins=estimateRouteAirMinimum(air,reference);
@@ -422,16 +446,16 @@ function estimateRouteAirMarginsCore(air,reference,minimumOnly=false){
   // Multiplicity is retained: identical aircraft in two slots count twice.
   const slotSignatures=air.slots.map(slot=>aircraftKey(slot,false));
   const signature=slotSignatures.slice().sort().join(';'),key=(minimumOnly?'min:':'')+signature,full=simulationCache.get(reference);
-  let cached=marginCache.get(reference);if(!cached){cached=new Map();marginCache.set(reference,cached);}
+  const plan=simulationPaths(reference);
+  let cached=marginCache.get(plan.trial);if(!cached){cached=new Map();marginCache.set(plan.trial,cached);}
   if(cached.has(key)){
     perf.count('air.trial.hit');
-    const entry=cached.get(key);marginEntries.delete(entry);marginEntries.set(entry,true);return entry.value;
+    const entry=cached.get(key);entry.hot=true;return entry.value;
   }
-  const fullKey=full&&air.slots.some(slot=>jets.isJet(slot.aircraftType))?
-    air.slots.map(slot=>aircraftKey(slot)).sort().join(';'):signature;
+  const fullKey=full?air.slots.map(slot=>aircraftKey(slot)).sort().join(';'):null;
   if(full?.has(fullKey)){perf.count('air.trial.fullHit');return saveMargins(cached,key,full.get(fullKey).margins);}
   perf.count('air.trial.miss');
-  const plan=simulationPaths(reference),fast=plan.trial(air,slotSignatures,minimumOnly);
+  const fast=plan.trial(air,slotSignatures,minimumOnly);
   if(fast!==undefined)return saveMargins(cached,key,fast);
   const margins={superiority:{min:Infinity,max:Infinity},supremacy:{min:Infinity,max:Infinity}};
   for(const nodes of plan.unique){

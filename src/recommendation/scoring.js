@@ -100,7 +100,7 @@ function combatCapabilityCore(rows,result,profile,store,scheme){
       // opening-ASW feasibility carries real weight on submarine routes
       (reading?.predictedEligible?150:0)+(reading?.sonarDepthPair?25:0);
   });
-  const escortLimit=aswEscortLimit(profile);
+  const escortLimit=aswEscortLimit(profile,store);
   const physicalAsw=escortLimit>0&&aswCombat.requiresAswPackages(profile)?aswCombat.assessAsw(store,scheme,profile,{limit:escortLimit}):null;
   const asw=physicalAsw&&physicalAsw.status!=='none'?physicalAsw.score:
     aswValues.sort((a,b)=>b-a).slice(0,escortLimit).reduce((sum,value)=>sum+value,0);
@@ -338,7 +338,7 @@ function routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute=f
   const routePriority=reach===0?-1:lower===1?3:result.verdict==='likelyGuaranteed'?2:
     result.verdict==='possibleRandom'?1:0;
   const mixedBoss=aswCombat.submarineEncounters(profile).some(node=>node.boss);
-  const primaryAsw=submarineObjective(profile)||aswCombat.submarineEncounters(profile).some(node=>node.boss&&node.formations.some(e=>e.length>=2));
+  const primaryAsw=submarineObjective(profile,store)||aswCombat.submarineEncounters(profile).some(node=>node.boss&&node.formations.some(e=>e.length>=2));
   // A road escort shortfall matters, but cannot be priced like failing the
   // whole fleet's objective. Otherwise a small ASW improvement buys a huge
   // loss of boss firepower. Pure ASW / repeated heavy mixed bosses retain

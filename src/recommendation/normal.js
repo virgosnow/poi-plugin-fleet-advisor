@@ -27,8 +27,8 @@ const {routeAirReference}=require('../domain/routes/route_air');
 const {aswPotential,context,hasDuplicateShipFamily,holdDraftEquipment,idsKey,oaswCapableNow,schemeOf,shipCost,shipFamilyKey,stableHash,usableSlots}=require('./context');
 const {airLoadout,fitGuideStrategy,gearVariant,oneOneOpeningLoadout,routingLoadout,speedHolds,strategyFailure,surfaceLoadout}=require('./fitting');
 const {combatHullRanker,plannedCombatStat,plannedTorpedoStat,routeRank,routeRanker}=require('./scoring');
-const {positionUpgrades,combineUpgrades}=require('./refinement');
-const {routeDifficulty,economicalReplacements}=require('./route_economy');
+const {positionUpgrades,combineUpgrades,finalHullUpgrades}=require('./refinement');
+const {routeDifficulty}=require('./route_economy');
 const {THREE_FIVE_MIN_LEVEL,THREE_FIVE_UPPER_MIN_AIR,guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,remainingSlots,specialFleetSeeds,specialPositionLocks,threeFiveSeeds,threeFiveStyle}=require('./strategies');
 
 function confirmedRouteEvidence(route,profile){
@@ -76,7 +76,7 @@ function candidateEvaluator(store,args,ctx,inventory){
   const modes=byRoute||preference==='all'?NORMAL_PREFERENCES:[preference];
   const available=new Map(inventory.map(i=>[i.id,i]));
   const fittingProfile=previewForMap(area,{target,phase});
-  const initialWantsAsw=aswEscortLimit(fittingProfile)>0;
+  const initialWantsAsw=aswEscortLimit(fittingProfile,store)>0;
   const cache=snapshotMemo(store,'search.candidates',JSON.stringify(args),()=>new Map());
   return (rows,schemeOverride,preserveLoadout=false)=>{
     try{
@@ -276,7 +276,7 @@ function calculateBatch(store,batch){
         continue;
       }
       if(kind==='asw'&&batch.finalAsw){
-        const limit=aswEscortLimit(seed.profile),escorts=aswEscortIds(store,seed.scheme.ships,limit);
+        const limit=aswEscortLimit(seed.profile,store),escorts=aswEscortIds(store,seed.scheme.ships,limit);
         for(const variant of fitAswLoadouts(store,seed.scheme,inventory,{profile:seed.profile,escorts,heldSlots:args.heldSlots})){
           const surface=surfaceLoadout(store,variant,inventory,area,phase,seed.profile,args.heldSlots)||variant;
           attempts++;const candidate=evaluate(rows,surface);singles.push(candidate);
@@ -390,7 +390,7 @@ function* searchNormalFleet(store,args,selectedOptions){
   const policy=guidePolicy(area,target,phase);
   // Include the selected stage's reachable submarine encounters, including
   // submarine escorts in otherwise surface formations, before sampling hulls.
-  const initialWantsAsw=aswEscortLimit(previewForMap(area,{target,phase}))>0;
+  const initialWantsAsw=aswEscortLimit(previewForMap(area,{target,phase}),store)>0;
   const ctx=context(store,args,1);
   if(byRoute)ctx.combatScore=combatHullRanker(store,previewForMap(area,{target,phase}));
   const pool=candidatePool(ctx,preference,initialWantsAsw),fixed=ctx.fixed.map(id=>ctx.byId.get(id));
@@ -519,16 +519,16 @@ function* searchNormalFleet(store,args,selectedOptions){
   const airSeeds=airGoal==='ignore'?[]:seeds.filter(seed=>seed.scores.assumedChance[1]>0&&
     airPotential(seed)>0).sort((a,b)=>airPotential(b)-airPotential(a)||b.scores.rank-a.scores.rank)
     .slice(0,48);
-  const aswSeeds=initialWantsAsw?seeds.filter(seed=>aswEscortLimit(seed.profile)>0&&
+  const aswSeeds=initialWantsAsw?seeds.filter(seed=>aswEscortLimit(seed.profile,store)>0&&
     seed.scores.assumedChance[1]>0).sort((a,b)=>
     b.rows.reduce((sum,row)=>sum+Math.max(0,aswPotential(store,row)),0)-
     a.rows.reduce((sum,row)=>sum+Math.max(0,aswPotential(store,row)),0))
     .slice(0,24):[];
-  const aswCheapSeeds=initialWantsAsw?seeds.filter(seed=>aswEscortLimit(seed.profile)>0&&
+  const aswCheapSeeds=initialWantsAsw?seeds.filter(seed=>aswEscortLimit(seed.profile,store)>0&&
     seed.scores.assumedChance[1]>0).sort((a,b)=>
     a.rows.reduce((sum,row)=>sum+shipCost(row),0)-
     b.rows.reduce((sum,row)=>sum+shipCost(row),0)).slice(0,24):[];
-  const aswShortSeeds=initialWantsAsw?seeds.filter(seed=>aswEscortLimit(seed.profile)>0&&
+  const aswShortSeeds=initialWantsAsw?seeds.filter(seed=>aswEscortLimit(seed.profile,store)>0&&
     seed.scores.assumedChance[1]>0).sort((a,b)=>
     (a.profile.hops?.maximum??99)-(b.profile.hops?.maximum??99)).slice(0,24):[];
   const planningCache=new WeakMap();
@@ -738,7 +738,7 @@ function* searchNormalFleet(store,args,selectedOptions){
         pathScores(trial,option).airGoalTier<pathScores(current,option).airGoalTier||
         current.guideSuitable&&!trial.guideSuitable||
         pathScores(trial,option).openingAswCount<Math.min(pathScores(current,option).openingAswCount,
-          aswEscortLimit(profileForRoute(area,current.route,routePlans.optionPaths(option))))||
+          aswEscortLimit(profileForRoute(area,current.route,routePlans.optionPaths(option)),store))||
         pathRank(trial,option)<=pathRank(current,option)||!executable(trial))continue;
       candidates.push(trial);
       if(round===0&&index!==undefined)state.gains.push({index,beforeId:base.scheme.ships[index].id,row:ctx.byId.get(trial.scheme.ships[index].id),
@@ -805,7 +805,7 @@ function* searchNormalFleet(store,args,selectedOptions){
   const escortItems=byRoute?requestedRoutes.flatMap(option=>{
     const row=candidates.filter(candidate=>validFor(candidate,option)).sort((a,b)=>pathRank(b,option)-pathRank(a,option))[0];
     if(!row)return [];
-    const profile=profileForRoute(area,row.route,routePlans.optionPaths(option)),limit=aswEscortLimit(profile);
+    const profile=profileForRoute(area,row.route,routePlans.optionPaths(option)),limit=aswEscortLimit(profile,store);
     if(!Number.isFinite(limit))return [];
     const escorts=aswEscortIds(store,row.scheme.ships,limit);
     const excess=row.scheme.ships.some(entry=>!escorts.has(entry.id)&&entry.slots.some(id=>
@@ -822,36 +822,22 @@ function* searchNormalFleet(store,args,selectedOptions){
     .sort((a,b)=>pathRank(b,option)-pathRank(a,option)).slice(0,2).map(row=>({scheme:row.scheme,
       profile:profileForRoute(area,row.route,routePlans.optionPaths(option)),scores:pathScores(row,option),option}))):
     candidates.slice().sort((a,b)=>b.scores.rank-a.scores.rank).slice(0,3);
-  const aswItems=aswFinalists.filter(row=>aswEscortLimit(row.profile)>0&&aswCombat.requiresAswPackages(row.profile));
+  const aswItems=aswFinalists.filter(row=>aswEscortLimit(row.profile,store)>0&&aswCombat.requiresAswPackages(row.profile));
   if(aswItems.length){
     const fitted=yield {kind:'gear',args,routes:requestedRoutes,gearKinds:['asw'],items:aswItems,finalAsw:true};
     for(const result of fitted){variantAttempts+=result.attempts;for(const row of result.singles)collectCandidate(row);}
   }
-  // Spend a small, separate budget only on well-understood ordinary routes.
-  // No downgrade trials for destroyers, escorts, named/manual ships, night,
-  // installation or submarine objectives. Full fitting remains authoritative.
+  // Spend a bounded final pass on escort upgrades after specialist fitting.
+  // Lower-cost heavy hulls remain restricted to well-understood easy routes;
+  // stronger escorts also matter on difficult surface/installation routes.
   const lightening={tried:0,improved:0},lightTasks=[],lightOwners=[];
   for(const option of requestedRoutes){
     const base=candidates.filter(row=>validFor(row,option)).sort((a,b)=>pathRank(b,option)-pathRank(a,option)).find(executable);
     if(!base||area==='1-1')continue;
     const profile=profileForRoute(area,base.route,routePlans.optionPaths(option)),difficulty=routeDifficulty(profile);
-    if(!difficulty.enabled)continue;
     const rows=base.scheme.ships.map(e=>ctx.byId.get(e.id));
-    const score=combatHullRanker(store,profile),changes=economicalReplacements(rows,ctx.roster,{lockedIds,score,difficulty});
-    // Savings on heavy ships must not freeze an otherwise weak escort into
-    // the result. Surface-only routes can spend a little of those savings on
-    // a stronger destroyer; named routing and manual ships remain protected.
-    const escortRows=rows.slice(),escorts=rows.flatMap((old,index)=>{
-      if(![1,2].includes(old.stype)||lockedIds.has(old.id))return [];
-      const row=ctx.roster.filter(r=>r.stype===2&&!escortRows.some(s=>s.id===r.id)&&score(r)>score(old)&&
-        !hasDuplicateShipFamily(escortRows.map((s,i)=>i===index?r:s)))
-        .sort((a,b)=>score(b)-score(a)||a.id-b.id)[0];
-      if(row)escortRows[index]=row;
-      return row?[{index,beforeId:old.id,row,gain:score(row)-score(old)}]:[];
-    });
-    const choices=[combineUpgrades(rows,[...changes,...escorts],lockedIds),combineUpgrades(rows,changes,lockedIds),
-      ...changes.slice(0,2).map(c=>rows.map((r,i)=>i===c.index?c.row:r)),
-      ...escorts.slice(0,1).map(c=>rows.map((r,i)=>i===c.index?c.row:r))];
+    const choices=finalHullUpgrades(rows,ctx.roster,{lockedIds,score:combatHullRanker(store,profile),
+      difficulty,surface:profile.counts?.surface?.maximum>0});
     const seen=new Set([idsKey(rows)]);let count=0;
     for(const next of choices){
       const key=idsKey(next);if(count>=4)break;if(seen.has(key)||hasDuplicateShipFamily(next))continue;seen.add(key);
@@ -998,7 +984,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   const selectedRoute=routeKey?routePlans.routeOptions(area,target,phase).find(r=>r.key===routeKey):null;
   if(routeKey&&!selectedRoute)throw error('INVALID_QUERY','所选路线不存在，请重新选择路线；当前编成已保留');
   const fittingProfile=previewForMap(area,{target,phase,paths:selectedRoute?routePlans.optionPaths(selectedRoute):undefined});
-  const fittingOptions={area,asw:aswEscortLimit(fittingProfile)>0,profile:fittingProfile,heldSlots};
+  const fittingOptions={area,asw:aswEscortLimit(fittingProfile,store)>0,profile:fittingProfile,heldSlots};
   const base=completeCombatLoadout(store,normalize(emptyLoadout(store,scheme,heldSlots)),inventory,fittingOptions);
   const candidates=[];
   const evaluate=value=>{
@@ -1031,7 +1017,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
     if(air)evaluate(air);
   }
   if(fittingOptions.asw&&aswCombat.requiresAswPackages(initial.profile))for(const fitted of fitAswLoadouts(store,base,inventory,{profile:initial.profile,
-    escorts:aswEscortIds(store,base.ships,aswEscortLimit(initial.profile)),heldSlots})){
+    escorts:aswEscortIds(store,base.ships,aswEscortLimit(initial.profile,store)),heldSlots})){
     evaluate(fitted);
     const surface=surfaceLoadout(store,fitted,inventory,area,phase,initial.profile,heldSlots);if(surface)evaluate(surface);
   }

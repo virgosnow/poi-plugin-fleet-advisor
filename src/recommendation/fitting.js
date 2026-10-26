@@ -77,7 +77,7 @@ function gearVariantCore(store,scheme,inventory,kind,profile,area,phase,{stopWhe
   };
   const pureASW=profile?.counts?.asw?.maximum>0&&
     profile.counts.surface.maximum===0&&profile.counts.air.maximum===0;
-  const escortLimit=aswEscortLimit(profile),openingReadings=new Map();
+  const escortLimit=aswEscortLimit(profile,store),openingReadings=new Map();
   const reading=entry=>{
     if(!openingReadings.has(entry.id)){
       const ship=store.info.ships[entry.id];
@@ -305,7 +305,7 @@ function surfaceLoadout(store,scheme,inventory,area,phase,profile,heldSlots=[]){
   const original=scheme;
   // Retire excess automatic ASW kits before restoring surface weapons. Manual
   // slots remain authoritative, even when they exceed the automatic budget.
-  const limit=aswEscortLimit(profile),escorts=aswEscortIds(store,scheme.ships,limit);
+  const limit=aswEscortLimit(profile,store),escorts=aswEscortIds(store,scheme.ships,limit);
   const held=new Map(heldSlots.filter(Boolean).map(entry=>[entry.id,entry.keep||{}]));
   let trimmed=false;
   const cleared={...scheme,ships:scheme.ships.map(entry=>({...entry,slots:entry.slots.map((id,k)=>{

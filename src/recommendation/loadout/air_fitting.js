@@ -38,23 +38,25 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
         continue;
       // Only immutable recommendation jobs share these facts. Live callers
       // receive fresh maps; held slots and instance availability remain local.
-      const facts=snapshotMemo(store,'airFittingPositions',entry.id+':'+slot,()=>({air:new Map(),eligibility:new Map()}));
-      positions.push({shipId:entry.id,slot,ship,master,stype:Number(master.api_stype),memo:facts.air,eligibility:facts.eligibility});
+      const facts=snapshotMemo(store,'airFittingPositions',entry.id+':'+slot,()=>({air:new Map(),eligibility:new Map(),lists:new Map()}));
+      positions.push({shipId:entry.id,slot,ship,master,stype:Number(master.api_stype),memo:facts.air,eligibility:facts.eligibility,lists:facts.lists});
     }
   }
   if(!positions.length)return null;
   const typeOf=id=>id>0?Number(store.const.$equips[
     store.info.equips[id]?.api_slotitem_id]?.api_type?.[2]):null;
-  const pools=snapshotMemo(store,'airFittingInventory',inventory,()=>({
+  const pools=snapshotMemo(store,'airFittingInventory',inventory,()=>{const result={
     fighters:inventory.filter(row=>[6,45,56].includes(Number(row.master.api_type[2]))),
     attackers:inventory.filter(row=>[7,8,57].includes(Number(row.master.api_type[2]))),
     utility:carrierUtility(inventory),
     equivalentKeys:new Map(inventory.map(row=>{const item=store.info.equips[row.id];return [row.id,JSON.stringify([item.api_slotitem_id,item.api_level,item.api_alv])];}))
-  }));
-  const {fighters,attackers,equivalentKeys,utility}=pools;
-  const waterFighters=fighters.filter(i=>Number(i.master.api_type[2])===45);
-  const utilityNonFighters=utility.filter(i=>![6,56].includes(Number(i.master.api_type[2])));
-  const attackersByType=new Map([7,8,57].map(type=>[type,attackers.filter(i=>Number(i.master.api_type[2])===type)]));
+  };
+    result.waterFighters=result.fighters.filter(i=>Number(i.master.api_type[2])===45);
+    result.utilityNonFighters=result.utility.filter(i=>![6,56].includes(Number(i.master.api_type[2])));
+    result.attackersByType=new Map([7,8,57].map(type=>[type,result.attackers.filter(i=>Number(i.master.api_type[2])===type)]));
+    return result;
+  });
+  const {fighters,attackers,equivalentKeys,utility,waterFighters,utilityNonFighters,attackersByType}=pools;
   const occupiedEx=new Set(scheme.ships.map(entry=>entry.ex??store.info.ships[entry.id].api_slot_ex)
     .filter(id=>id>0));
   const used=new Set([...slots.values()].flat().filter(id=>id>0).concat([...occupiedEx]));
@@ -95,8 +97,9 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
   const attackCount=shipId=>slots.get(shipId).filter(id=>[7,8,11,57].includes(typeOf(id))).length;
   const ciChecks=new Map();
   const legalLists=new Map();
-  const legal=(position,item)=>{
-    const borrow=!!item.sourceShipId&&!chosen.has(item.sourceShipId),key=item.id+':'+Number(borrow);
+  const alternativesCache=new Map(),attackChoices=new Map();
+  const legal=(position,item,borrow)=>{
+    const key=item.id+':'+Number(borrow);
     if(position.eligibility.has(key))return position.eligibility.get(key);
     try{
       const result=(!borrow||acceptsOtherSlot(store,position.shipId,item.id,position.slot))&&canEquip(store,position.shipId,item.id,position.slot);
@@ -126,8 +129,25 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
   // copies from inventory. The currently installed instance can have different
   // observed plane counts, so keep it separate from otherwise identical copies.
   const alternatives=(position,items,lowestId=false)=>{
+    if(held.get(position.shipId)?.[position.slot])return [];
+    let byPosition=alternativesCache.get(position);
+    if(!byPosition){byPosition=new Map();alternativesCache.set(position,byPosition);}
+    let cached=byPosition.get(items);
+    if(!cached){cached=new Map();byPosition.set(items,cached);}
+    // Trial reads temporarily replace slots, but do not enumerate inventory.
+    // Until a replacement is accepted, availability and CI roles are identical.
+    // Return a copy because callers may sort the available alternatives.
+    if(cached.has(lowestId))return cached.get(lowestId).slice();
     let lists=legalLists.get(position);if(!lists){lists=new Map();legalLists.set(position,lists);}
-    if(!lists.has(items))lists.set(items,items.filter(item=>legal(position,item)));
+    if(!lists.has(items)){
+      // Eligibility is immutable during a search. Cache the inventory scan per
+      // hull/slot, but keep the selected source-fleet exception local to this fit.
+      if(!position.lists.has(items))position.lists.set(items,items
+        .filter(item=>legal(position,item,false))
+        .map(item=>({item,needsSource:!!item.sourceShipId&&!legal(position,item,true)})));
+      lists.set(items,position.lists.get(items)
+        .filter(row=>!row.needsSource||chosen.has(row.item.sourceShipId)).map(row=>row.item));
+    }
     const groups=new Map(),current=position.ship.api_slot[position.slot];
     for(const item of lists.get(items)){
       if(!allowed(position,item))continue;
@@ -135,9 +155,10 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
       const previous=groups.get(key);
       if(!previous||lowestId&&item.id<previous.id)groups.set(key,item);
     }
-    return [...groups.values()];
+    const result=[...groups.values()];cached.set(lowestId,result);return result.slice();
   };
   const replace=(position,id)=>{
+    alternativesCache.clear();attackChoices.clear();
     currentAir=currentTotal=null;
     position.current=contribution(position,id);
     ciChecks.delete(position.shipId);
@@ -320,15 +341,22 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
           !small(position)&&typeOf(slots.get(position.shipId)[position.slot])===6)){
           const fighter=slots.get(carrier.shipId)[carrier.slot];
           const before=contribution(carrier,fighter).min;
-          for(const attack of alternatives(carrier,attackers)){
-            const score=attackValue(carrier,attack)-(utility?0:55);
+          if(!attackChoices.has(carrier))attackChoices.set(carrier,alternatives(carrier,attackers)
+            .map((attack,index)=>({attack,index,value:attackValue(carrier,attack)}))
+            .sort((a,b)=>b.value-a.value||a.index-b.index));
+          // Search the same alternatives in score order. Equal scores retain
+          // original inventory order; after the first passing choice all later
+          // attacks are unable to improve this pair or the incumbent.
+          for(const {attack,value} of attackChoices.get(carrier)){
+            const score=value-(utility?0:55);
             // Ties retain the earlier instance in the original traversal.
             // A trial that cannot beat the incumbent never affects the result.
-            if(best&&score<=best.score)continue;
+            if(best&&score<=best.score)break;
             const after=contribution(carrier,attack.id).min;
             if(reference?!trialPass([[cruiser,water.id],[carrier,attack.id]]):current+waterGain+after-before<required)continue;
             if(!trial([[cruiser,water.id],[carrier,attack.id]],()=>supportedAirGoal(totalAir(),reference,goal)))continue;
             if(!best||score>best.score)best={cruiser,water,carrier,attack,score};
+            break;
           }
         }
       }

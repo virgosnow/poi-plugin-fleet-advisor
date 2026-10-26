@@ -329,7 +329,7 @@ function guideReady(policy,area,phase,store,scheme,rows,route,profile){
   const destroyers=scheme.ships.filter(entry=>Number(store.const.$ships[
     store.info.ships[entry.id].api_ship_id]?.api_stype)===2);
   const guns=destroyers.map(entry=>surfaceWeaponCount(store,entry));
-  const escorts=aswEscortIds(store,scheme.ships,aswEscortLimit(profile));
+  const escorts=aswEscortIds(store,scheme.ships,aswEscortLimit(profile,store));
   const armed=minimum=>destroyers.every((entry,i)=>guns[i]>=minimum||escorts.has(entry.id)&&
     aswCombat.requiresAswPackages(profile)&&entry.slots.filter(id=>aswCombat.isAswWeapon(
       store.const.$equips[store.info.equips[id]?.api_slotitem_id])).length>=2);

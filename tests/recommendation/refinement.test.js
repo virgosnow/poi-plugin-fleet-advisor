@@ -115,3 +115,26 @@ test('local replacement of a carrier with a closed expansion retains a legal, fu
   assert.equal(plan.equipment.expected.find(e=>e.shipId===8).state.ex,0);
   assert.equal(JSON.stringify(store),before);
 });
+
+test('hard surface routes compare strong destroyers after specialist fitting without downgrading heavy ships',()=>{
+  const {finalHullUpgrades}=require('../../src/recommendation/refinement');
+  const rows=[row(1,1,30),row(2,1,35),row(3,18,400)];
+  const roster=[...rows,row(4,2,100),row(5,2,95),row(6,7,360),row(7,2,90,4)];
+  const before=JSON.stringify([rows,roster]);
+  const variants=finalHullUpgrades(rows,roster,{...options,difficulty:{enabled:false},surface:true});
+  assert(variants.some(v=>v[0].id===4&&v[1].id===5));
+  assert(variants.some(v=>v[0].id===4&&v[1].id===2),'keep an individual fitted comparison for ASW balance');
+  assert(variants.every(v=>v[2].id===3),'hard maps do not enable carrier economy replacements');
+  assert.equal(JSON.stringify([rows,roster]),before);
+});
+
+test('late escort proposals preserve manually selected DEs and leave pure ASW objectives alone',()=>{
+  const {finalHullUpgrades}=require('../../src/recommendation/refinement');
+  const rows=[row(1,1,30),row(2,1,35)],roster=[...rows,row(3,2,100),row(4,2,90)];
+  const config={...options,difficulty:{enabled:false},surface:true,lockedIds:new Set([1])};
+  const variants=finalHullUpgrades(rows,roster,config);
+  assert(variants.every(v=>v[0].id===1));assert(variants.some(v=>v[1].id===3));
+  assert.deepEqual(finalHullUpgrades(rows,roster,{...config,surface:false}),[]);
+  assert(finalHullUpgrades(rows,rows,config).every(v=>v.every((s,i)=>s===rows[i])),
+    'no blanket rejection of DEs when no stronger DD is available');
+});
