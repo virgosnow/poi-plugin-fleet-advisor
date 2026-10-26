@@ -364,7 +364,8 @@ function reachableHops(map,node,targets,ships,metrics,seen=new Set(),phase=null,
 }
 function evaluateNormalRoute(store,options){
   const timing=perf.begin('route.evaluate');
-  try{return evaluateNormalRouteCore(store,options);}finally{perf.end(timing);}
+  try{return snapshotMemo(store,'evaluatedNormalRoutes',JSON.stringify(options),()=>evaluateNormalRouteCore(store,options));}
+  finally{perf.end(timing);}
 }
 function evaluateNormalRouteCore(store,{area,target='boss',fleet=1,scheme,phase}={}){
   const map=maps.get(area);

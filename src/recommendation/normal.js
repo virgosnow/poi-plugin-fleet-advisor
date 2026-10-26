@@ -79,12 +79,19 @@ function candidateEvaluator(store,args,ctx,inventory){
   const fittingProfile=previewForMap(area,{target,phase});
   const initialWantsAsw=aswEscortLimit(fittingProfile,store)>0;
   const cache=snapshotMemo(store,'search.candidates',JSON.stringify(args),()=>new Map());
+  const inputs=snapshotMemo(store,'search.candidateInputs',JSON.stringify(args),()=>new Map());
+  const rememberInput=(key,candidate)=>{
+    if(inputs.size>=4096&&!inputs.has(key))inputs.delete(inputs.keys().next().value);
+    inputs.set(key,candidate);return candidate;
+  };
   return (rows,schemeOverride,preserveLoadout=false)=>{
     try{
       const heldScheme=holdDraftEquipment(store,schemeOverride||emptyLoadout(store,schemeOf(ctx.fleet,rows),args.heldSlots),args.heldSlots);
+      const inputKey=JSON.stringify([heldScheme,preserveLoadout]);
+      if(inputs.has(inputKey)){perf.count('candidate.inputHit');return {...inputs.get(inputKey),donorShipIds:[]};}
       const scheme=orderAircraftSlots(store,preserveLoadout?heldScheme:completeCombatLoadout(store,heldScheme,inventory,{area,asw:initialWantsAsw,profile:fittingProfile,heldSlots:args.heldSlots}),args.heldSlots);
       const signature=JSON.stringify(scheme);
-      if(cache.has(signature)){perf.count('candidate.hit');return {...cache.get(signature),donorShipIds:[]};}
+      if(cache.has(signature)){perf.count('candidate.hit');rememberInput(inputKey,cache.get(signature));return {...cache.get(signature),donorShipIds:[]};}
       perf.count('candidate.miss');
       if(!jetCutInAllowed(store,scheme,args.heldSlots))return null;
       rows=scheme.ships.map(s=>ctx.byId.get(s.id));
@@ -115,6 +122,7 @@ function candidateEvaluator(store,args,ctx,inventory){
         donorShipIds:[]};
       if(cache.size>=4096)cache.delete(cache.keys().next().value);
       cache.set(signature,candidate);
+      rememberInput(inputKey,candidate);
       return candidate;
     }catch(_){/* invalid candidate, continue bounded search */}
   };

@@ -1299,3 +1299,22 @@ test('resolved-fleet reuse distinguishes loadouts and clears before later live s
     assert.throws(()=>evaluateNormalRoute(store,{area:'2-3',scheme:{fleet:1,ships:[{id:1,slots:[101],ex:'empty'}]}}));
   }finally{FleetPlanner.prototype.preview=preview;}
 });
+
+test('route result reuse separates map, target, phase, order and new live snapshots',()=>{
+  const {withEquipmentIndexCache}=require('../../../src/domain/fleet/equipment_planner'),s=fixture();
+  const queries=[
+    {area:'2-5',scheme:{fleet:1,ships:[1,2,3,4,5]}},
+    {area:'2-5',target:'I',scheme:{fleet:1,ships:[1,2,3,4,5]}},
+    {area:'2-5',scheme:{fleet:1,ships:[5,2,3,4,1]}},
+    {area:'7-3',phase:'gauge1',scheme:{fleet:1,ships:[1,2,3,4]}},
+    {area:'7-3',phase:'gauge2',scheme:{fleet:1,ships:[1,2,3,4]}},
+  ];
+  const expected=queries.map(q=>evaluateNormalRoute(s,q));
+  withEquipmentIndexCache(s,()=>queries.forEach((q,i)=>{
+    const result=evaluateNormalRoute(s,q);assert.deepEqual(result,expected[i]);
+    assert.equal(evaluateNormalRoute(s,structuredClone(q)),result);
+  }));
+  s.info.ships[1].api_sakuteki[0]+=100;
+  const fresh=evaluateNormalRoute(s,queries[0]);assert.notDeepEqual(fresh.lineOfSight,expected[0].lineOfSight);
+  assert.deepEqual(withEquipmentIndexCache(s,()=>evaluateNormalRoute(s,queries[0])),fresh);
+});

@@ -223,6 +223,22 @@ function createEquipmentPlanner(getStore) {
     const initial=snapshotMemo(store(),'equipmentPlanningStates','all',()=>
       Object.keys(info().ships).map(id=>[Number(id),currentState(id)]));
     const states=new Map(initial),changedStates=new Set();
+    // Search snapshots are immutable: index the initial owner once, then track
+    // only moves made by this trial. Live execution keeps the original scan.
+    const ownerIndex=indexScopes.has(store())?snapshotMemo(store(),'equipmentPlanningOwners','all',()=>{
+      const owners=new Map();
+      for(const [sid,state]of initial)for(const id of state.slots.concat(state.ex))if(id>0){
+        if(owners.has(id))return null; // Preserve scan semantics for corrupt snapshots.
+        owners.set(id,sid);
+      }
+      return owners;
+    }):null;
+    const movedOwners=new Map();
+    const ownerRows=id=>{
+      if(!ownerIndex)return states;
+      const sid=movedOwners.has(id)?movedOwners.get(id):ownerIndex.get(id);
+      return sid==null?[]:[[sid,states.get(sid)]];
+    };
     const writable=sid=>{
       if(!changedStates.has(sid)){states.set(sid,copy(states.get(sid)));changedStates.add(sid);}
       return states.get(sid);
@@ -235,7 +251,7 @@ function createEquipmentPlanner(getStore) {
       else {
         if(id>0) {
           if(!canEquip(d.shipId,id,j))throw new Error('目标槽装备无法重新安装: '+id);
-          for(const [sid,state] of states) {
+          for(const [sid,state] of ownerRows(id)) {
             const at=state.slots.indexOf(id),ex=state.ex===id;
             if(at<0&&!ex)continue;
             if(sid===d.shipId)throw new Error('内部规划未先卸下本舰装备: '+id);
@@ -244,10 +260,15 @@ function createEquipmentPlanner(getStore) {
             const changed=writable(sid);
             if(ex)changed.ex=-1;else{changed.slots.splice(at,1);changed.slots.push(-1);}
             source.after=copy(changed);op.source=source;donors.add(sid);
+            if(ownerIndex)movedOwners.set(id,null);
             break;
           }
         }
         if(j==='ex')now.ex=id;else now.slots[j]=id;
+      }
+      if(ownerIndex){
+        for(const old of before.slots.concat(before.ex))if(old>0&&!now.slots.includes(old)&&now.ex!==old)movedOwners.set(old,null);
+        if(id>0)movedOwners.set(id,d.shipId);
       }
       op.after=copy(now);d.ops.push(op);steps.push({shipId:d.shipId,op});
     }

@@ -20,7 +20,7 @@ class CalculationCache {
       if(entries.has(input)){stats.hits++;return entries.get(input);}
       stats.misses++;const result=calculate();
       if(entries.size>=maxEntries){const oldest=entries.keys().next().value;entries.delete(oldest);table.delta.delete(oldest);}
-      entries.set(input,result);if(namespace==='hullFeasibility')table.delta.set(input,result);table.dirty=true;return result;
+      entries.set(input,result);if(namespace==='hullFeasibility'||namespace==='equipmentEligibility')table.delta.set(input,result);table.dirty=true;return result;
     }};
     this.tables.set(key,table);return table;
   }
@@ -46,8 +46,8 @@ class CalculationCache {
     }
   }
   // Equipment facts already have portable descriptor keys.
-  equipmentEntries(){return [...this.tables].filter(([,table])=>table.namespace==='equipmentEligibility'&&table.dirty&&!table.tokens.size)
-    .map(([key,table])=>[key,table.entries]);}
+  equipmentEntries(){return [...this.tables].filter(([,table])=>table.namespace==='equipmentEligibility'&&table.delta.size&&!table.tokens.size)
+    .map(([key,table])=>[key,table.delta]);}
   mergeEquipmentEntries(records){
     for(const [key,entries] of records){
       const table=this.tables.get(key);

@@ -82,3 +82,27 @@ test('threats follow one selected path and mutually exclusive routes are not add
     assert(enemy.nodes.every(id=>path.nodes.slice(0,-1).includes(id)));
   assert.deepEqual(profile.threat.enemies.find(e=>e.familyKey==='北方棲姫').encounterCount,{minimum:0,maximum:1});
 });
+
+test('path walking reuse separates zero-weight exits and selected-path filtering',()=>{
+  const route={targetNodes:['C'],pointAssessments:[{from:'A',assessment:{status:'random',destinations:['B','C'],probabilities:[{probability:.5},{probability:.5}]}}]};
+  const full=profileForRoute('1-1',route);assert.equal(full.routePaths.length,1);
+  assert.equal(profileForRoute('1-1',route,[['A','B']]).status,'unavailable');
+  assert.equal(profileForRoute('1-1',route),full,'filtering must not erase the cached full path set');
+  route.pointAssessments[0].assessment.probabilities[1].probability=0;
+  assert.equal(profileForRoute('1-1',route).status,'unavailable');
+  route.pointAssessments[0].assessment.probabilities[1].probability=.8;
+  assert.equal(profileForRoute('1-1',route),full);
+});
+
+test('7-4 walking retains path-dependent LoS gates even when displayed branch exits are identical',()=>{
+  const route={targetNodes:['P'],ships:Array.from({length:6},()=>({stype:2})),
+    lineOfSight:{scoresByCoefficient:{4:40},thresholdMargin:0},pointAssessments:[
+      fixed('start','C'),fixed('C','E'),fixed('E','J'),
+      {from:'J',assessment:{status:'unknown',destinations:['K','L','P']}},fixed('K','M'),fixed('M','P')]};
+  const high=profileForRoute('7-4',route);assert(high.routePaths.every(p=>p.nodes.includes('L')));
+  route.lineOfSight.scoresByCoefficient[4]=32;
+  const low=profileForRoute('7-4',route);assert(low.routePaths.every(p=>p.nodes.includes('K')));
+  route.lineOfSight.scoresByCoefficient[4]=35;
+  const middle=profileForRoute('7-4',route);assert(middle.routePaths.some(p=>p.nodes.includes('K')));assert(middle.routePaths.some(p=>p.nodes.includes('L')));
+  assert(!middle.routePaths.some(p=>p.nodes.at(-2)==='J'));
+});

@@ -17,7 +17,14 @@ function parentIndex(ships={}){
   }
   parentIndexes.set(ships,parents);return parents;
 }
-function combatBonuses(store,target,{stat}={}){
+const {snapshotMemo,hasEquipmentIndexCache}=require('../fleet/equipment_planner');
+function combatBonuses(store,target,options={}){
+  if(!hasEquipmentIndexCache(store))return readCombatBonuses(store,target,options);
+  const key=JSON.stringify([target.ship.api_ship_id,options.stat,target.items.map(e=>
+    [e.id,e.type,e.instance?.api_slotitem_id,e.instance?.api_level])]);
+  return snapshotMemo(store,'combatBlueBonuses',key,()=>readCombatBonuses(store,target,options));
+}
+function readCombatBonuses(store,target,{stat}={}){
   const m=target.master,id=Number(target.ship.api_ship_id),ctype=number(m.api_ctype),type=Number(m.api_stype);
   const items=target.items.map(e=>({...e,masterId:number(e.instance?.api_slotitem_id),star:number(e.instance?.api_level)}));
   const reasons=new Set(),matches=[],total={firePower:0,torpedo:0,bomber:0,scout:0,antiAir:0,nightAviation:0};

@@ -129,3 +129,18 @@ test('hull shards merge token dictionaries by descriptor and persist only matchi
   saved.memo('0:',()=>[0]);saved.memo('1:',()=>[1]);saved.memo('2:0',()=>[2]);
   assert.equal(saved.delta.size,2);assert.equal(saved.entries.size,2);
 });
+
+test('equipment transfer sends only new facts and remains bounded after eviction',t=>{
+  const create=storage(t),saved=create();
+  saved.table('equipmentEligibility',{rules:'delta'},2).memo('loaded',()=>true);saved.flush();
+  const child=create(),table=child.table('equipmentEligibility',{rules:'delta'},2);
+  assert.equal(table.memo('loaded',()=>assert.fail('must load')),true);
+  assert.deepEqual(child.equipmentEntries(),[]);
+  table.memo('a',()=>false);table.memo('b',()=>true);table.memo('c',()=>false);
+  assert.deepEqual([...child.equipmentEntries()[0][1]],[['b',true],['c',false]]);
+  const parent=create(),merged=parent.table('equipmentEligibility',{rules:'delta'},2);
+  parent.mergeEquipmentEntries(child.equipmentEntries());
+  assert.equal(merged.memo('c',()=>assert.fail('missing delta')),false);
+  assert.deepEqual(parent.equipmentEntries(),[],'imported facts must not be echoed to siblings');
+  parent.flush();assert.equal(create().table('equipmentEligibility',{rules:'delta'},2).memo('b',()=>assert.fail('not saved')),true);
+});

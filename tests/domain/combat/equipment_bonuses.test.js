@@ -91,3 +91,19 @@ test('required companion count, modification and high accuracy radar conditions 
     assert(f.read().matches.some(b=>b.fromId===rule.ids[0]),field);
   }
 });
+
+test('blue bonus reuse retains instance attribution, stat filtering and fresh snapshot changes',()=>{
+  const {withEquipmentIndexCache}=require('../../../src/domain/fleet/equipment_planner');
+  const f=fixture(147,1,2,'睦月改二');f.gear(285,5,'61cm三連装(酸素)魚雷後期型',10);
+  f.gear(285,5,'61cm三連装(酸素)魚雷後期型',0);
+  const reversed={...f.target,items:f.target.items.slice().reverse()};
+  const reads=[()=>f.read(),()=>combatBonuses(f.store,reversed),()=>combatBonuses(f.store,f.target,{stat:'scout'})];
+  const expected=reads.map(read=>read());
+  withEquipmentIndexCache(f.store,()=>{
+    reads.forEach((read,i)=>{assert.deepEqual(read(),expected[i]);assert.equal(read(),read());});
+  });
+  f.target.items[1].instance.api_level=10;
+  const current=f.read();assert.notDeepEqual(current,expected[0]);
+  assert.deepEqual(withEquipmentIndexCache(f.store,()=>f.read()),current);
+  f.target.master.api_ctype=38;assert.deepEqual(withEquipmentIndexCache(f.store,()=>f.read()),f.read());
+});

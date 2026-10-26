@@ -9,7 +9,7 @@ const routeMaps=new Map(),encounters=new Map();
 const enemyCatalog=new Map(require('../../../data/sortie/enemy_catalog.json').enemies.map(e=>[e.apiId,e]));
 const pending=require('../../../data/sortie/adjudications.json').entries.filter(e=>e.status==='pending');
 const previewCache=new Map();
-const profileCache=new Map();
+const profileCache=new Map(),pathWalkCache=new Map();
 for(const name of fs.readdirSync(path.join(ROOT,'normal_routes')).filter(n=>/^\d-\d\.json$/.test(n))){
   const map=require(path.join(ROOT,'normal_routes',name));routeMaps.set(map.area,map);
 }
@@ -167,7 +167,19 @@ function profileForRoute(area,route,selectedPaths){
       visit(option.to,next,[...travel,option.to],uncertain||point.status!=='fixed');
     }
   };
-  visit('start',new Set(),[],false);
+  // Graph walking depends on exits and zero-probability branches, not the
+  // precise fleet stats. Include the path-sensitive 7-4 predicates explicitly.
+  const walkKey=JSON.stringify([area,route.phase,route.targetNodes,[...points].map(([id,p])=>
+    [id,p.status,p.destinations,p.possibleDestinations,p.probabilities?.map(v=>v.probability===0)]),
+    area==='7-4'?[route.lineOfSight?.scoresByCoefficient?.[4],route.lineOfSight?.thresholdMargin,
+      route.ships?.length,route.ships?.some(ship=>ship.stype!==1)]:null]);
+  const walked=pathWalkCache.get(walkKey);
+  if(walked){paths=walked.paths;incomplete=walked.incomplete;truncated=walked.truncated;}
+  else {
+    visit('start',new Set(),[],false);
+    if(pathWalkCache.size>=512)pathWalkCache.delete(pathWalkCache.keys().next().value);
+    pathWalkCache.set(walkKey,{paths,incomplete,truncated});
+  }
   if(selectedPaths){
     const selected=new Set(selectedPaths.map(nodes=>nodes.join('>')));
     paths=paths.filter(path=>selected.has(path.nodes.join('>')));

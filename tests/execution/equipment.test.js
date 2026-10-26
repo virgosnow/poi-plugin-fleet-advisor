@@ -433,3 +433,19 @@ test('organization reuse retains flagship, target fleet and name validation and 
  assert.throws(()=>controller.preview('fleet',a),/expedition/);
  assert.throws(()=>withEquipmentIndexCache(f.data,()=>controller.preview('fleet',a)),/expedition/);
 });
+
+test('indexed planning preserves three-way borrows, cleared ownership and expansion moves',()=>{
+ const f=fixture();f.data.info.ships[3]={api_ship_id:1,api_lv:20,api_slot:[104,105,106],api_slot_ex:-1};
+ f.data.info.ships[2].api_slot_ex=-1;f.data.info.fleets[0].api_ship=[1,2,3];
+ const schemes=[
+  {fleet:1,ships:[{id:1,slots:[201,104,105],ex:-1},{id:2,slots:[101,102,106],ex:103},{id:3,slots:[107],ex:-1}]},
+  {fleet:1,ships:[{id:3,slots:[101,201,102],ex:103},{id:1,slots:[106,105,104],ex:-1},{id:2,slots:[107],ex:-1}]},
+ ];
+ const expected=schemes.map(s=>f.api.resolvePlan(s)),before=JSON.stringify(f.data);
+ withEquipmentIndexCache(f.data,()=>{
+  for(let i=0;i<3;i++)schemes.forEach((s,j)=>assert.deepEqual(f.api.resolvePlan(s),expected[j]));
+ });
+ assert.equal(JSON.stringify(f.data),before);
+ f.data.info.ships[3].api_slot=[105,104,106];
+ for(const scheme of schemes){const live=f.api.resolvePlan(scheme);assert.deepEqual(withEquipmentIndexCache(f.data,()=>f.api.resolvePlan(scheme)),live);}
+});

@@ -172,3 +172,19 @@ test('route ASW facts share only immutable search scopes and live route edits re
   assert.equal(aswEscortLimit(profile,store),Infinity);
   assert.equal(withEquipmentIndexCache(store,()=>aswEscortLimit(profile,store)),Infinity);
 });
+
+test('candidate input reuse keeps complete results and does not cross held-slot constraints',()=>{
+  const {recommendationBatch}=require('../../src/recommendation/normal');
+  const {PerformanceTrace}=require('../../src/shared/performance_trace');
+  const store=require('../helpers/workbench_fixture')();
+  const args={fleet:1,area:'1-1',airGoal:'ignore',byRoute:true};
+  const batches=[{kind:'seeds',args,items:[[2],[3]]},
+    {kind:'seeds',args:{...args,heldSlots:[{id:2,slots:[-1,-1],ex:-1,keep:{0:true,1:true}}]},items:[[2]]}];
+  const expected=batches.map(batch=>recommendationBatch(store,batch));
+  assert(expected[0].every(Boolean));
+  const trace=new PerformanceTrace({level:'stages'});
+  trace.run(()=>withEquipmentIndexCache(store,()=>{
+    for(let i=0;i<3;i++)batches.forEach((batch,j)=>assert.deepEqual(recommendationBatch(store,batch),expected[j]));
+  }));
+  assert(trace.snapshot().counters['candidate.inputHit']>=2);
+});
