@@ -8,10 +8,11 @@ const {aswEscortLimit,submarineObjective,aswEncounterWeight}=require('./loadout/
 const aswCombat=require('../domain/combat/asw_combat');
 const {routeAirReference,estimateRouteAir}=require('../domain/routes/route_air');
 const {aswPotential,num,shipCost,usableSlots}=require('./context');
-const {healthySupremacy,supportedAirGoal}=require('./loadout/carrier_policy');
+const {healthySupremacy,supportedAirGoal,smallCarrierSlot}=require('./loadout/carrier_policy');
 const jets=require('../domain/combat/jet_aviation');
 const carrierCI=require('../domain/combat/carrier_cutin'),metrics=require('../domain/fleet/fleet_metrics');
 const {snapshotMemo}=require('../domain/fleet/equipment_planner');
+const {routeDifficulty,usefulPower}=require('./route_economy');
 
 function airGoalScore(result,airGoal,area,profile){
   const reference=routeAirReference(result,area,profile);
@@ -78,10 +79,11 @@ function combatCapability(rows,result,profile,store,scheme){
   // Candidate sampling considers experience and remodel tier, while combat
   // strength still needs hull firepower, torpedoes and armor. A high-level
   // destroyer alone must not outscore a battleship on surface-only maps.
-  const surface=rows.reduce((sum,row)=>sum+
+  const surfaceValues=rows.map(row=>
     plannedCombatStat(store,row,scheme,'api_karyoku','api_houg')*1.5+plannedTorpedoStat(store,row,scheme)*0.8+
     num(row.ship.api_soukou)*0.45+num(row.ship.api_taiku)*0.15+
-      row.level*0.25+([7,11,18].includes(row.stype)?60:0),0);
+      row.level*0.25+([7,11,18].includes(row.stype)?60:0));
+  const surface=surfaceValues.reduce((n,value)=>n+value,0);
   const openingTorp=openingTorpedo(store,rows,scheme);
   const aswTypes=new Set([1,2,3,4,21,22]);
   const opening=new Map((result.openingASW?.ships||[]).map(ship=>[ship.shipId,ship]));
@@ -119,7 +121,7 @@ function combatCapability(rows,result,profile,store,scheme){
     neededAsw?Math.min(1,aswShips.length/neededAsw):1,
     neededSurface?Math.min(1,surfaceShips.length/neededSurface):1);
   const readiness=Math.min(physicalAsw&&physicalAsw.status!=='none'?physicalAsw.readiness:1,structuralReadiness);
-  return {strength,surface:surface+openingTorp.power,night,asw,
+  return {strength,surface:surface+openingTorp.power,surfaceValues,night,asw,
     aswShipCount:aswShips.length,
     openingAswCount,openingAswUnknownCount,openingTorpedoCount:openingTorp.count,
     openingTorpedoProxy:openingTorp.power,
@@ -294,6 +296,25 @@ function routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute=false
     supportedAirGoal(air,airScore.routeAirReference,'supremacy')?carrier*0.3:0;
   const strength=combat.strength+strike*0.7+(jet?.adjustment||0)*0.7+
     supremacyPreference+(airGoal==='ignore'?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5);
+  const difficulty=byRoute&&area!=='1-1'?routeDifficulty(profile):{tier:'combat',enabled:false};
+  const largeAirAttacks=difficulty.enabled?rows.reduce((sum,row)=>{
+    if(![7,11,18].includes(row.stype))return sum;
+    const entry=scheme.ships.find(e=>e.id===row.id);
+    return sum+Math.min(3,(entry?.slots||usableSlots(store,row.id)).filter((id,k)=>
+      !smallCarrierSlot(row.ship,row.master,k)&&
+      [7,8,57].includes(Number(store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_type?.[2]))).length);
+  },0):0;
+  const effectiveStrength=difficulty.enabled?rows.reduce((sum,row,i)=>sum+usefulPower(
+    combat.surfaceValues[i]+openingTorpedo(store,[row],scheme).power+
+    openingAirStrike(store,[row],scheme)*0.7+
+    (supremacyPreference?carrierStrike(store,[row],scheme)*0.3:0),difficulty),0)+
+    usefulPower((jet?.adjustment||0)*0.7,difficulty)+
+    // Extra damage can saturate; separate pre-shelling attack opportunities
+    // still prevent return fire. Keep their quality value outside that cap.
+    largeAirAttacks*25+combat.openingTorpedoCount*25+
+    (airGoal==='ignore'?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5):strength;
+  const specialBonus=difficulty.enabled?Math.min(specialAttack.bonus,difficulty.specialCeiling)+
+    Math.max(0,specialAttack.bonus-difficulty.specialCeiling)*difficulty.excessWeight*0.1:specialAttack.bonus;
   const cost=rows.reduce((sum,row)=>sum+shipCost(row),0);
   const battleCount=profile?.counts?
     profile.counts.surface.maximum+profile.counts.air.maximum+profile.counts.asw.maximum:hops;
@@ -335,15 +356,16 @@ function routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute=false
     strength*2-sortieCost-readinessPenalty:
     // Route combat priority retains the relative value of opening/special
     // attack opportunities; the legacy pure-strength API has its own scale.
-    preference==='strongest'?strength*(byRoute?20:100)-sortieCost/100-readinessPenalty:
+    preference==='strongest'?effectiveStrength*(byRoute?20:100)-sortieCost*(difficulty.enabled?difficulty.costWeight:0.01)-readinessPenalty:
       -sortieCost*20+strength*2-readinessPenalty;
   return {rank:airScore.airGoalTier*1e10+routePriority*1e8+
-      (nightSupport?.supportTier||0)*1e7+specialAttack.bonus+groundAttack.bonus*100+
+      (nightSupport?.supportTier||0)*1e7+specialBonus+groundAttack.bonus*100+
       (profile?.counts?.night?.maximum>=2&&!nightSupport?.zuiunEquipped?Math.max(0,Math.min(2,nightSupport?.flareCarriers||0)-1)*1000:0)+preferenceScore+probability-
       airScore.airGoalShortfall*10000,
     ...airScore,...jet?{jetAviation:jet}:{},opportunisticSupremacy:supremacyPreference>0,nightSupport,specialAttack,groundAttack,
     routePriority,routeChance:chance,assumedChance:assumed,
     graphHops:result.reachableHops||null,strengthProxy:strength,
+    routeEconomy:{...difficulty,effectiveStrength,specialBonus,largeAirAttacks},
     carrierStrikeProxy:carrier,aviationBattleshipStrikeProxy:aviationBattleship,
     seaplaneStrikeProxy:seaplane,
     openingAirStrikeProxy:strike,

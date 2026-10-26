@@ -421,9 +421,9 @@ test('1-1 replaces smoke with a seaplane bomber on a fixed opening-torpedo aviat
   const row=recommendNormalFleet(store,{area:'1-1',preference:'shortest',fixedShipIds:[2],
     excludedShipIds:[1,3,4,5,6,7,8]}).recommendations[0];
   assert(row);
-  assert.deepEqual(row.scheme.ships[0].slots,[1525,1526,1522,1524],'sort guns before the opening torpedo but retain the aircraft slot');
+  assert.deepEqual(row.scheme.ships[0].slots,[1525,1526,1524,1522],'seven-plane bomber slot takes priority over category-only weapon ordering');
   assert.equal(row.scores.openingTorpedoCount,1);
-  assert(row.scores.seaplaneStrikeProxy>0);
+  assert.equal(row.scores.seaplaneStrikeProxy,7*Math.sqrt(7),'score uses the returned seven-plane slot');
   assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',row.scheme));
 });
 
@@ -450,9 +450,9 @@ test('1-1 replaces an unneeded boiler with a bomber on a fixed opening-torpedo s
   const row=recommendNormalFleet(store,{area:'1-1',preference:'shortest',fixedShipIds:[2],
     excludedShipIds:[1,3,4,5,6,7,8]}).recommendations[0];
   assert(row);
-  assert.deepEqual(row.scheme.ships[0].slots,[1524,1525,1522,-1],'retain the aircraft slot and sort the remaining weapons');
+  assert.deepEqual(row.scheme.ships[0].slots,[1525,1522,1524,-1],'move the bomber to six planes and retain a compact equipment list');
   assert.equal(row.scores.openingTorpedoCount,1);
-  assert(row.scores.seaplaneStrikeProxy>0);
+  assert.equal(row.scores.seaplaneStrikeProxy,7*Math.sqrt(6),'score uses the returned six-plane slot');
   assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',row.scheme));
 });
 

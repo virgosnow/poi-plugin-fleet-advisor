@@ -14,7 +14,7 @@ const aswCombat=require('../domain/combat/asw_combat');
 const {estimateRouteAirMargins}=require('../domain/routes/route_air');
 const {shipFamilyKey,usableSlots}=require('./context');
 const {openingTorpedo}=require('./scoring');
-const {smallCarrierSlot,carrierUtility,healthySupremacy,affordableSupremacy,supportedAirGoal}=require('./loadout/carrier_policy');
+const {smallCarrierSlot,carrierUtility,healthySupremacy,affordableSupremacy,supportedAirGoal,jetCutInAllowed}=require('./loadout/carrier_policy');
 
 function requiredDestroyerGuns(area,phase,profile){
   if(area==='1-1'||profile?.counts?.surface?.maximum===0)return 0;
@@ -288,6 +288,11 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
   const allowed=(position,item)=>{
     if(held.get(position.shipId)?.[position.slot])return false;
     if(used.has(item.id)||occupiedEx.has(item.id))return false;
+    const list=slots.get(position.shipId);
+    if(jets.isJet(item.master.api_type[2])||list.some(id=>jets.isJet(typeOf(id)))){
+      const entry={id:position.shipId,slots:list.map((id,k)=>k===position.slot?item.id:id)};
+      if(!jetCutInAllowed(store,{ships:[entry]},heldSlots))return false;
+    }
     const borrow=!!item.sourceShipId&&!chosen.has(item.sourceShipId),key=item.id+':'+Number(borrow);
     if(position.eligibility.has(key))return position.eligibility.get(key);
     try{
@@ -364,10 +369,13 @@ function airLoadout(store,scheme,inventory,required,reference,goal='superiority'
         const minGain=next.min-prior.min,maxGain=next.max-prior.max;
         if(minGain<=0&&maxGain<=0)continue;
         const candidate={position,item,minGain,maxGain,
-          attackLoss:Number([7,8,11,57].includes(oldType))};
-        if(!best||minGain>best.minGain||minGain===best.minGain&&
-          (maxGain>best.maxGain||maxGain===best.maxGain&&
-            candidate.attackLoss<best.attackLoss))best=candidate;
+          attackLoss:Number([7,8,11,57].includes(oldType)),
+          attackCapacity:[7,8,11,57].includes(oldType)?Number(position.ship.api_onslot?.[position.slot]??position.master.api_maxeq?.[position.slot]??0):0};
+        // After spare utility is exhausted, buy fighter cover with the
+        // smaller strike slot first, preserving the largest offensive slots.
+        if(!best||candidate.attackLoss<best.attackLoss||candidate.attackLoss===best.attackLoss&&
+          (candidate.attackCapacity<best.attackCapacity||candidate.attackCapacity===best.attackCapacity&&
+            (minGain>best.minGain||minGain===best.minGain&&maxGain>best.maxGain)))best=candidate;
       }
     }
     return best;

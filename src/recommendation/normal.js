@@ -3,12 +3,13 @@
 const {withEquipmentIndexCache}=require('../domain/fleet/equipment_planner');
 const {error}=require('../shared/errors');
 const {canEquip,acceptsOtherSlot}=require('../domain/fleet/equipment_rules');
-const {orderEquipment}=require('../domain/fleet/equipment_order');
+const {orderEquipment,orderAircraftSlots}=require('../domain/fleet/equipment_order');
 const {groundLoadout,groundLoadouts}=require('./loadout/ground_fitting');
 const {aviationBattleshipLoadouts}=require('./loadout/aviation_fitting');
 const {routeGroundTargets}=require('../domain/combat/installation_attack');
 const {nightLoadout}=require('./loadout/night_equipment');
 const {jetLoadouts}=require('./loadout/jet_fitting');
+const {jetCutInAllowed}=require('./loadout/carrier_policy');
 const {specialAttackCores,arrangeSpecialAttack}=require('../domain/combat/special_attacks');
 const {speed}=require('../domain/fleet/fleet_metrics');
 const routes=require('../domain/routes/normal_routes');
@@ -25,6 +26,8 @@ const {routeAirReference}=require('../domain/routes/route_air');
 const {aswPotential,context,hasDuplicateShipFamily,holdDraftEquipment,idsKey,oaswCapableNow,schemeOf,shipCost,shipFamilyKey,stableHash,usableSlots}=require('./context');
 const {airLoadout,fitGuideStrategy,gearVariant,oneOneOpeningLoadout,routingLoadout,speedHolds,strategyFailure,surfaceLoadout}=require('./fitting');
 const {combatHullRanker,plannedCombatStat,plannedTorpedoStat,routeRank,routeRanker}=require('./scoring');
+const {positionUpgrades,combineUpgrades}=require('./refinement');
+const {routeDifficulty,economicalReplacements}=require('./route_economy');
 const {THREE_FIVE_MIN_LEVEL,THREE_FIVE_UPPER_MIN_AIR,guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,remainingSlots,specialFleetSeeds,specialPositionLocks,threeFiveSeeds,threeFiveStyle}=require('./strategies');
 
 function confirmedRouteEvidence(route,profile){
@@ -76,7 +79,8 @@ function candidateEvaluator(store,args,ctx,inventory){
   return (rows,schemeOverride,preserveLoadout=false)=>{
     try{
       const heldScheme=holdDraftEquipment(store,schemeOverride||emptyLoadout(store,schemeOf(ctx.fleet,rows),args.heldSlots),args.heldSlots);
-      const scheme=preserveLoadout?heldScheme:completeCombatLoadout(store,heldScheme,inventory,{area,asw:initialWantsAsw,profile:fittingProfile,heldSlots:args.heldSlots});
+      const scheme=orderAircraftSlots(store,preserveLoadout?heldScheme:completeCombatLoadout(store,heldScheme,inventory,{area,asw:initialWantsAsw,profile:fittingProfile,heldSlots:args.heldSlots}),args.heldSlots);
+      if(!jetCutInAllowed(store,scheme,args.heldSlots))return null;
       rows=scheme.ships.map(s=>ctx.byId.get(s.id));
       // Validate slot feasibility during search; build the costly click plan
       // only for ranked finalists, and never return one without full preview.
@@ -152,7 +156,7 @@ function calculateBatch(store,batch){
       const row=rows[i];if(row.id===entry.id)return entry;
       const keep=(id,slot)=>{try{return id>0&&canEquip(store,row.id,id,slot)&&acceptsOtherSlot(store,row.id,id,slot)?id:-1;}catch(_){return -1;}};
       return {id:row.id,slots:usableSlots(store,row.id).map((_,slot)=>keep(entry.slots[slot],slot)),
-        ex:row.ship.api_slot_ex===0?0:keep(entry.ex,'ex')};
+        ex:row.ship.api_slot_ex===0?-1:keep(entry.ex,'ex')};
     })};
     let trial=evaluate(rows,scheme);if(!trial)return result(null);
     let fitted=trial.scheme;
@@ -161,6 +165,7 @@ function calculateBatch(store,batch){
     for(const need of routePlans.routingNeeds(trial.route,routePlans.optionPlanning(trial.route,option).nodes||option.nodes)){
       const v=routingLoadout(store,fitted,inventory,need,held);if(v)fitted=v;
     }
+    if(fitted!==trial.scheme){trial=evaluate(rows,fitted);if(!trial)return result(null);}
     const air=candidatePathScores(store,trial,option,airGoal,area,trial.scheme.ships.map(s=>ctx.byId.get(s.id)));
     if(airGoal!=='ignore'){const v=airLoadout(store,fitted,inventory,air.airGoalRequired,air.routeAirReference,airGoal,held);if(v)fitted=v;}
     if(base.profile?.counts?.night?.maximum){const v=nightLoadout(store,fitted,inventory,{normalizeGuns:true,nightBattles:base.profile.counts.night.maximum,heldSlots:held});if(v)fitted=v;}
@@ -550,7 +555,9 @@ function* searchNormalFleet(store,args,selectedOptions){
     const rankedChance=strictChance(seed,option);
     const arrival=option.arrivalMode==='boss'?(seed.route.probability??seed.route.chanceRange?.[0]??0):rankedChance.min;
     const rank=!possible?-Infinity:(rankedChance.max>0?1e15:0)+(planned.losShortfall===0?1e14:0)+arrival*1e13+
-      (option.arrivalMode==='boss'?rankedChance.min*1e11:0)-planned.losShortfall*1e9+
+      // Merged branches share a Boss objective. Once overall arrival is equal,
+      // favor combat strength; one particular branch is only a small tie-break.
+      (option.arrivalMode==='boss'?rankedChance.min*100:0)-planned.losShortfall*1e9+
       (option.templates?.some(t=>seed.scheme.ships.length===t.length&&remainingSlots(seed.scheme.ships.map(s=>ctx.byId.get(s.id)),t)?.length===0)?3e8:0)+
       (seed.guideStyle===option.key||seed.guideSuitable?3e9:0)+pathScores(seed,option).rank-seed.scoresByPreference.lowestConsumption.routePriority*1e8;
     cached.set(key,rank);return rank;
@@ -653,53 +660,63 @@ function* searchNormalFleet(store,args,selectedOptions){
     .map(rows=>rows.map(r=>r.id))};
   for(const result of combatResults)if(result.candidates[0])preparedPaths.set(result.candidates[0],new Map(result.paths));
   const combatSeeds=combatResults.flatMap(result=>result.candidates).filter(Boolean);
-  const roles=[[1,2],[3,4,21],[5,6],[7,11,18],[8,9,10],[13,14]];
-  const sameRole=(a,b)=>a.stype===b.stype||roles.some(group=>group.includes(a.stype)&&group.includes(b.stype));
   const lockedIds=new Set([...ctx.fixed,...(args.heldSlots||[]).filter(s=>s&&(s.pin||Object.keys(s.keep||{}).length)).map(s=>s.id)]);
   const validFor=(row,option)=>row&&strictChance(row,option).probability>0&&
     routePlans.fleetRequirementAssessment(row.route,option).eligible&&
     (!option.strategy||routePlans.strategyAssessment(row.route,option).eligible);
-  const refinementBases=requestedRoutes.map(option=>({option,used:new Set(),base:candidates.filter(row=>validFor(row,option))
+  const refinementBases=requestedRoutes.map(option=>({option,used:new Set(),tried:0,gains:[],base:candidates.filter(row=>validFor(row,option))
     .sort((a,b)=>pathRank(b,option)-pathRank(a,option)).find(executable)}));
-  const roundBudget=Math.max(1,Math.floor(40/Math.max(1,refinementBases.length*2)));
+  // Eight trials per route, as before for the default five-route search.
+  // Explicitly requesting more routes scales this same bounded allowance.
+  const refinementBudget=Math.max(40,refinementBases.length*8);
   for(let round=0;round<2;round++){
     // Every trial in a round uses its route's round-start base. Only accepting
     // a result is dependent: compare in original order with the latest base.
     const tasks=[],owners=[];
     for(const state of refinementBases){
-      if(!state.base||refinement.tried>=40)continue;
+      if(!state.base||refinement.tried>=refinementBudget)continue;
+      const previous=state.base;
+      if(round===1)state.base=candidates.filter(row=>validFor(row,state.option))
+        .sort((a,b)=>pathRank(b,state.option)-pathRank(a,state.option)).find(executable)||previous;
+      const changed=idsKey(previous.scheme.ships)!==idsKey(state.base.scheme.ships);
       const {option}=state,base=state.base,rows=base.scheme.ships.map(e=>ctx.byId.get(e.id));
       const profile=profileForRoute(area,base.route,routePlans.optionPaths(option));
       const hullScore=combatHullRanker(store,profile);
-      const upgrades=rows.flatMap((old,index)=>lockedIds.has(old.id)?[]:ctx.roster.filter(row=>
-        sameRole(row,old)&&!rows.some(r=>r.id===row.id)&&
-        (!base.guideSuitable||guideShipAllowed(policy,area,phase,row))&&
-        !hasDuplicateShipFamily(rows.map((r,i)=>i===index?row:r))&&hullScore(row)>hullScore(old))
-        .sort((a,b)=>hullScore(b)-hullScore(a)||a.id-b.id).slice(0,2)
-        .map(row=>({index,row,gain:hullScore(row)-hullScore(old)})))
+      const upgrades=positionUpgrades(rows,ctx.roster,{lockedIds,score:hullScore,
+        allowed:row=>!base.guideSuitable||guideShipAllowed(policy,area,phase,row)});
+      const single=(index,row)=>({rows:rows.map((r,i)=>i===index?row:r),index});
+      const fresh=upgrades.filter(u=>u.choices[0].stype===rows[u.index].stype)
+        .map(u=>({index:u.index,beforeId:rows[u.index].id,row:u.choices[0],gain:hullScore(u.choices[0])-hullScore(rows[u.index])}))
         .sort((a,b)=>b.gain-a.gain||a.index-b.index);
-      const bundle=rows.slice();
-      for(const u of upgrades)if(bundle[u.index]===rows[u.index]&&!hasDuplicateShipFamily(bundle.map((r,i)=>i===u.index?u.row:r)))bundle[u.index]=u.row;
-      const alternatives=round===0?combatSeeds.filter(seed=>pathRank(seed,option,true)>-Infinity&&seed.scheme.ships.length===rows.length&&
+      const alternatives=round===1?combatSeeds.filter(seed=>pathRank(seed,option,true)>-Infinity&&seed.scheme.ships.length===rows.length&&
         [...lockedIds].every(id=>seed.scheme.ships.some(s=>s.id===id)))
         .sort((a,b)=>pathRank(b,option,true)-pathRank(a,option,true)).slice(0,2)
-        .map(seed=>seed.scheme.ships.map(s=>ctx.byId.get(s.id))):[];
-      const choices=[bundle,...alternatives,...upgrades.map(u=>rows.map((r,i)=>i===u.index?u.row:r))];
-      let attempts=0;
-      for(const nextRows of choices){
-        if(attempts>=Math.min(4,roundBudget)||refinement.tried>=40)break;
+        .map(seed=>({rows:seed.scheme.ships.map(s=>ctx.byId.get(s.id))})):[];
+      const choices=round===0?upgrades.map(({index,choices})=>single(index,choices[0])):[
+        // A different route can improve this route's winner during round one.
+        // Refit that winner too, rather than returning an unrefined hull set.
+        ...changed&&fresh.length?[{rows:combineUpgrades(rows,fresh,lockedIds)},single(fresh[0].index,fresh[0].row)]:[],
+        {rows:combineUpgrades(rows,state.gains,lockedIds)},
+        ...state.gains.slice().sort((a,b)=>b.gain-a.gain||a.index-b.index)
+          .flatMap(({beforeId,row})=>{const index=rows.findIndex(r=>r.id===beforeId);return index<0?[]:[single(index,row)];}),
+        ...alternatives,
+        ...upgrades.map(({index,choices})=>single(index,choices[0])),
+        ...[1,2,3].flatMap(n=>upgrades.filter(u=>u.choices[n]).map(u=>single(u.index,u.choices[n])))];
+      for(const {rows:nextRows,index} of choices){
+        if(state.tried>=8||refinement.tried>=refinementBudget)break;
+        if(hasDuplicateShipFamily(nextRows))continue;
         const key=idsKey(nextRows);if(key===idsKey(rows)||state.used.has(key))continue;state.used.add(key);
-        attempts++;refinement.tried++;
+        state.tried++;refinement.tried++;
         tasks.push({ids:nextRows.map(r=>r.id),base:{scheme:base.scheme,profile},option});
-        owners.push(state);
+        owners.push({state,base,index});
       }
     }
     const results=yield {kind:'refinement',args,items:tasks};
     for(let i=0;i<results.length;i++){
-      const {candidate:trial,attempts,paths}=results[i],state=owners[i],{option}=state;
+      const {candidate:trial,attempts,paths}=results[i],{state,base,index}=owners[i],{option}=state;
       variantAttempts+=attempts;if(!trial)continue;
       preparedPaths.set(trial,new Map(paths));
-      const current=state.base;
+      const current=base;
       if(!validFor(trial,option)||strictChance(trial,option).probability<strictChance(current,option).probability||
         planning(trial,option).losShortfall>planning(current,option).losShortfall||
         pathScores(trial,option).airGoalTier<pathScores(current,option).airGoalTier||
@@ -707,7 +724,10 @@ function* searchNormalFleet(store,args,selectedOptions){
         pathScores(trial,option).openingAswCount<Math.min(pathScores(current,option).openingAswCount,
           aswEscortLimit(profileForRoute(area,current.route,routePlans.optionPaths(option))))||
         pathRank(trial,option)<=pathRank(current,option)||!executable(trial))continue;
-      candidates.push(trial);state.base=trial;refinement.improved++;
+      candidates.push(trial);
+      if(round===0&&index!==undefined)state.gains.push({index,beforeId:base.scheme.ships[index].id,row:ctx.byId.get(trial.scheme.ships[index].id),
+        gain:pathRank(trial,option)-pathRank(current,option)});
+      if(pathRank(trial,option)>pathRank(state.base,option)){state.base=trial;refinement.improved++;}
     }
   }
   // Later hull / air / LoS refinement can replace an early ground kit. Fit the
@@ -791,6 +811,52 @@ function* searchNormalFleet(store,args,selectedOptions){
     const fitted=yield {kind:'gear',args,gearKinds:['asw'],items:aswItems,finalAsw:true};
     for(const result of fitted){variantAttempts+=result.attempts;for(const row of result.singles)collectCandidate(row);}
   }
+  // Spend a small, separate budget only on well-understood ordinary routes.
+  // No downgrade trials for destroyers, escorts, named/manual ships, night,
+  // installation or submarine objectives. Full fitting remains authoritative.
+  const lightening={tried:0,improved:0},lightTasks=[],lightOwners=[];
+  for(const option of requestedRoutes){
+    const base=candidates.filter(row=>validFor(row,option)).sort((a,b)=>pathRank(b,option)-pathRank(a,option)).find(executable);
+    if(!base||area==='1-1')continue;
+    const profile=profileForRoute(area,base.route,routePlans.optionPaths(option)),difficulty=routeDifficulty(profile);
+    if(!difficulty.enabled)continue;
+    const rows=base.scheme.ships.map(e=>ctx.byId.get(e.id));
+    const score=combatHullRanker(store,profile),changes=economicalReplacements(rows,ctx.roster,{lockedIds,score,difficulty});
+    // Savings on heavy ships must not freeze an otherwise weak escort into
+    // the result. Surface-only routes can spend a little of those savings on
+    // a stronger destroyer; named routing and manual ships remain protected.
+    const escortRows=rows.slice(),escorts=rows.flatMap((old,index)=>{
+      if(![1,2].includes(old.stype)||lockedIds.has(old.id))return [];
+      const row=ctx.roster.filter(r=>r.stype===2&&!escortRows.some(s=>s.id===r.id)&&score(r)>score(old)&&
+        !hasDuplicateShipFamily(escortRows.map((s,i)=>i===index?r:s)))
+        .sort((a,b)=>score(b)-score(a)||a.id-b.id)[0];
+      if(row)escortRows[index]=row;
+      return row?[{index,beforeId:old.id,row,gain:score(row)-score(old)}]:[];
+    });
+    const choices=[combineUpgrades(rows,[...changes,...escorts],lockedIds),combineUpgrades(rows,changes,lockedIds),
+      ...changes.slice(0,2).map(c=>rows.map((r,i)=>i===c.index?c.row:r)),
+      ...escorts.slice(0,1).map(c=>rows.map((r,i)=>i===c.index?c.row:r))];
+    const seen=new Set([idsKey(rows)]);let count=0;
+    for(const next of choices){
+      const key=idsKey(next);if(count>=4)break;if(seen.has(key)||hasDuplicateShipFamily(next))continue;seen.add(key);
+      count++;lightening.tried++;lightTasks.push({ids:next.map(r=>r.id),base:{scheme:base.scheme,profile},option});
+      lightOwners.push({base,option});
+    }
+  }
+  if(lightTasks.length){
+    const fitted=yield {kind:'refinement',args,items:lightTasks};
+    for(let i=0;i<fitted.length;i++){
+      const {candidate:trial,attempts,paths}=fitted[i],{base,option}=lightOwners[i];variantAttempts+=attempts;
+      if(!trial)continue;preparedPaths.set(trial,new Map(paths));
+      const old=pathScores(base,option),next=pathScores(trial,option);
+      const arrival=row=>option.arrivalMode==='boss'?(row.route.probability??row.route.chanceRange?.[0]??0):strictChance(row,option).min;
+      if(!validFor(trial,option)||arrival(trial)<arrival(base)||next.airGoalTier<old.airGoalTier||
+        planning(trial,option).losShortfall>planning(base,option).losShortfall||
+        old.routeAirEstimate?.margins?.supremacy?.min>=0&&!(next.routeAirEstimate?.margins?.supremacy?.min>=0)||
+        base.guideSuitable&&!trial.guideSuitable||pathRank(trial,option)<=pathRank(base,option)||!executable(trial))continue;
+      candidates.push(trial);lightening.improved++;
+    }
+  }
   const uniqueFor=mode=>{const selected=new Set();return orderFor(mode).filter(row=>{
     const key=idsKey(row.scheme.ships);if(selected.has(key))return false;selected.add(key);return true;
   });};
@@ -856,16 +922,20 @@ function* searchNormalFleet(store,args,selectedOptions){
       basis:'逐槽估算所选路线的道中飞机损耗，按各战制空判定前的保守制空下限配装；不采用固定百分比余量'},
     recommendations:options.map((item,i)=>{
       const scheme=orderEquipment(store,item.scheme,args.heldSlots);
+      if(scheme!==item.scheme)ctx.preview.preview('fleet',scheme);
       const route=scheme===item.scheme?item.route:routes.evaluateNormalRoute(store,{area,target,phase,fleet:ctx.fleet,scheme});
+      const profile=scheme===item.scheme?item.profile:profileForRoute(area,route,item.profile.routePaths?.map(p=>p.nodes));
+      const scores=scheme===item.scheme?item.scores:routeRank(route,profile,scheme.ships.map(s=>ctx.byId.get(s.id)),
+        item.preference||preference,airGoal,area,store,scheme,byRoute);
       return {rank:i+1,preference:item.preference||preference,
       preferences:item.preferences,
       ...(byRoute?{routeKey:item.routeKey,selectedPath:item.selectedPath,pathChance:item.pathChance}:evidenceFor(item)),
-      scheme,route:{...route,fixedArrivalCondition:routes.fixedArrivalCondition(route)},profile:item.profile,
-      scores:item.scores,donorShipIds:item.donorShipIds,guideStyle:item.guideStyle,
+      scheme,route:{...route,fixedArrivalCondition:routes.fixedArrivalCondition(route)},profile,
+      scores,donorShipIds:item.donorShipIds,guideStyle:item.guideStyle,
       routeAfterEquipPending:item.routeAfterEquipPending,
       note:'舰娘与装备来自快照；可组合建议水上战、对潜、对地、制空与索敌换装，借装来源见 donorShipIds；Boss 前弹药按满补给估算，随机路线显示范围'};}),
     search:{kind:'boundedHeuristic',attempted:seen.size,evaluated:seeds.length,
-      equipmentVariantsTried:variantAttempts,poolSize:pool.length,combatRefinement:refinement,specialPositioning:positioning,
+      equipmentVariantsTried:variantAttempts,poolSize:pool.length,combatRefinement:refinement,specialPositioning:positioning,lightening,
       ...(pathSeeds?{routeCompositionsTried:pathSeeds.attempted,routeCompositionSearchTruncated:pathSeeds.truncated}:{}),
       globalOptimal:false,reason:'按练度、作战角色、低耗与对潜能力保留不同候选，配装后复核路线并有界尝试局部战力升级；保留攻略、制空、索敌和手动条件，不保证全局最优'},
     ...(guided35?{guide:{source:'https://wikiwiki.jp/kancolle/北方海域/3-5',
@@ -918,6 +988,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   const evaluate=value=>{
     const candidate=normalize(completeCombatLoadout(store,normalize(value),inventory,fittingOptions));
     try{
+      if(!jetCutInAllowed(store,candidate,heldSlots))return null;
       ctx.preview.preview('fleet',candidate);
       const route=routes.evaluateNormalRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:candidate});
       const fullProfile=profileForRoute(area,route);
@@ -1031,8 +1102,10 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
     throw error('INVALID_QUERY',(selectedRoute?.strategy?strategyFailure(store,ctx,selectedRoute,inventory,heldSlots):'当前舰娘及保留装备未配出到达率可确认的方案。')+
       (diagnostics?.warnings.length?'\n'+diagnostics.warnings.join('\n'):''));
   }
-  return {scheme:orderEquipment(store,chosen.scheme,heldSlots),variants:candidates.length,selectedPath:selectedRoute?(selectedRoute.paths?chosen.planning.nodes:selectedRoute.nodes):chosen.evidence.selectedPath,
-    pathChance:selectedRoute?(routePlans.strategyAssessment(chosen.route,selectedRoute)?.chance||routePlans.optionPlanning(chosen.route,selectedRoute).chance):chosen.evidence.pathChance};
+  const ordered=orderEquipment(store,chosen.scheme,heldSlots);
+  const checked=ordered===chosen.scheme?chosen:evaluate(ordered)||chosen;
+  return {scheme:checked.scheme,variants:candidates.length,selectedPath:selectedRoute?(selectedRoute.paths?checked.planning.nodes:selectedRoute.nodes):checked.evidence.selectedPath,
+    pathChance:selectedRoute?(routePlans.strategyAssessment(checked.route,selectedRoute)?.chance||routePlans.optionPlanning(checked.route,selectedRoute).chance):checked.evidence.pathChance};
 }
 
 

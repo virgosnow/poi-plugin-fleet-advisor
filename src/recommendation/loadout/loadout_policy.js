@@ -1,6 +1,6 @@
 'use strict';
 const {canEquip,acceptsOtherSlot}=require('../../domain/fleet/equipment_rules');
-const {orderCarrierUtility}=require('../../domain/fleet/equipment_order');
+const {orderCarrierUtility,orderAircraftSlots}=require('../../domain/fleet/equipment_order');
 const {smallCarrierSlot,carrierUtility}=require('./carrier_policy');
 const type=m=>Number(m?.api_type?.[2]);
 const master=(store,id)=>store.const.$equips[store.info.equips[id]?.api_slotitem_id];
@@ -83,8 +83,10 @@ function combatPools(inventory){
     .sort((a,b)=>score(b.master)-score(a.master)||a.id-b.id);
   const air=m=>Number(m.api_raig||0)+Number(m.api_baku||0)+Number(m.api_houm||0);
   const pools={guns:select([1,2,3]),torpedo:select([5,32]),opening:select([22],m=>Number(m.api_raig||0)),
-    fighter:select([6,56],m=>Number(m.api_tyku||0)),carrierUtility:carrierUtility(inventory),
-    bomber:select([7,8,11,57,58],air),torpedoPlane:select([8,58],air),divePlane:select([7,57],air),
+    // Start with a conventional outfit. Jet alternatives are compared as
+    // complete CI-capable outfits, never greedily assigned one slot at a time.
+    fighter:select([6],m=>Number(m.api_tyku||0)),carrierUtility:carrierUtility(inventory).filter(i=>type(i.master)!==56),
+    bomber:select([7,8,11],air),torpedoPlane:select([8],air),divePlane:select([7],air),
     recon:select([10,41],m=>Number(m.api_saku||0)),
     waterRecon:select([10],m=>Number(m.api_saku||0)),
     seaplaneBomber:select([11],m=>Number(m.api_baku||0)+Number(m.api_houm||0)*0.2),shell:select([19]),
@@ -198,7 +200,7 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
         smallCarrierSlot(ship,sm,k)&&!smallCarrierSlot(ship,sm,j))&&legal(entry,k,{id,sourceShipId:null}));
     if(later>=0){entry.slots[k]=entry.slots[later];entry.slots[later]=-1;}
   }
-  return orderCarrierUtility(store,{fleet:scheme.fleet,ships:entries},heldSlots);
+  return orderAircraftSlots(store,orderCarrierUtility(store,{fleet:scheme.fleet,ships:entries},heldSlots),heldSlots);
 }
 
 function explainLoadout(store,entry,{kind='normal',area,fleetEntries=[entry]}={}){

@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {orderEquipment,orderCarrierUtility}=require('../../../src/domain/fleet/equipment_order');
+const {orderEquipment,orderCarrierUtility,orderAircraftSlots}=require('../../../src/domain/fleet/equipment_order');
 const {canEquip}=require('../../../src/domain/fleet/equipment_rules');
 function fixture(){
   const store=require('../../helpers/workbench_fixture')();
@@ -86,4 +86,66 @@ test('light-carrier firepower utility uses the smaller slot, or the later slot o
       assert.equal(orderCarrierUtility(store,scheme,[{id:1,keep:{[k]:true}}]),scheme);
     }
   }
+});
+
+function waterFighterFixture(stype=9){
+  const store=fixture(),ship=store.info.ships[1],mid=90001;
+  store.const.$ships[mid]={...store.const.$ships[1],api_id:mid,api_name:'搭载槽测试舰',api_stype:stype,api_maxeq:[2,2,8,22,2]};
+  Object.assign(ship,{api_ship_id:mid,api_slot:[301,302,303,304,305],api_onslot:[2,2,8,22,2]});
+  store.const.$shipTypes[stype]={api_equip_type:{45:1,3:1,11:1,19:1}};
+  for(const [id,t,stats]of [[301,45,{api_tyku:5}],[302,3,{api_houg:20}],[303,3,{api_houg:20}],
+    [304,11,{api_baku:10,api_tyku:1}],[305,19,{api_houg:9}]]){
+    store.const.$equips[id]={api_id:id,api_name:'测试装备'+id,api_type:[0,0,t,t],...stats};
+    store.info.equips[id]={api_id:id,api_slotitem_id:id,api_alv:7};
+  }
+  return {store,scheme:{fleet:1,ships:[{id:1,slots:ship.api_slot.slice(),ex:107}]}};
+}
+
+test('same-instance slot optimization gives water fighters eight planes and keeps the bomber in 22 across hull types',()=>{
+  const {airPower}=require('../../../src/domain/fleet/fleet_metrics');
+  for(const stype of [3,5,6,9,10,16]){
+    const {store,scheme}=waterFighterFixture(stype),before=JSON.stringify([store,scheme]);
+    const fitted=orderEquipment(store,scheme),entry=fitted.ships[0];
+    assert.equal(entry.slots[2],301,'water fighter moves from two to eight planes');
+    assert.equal(entry.slots[3],304,'22-plane bomber stays at full capacity');
+    assert.deepEqual(entry.slots.slice().sort(),scheme.ships[0].slots.slice().sort());
+    assert.equal(entry.ex,107);
+    for(const [k,id]of entry.slots.entries())assert(canEquip(store,1,id,k));
+    const air=s=>airPower(store,[{id:1,ship:store.info.ships[1],master:store.const.$ships[90001],
+      before:{slots:store.info.ships[1].api_slot,ex:0},after:s.ships[0]}]);
+    assert(air(fitted).min>air(scheme).min,'actual air power is recomputed from the new slots');
+    assert.equal(orderEquipment(store,fitted),fitted);
+    assert.equal(JSON.stringify([store,scheme]),before);
+  }
+});
+
+test('aircraft slot optimization respects held items, held empty slots, expansion and slot restrictions',()=>{
+  const {store,scheme}=waterFighterFixture();
+  for(const keep of [{0:true},{2:true}])assert.equal(orderAircraftSlots(store,scheme,[{id:1,keep}]),scheme);
+  const empty={...scheme,ships:[{...scheme.ships[0],slots:[301,302,-1,304,305]}]};
+  assert.equal(orderAircraftSlots(store,empty,[{id:1,keep:{2:true}}]),empty);
+  const restricted=structuredClone(store);
+  restricted.selectorTables=structuredClone(require('../../../data/equipment_rules.json'));
+  restricted.selectorTables.slotExclusions.push({shipMstIds:[90001],slot:2,allowOnly:[3]});
+  assert.equal(orderAircraftSlots(restricted,scheme),scheme,'a larger but incompatible slot is not used');
+});
+
+test('slot optimization never takes capacity from another aircraft or removes carrier first-slot strike proficiency',()=>{
+  const {store}=waterFighterFixture(),allAircraft={fleet:1,ships:[{id:1,slots:[301,302,303,304,305],ex:107}]};
+  store.const.$ships[90001].api_maxeq=[2,2,2,22,0];store.info.ships[1].api_onslot=[2,2,2,22,0];
+  assert.equal(orderAircraftSlots(store,allAircraft),allAircraft,'fighter cannot steal the bomber slot');
+  const cv=carrierFixture([14,26,8,4]),scheme={fleet:1,ships:[{id:1,slots:[200,204,201,203],ex:-1}]};
+  assert.equal(orderAircraftSlots(cv,scheme).ships[0].slots[0],200,'first-slot strike remains first');
+});
+
+test('slot-order reuse is scoped to an immutable search and never leaks into later live validation',()=>{
+  const {withEquipmentIndexCache}=require('../../../src/domain/fleet/equipment_planner');
+  const {store,scheme}=waterFighterFixture();
+  withEquipmentIndexCache(store,()=>{
+    assert.equal(orderAircraftSlots(store,scheme).ships[0].slots[2],301);
+    assert.equal(orderAircraftSlots(store,scheme).ships[0].slots[2],301);
+  });
+  store.const.$ships[90001].api_maxeq=[2,2,2,22,0];
+  store.info.ships[1].api_onslot=[2,2,2,22,0];
+  assert.equal(orderAircraftSlots(store,scheme),scheme);
 });

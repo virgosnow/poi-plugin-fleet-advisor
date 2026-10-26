@@ -8,7 +8,7 @@ const {airPower}=require('../../src/domain/fleet/fleet_metrics');
 const {estimateRouteAir}=require('../../src/domain/routes/route_air');
 const {affordableSupremacy,healthySupremacy,supportedAirGoal}=require('../../src/recommendation/loadout/carrier_policy');
 
-function carrierFixture(capacities=[20,20,44,12,3]){
+function carrierFixture(capacities=[20,20,44,10,3]){
   const store=fixture(),ship=store.info.ships[1];ship.api_ship_id=6001;
   store.const.$ships[6001]={...store.const.$ships[1],api_id:6001,api_name:'加賀改二',api_stype:11,
     api_slot_num:capacities.length,api_maxeq:capacities};
@@ -33,7 +33,7 @@ function complete(store,heldSlots=[]){return completeCombatLoadout(store,emptyLo
 const reference={status:'known',enemyAirPower:10,paths:[['Z']],nodes:[{id:'Z',boss:true,enemyAirPower:10}]};
 
 function jetCarrierFixture(){
-  const store=carrierFixture([34,21,12,6]);store.info.resources=[1000,1000,1000,1000];
+  const store=carrierFixture([34,21,10,6]);store.info.resources=[1000,1000,1000,1000];
   Object.assign(store.const.$shipTypes[11].api_equip_type,{56:1,57:1});
   for(const [id,t,bomb,aa] of [[199,57,15,6],[200,57,11,12],[548,56,0,17]]){
     store.const.$equips[id]={api_id:id,api_name:`喷气${id}`,api_type:[0,0,t,t],api_baku:bomb,api_tyku:aa};
@@ -70,6 +70,96 @@ test('jet alternatives preserve manual equipment and do not assume all carriers 
   assert.deepEqual(jetLoadouts(store,scheme(store),availableEquipment(store)),[]);
 });
 
+test('automatic jets require FBA or a confirmed jet CI on their own carrier with positive full capacities',()=>{
+  const {jetCutInAllowed}=require('../../src/recommendation/loadout/carrier_policy');
+  const store=jetCarrierFixture(),base=scheme(store),entry=base.ships[0];
+  const allowed=slots=>{entry.slots=slots;return jetCutInAllowed(store,base);};
+  assert.equal(allowed([101,10199,301,401]),false,'jB cannot replace the only B');
+  assert.equal(allowed([10199,201,301,401]),false,'jB cannot replace the only A');
+  assert.equal(allowed([101,201,10199,401]),false,'BA is not a substitute for FBA');
+  assert.equal(allowed([101,201,301,10199]),true,'FBA plus a spare jet slot');
+  store.const.$ships[6001].api_maxeq[3]=0;
+  assert.equal(allowed([101,201,301,10199]),false,'the extra jet itself also needs a positive capacity');
+  store.const.$ships[6001].api_maxeq[3]=6;
+  assert.equal(allowed([101,201,10548,401]),true,'jFBA');
+  assert.equal(allowed([10199,201,10548,401]),true,'jFjB');
+  assert.equal(allowed([10199,10200,10548,401]),true,'jFjBjB');
+  store.info.ships[1].api_onslot[2]=0;
+  assert.equal(allowed([10199,201,10548,401]),true,'recommendation assumes full resupply');
+  store.const.$ships[6001].api_maxeq[2]=0;
+  assert.equal(allowed([10199,201,10548,401]),false,'zero-capacity jF cannot form a CI');
+  delete store.const.$ships[6001].api_maxeq[2];
+  assert.equal(allowed([10199,201,10548,401]),false,'unknown capacity does not confirm a CI');
+});
+
+test('manual jets remain exempt but cannot exempt another automatic jet or borrow another carrier CI',()=>{
+  const {jetCutInAllowed}=require('../../src/recommendation/loadout/carrier_policy');
+  const store=jetCarrierFixture(),base=scheme(store);base.ships[0].slots=[101,10199,301,401];
+  const held=[{...base.ships[0],slots:base.ships[0].slots.slice(),keep:{1:true}}];
+  assert.equal(jetCutInAllowed(store,base,held),true);
+  base.ships[0].slots[0]=10200;
+  assert.equal(jetCutInAllowed(store,base,held),false,'an extra automatic jet still needs CI');
+  base.ships[0].slots[0]=101;base.ships[0].slots[1]=10200;
+  assert.equal(jetCutInAllowed(store,base,held),false,'held instance identity matters');
+  base.ships.push({id:2,slots:[101,201,301,401],ex:-1});
+  assert.equal(jetCutInAllowed(store,base),false,'another carrier FBA does not help');
+});
+
+test('jet enumeration keeps atomic CI combinations while rejecting CI-breaking singles and protecting small slots',()=>{
+  const {jetLoadouts}=require('../../src/recommendation/loadout/jet_fitting');
+  const {jetCutInAllowed}=require('../../src/recommendation/loadout/carrier_policy');
+  const jets=require('../../src/domain/combat/jet_aviation');
+  const store=jetCarrierFixture(),base=scheme(store);
+  const variants=jetLoadouts(store,base,availableEquipment(store));
+  assert(variants.every(s=>jetCutInAllowed(store,s)));
+  for(const mode of ['jFBA','jFjB','jFjBjB'])assert(variants.some(s=>jets.carrierModes(types(store,s.ships[0])).includes(mode)),mode);
+  delete store.info.equips[10548];
+  assert.deepEqual(jetLoadouts(store,base,availableEquipment(store)),[],'two protected small slots leave no room for FBA plus a jet');
+  store.const.$ships[6001].api_maxeq=[34,24,18,9];store.info.ships[1].api_onslot=[34,24,18,9];
+  base.ships[0].slots=[101,201,302,301];
+  const mixed=jetLoadouts(store,base,availableEquipment(store));
+  for(const mid of [199,200])assert(mixed.some(s=>s.ships[0].slots.includes(10000+mid)),'compare both jet bombers');
+  assert(mixed.every(s=>jets.carrierModes(types(store,s.ships[0])).includes('FBA')));
+  assert(mixed.every(s=>type(store,s.ships[0].slots[3])!==57));
+});
+
+test('10-plane protection is shared by ordinary completion, jet alternatives and later air fitting',()=>{
+  const {jetLoadouts}=require('../../src/recommendation/loadout/jet_fitting');
+  const {smallCarrierSlot,jetCutInAllowed}=require('../../src/recommendation/loadout/carrier_policy');
+  for(const capacity of [10,11,12]){
+    const store=jetCarrierFixture();delete store.info.equips[10548];
+    store.const.$ships[6001].api_maxeq=[34,21,capacity,9];store.info.ships[1].api_onslot=[34,21,capacity,9];
+    const before=JSON.stringify(store),entry=complete(store),base={fleet:1,ships:[entry]};
+    assert.equal(smallCarrierSlot(store.info.ships[1],store.const.$ships[6001],2),capacity<=10);
+    assert.equal([7,8].includes(type(store,entry.slots[2])),capacity>10,'11 and 12 are ordinary attack slots');
+    const variants=jetLoadouts(store,base,availableEquipment(store));
+    if(capacity<=10)assert.deepEqual(variants,[],'protected slots cannot be used to squeeze in a jet');
+    else{
+      assert(variants.some(v=>type(store,v.ships[0].slots[2])===57),'jet bombers follow the same threshold');
+      for(const v of variants){
+        assert(jetCutInAllowed(store,v));
+        const ids=v.ships.flatMap(e=>e.slots.concat(e.ex)).filter(id=>id>0);
+        assert.equal(ids.length,new Set(ids).size);
+        const ref={...reference,nodes:[{...reference.nodes[0],kind:'battle',antiAir:{status:'known',proportion:0,fixed:0}}]};
+        const fitted=airLoadout(store,v,availableEquipment(store),15,ref);
+        assert(jetCutInAllowed(store,fitted));
+        assert(reading(store,fitted,ref).estimate.margins.superiority.min>=0);
+        assert(![7,8,57].includes(type(store,fitted.ships[0].slots[3])),'nine-plane slots stay protected');
+      }
+    }
+    assert.equal(JSON.stringify(store),before);
+  }
+});
+
+test('conventional completion and later air fitting never buy jets by losing the carrier CI',()=>{
+  const {jetCutInAllowed}=require('../../src/recommendation/loadout/carrier_policy');
+  const store=jetCarrierFixture(),before=JSON.stringify(store),entry=complete(store);
+  assert(!types(store,entry).some(t=>[56,57,58].includes(t)),'base seed remains available without jets');
+  const fitted=airLoadout(store,{fleet:1,ships:[entry]},availableEquipment(store),15,reference);
+  assert(jetCutInAllowed(store,fitted));
+  assert.equal(JSON.stringify(store),before);
+});
+
 test('jet scoring separates assault, ordinary strike, conditional shelling and per-battle steel; no jets retain the fast path',()=>{
   const {routeRank,carrierStrike}=require('../../src/recommendation/scoring');
   const {projectFleet}=require('../../src/domain/fleet/fleet_metrics');
@@ -103,7 +193,7 @@ test('jet scoring separates assault, ordinary strike, conditional shelling and p
   assert.equal(unsupported.assault.max,null);assert.equal(unsupported.ordinary,null,'unknown jet-attacker power is not a numeric zero');
 });
 
-test('Kaga reserves 12- and 3-plane slots for utility and keeps both attack types in larger slots',()=>{
+test('carrier reserves 10- and 3-plane slots for utility and keeps both attack types in larger slots',()=>{
   const store=carrierFixture(),before=JSON.stringify(store),entry=complete(store),fitted=types(store,entry);
   assert(fitted.slice(0,3).includes(7));assert(fitted.slice(0,3).includes(8));
   assert(fitted.slice(3).every(t=>![7,8].includes(t)));
@@ -179,7 +269,7 @@ test('equipment search preserves small-slot utility after air and route variants
 function twoCarrierFixture(){
   const store=carrierFixture();
   store.const.$ships[6002]={...store.const.$ships[6001],api_id:6002,api_name:'Intrepid改'};
-  store.info.ships[2]={...store.info.ships[1],api_id:2,api_ship_id:6002,api_slot:[-1,-1,-1,-1,-1],api_onslot:[20,20,44,12,3]};
+  store.info.ships[2]={...store.info.ships[1],api_id:2,api_ship_id:6002,api_slot:[-1,-1,-1,-1,-1],api_onslot:[20,20,44,10,3]};
   for(const id of [304,305,306])store.info.equips[id]={api_id:id,api_slotitem_id:9003,api_level:0,api_alv:7};
   const initial={fleet:1,ships:[...scheme(store).ships,{id:2,slots:[-1,-1,-1,-1,-1],ex:-1}]};
   const base=completeCombatLoadout(store,initial,availableEquipment(store),{area:'2-1'});
@@ -195,10 +285,10 @@ function reading(store,fitted,ref){
 
 test('two well-equipped carriers may buy route-wide supremacy with one expendable attack slot',()=>{
   const {store,base}=twoCarrierFixture();
-  const ref={...reference,enemyAirPower:100,nodes:[{id:'Z',boss:true,enemyAirPower:100}]};
+  const ref={...reference,enemyAirPower:95,nodes:[{id:'Z',boss:true,enemyAirPower:95}]};
   const start=reading(store,base,ref);assert(start.estimate.margins.superiority.min>=0);
   assert(start.estimate.margins.supremacy.min<0);
-  const fitted=airLoadout(store,base,availableEquipment(store),150,ref);
+  const fitted=airLoadout(store,base,availableEquipment(store),143,ref);
   const result=reading(store,fitted,ref);
   assert(result.estimate.margins.supremacy.min>=0);
   assert(affordableSupremacy(store,base,fitted));
@@ -385,7 +475,7 @@ test('5-2 equipment and full-fleet recommendations retain large-slot BA once LoS
     for(const entry of fitted.ships.slice(0,2)){
       assert(types(store,entry).slice(0,2).includes(7));
       assert(types(store,entry).slice(0,2).includes(8));
-      assert(types(store,entry).slice(2).every(t=>![7,8].includes(t)));
+      assert(entry.slots.every((id,k)=>store.info.ships[entry.id].api_onslot[k]>10||![7,8].includes(type(store,id))));
     }
     const ids=fitted.ships.flatMap(e=>e.slots.concat(e.ex)).filter(id=>id>0);
     assert.equal(new Set(ids).size,ids.length);
@@ -394,6 +484,32 @@ test('5-2 equipment and full-fleet recommendations retain large-slot BA once LoS
       ['B','C','D','F','O']).chance.probability,1);
   }
   assert(full.recommendations.every(r=>r.scores.airGoalTier===3));
+  assert.equal(JSON.stringify(store),before);
+});
+
+test('5-2 full and equipment searches retain FBA with optional jets and preserve manual jets',()=>{
+  const {store,base}=fiveTwoLoSFixture(),jets=jetCarrierFixture();
+  for(const mid of [199,200]){
+    store.const.$equips[mid]=jets.const.$equips[mid];
+    store.info.equips[10000+mid]=jets.info.equips[10000+mid];
+  }
+  store.const.$shipTypes[11].api_equip_type[57]=1;store.info.resources=[1000,1000,1000,1000];
+  const args={area:'5-2',routeKey:'B>C>D>F>O'},before=JSON.stringify(store);
+  const equipment=recommendNormalEquipment(store,{...args,scheme:base});
+  const full=recommendNormalFleet(store,{...args,byRoute:true,airGoal:'superiority',fixedShipIds:[1,2,3,4,5,6]});
+  assert(full.recommendations.length>0);
+  for(const fitted of [equipment.scheme,...full.recommendations.map(r=>r.scheme)]){
+    for(const e of fitted.ships.slice(0,2)){
+      assert(require('../../src/domain/combat/jet_aviation').carrierModes(types(store,e)).includes('FBA'));
+    }
+    const ids=fitted.ships.flatMap(e=>e.slots.concat(e.ex)).filter(id=>id>0);
+    assert.equal(new Set(ids).size,ids.length);
+  }
+  assert(full.recommendations.every(r=>r.scores.airGoalTier===3));
+  const manual={...base,ships:base.ships.map((e,k)=>k?e:{...e,slots:[10199,...e.slots.slice(1)]})};
+  const held=[{...manual.ships[0],keep:{0:true}}];
+  const preserved=recommendNormalEquipment(store,{...args,scheme:manual,heldSlots:held});
+  assert.equal(preserved.scheme.ships[0].slots[0],10199);
   assert.equal(JSON.stringify(store),before);
 });
 
@@ -456,7 +572,7 @@ test('unmodeled jets stay explicit while separate conventional alternatives reta
 });
 
 test('surplus small-slot fighter cover can become legal fixed firepower while retaining FBA and route air control',()=>{
-  const store=carrierFixture([34,21,12,9]);store.info.ships[1].api_slot=[101,201,301,302];
+  const store=carrierFixture([34,21,10,9]);store.info.ships[1].api_slot=[101,201,301,302];
   const fitted=airLoadout(store,scheme(store),availableEquipment(store),15,reference);
   assert(fitted.ships[0].slots.includes(501));
   assert(types(store,fitted.ships[0]).includes(6));

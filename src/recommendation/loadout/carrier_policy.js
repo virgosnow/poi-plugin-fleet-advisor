@@ -2,7 +2,7 @@
 const {estimateRouteAirMargins}=require('../../domain/routes/route_air');
 const jets=require('../../domain/combat/jet_aviation');
 // A conservative fitting preference, not a universal shoot-down threshold.
-const SMALL_CARRIER_SLOT=12;
+const SMALL_CARRIER_SLOT=10;
 function carrierSlotSize(ship,master,slot){
   return Number(ship.api_onslot?.[slot]??master.api_maxeq?.[slot]??0);
 }
@@ -17,6 +17,27 @@ function carrierUtility(inventory){
     [1,2,3,4,35].includes(type(item))&&Number(item.master.api_houg)>0)
     .sort((a,b)=>rank(a)-rank(b)||value(b)-value(a)||a.id-b.id);
 }
+// Recommendation policy, not a restriction on player equipment or game rules.
+// Do not trade FBA away for BA/BBA just to gain an extra jet attack. All CI
+// roles must belong to this carrier and have known positive full capacities.
+function jetCutInAllowed(store,scheme,heldSlots=[]){
+  for(const entry of scheme.ships){
+    const master=id=>store.const.$equips[store.info.equips[id]?.api_slotitem_id];
+    const automatic=entry.slots.flatMap((id,k)=>jets.isJet(master(id)?.api_type?.[2])&&
+      !heldSlots.some(h=>h?.id===entry.id&&h.keep?.[k]&&(!h.slots||h.slots[k]===id))?[k]:[]);
+    if(!automatic.length)continue;
+    const ship=store.info.ships[entry.id],sm=store.const.$ships[ship.api_ship_id];
+    if(![7,11,18].includes(Number(sm.api_stype)))return false;
+    if(automatic.some(k=>!Number.isFinite(sm.api_maxeq?.[k])||sm.api_maxeq[k]<=0))return false;
+    const types=entry.slots.flatMap((id,k)=>{
+      const m=master(id),n=sm.api_maxeq?.[k];
+      return Number.isFinite(n)&&n>0&&m&&Number(m.api_type?.[0])!==21?[Number(m.api_type?.[2])]:[];
+    });
+    if(!jets.carrierModes(types).some(mode=>mode==='FBA'||Object.hasOwn(jets.CI,mode)))return false;
+  }
+  return true;
+}
+
 function carrierSummary(store,scheme){
   return scheme.ships.flatMap(entry=>{
     const ship=store.info.ships[entry.id],master=store.const.$ships[ship.api_ship_id];
@@ -69,4 +90,4 @@ function affordableSupremacy(store,before,after){
         row.attacks.every(a=>fitted.attacks.some(b=>b.type===a.type));
     });
 }
-module.exports={SMALL_CARRIER_SLOT,carrierSlotSize,smallCarrierSlot,carrierUtility,healthySupremacy,affordableSupremacy,supportedAirGoal};
+module.exports={SMALL_CARRIER_SLOT,carrierSlotSize,smallCarrierSlot,carrierUtility,healthySupremacy,affordableSupremacy,supportedAirGoal,jetCutInAllowed};
