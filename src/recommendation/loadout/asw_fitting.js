@@ -1,9 +1,14 @@
 'use strict';
+const perf=require('../../shared/performance_trace');
 const {canEquip,acceptsOtherSlot}=require('../../domain/fleet/equipment_rules');
 const {submarineEncounters,isAswWeapon,roles,assessAsw}=require('../../domain/combat/asw_combat');
 const kind=m=>Number(m?.api_type?.[2]);
 
-function fitAswLoadouts(store,scheme,inventory,{profile,escorts,heldSlots=[]}={}){
+function fitAswLoadouts(store,scheme,inventory,options){
+  const timing=perf.begin('loadout.asw');
+  try{return fitAswLoadoutsCore(store,scheme,inventory,options);}finally{perf.end(timing);}
+}
+function fitAswLoadoutsCore(store,scheme,inventory,{profile,escorts,heldSlots=[]}={}){
   if(!submarineEncounters(profile).length||!escorts?.size)return [];
   const held=new Map(heldSlots.filter(Boolean).map(e=>[e.id,e.keep||{}]));
   // Reconnaissance may yield its slot to an effective ASW kit; the caller

@@ -1,4 +1,5 @@
 'use strict';
+const perf=require('../../shared/performance_trace');
 // Per-map branching tables are derived from wikiwiki source pages. Only
 // reviewed machineRules may drive a route verdict; prose alone is evidence.
 const fs=require('fs'),path=require('path');
@@ -340,7 +341,11 @@ function reachableHops(map,node,targets,ships,metrics,seen=new Set(),phase=null)
   return (destinations||[]).flatMap((to,i)=>assessment.probabilities?.[i]?.probability===0?[]:
     reachableHops(map,to,targets,ships,metrics,next,phase).map(n=>n+1));
 }
-function evaluateNormalRoute(store,{area,target='boss',fleet=1,scheme,phase}={}){
+function evaluateNormalRoute(store,options){
+  const timing=perf.begin('route.evaluate');
+  try{return evaluateNormalRouteCore(store,options);}finally{perf.end(timing);}
+}
+function evaluateNormalRouteCore(store,{area,target='boss',fleet=1,scheme,phase}={}){
   const map=maps.get(area);
   if(!map)throw error('INVALID_QUERY','未知常规海域；请先查询海域列表');
   if(!Number.isInteger(fleet)||fleet<1||fleet>4)throw error('INVALID_QUERY','fleet 必须是 1-4');

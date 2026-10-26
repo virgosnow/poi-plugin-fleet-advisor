@@ -1,6 +1,6 @@
 'use strict';
-const DEFAULTS=Object.freeze({automaticOperations:false});
-const normalize=value=>({automaticOperations:value?.automaticOperations===true});
+const DEFAULTS=Object.freeze({automaticOperations:false,performanceDebug:false});
+const normalize=value=>Object.fromEntries(Object.keys(DEFAULTS).map(key=>[key,value?.[key]===true]));
 function validate(value){
   if(!value||typeof value!=='object'||Array.isArray(value)||
     Object.entries(value).some(([key,v])=>!Object.hasOwn(DEFAULTS,key)||typeof v!=='boolean'))

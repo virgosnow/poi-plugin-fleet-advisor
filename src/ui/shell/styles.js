@@ -120,6 +120,7 @@ module.exports+=`
 .paa-settings-page .paa-cache-actions button{width:76px;flex:none}
 .paa-agent-connection{display:flex;flex-direction:column;gap:var(--paa-setting-subgap)}
 .paa-experimental-mcp{margin-top:var(--paa-setting-gap);min-width:0}
+.paa-experimental-settings>.paa-settings-row+.paa-settings-row{margin-top:var(--paa-setting-gap)}
 .paa-experimental-mcp .paa-agent-connection{margin-top:var(--paa-setting-subgap);margin-inline-start:var(--paa-setting-indent)}
 @container(max-width:600px){.paa-experimental-mcp .paa-agent-connection>.paa-settings-row{grid-template-columns:minmax(0,1fr);gap:4px}}
 .paa-agent-label{font-size:14px;line-height:22px;margin:0}

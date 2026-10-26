@@ -1,4 +1,6 @@
 'use strict';
+const workerStarted=performance.now();
+const perf=require('../../shared/performance_trace');
 const {parallelism}=require('../../config/computation_settings');
 const {Worker,isMainThread,parentPort,workerData}=require('worker_threads');
 const {withEquipmentIndexCache}=require('../../domain/fleet/equipment_planner');
@@ -7,6 +9,7 @@ const {withEquipmentIndexCache}=require('../../domain/fleet/equipment_planner');
 // while these workers run; dependent search stages still use one thread.
 
 if(!isMainThread&&workerData?.kind==='recommendation-batch'){
+  const trace=workerData.diagnostics?new perf.PerformanceTrace(workerData.diagnostics):null;
   const {store,cacheDirectory,version,cacheMaxBytes}=workerData,indexes=new Map();
   const {CalculationCache,withCalculationCache}=require('../../shared/calculation_cache');
   const {RecommendationCache}=require('../cache/recommendation_cache');
@@ -17,11 +20,19 @@ if(!isMainThread&&workerData?.kind==='recommendation-batch'){
   const cache=storage?new CalculationCache(storage):null;
   const run=fn=>cache?withCalculationCache(cache,fn,{flush:false}):fn();
   const calculate=require('../../recommendation/index').recommendationBatch;
+  const startupMs=trace?performance.now()-workerStarted:0;
   parentPort.on('message',({id,batch})=>{
     try{
-      const result=batch.kind==='cache'?{equipment:cache?.equipmentEntries()||[],hulls:cache?.hullEntries()||[]}:
-        run(()=>withEquipmentIndexCache(store,()=>calculate(store,batch),indexes));
-      parentPort.postMessage({id,result});
+      const started=trace?performance.now():0;
+      const compute=()=>{
+        const token=perf.begin('batch.'+batch.kind);
+        try{return batch.kind==='cache'?{equipment:cache?.equipmentEntries()||[],hulls:cache?.hullEntries()||[]}:
+          run(()=>withEquipmentIndexCache(store,()=>calculate(store,batch),indexes));}
+        finally{perf.end(token);}
+      };
+      const result=trace?trace.run(compute):compute();
+      parentPort.postMessage({id,result,...trace?{computeMs:performance.now()-started,
+        ...(batch.kind==='cache'?{profile:{...trace.snapshot(),startupMs,calculationStats:cache?.stats||{}}}:{})}:{}});
     }catch(e){parentPort.postMessage({id,error:{message:e.message,code:e.code,stack:e.stack}});}
   });
 }
@@ -34,17 +45,26 @@ class RecommendationPool {
     this.cacheMaxBytes=cacheMaxBytes;
     this.mergeEquipmentEntries=mergeEquipmentEntries;this.mergeHullEntries=mergeHullEntries;
     this.workers=[];this.closed=false;this.nextId=0;
+    this.trace=perf.current();
   }
   spawn(){
     const worker=this.createWorker(__filename,{workerData:{kind:'recommendation-batch',store:this.store,
-      cacheDirectory:this.cacheDirectory,version:this.version,cacheMaxBytes:this.cacheMaxBytes}});
-    const slot={worker,pending:null,failure:null};
+      cacheDirectory:this.cacheDirectory,version:this.version,cacheMaxBytes:this.cacheMaxBytes,
+      diagnostics:this.trace?{level:this.trace.level}:null}});
+    const slot={worker,pending:null,failure:null,index:this.workers.length};
     const fail=error=>{slot.failure=error;const pending=slot.pending;slot.pending=null;pending?.reject(error);};
     worker.on('error',fail);
     worker.on('exit',code=>fail(Error(`候选计算线程已退出（${code}）`)));
     worker.on('message',message=>{
       const pending=slot.pending;if(!pending||pending.id!==message.id)return;
       slot.pending=null;
+      if(this.trace){
+        const key=slot.index+':'+pending.kind;
+        let row=this.trace.dispatch.find(row=>row.key===key);
+        if(!row){row={key,worker:slot.index,kind:pending.kind,batches:0,items:0,roundTripMs:0,computeMs:0};this.trace.dispatch.push(row);}
+        row.batches++;row.items+=pending.items;row.roundTripMs+=performance.now()-pending.started;row.computeMs+=message.computeMs||0;
+        if(message.profile)this.trace.children.push({worker:slot.index,...message.profile});
+      }
       if(message.error)pending.reject(Object.assign(Error(message.error.message),message.error));
       else pending.resolve(message.result);
     });
@@ -53,7 +73,8 @@ class RecommendationPool {
   execute(slot,batch){
     if(slot.failure)return Promise.reject(slot.failure);
     return new Promise((resolve,reject)=>{
-      const id=++this.nextId;slot.pending={id,resolve,reject};
+      const id=++this.nextId;slot.pending={id,resolve,reject,...this.trace?
+        {kind:batch.kind,items:batch.items?.length||0,started:performance.now()}: {}};
       try{slot.worker.postMessage({id,batch});}catch(e){slot.pending=null;reject(e);}
     });
   }
@@ -94,7 +115,7 @@ class RecommendationPool {
     this.workers=[];
   }
   async flush(){
-    if((!this.mergeEquipmentEntries&&!this.mergeHullEntries)||this.closed)return;
+    if((!this.mergeEquipmentEntries&&!this.mergeHullEntries&&!this.trace)||this.closed)return;
     const results=await Promise.all(this.workers.map(slot=>this.execute(slot,{kind:'cache'})));
     for(const records of results){this.mergeEquipmentEntries?.(records.equipment);this.mergeHullEntries?.(records.hulls);}
   }

@@ -13,6 +13,8 @@ const {McpHttpServer,DEFAULT_HTTP_PORT}=require('../bridge/http_server');
 const selectionFilters=require('../config/recommendation_filters');
 const computationSettings=require('../config/computation_settings');
 const experimentalSettings=require('../config/experimental_settings');
+const performanceTrace=require('../shared/performance_trace');
+const {PerformanceLogs}=require('../infrastructure/cache/performance_logs');
 const {inspectCache,maintainCache}=require('../infrastructure/cache/recommendation_cache');
 
 const PLAN_TTL_MS=5*60*1000;
@@ -36,8 +38,12 @@ class FleetAdvisorService {
     this.snapshots=new Snapshots(getStore,now);this.schemes=new Schemes(storageDir,now,
       {getCacheLimit:()=>this.computationSettings.cacheLimitMiB*1024**2});
     this.computationSettings=computationSettings.normalize();
+    this.performanceLogs=new PerformanceLogs(path.join(storageDir,'recommendation-cache'),
+      {getLimitBytes:()=>this.computationSettings.cacheLimitMiB*1024**2});
     this.recommendations=new RecommendationWorker({createWorker:createRecommendationWorker,cacheDir:path.join(storageDir,'recommendation-cache'),
-      getSettings:()=>this.computationSettings});
+      getSettings:()=>this.computationSettings,
+      getDiagnostics:()=>this.experimentalSettings?.performanceDebug?{level:'modules'}:performanceTrace.options(),
+      onProfile:report=>this.experimentalSettings?.performanceDebug?this.performanceLogs.write(report):undefined});
     this.plans=new Map();this.jobs=new Map();this.keys=new Map();
     this.listeners=new Set();this.epoch=crypto.randomUUID();this.activeJobId=null;this.bridge=null;this.disposed=false;
     this.stateFile=path.join(storageDir,'mcp-state.json');
@@ -115,8 +121,10 @@ class FleetAdvisorService {
   }
   async getComputationStatus(){
     await this.cacheReady;
+    const cache=await inspectCache(this.recommendations.cacheDir);
+    if(this.performanceLogs.lastError)cache.logs={...cache.logs,writeError:this.performanceLogs.lastError};
     return {settings:this.getComputationSettings(),...computationSettings.resources(this.computationSettings),
-      busy:this.recommendations.queued>0,cache:{...await inspectCache(this.recommendations.cacheDir),schemes:await this.schemes.inspectCache()}};
+      busy:this.recommendations.queued>0,cache:{...cache,schemes:await this.schemes.inspectCache()}};
   }
   async maintainDiskCache(){
     const options={limitMiB:this.computationSettings.cacheLimitMiB};
@@ -158,7 +166,7 @@ class FleetAdvisorService {
     return {filters:this.getRecommendationFilters(),computation:{...await this.getComputationStatus(),maintenance}};
   }
   async clearRecommendationCache(kind){
-    if(!['results','calculations','schemes','all'].includes(kind))throw error('INVALID_QUERY','无效的缓存类别');
+    if(!['results','calculations','schemes','logs','all'].includes(kind))throw error('INVALID_QUERY','无效的缓存类别');
     const maintenance=await this.recommendations.maintain(async()=>{
       const operations=[];
       if(kind!=='schemes')operations.push(()=>maintainCache(this.recommendations.cacheDir,{clear:kind}));
@@ -168,6 +176,7 @@ class FleetAdvisorService {
       for(const operation of operations)try{
         const next=await operation();result.removed+=next.removed;result.failed+=next.failed;
       }catch(e){result.failed++;result.error=e.message;}
+      if((kind==='logs'||kind==='all')&&!result.failed)this.performanceLogs.lastError=null;
       return result;
     });
     return {...await this.getComputationStatus(),maintenance};

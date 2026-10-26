@@ -1,4 +1,5 @@
 'use strict';
+const perf=require('../shared/performance_trace');
 // Combat capability and route ranking, independent of candidate enumeration.
 const {fleetGroundScore}=require('../domain/combat/installation_attack');
 const {nightReadiness}=require('./loadout/night_equipment');
@@ -76,6 +77,10 @@ function openingTorpedo(store,rows,scheme){
   return {count,power};
 }
 function combatCapability(rows,result,profile,store,scheme){
+  const timing=perf.begin('score.combat');
+  try{return combatCapabilityCore(rows,result,profile,store,scheme);}finally{perf.end(timing);}
+}
+function combatCapabilityCore(rows,result,profile,store,scheme){
   // Candidate sampling considers experience and remodel tier, while combat
   // strength still needs hull firepower, torpedoes and armor. A high-level
   // destroyer alone must not outscore a battleship on surface-only maps.
@@ -191,6 +196,10 @@ function specialAttackScore(store,rows,scheme,profile){
 }
 
 function jetScore(store,scheme,air,airScore,profile){
+  const timing=perf.begin('score.jets');
+  try{return jetScoreCore(store,scheme,air,airScore,profile);}finally{perf.end(timing);}
+}
+function jetScoreCore(store,scheme,air,airScore,profile){
   const equipped=scheme.ships.flatMap(entry=>entry.slots.flatMap((id,slot)=>{
     const instance=store.info.equips[id],master=store.const.$equips[instance?.api_slotitem_id],type=Number(master?.api_type?.[2]);
     if(!jets.isJet(type))return [];
@@ -273,7 +282,11 @@ function routeRank(result,profile,rows,preference,airGoal,area,store,scheme,byRo
 }
 // Preferences only change the final weighting. Compute the same candidate's
 // combat, aviation and support facts once, then retain each original formula.
-function routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute=false){
+function routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute){
+  const timing=perf.begin('score.candidate');
+  try{return routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute);}finally{perf.end(timing);}
+}
+function routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute=false){
   const chance=result.chanceRange||[0,1],assumed=result.assumedChanceRange||chance;
   const reach=assumed[1],lower=chance[0],probability=assumed[0];
   const hops=profile?.hops?.maximum??result.reachableHops?.maximum??99;

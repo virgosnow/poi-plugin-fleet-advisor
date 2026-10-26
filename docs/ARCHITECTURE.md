@@ -153,10 +153,36 @@ flowchart TD
 | 完整推荐 | 完整快照、参数、设置和实现指纹 | 输入变化后的搜索 |
 | 底层计算 | 依赖明确的纯计算特征 | 实例分配、库存与状态、评分和最终核对 |
 | 编成方案 | 临时完整方案，最多 200 条 | 应用前的预览与实时核对 |
+| 日志 | 默认关闭的本地性能报告 | 不参与推荐；不会替代状态与库存核对 |
 
-三类缓存由 `cache/disk_cache_budget.js` 共用 `cacheLimitMiB`，不分别预留字节配额。完整推荐与底层缓存各保留最多 64 个文件及 7 天保留期。实现指纹覆盖 `src/` 和 `data/`，输入或实现变化使对应结果失效。
+四类缓存由 `cache/disk_cache_budget.js` 共用 `cacheLimitMiB`，不分别预留字节配额。完整推荐、底层计算与日志各保留最多 64 个文件及 7 天保留期。实现指纹覆盖 `src/` 和 `data/`，输入或实现变化使对应结果失效。
 
 搜索内存索引仅限不可变快照的同步计算作用域：同一任务的分批计算共用筛选后的舰娘目录、库存归属及对潜读数；每次新搜索重新建立，界面预览与执行不复用这些索引。沿途制空试配共用每个 Worker 最多 16,384 条 LRU 余量记录；键保留机数、机种、对空、熟练度、喷气型号与钢材，省略不影响损耗的舰娘身份及爆装。完整逐点报告另保留舰娘、槽位和攻击力信息。实际库存分配、手动槽位与最终核对始终重新执行。
+
+### 性能打点
+
+`shared/performance_trace.js` 提供默认关闭的打点。实验功能中的 `performanceDebug` 开关持久化；开启后使用 `modules` 档，并由 `cache/performance_logs.js` 以严格字段白名单写入 `recommendation-cache/logs/`。日志不进入推荐结果、完整推荐缓存键或结果缓存文件，也不记录快照、舰娘和装备实例、昵称、请求正文。单份上限4 MiB；原子写入失败只在日志缓存行提示，不影响推荐。日志写入在同一推荐队列完成后才释放本轮任务，避免清理后旧报告重新出现；关闭开关会跳过尚未开始的日志写入，已写入文件仍保留。
+
+常规推荐记录完整阶段和候选子线程；同步推荐和远征额外提供整体搜索阶段。开发者也可只在内存保留最近一份报告，临时从 poi **主窗口**开发者控制台开启；此入口自身不持久化，重启或热更新后恢复：
+
+```js
+var root = window.getStore().plugins.find(p => p.id === 'poi-plugin-fleet-advisor').pluginPath;
+var timing = require(require('path').join(root, 'src/shared/performance_trace'));
+timing.setEnabled(true); // stages：轻量阶段计时
+// timing.setEnabled(true, {level: 'modules'}); // 逐模块计时，额外开销较大
+// 正常触发一次推荐后查看；命中完整缓存时报告只会包含缓存阶段
+timing.summarize(timing.getLastReport());
+timing.setEnabled(false);
+timing.clear();
+```
+
+程序调用可给 `RecommendationWorker` 传入 `getDiagnostics: () => ({level: 'stages'})` 或 `modules`，通过 `lastProfile` / `onProfile` 读取报告；`getDiagnostics: () => null` 可强制关闭。独立 Node 进程也支持 `FLEET_ADVISOR_PROFILE=1` / `modules`。离线复现使用 `node tools/bench/profile-recommendation.cjs --store <私有快照.json> --area 4-5 --output <项目外报告.json> --threads 6 --level stages`。该工具默认关闭完整结果缓存以测量重算；可用 `--cache <私有目录>` 复用底层缓存，用 `--result-cache true` 测量完整缓存命中。
+
+报告的 `elapsedMs` 为调用方启动 Worker 至收到结果的等待时间，排队时间单列在 `queueMs`；`startupAndTransferMs` 为此时长减协调 Worker 内的时长，包括原生线程启动、输入复制与结果传输等，不能进一步冒称精确的单项复制时间。`stages` 是按执行顺序记录、互不嵌套的等待时间，含候选生成、装备试配、逐路线修补、筛选、缓存和线程收尾；未归入阶段的少量协调开销在汇总中单列。
+
+调试日志写盘发生在 Worker 结果收到之后，不计入上述计算时长；推荐队列等待写盘结束后才交付结果及处理清理请求。不能在 `onProfile` 回调中再等待同一个推荐队列的 `maintain()`，否则会形成循环等待。
+
+`modules` 的 `totalMs` 包含子模块，`selfMs` 扣除子模块；各线程的累计时长允许超过用户等待时间，且是线程内经过时间，**不是操作系统 CPU 时间**，不能与阶段等待时间相加。子线程初始化和 `dispatch` 往返时长均已包含在对应批次的等待内；汇总它们只用于观察任务不均衡及通信开销。`air.trial.hit/miss/fullHit`、纯计算表命中统计帮助区分缓存命中与实际重算。逐模块模式会增加高频调用开销，分析耗时占比优先使用阶段模式，并用关闭打点的同快照测量校准；开启打点不会跳过缓存或改变候选、库存分配及最终核对。
 
 方案文件、可识别损坏备份和残留写入文件均计入预算。容量扫描只查文件属性、不递归或跟随链接。主线程串行管理方案写入和推荐协调 Worker 的磁盘变更，候选子线程只读，避免超额并发写入。
 

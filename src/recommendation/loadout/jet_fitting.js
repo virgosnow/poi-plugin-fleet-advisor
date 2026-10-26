@@ -1,11 +1,16 @@
 'use strict';
+const perf=require('../../shared/performance_trace');
 const {canEquip,acceptsOtherSlot}=require('../../domain/fleet/equipment_rules');
 const {smallCarrierSlot,carrierSlotSize,jetCutInAllowed}=require('./carrier_policy');
 const jets=require('../../domain/combat/jet_aviation');
 
 // A bounded set of INVENTORY-backed alternatives. Never invent an instance,
 // force all armored carriers to accept jets, or change manual/held positions.
-function jetLoadouts(store,scheme,inventory,{heldSlots=[],limit=12}={}){
+function jetLoadouts(store,scheme,inventory,options){
+  const timing=perf.begin('loadout.jets');
+  try{return jetLoadoutsCore(store,scheme,inventory,options);}finally{perf.end(timing);}
+}
+function jetLoadoutsCore(store,scheme,inventory,{heldSlots=[],limit=12}={}){
   const master=id=>store.const.$equips[store.info.equips[id]?.api_slotitem_id];
   const type=id=>Number(master(id)?.api_type?.[2]);
   const holds=new Map(heldSlots.filter(Boolean).map(e=>[e.id,e.keep||{}]));

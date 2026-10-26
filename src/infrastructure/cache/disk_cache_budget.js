@@ -3,14 +3,16 @@ const fs=require('fs'),path=require('path');
 const {DEFAULTS}=require('../../config/computation_settings');
 const SCHEME_FILE=/^schemes\.json(?:\.corrupt-\d+|\.[a-f0-9-]{36}\.tmp)?$/;
 const COMPUTATION_FILE=/^[a-f0-9]{64}(?:\.bin|\.[a-f0-9-]{36}\.tmp)$/;
-const KINDS=['results','calculations','schemes'];
+const LOG_FILE=/^performance-\d{13}-[a-f0-9-]{36}\.json(?:\.[a-f0-9-]{36}\.tmp)?$/;
+const KINDS=['results','calculations','schemes','logs'];
 const TTL=7*24*60*60*1000;
 
 function location(root,kind){
   root=path.resolve(root);
   if(!KINDS.includes(kind))throw Error('无效的缓存类别');
-  const directory=kind==='schemes'?path.dirname(root):kind==='calculations'?path.join(root,'calculations'):root;
-  return {directory,folders:new Set(kind==='schemes'?[directory]:[root,directory]),pattern:kind==='schemes'?SCHEME_FILE:COMPUTATION_FILE};
+  const directory=kind==='schemes'?path.dirname(root):['calculations','logs'].includes(kind)?path.join(root,kind):root;
+  return {directory,folders:new Set(kind==='schemes'?[directory]:[root,directory]),
+    pattern:kind==='schemes'?SCHEME_FILE:kind==='logs'?LOG_FILE:COMPUTATION_FILE};
 }
 function checkDirectory(stat){if(!stat.isDirectory()||stat.isSymbolicLink())throw Error('缓存目录不是普通目录');}
 function record(file,stat,kind){
@@ -55,7 +57,7 @@ function* evictions(files,{limitBytes=DEFAULTS.cacheLimitMiB*1024**2,replace,byt
   const remaining=files.filter(f=>f.file!==replace),expired=new Set();
   let total=remaining.reduce((sum,f)=>sum+f.size,bytes),removed=0,failed=0;
   if(bytes>limitBytes)return {removed,failed,fits:false,bytes:total};
-  for(const kind of ['results','calculations']){
+  for(const kind of ['results','calculations','logs']){
     const group=remaining.filter(f=>f.kind===kind).sort((a,b)=>b.time-a.time);
     group.forEach((file,i)=>{if(now-file.time>TTL||i>=maxEntries)expired.add(file);});
   }

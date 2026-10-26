@@ -43,7 +43,7 @@ test('cache management removes only recognized files and rejects linked director
   const root=directory(t),calc=path.join(root,'calculations'),outside=directory(t);fs.mkdirSync(calc);
   const name='a'.repeat(64)+'.bin';fs.writeFileSync(path.join(root,name),'1234');fs.writeFileSync(path.join(calc,name),'123456');
   fs.writeFileSync(path.join(root,'draft.json'),'keep');fs.mkdirSync(path.join(root,'nested'));fs.writeFileSync(path.join(root,'nested',name),'keep');
-  assert.deepEqual(await C.inspectCache(root),{results:{files:1,bytes:4},calculations:{files:1,bytes:6}});
+  assert.deepEqual(await C.inspectCache(root),{results:{files:1,bytes:4},calculations:{files:1,bytes:6},logs:{files:0,bytes:0}});
   assert.deepEqual(await C.maintainCache(root,{clear:'results'}),{removed:1,failed:0});
   assert.equal((await C.inspectCache(root)).calculations.files,1);
   assert.deepEqual(await C.maintainCache(root,{clear:'all'}),{removed:1,failed:0});
@@ -210,13 +210,13 @@ test('resource settings reach real workers without changing complete recommendat
   }
 });
 test('resource panel saves independent controls, reports failures and clears the chosen cache',async()=>{
-  let saved=S.normalize(),data={settings:saved,...S.resources(saved,8,16*1024**3),busy:false,cache:{results:{files:2,bytes:100},calculations:{files:3,bytes:200},schemes:{count:2,files:1,bytes:400}}};
+  let saved=S.normalize(),data={settings:saved,...S.resources(saved,8,16*1024**3),busy:false,cache:{results:{files:2,bytes:100},calculations:{files:3,bytes:200},schemes:{count:2,files:1,bytes:400},logs:{files:0,bytes:0}}};
   const state=[data],refs=[],effects=[],patches=[],clears=[];let index=0,refIndex=0,first=true;
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
     useState(initial){const i=index++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return [state[i],v=>{state[i]=typeof v==='function'?v(state[i]):v;}];},
     useRef(v){const i=refIndex++;return refs[i]||(refs[i]={current:v});},useEffect(fn){if(first)effects.push(fn);}};
   const service={setComputationSettings:async patch=>{patches.push(patch);saved={...saved,...patch};return data={...data,settings:saved,...S.resources(saved,8)};},
-    clearRecommendationCache:async kind=>{clears.push(kind);return data={...data,cache:kind==='all'?{results:{files:0,bytes:0},calculations:{files:0,bytes:0},schemes:{count:0,files:0,bytes:0}}:{...data.cache,[kind]:{count:0,files:0,bytes:0}}};}};
+    clearRecommendationCache:async kind=>{clears.push(kind);return data={...data,cache:kind==='all'?{results:{files:0,bytes:0},calculations:{files:0,bytes:0},schemes:{count:0,files:0,bytes:0},logs:{files:0,bytes:0}}:{...data.cache,[kind]:{count:0,files:0,bytes:0}}};}};
   const Panel=require('../../src/ui/settings/computation_settings')(React,{getController:()=>service});
   const render=disabled=>{index=0;refIndex=0;const tree=Panel({active:false,disabled});if(first){first=false;effects.forEach(fn=>fn());}return tree;};
   const find=(n,p)=>n&&typeof n==='object'&&(p(n)?n:n.children?.map(c=>find(c,p)).find(Boolean));
@@ -255,6 +255,10 @@ test('resource panel saves independent controls, reports failures and clears the
   await control('清理编成方案缓存').props.onClick();tree=render(false);assert(control('清理编成方案缓存').props.disabled);
   data={...data,cache:{...data.cache,schemes:{count:1,files:1,bytes:250}}};state[0]=data;tree=render(false);
   await control('清理全部缓存').props.onClick();tree=render(false);assert.deepEqual(clears,['results','calculations','schemes','all']);assert(control('清理全部缓存').props.disabled);assert(control('清理底层计算缓存').props.disabled);assert(control('清理编成方案缓存').props.disabled);
+  data={...data,cache:{...data.cache,logs:{files:2,bytes:1200}}};state[0]=data;tree=render(false);
+  assert(!control('清理日志缓存').props.disabled);assert(!control('清理全部缓存').props.disabled);
+  assert(!control('启用日志缓存'),'logging is controlled by the experimental switch');
+  await control('清理日志缓存').props.onClick();tree=render(false);assert.equal(clears.at(-1),'logs');assert(control('清理日志缓存').props.disabled);
   service.setComputationSettings=async()=>{throw Error('磁盘不可写');};await control('常规图线程').props.onChange({target:{value:'8'}});tree=render(false);
   assert.equal(control('常规图线程').props.value,2);const field=find(tree,n=>n.props.className==='paa-settings-value'&&find(n,c=>c.props['aria-label']==='常规图线程'));
   assert(find(field,n=>n.props.role==='alert'&&n.props['data-tooltip']==='磁盘不可写'));

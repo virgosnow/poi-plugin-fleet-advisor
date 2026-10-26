@@ -1,4 +1,5 @@
 'use strict';
+const perf=require('../shared/performance_trace');
 // Equipment variants for route constraints and combat roles; preserve held slots.
 const {canEquip,acceptsOtherSlot}=require('../domain/fleet/equipment_rules');
 const {orderCarrierUtility}=require('../domain/fleet/equipment_order');
@@ -22,7 +23,11 @@ function requiredDestroyerGuns(area,phase,profile){
     submarineObjective(profile))return 1;
   return 2;
 }
-function gearVariant(store,scheme,inventory,kind,profile,area,phase,{stopWhen,maxPlacements,allowCombatLoss=false,heldSlots=[]}={}){
+function gearVariant(store,scheme,inventory,kind,profile,area,phase,options){
+  const timing=perf.begin('loadout.variant.'+kind);
+  try{return gearVariantCore(store,scheme,inventory,kind,profile,area,phase,options);}finally{perf.end(timing);}
+}
+function gearVariantCore(store,scheme,inventory,kind,profile,area,phase,{stopWhen,maxPlacements,allowCombatLoss=false,heldSlots=[]}={}){
   // LoS is a routing constraint, not an attribute to maximize. In particular,
   // a blocked hull/speed rule cannot justify replacing more attack aircraft.
   const paths=kind==='los'?(profile?.routePaths?.length?profile.routePaths.map(p=>p.nodes):
@@ -216,7 +221,11 @@ function strategyFailure(store,ctx,option,inventory,heldSlots=[]){
   issues.push(`可调用提速装备：涡轮 ${count(33)}、强化型缶 ${count(34)}、新型缶 ${count(87)}；电探 ${radars}`);
   return `${option.name}未配成：${need}。${issues.join('；')}。请检查提速装备数量、补强增设及手动保留槽位，或更换难以提速的舰娘；不会降级推荐。`;
 }
-function airLoadout(store,scheme,inventory,required,reference,goal='superiority',heldSlots=[],{protectedAttackSlots=new Set()}={}){
+function airLoadout(store,scheme,inventory,required,reference,goal,heldSlots,options){
+  const timing=perf.begin('loadout.air');
+  try{return airLoadoutCore(store,scheme,inventory,required,reference,goal,heldSlots,options);}finally{perf.end(timing);}
+}
+function airLoadoutCore(store,scheme,inventory,required,reference,goal='superiority',heldSlots=[],{protectedAttackSlots=new Set()}={}){
   const placementHolds=protectedAttackSlots.size?scheme.ships.map(entry=>({id:entry.id,keep:{
     ...heldSlots.find(h=>h?.id===entry.id)?.keep,
     ...Object.fromEntries((entry.slots||usableSlots(store,entry.id)).map((_,k)=>k)

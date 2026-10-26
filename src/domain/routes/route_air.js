@@ -1,4 +1,5 @@
 'use strict';
+const perf=require('../../shared/performance_trace');
 // Route-local encounter thresholds. Enemy alternatives are compared, never added
 // together. Air-state borders and sequential slot losses share the same data.
 const catalog=new Map(require('../../../data/sortie/enemy_catalog.json').enemies.map(e=>[e.apiId,e]));
@@ -156,7 +157,11 @@ function slotPower(slot,count,side){
 function stageOneLoss(count,state,maximum,scale=1){
   return Math.floor(count*lossConstant[state]*(maximum?7:3)/120*scale+1e-10);
 }
-function simulateAirPath(air,nodes,details=true){
+function simulateAirPath(air,nodes,details){
+  const timing=perf.begin('air.simulate');
+  try{return simulateAirPathCore(air,nodes,details);}finally{perf.end(timing);}
+}
+function simulateAirPathCore(air,nodes,details=true){
   const issues=[];
   if(air?.status!=='range'||!Array.isArray(air.slots)||air.slots.some(s=>s.unknown||
     !s.planes||!s.effectiveAntiAir||!s.proficiencyBonus))return {status:'unknown',reason:'缺少航空槽位计算资料'};
@@ -216,6 +221,10 @@ function simulateAirPath(air,nodes,details=true){
 // The ordinary path above remains untouched for fleets without jets. Jet
 // attrition precedes the SAME node's ordinary air check, including the Boss.
 function simulateJetAirPath(air,nodes,details){
+  const timing=perf.begin('air.simulate.jet');
+  try{return simulateJetAirPathCore(air,nodes,details);}finally{perf.end(timing);}
+}
+function simulateJetAirPathCore(air,nodes,details){
   const slots=air.slots.map(s=>({remaining:s.planes.slice(),aircraftType:s.aircraftType,
     effectiveAntiAir:s.effectiveAntiAir,proficiencyBonus:s.proficiencyBonus,
     masterId:s.masterId,shipId:s.shipId,slot:s.slot,bomb:s.bomb,jetSteel:s.jetSteel,
@@ -352,6 +361,10 @@ function aircraftKey(slot,identity=true){
   slotKeys.set(slot,value);return identity?value.key:value.marginKey;
 }
 function estimateRouteAir(air,reference){
+  const timing=perf.begin('air.report');
+  try{return estimateRouteAirCore(air,reference);}finally{perf.end(timing);}
+}
+function estimateRouteAirCore(air,reference){
   if(!air||reference.status!=='known')return {status:'unknown',reason:reference.reason||'路线制空资料不足'};
   // Many distinct equipment instances produce identical aircraft inputs.
   // Key by all simulation inputs, not by a freshly-created metric object or
@@ -376,6 +389,10 @@ function estimateRouteAir(air,reference){
 // Trial fits only compare margins. Use the same loss simulator without
 // allocating per-node reports; final candidates still request full details.
 function estimateRouteAirMargins(air,reference){
+  const timing=perf.begin('air.trial');
+  try{return estimateRouteAirMarginsCore(air,reference);}finally{perf.end(timing);}
+}
+function estimateRouteAirMarginsCore(air,reference){
   if(!air||reference.status!=='known'||air.status!=='range'||!Array.isArray(air.slots)||
     air.slots.some(s=>s.unknown||!s.planes||!s.effectiveAntiAir||!s.proficiencyBonus))return null;
   // Slot order/ship identity cannot affect integer air power or per-slot loss.
@@ -383,11 +400,13 @@ function estimateRouteAirMargins(air,reference){
   const key=air.slots.map(slot=>aircraftKey(slot,false)).sort().join(';'),full=simulationCache.get(reference);
   const fullKey=full&&air.slots.some(slot=>jets.isJet(slot.aircraftType))?
     air.slots.map(slot=>aircraftKey(slot)).sort().join(';'):key;
-  if(full?.has(fullKey))return full.get(fullKey).margins;
+  if(full?.has(fullKey)){perf.count('air.trial.fullHit');return full.get(fullKey).margins;}
   let cached=marginCache.get(reference);if(!cached){cached=new Map();marginCache.set(reference,cached);}
   if(cached.has(key)){
+    perf.count('air.trial.hit');
     const entry=cached.get(key);marginEntries.delete(entry);marginEntries.set(entry,true);return entry.value;
   }
+  perf.count('air.trial.miss');
   const margins={superiority:{min:Infinity,max:Infinity},supremacy:{min:Infinity,max:Infinity}};
   for(const nodes of simulationPaths(reference).unique){
     const value=simulateAirPath(air,nodes,false);

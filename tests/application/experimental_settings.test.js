@@ -22,13 +22,13 @@ function setup(t,saved){
 const disabled=e=>e.code==='AUTOMATIC_OPERATIONS_DISABLED';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 test('experimental normalization defaults off, including older settings and malformed boolean values',()=>{
-  for(const value of [undefined,null,{},[],{automaticOperations:'true'},{automaticOperations:1}])assert.deepEqual(settings.normalize(value),{automaticOperations:false});
-  assert.deepEqual(settings.normalize({automaticOperations:true}),{automaticOperations:true});
+  for(const value of [undefined,null,{},[],{automaticOperations:'true'},{automaticOperations:1}])assert.deepEqual(settings.normalize(value),{automaticOperations:false,performanceDebug:false});
+  assert.deepEqual(settings.normalize({automaticOperations:true}),{automaticOperations:true,performanceDebug:false});
   for(const value of [null,[],{automaticOperations:'true'},{unknown:true}])assert.throws(()=>settings.validate(value));
 });
 test('new and migrated services prohibit panel/MCP execution while retaining read-only tools and preview',async t=>{
   const {service:s,calls,data,preview}=setup(t,{mcpEnabled:true,jobs:[]}),before=JSON.stringify(data);
-  assert.deepEqual(s.getExperimentalSettings(),{automaticOperations:false});assert.equal(s.getStatus().capabilities.execute,false);
+  assert.deepEqual(s.getExperimentalSettings(),{automaticOperations:false,performanceDebug:false});assert.equal(s.getStatus().capabilities.execute,false);
   const plan=preview();assert(plan.planId);assert(s.queryFleets({snapshotId:plan.snapshotId}).items.length);
   assert(s.evaluateFleet({snapshotId:plan.snapshotId,scheme:{fleet:2,ships:[1,2]}}).valid);
   await assert.rejects(s.run('fleet',{fleet:2,ships:[1,2]}),disabled);
@@ -79,4 +79,42 @@ test('failed setting writes roll back permission, and malformed saved data never
   assert.throws(()=>s.setExperimentalSettings({automaticOperations:'false'}),e=>e.code==='INVALID_QUERY');
   const malformed=setup(t,{experimentalSettings:{automaticOperations:true},jobs:{invalid:true}}).service;
   assert.equal(malformed.getExperimentalSettings().automaticOperations,false);assert.equal(malformed.mcpEnabled,false);
+});
+
+test('performance debug persists independently, writes safe local logs and can be cleared without changing drafts or game state',async t=>{
+  const {service:s,data}=setup(t),before=JSON.stringify(data),args={fleet:1,area:'1-1',byRoute:true};
+  await s.recommendations.run('recommendNormalFleet',data,args);
+  assert.equal((await s.getComputationStatus()).cache.logs.files,0);
+  s.setExperimentalSettings({performanceDebug:true});assert.equal(s.getExperimentalSettings().automaticOperations,false);
+  assert.equal(JSON.parse(fs.readFileSync(s.stateFile)).experimentalSettings.performanceDebug,true);
+  await s.recommendations.run('recommendNormalFleet',data,{...args,airGoal:'superiority'});
+  let status=await s.getComputationStatus();assert.equal(status.cache.logs.files,1);assert(status.cache.logs.bytes>0);
+  const file=fs.readdirSync(s.performanceLogs.directory).find(n=>n.endsWith('.json'));
+  const log=JSON.parse(fs.readFileSync(path.join(s.performanceLogs.directory,file)));assert.equal(log.profile.level,'modules');assert(log.profile.spans.length);
+  await s.clearRecommendationCache('logs');assert.equal((await s.getComputationStatus()).cache.logs.files,0);
+  assert(s.getExperimentalSettings().performanceDebug,'clearing files does not change the switch');
+  s.setExperimentalSettings({performanceDebug:false});await s.recommendations.run('recommendNormalFleet',data,args);
+  assert.equal((await s.getComputationStatus()).cache.logs.files,0);assert.equal(JSON.stringify(data),before);
+  const loaded=setup(t,{experimentalSettings:{performanceDebug:true}}).service;assert(loaded.getExperimentalSettings().performanceDebug);
+});
+
+test('queued log clearing runs after a completed calculation has persisted its report',async t=>{
+  const {service:s,data}=setup(t);s.setExperimentalSettings({performanceDebug:true});await s.cacheReady;
+  const result=s.recommendations.run('recommendNormalFleet',data,{fleet:1,area:'1-1',byRoute:true});
+  const clear=s.clearRecommendationCache('logs');await result;await clear;
+  assert.equal((await s.getComputationStatus()).cache.logs.files,0,'no old report can reappear after clearing');
+  s.performanceLogs.getLimitBytes=()=>1;
+  await s.recommendations.run('recommendNormalFleet',data,{fleet:1,area:'1-1',byRoute:true});
+  assert((await s.getComputationStatus()).cache.logs.writeError,'logging failure is visible without failing the recommendation');
+});
+
+test('performance switch uses peer option layout and keeps feedback beside its own control',()=>{
+  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})};
+  const Controls=require('../../src/ui/settings/experimental_settings')(React);let patch;
+  const tree=Controls({value:settings.normalize(),onChange:value=>{patch=value;},statuses:{performanceDebug:{kind:'success',text:'已保存'}}});
+  const find=(n,p)=>n&&typeof n==='object'&&(p(n)?n:n.children?.map(c=>find(c,p)).find(Boolean));
+  const toggle=find(tree,n=>n.props['aria-label']==='性能调试开关');assert.equal(toggle.props['aria-checked'],'false');toggle.props.onClick();
+  assert.deepEqual(patch,{performanceDebug:true});
+  const row=find(tree,n=>n.props.className==='paa-settings-row'&&find(n,c=>c===toggle));
+  assert(find(row,n=>n.props['data-state']==='success'));assert(find(row,n=>n.props['aria-label']==='性能调试说明'));
 });

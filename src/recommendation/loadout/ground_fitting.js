@@ -1,4 +1,5 @@
 'use strict';
+const perf=require('../../shared/performance_trace');
 const {canEquip,acceptsOtherSlot}=require('../../domain/fleet/equipment_rules');
 const {dedicated,flags,itemsForEntry,routeGroundTargets,groundCombatContext,fleetGroundScore,groundBomber,carrierGroundState}=require('../../domain/combat/installation_attack');
 const {aswEscortLimit,aswEscortIds}=require('./loadout_policy');
@@ -40,7 +41,11 @@ function carrierGroundLoadout(store,scheme,inventory,profile,locks,airReference)
   return changed?[current]:[];
 }
 
-function groundLoadouts(store,scheme,inventory,{profile,heldSlots=[],airReference,packages=true}={}){
+function groundLoadouts(store,scheme,inventory,options){
+  const timing=perf.begin('loadout.ground');
+  try{return groundLoadoutsCore(store,scheme,inventory,options);}finally{perf.end(timing);}
+}
+function groundLoadoutsCore(store,scheme,inventory,{profile,heldSlots=[],airReference,packages=true}={}){
   if(!routeGroundTargets(profile).length)return [];
   const master=id=>store.const.$equips[store.info.equips[id]?.api_slotitem_id];
   const locks=new Map(heldSlots.filter(Boolean).map(s=>[s.id,s.keep||{}]));

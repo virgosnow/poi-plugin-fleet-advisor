@@ -128,6 +128,8 @@ When expedition `recommendations` is empty, `closestRecommendation` may contain 
 3. Expedition: `query_expeditions` → `recommend_expedition_fleet` → select success/great result → optionally `recommend_expedition_equipment` → `evaluate_expedition`.
 4. Apply: first check `get_status.experimentalSettings.automaticOperations` / `capabilities.execute`. Automatic operations default **OFF**, including migrated older settings. Only the player can enable Settings → Experimental features → Automatic operations; MCP cannot grant this permission. Then `preview_fleet` on the full scheme → inspect affected ships/transfers → `execute_plan` using its planId and one unique idempotencyKey → poll `get_job` → capture a new snapshot. Only this flow changes the game. Turning the permission OFF blocks new executions and stops subsequent steps of an accepted job; queries, recommendations, evaluation, preview and job inspection remain available. Already sent game changes cannot be undone.
 
+`get_status.experimentalSettings.performanceDebug` reports the player's optional local performance logging switch (default OFF). It does not grant execution permission, bypass caches, alter recommendations, or expose account snapshots in diagnostic logs. Players manage these files in Settings → Cache files → Log cache. MCP cannot change experimental settings.
+
 Example read-only tool call:
 
 ```json

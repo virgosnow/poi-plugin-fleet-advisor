@@ -203,9 +203,11 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
         catch(e){reportSetting(target,'error',e.message);}
       }}),
       h(ComputationSettings,{key:resourceEpoch,active:mode==='settings',disabled:running||resettingSettings,onBusyChange:setResourceBusy}),
-      experimentalControls({value:experimentalSettings,disabled:running||resettingSettings,status:settingsFeedbacks.experimental,onChange:value=>{
-        try{setExperimentalSettings(getController().setExperimentalSettings(value));reportSetting('experimental','success','已保存');}
-        catch(e){reportSetting('experimental','error',e.message);}
+      experimentalControls({value:experimentalSettings,disabled:running||resettingSettings,
+        statuses:{automaticOperations:settingsFeedbacks['experimental.automaticOperations'],performanceDebug:settingsFeedbacks['experimental.performanceDebug']},onChange:value=>{
+        const target='experimental.'+Object.keys(value)[0];
+        try{setExperimentalSettings(getController().setExperimentalSettings(value));reportSetting(target,'success','已保存');}
+        catch(e){reportSetting(target,'error',e.message);}
       },mcpControls:getMcpStatus?h('section',{className:'paa-experimental-mcp','aria-label':'AI 工具接入（MCP）'},
         h('div',{className:'paa-settings-row paa-experimental-mcp-head'},
           h('div',{className:'paa-settings-label'},h('span',null,'AI 工具接入（MCP）'),settingFeedback(React,undefined,{label:'AI 工具接入（MCP）',text:'仅支持本机 Streamable HTTP。\n将连接地址填入 AI 工具即可使用，无需配置认证请求头。\n更改 HTTP 端口后，AI 工具中的地址也需要更新。'})),

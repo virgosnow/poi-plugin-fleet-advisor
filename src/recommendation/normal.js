@@ -1,4 +1,5 @@
 'use strict';
+const perf=require('../shared/performance_trace');
 // Bounded normal-map search, batch evaluation and final loadout validation.
 const {withEquipmentIndexCache}=require('../domain/fleet/equipment_planner');
 const {error}=require('../shared/errors');
@@ -351,10 +352,12 @@ function recommendNormalFleet(store,args){
 async function recommendNormalFleetParallel(store,args,runBatch,scope=run=>run()){
   const indexes=new Map(),rules=new Map(),steps=normalFleetSteps(store,args);
   const advance=value=>scope(()=>routePlans.withPlanningCache(()=>withEquipmentIndexCache(store,()=>steps.next(value),indexes),rules));
-  let step=advance();
+  let step=perf.stage('selection.initial',()=>advance());
   while(!step.done){
-    const result=await runBatch(step.value,()=>scope(()=>withEquipmentIndexCache(store,()=>recommendationBatch(store,{...step.value,serial:true}),indexes)));
-    step=advance(result);
+    const kind=step.value.kind;
+    const result=await perf.stageAsync('batch.'+kind,()=>runBatch(step.value,
+      ()=>scope(()=>withEquipmentIndexCache(store,()=>recommendationBatch(store,{...step.value,serial:true}),indexes))));
+    step=perf.stage('selection.after.'+kind,()=>advance(result));
   }
   return step.value;
 }
