@@ -56,6 +56,7 @@ function combatReadings(store,scheme,profile,rows,air){
   const lighting=targets.some(t=>t.items.some(e=>[29,33,42].includes(e.type)));
   const readings=new Map(targets.map(t=>{
     const type=Number(t.master.api_stype),carrier=[7,11,18].includes(type),sub=[13,14].includes(type);
+    const dayBlocked=carrier&&mechanisms.carrierDayBlocked(t.ship,type);
     const fire=attack.fireBase(t,store).value??plannedCombatStat(store,rows.find(r=>r.id===t.id),scheme,'api_karyoku','api_houg');
     const power=night.surfacePower(t,store),plainNight=attack.cap(power.basePower??fire+
       plannedCombatStat(store,rows.find(r=>r.id===t.id),scheme,'api_raisou','api_raig'),360);
@@ -67,7 +68,7 @@ function combatReadings(store,scheme,profile,rows,air){
           const e=t.items.find(e=>e.id===id);return t.master.api_maxeq?.[k]>0&&e&&Number(e.master.api_type[0])!==21?[e.type]:[];
         });
         const modes=jets.carrierModes(types),p=observation.attackPowers(t,store,modes);
-        day=types.some(v=>[7,8,57].includes(v))?dayExpected(p.basePower??day,observation.read(context,t,flagship,modes),p.rows):0;
+        day=!dayBlocked&&types.some(v=>[7,8,57].includes(v))?dayExpected(p.basePower??day,observation.read(context,t,flagship,modes),p.rows):0;
         atNight=aviation?nightExpected(mechanisms.carrierNightCutIn(t,aviation,flagship,store)||aviation,aviation.attacks[0]?.power??0):0;
       }else{
         if(!sub&&t.items.some(e=>[10,11].includes(e.type)&&e.planes>0)){
@@ -77,7 +78,7 @@ function combatReadings(store,scheme,profile,rows,air){
         atNight=nightExpected(mechanisms.nightZuiunAttack(t,lighting,flagship,store),atNight);
       }
       const landAttacks=land?.score(t.after,fire,{flagship}).attacks||[];
-      return {day,night:atNight,landDay:landAttacks.length?landAttacks.reduce((s,a)=>s+a.day,0)/landAttacks.length:day,
+      return {day,night:atNight,landDay:dayBlocked?0:landAttacks.length?landAttacks.reduce((s,a)=>s+a.day,0)/landAttacks.length:day,
         landNight:landAttacks.length?landAttacks.reduce((s,a)=>s+a.night,0)/landAttacks.length:atNight};
     })];
   }));

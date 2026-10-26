@@ -149,3 +149,20 @@ test('slot-order reuse is scoped to an immutable search and never leaks into lat
   store.info.ships[1].api_onslot=[2,2,2,22,0];
   assert.equal(orderAircraftSlots(store,scheme),scheme);
 });
+
+test('carrier utility placement cannot displace first-slot strike aircraft before aircraft ordering runs',()=>{
+  for(const stype of [7,11,18])for(const first of [200,201]){
+    const store=carrierFixture([18,36,22,3]);store.const.$ships[1].api_stype=stype;
+    store.const.$shipTypes[stype]=store.const.$shipTypes[11];
+    store.info.equips[207]={api_id:207,api_slotitem_id:201};
+    const scheme={fleet:1,ships:[{id:1,slots:[first,204,207,202],ex:-1}]},before=JSON.stringify([store,scheme]);
+    for(const order of [orderCarrierUtility,orderEquipment]){
+      const fitted=order(store,scheme);
+      assert.equal(fitted.ships[0].slots[0],first,'original first-slot strike remains the leader');
+      assert.equal(fitted.ships[0].slots[3],204,'utility can still use a smaller unprotected slot');
+      assert.deepEqual(fitted.ships[0].slots.slice().sort(),scheme.ships[0].slots.slice().sort());
+      assert.equal(order(store,fitted),fitted);
+    }
+    assert.equal(JSON.stringify([store,scheme]),before);
+  }
+});

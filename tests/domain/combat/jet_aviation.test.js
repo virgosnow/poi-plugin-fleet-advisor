@@ -172,6 +172,24 @@ test('cached jet traces distinguish steel, per-item evasion and slot attack powe
   assert.equal(moved.shipId,2);assert.equal(moved.slot,3,'cached per-slot traces follow the new owner and position');
 });
 
+test('mixed jet reports retain normal-aircraft identities while numeric margins remain shared',()=>{
+  const ref={status:'known',paths:[['Z']],nodes:[node()]},source=air();
+  source.slots.push({shipId:2,slot:0,masterId:9001,aircraftType:8,planes:[18,18],
+    effectiveAntiAir:[1,1],proficiencyBonus:[3,3]});
+  const first=estimateRouteAir(source,ref),margin=estimateRouteAirMargins(source,ref);
+  const second=structuredClone(source);second.slots[1].shipId=3;second.slots[1].slot=1;
+  const before=JSON.stringify(second),moved=estimateRouteAir(second,ref);
+  assert.notEqual(moved,first);
+  assert.deepEqual(moved.paths[0].steps[0].aircraft.map(s=>[s.shipId,s.slot]),[[1,0],[3,1]]);
+  assert.deepEqual(first.paths[0].steps[0].aircraft.map(s=>[s.shipId,s.slot]),[[1,0],[2,0]]);
+  assert.equal(estimateRouteAirMargins(second,ref),margin,'physical identity does not disable numeric reuse');
+  assert.equal(JSON.stringify(second),before);
+  second.slots[1].shipId=4;second.slots[1].slot=2;second.slots[1].masterId=9002;
+  const edited=estimateRouteAir(second,ref).paths[0].steps[0].aircraft[1];
+  assert.deepEqual([edited.shipId,edited.slot,edited.masterId],[4,2,9002],'in-place edits invalidate the report signature');
+  assert.equal(estimateRouteAirMargins(second,ref),margin);
+});
+
 test('steel exhaustion at different endpoint battles never turns an uncertain assault into a reversed power interval',()=>{
   let discontinuity=false;
   for(let steel=1;steel<=300;steel++){

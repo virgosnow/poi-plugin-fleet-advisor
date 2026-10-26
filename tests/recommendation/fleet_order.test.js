@@ -61,3 +61,52 @@ test('manual positions, active Nelson participants and ASW-only fleets remain pr
   for(const c of touch)for(const i of [0,2,4])assert.equal(c.scheme.ships[i].id,ordered.ships[i].id);
   assert.deepEqual(fleetOrderChoices(store,scheme,{...profile,counts:{asw:{maximum:4}}},rows),[]);
 });
+
+function damagedCarrierFixture(stype=11,hp=40){
+  const store=require('../helpers/workbench_fixture')(),scheme={fleet:1,ships:[]},rows=[];
+  for(const [id,type,fire,health]of [[1,9,80,100],[2,stype,100,hp]]){
+    const ship=store.info.ships[id],master=store.const.$ships[id];
+    Object.assign(master,{api_stype:type,api_ctype:1,api_slot_num:3,api_maxeq:[24,18,6],api_houg:[fire,fire],api_raig:[0,0]});
+    Object.assign(ship,{api_maxhp:100,api_nowhp:health,api_lv:90,api_lucky:[30,99],api_kyouka:[0,0,0,0,0],
+      api_karyoku:[fire,fire],api_raisou:[0,0],api_sakuteki:[60,60],api_onslot:[24,18,6],api_slot:[-1,-1,-1]});
+    rows.push({id,ship,master,stype:type});scheme.ships.push({id,slots:ship.api_slot.slice(),ex:-1});
+  }
+  for(const [id,type,name,stats]of [[501,8,'艦攻',{api_raig:10}],[502,7,'F4U-1D',{api_baku:7}],[503,6,'艦戦',{api_tyku:10}]]){
+    store.const.$equips[id]={api_id:id,api_name:name,api_type:[0,0,type,type],...stats};
+    store.info.equips[id]={api_id:id,api_slotitem_id:id,api_alv:7,api_level:0};
+  }
+  scheme.ships[1].slots=[501,502,503];store.info.ships[2].api_slot=scheme.ships[1].slots.slice();
+  const profile={counts:{surface:{maximum:1},night:{maximum:0}},examples:[],mapPreview:{nodes:[]}};
+  return {store,scheme,rows,profile};
+}
+
+test('day ordering shares carrier damage limits with badges, including armored carriers and exact HP thresholds',()=>{
+  const {fleetMechanisms}=require('../../src/domain/combat/ship_mechanisms');
+  for(const [stype,hp,blocked]of [[7,50,true],[11,40,true],[11,50,true],[11,51,false],[18,25,true],[18,26,false],[18,40,false]]){
+    const {store,scheme,rows,profile}=damagedCarrierFixture(stype,hp),before=JSON.stringify([store,scheme]);
+    const badge=fleetMechanisms(store,scheme.ships).get(2).find(b=>b.key==='carrier-ci');
+    assert.equal(badge.state==='blocked',blocked);
+    const reading=combatReadings(store,scheme,profile,rows).readings.get(2);
+    for(const value of reading)assert.equal(value.day===0,blocked,`${stype} HP ${hp} daytime shelling`);
+    // A torpedo-only carrier has no CI badge but still obeys the same rule.
+    scheme.ships[1].slots=[501,-1,-1];
+    assert.equal(combatReadings(store,scheme,profile,rows).readings.get(2)[0].day===0,blocked);
+    scheme.ships[1].slots=[501,502,503];assert.equal(JSON.stringify([store,scheme]),before);
+  }
+});
+
+test('a damaged ordinary carrier cannot win flagship order using unavailable shelling power',()=>{
+  const {store,scheme,rows,profile}=damagedCarrierFixture();
+  assert(fleetOrderChoices(store,scheme,profile,rows).every(c=>c.scheme.ships[0].id===1));
+  const armored=damagedCarrierFixture(18,40);
+  assert.equal(fleetOrderChoices(armored.store,armored.scheme,armored.profile,armored.rows)[0].scheme.ships[0].id,2);
+});
+
+test('damaged carriers do not regain daytime power through the land-target sorting fallback',()=>{
+  for(const [stype,blocked]of [[11,true],[18,false]]){
+    const {store,scheme,rows}=damagedCarrierFixture(stype,40);
+    const profile={counts:{surface:{maximum:1}},examples:[['Z']],mapPreview:{nodes:[{id:'Z',kind:'battle',enemies:[{name:'港湾棲姫'}]}]}};
+    const value=combatReadings(store,scheme,profile,rows).readings.get(2)[0];
+    assert.equal(value.landDay===0,blocked);
+  }
+});

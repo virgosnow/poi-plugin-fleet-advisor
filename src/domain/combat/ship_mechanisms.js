@@ -22,6 +22,7 @@ const compact=name=>String(name||'').replace(/\s/g,'').replace(/＋/g,'+');
 const named=(name,list)=>list.split('|').some(value=>compact(value)===compact(name));
 const mainGun=e=>[1,2,3,38].includes(e.type);
 const damaged=(ship,ratio)=>Number(ship.api_maxhp)>0&&Number(ship.api_nowhp)/Number(ship.api_maxhp)<=ratio;
+const carrierDayBlocked=(ship,stype)=>damaged(ship,Number(stype)===18?0.25:0.5);
 const AIRCRAFT_TYPES=new Set([6,7,8,9,10,11,25,26,41,45,56,57,58,59]);
 
 // Workbench capabilities and counts assume full resupply before sortie.
@@ -190,7 +191,7 @@ function carrierCutIn(target,flagship,context,store){
   const equipped=combinations(slots);if(!equipped.length)return null;
   const live=combinations(slots.filter(r=>r.planes>0));
   const possible=combinations(slots.filter(r=>r.planes===null||r.planes>0));
-  const cannotAttack=damaged(target.ship,type===18?0.25:0.5);
+  const cannotAttack=carrierDayBlocked(target.ship,type);
   const modes=live.length?live:possible.length?possible:equipped;
   const state=cannotAttack||!possible.length?'blocked':live.length?'conditional':'unknown';
   const unavailable=equipped.filter(mode=>!live.includes(mode));
@@ -328,4 +329,4 @@ function fleetMechanisms(store,entries,speedReading,profile,{conditionalGroundDo
   }));
 }
 
-module.exports={fleetMechanisms,fleetSpeed,aircraftCapacity,nightAttack,nightAviation,carrierNightCutIn,nightZuiunAttack};
+module.exports={fleetMechanisms,fleetSpeed,aircraftCapacity,nightAttack,nightAviation,carrierNightCutIn,nightZuiunAttack,carrierDayBlocked};

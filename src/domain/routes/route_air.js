@@ -374,14 +374,20 @@ function aircraftKey(slot,identity=true){
   const {aircraftType:t,planes:p,effectiveAntiAir:a,proficiencyBonus:b}=slot;
   const old=slotKeys.get(slot);
   if(old&&old.t===t&&old.p0===p[0]&&old.p1===p[1]&&old.a0===a[0]&&old.a1===a[1]&&
-    old.b0===b[0]&&old.b1===b[1]&&(!jets.isJet(t)||old.mid===slot.masterId&&old.steel===slot.jetSteel&&old.bomb===slot.bomb&&old.sid===slot.shipId&&old.slot===slot.slot))return identity?old.key:old.marginKey;
-  const value={t,p0:p[0],p1:p[1],a0:a[0],a1:a[1],b0:b[0],b1:b[1]};
+    old.b0===b[0]&&old.b1===b[1]&&old.mid===slot.masterId&&old.sid===slot.shipId&&old.slot===slot.slot&&
+    (!jets.isJet(t)||old.steel===slot.jetSteel&&old.bomb===slot.bomb))return identity?old.key:old.marginKey;
+  const value={t,p0:p[0],p1:p[1],a0:a[0],a1:a[1],b0:b[0],b1:b[1],mid:slot.masterId,sid:slot.shipId,slot:slot.slot};
   value.key=[t,p[0],p[1],a[0],a[1],b[0],b[1]].join(',');
   if(jets.isJet(t)){
-    Object.assign(value,{mid:slot.masterId,steel:slot.jetSteel,bomb:slot.bomb,sid:slot.shipId,slot:slot.slot});
+    Object.assign(value,{steel:slot.jetSteel,bomb:slot.bomb});
     value.key+=','+[slot.masterId,slot.jetSteel].join(',');value.marginKey=value.key;
     value.key+=','+[slot.bomb,slot.shipId,slot.slot].join(',');
-  }else value.marginKey=value.key;
+  }else{
+    value.marginKey=value.key;
+    // Mixed jet reports include ordinary aircraft too. Keep their identities
+    // in detailed reports without fragmenting shared numerical trial results.
+    value.key+=','+[slot.masterId,slot.shipId,slot.slot].join(',');
+  }
   value.marginKey=aircraftToken(value.marginKey);
   slotKeys.set(slot,value);return identity?value.key:value.marginKey;
 }

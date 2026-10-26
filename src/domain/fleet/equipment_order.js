@@ -95,7 +95,10 @@ function orderCarrierUtility(store,scheme,heldSlots=[]){
     // remains primary armament and follows ordinary category ordering.
     const rank=id=>type(id)===35||stype!==10&&[1,2,3,4].includes(type(id))?0:type(id)===9?1:2;
     if(!entry.slots.some(id=>rank(id)<2))return entry;
-    const slots=entry.slots.slice(),locks=held.get(entry.id)||{};
+    const slots=entry.slots.slice(),locks={...(held.get(entry.id)||{})};
+    // The utility pass runs before aircraft ordering. Protect the same
+    // carrier leader here so a scout/crew swap cannot bypass that safeguard.
+    if(stype!==10&&strikeTypes.has(type(slots[0])))locks[0]=true;
     const capacity=k=>Number(ship.api_onslot?.[k]??master.api_maxeq?.[k]??0);
     const legal=(id,k)=>{
       if(id<=0)return true;
