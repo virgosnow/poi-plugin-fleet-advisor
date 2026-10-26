@@ -123,7 +123,7 @@ function createEquipmentPlanner(getStore) {
     if (info().fleets[fleet-1].api_mission[0] !== 0) throw new Error('目标舰队远征中');
     const plan = {fleet, fleetShips:options.fleetShips||fleetShipIds(fleet), ships:[], expected:[], notes:[]};
     const sources=sourceMap();
-    const free = new Set(freeListAll().map(x => x.id)), seenShips = new Set(), requests = [];
+    const free = snapshotMemo(store(),'equipmentPlanningFree','all',()=>new Set(freeListAll().map(x => x.id))), seenShips = new Set(), requests = [];
     const drafts = scheme.ships.map(raw => {
       const sh = typeof raw === 'number' ? {id:raw} : typeof raw === 'string' ? {name:raw} : raw;
       if (!sh || (sh.id === undefined && sh.name === undefined)) throw new Error('舰条目缺id/name');

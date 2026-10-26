@@ -23,6 +23,9 @@ class PerformanceTrace {
 }
 function begin(name){const trace=current();return trace?.level==='modules'?trace.begin(name):null;}
 function end(token){if(token)token.trace.end(token.frame);}
+function measure(name,calculate){
+  const token=begin(name);try{return calculate();}finally{end(token);}
+}
 function count(name,amount=1){const trace=current();if(trace)trace.counters[name]=(trace.counters[name]||0)+amount;}
 function stage(name,calculate){
   const trace=current();if(!trace)return calculate();
@@ -55,5 +58,5 @@ function summarize(report){
     startupAndTransferMs:report.startupAndTransferMs,otherWorkerMs:Math.max(0,report.workerMs-accountedMs),
     stages:[...stages.values()],modules:[...modules.values()].sort((a,b)=>b.selfMs-a.selfMs),counters};
 }
-module.exports={PerformanceTrace,current,begin,end,count,stage,stageAsync,setEnabled,isEnabled,options,publish,
+module.exports={PerformanceTrace,current,begin,end,measure,count,stage,stageAsync,setEnabled,isEnabled,options,publish,
   summarize,getLastReport:()=>lastReport,clear:()=>{lastReport=null;}};

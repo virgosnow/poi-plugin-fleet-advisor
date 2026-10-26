@@ -374,3 +374,19 @@ test('ground ranking and tooltip follow selected enemy identities and omit off-r
   const unknown=groundBadge(target,store,{profile:{examples:[['A']],mapPreview:{nodes:[{id:'A',kind:'battle',enemies:[],threatStatus:'unknown'}]}}});
   assert.equal(unknown.state,'unknown');assert.match(unknown.detail,/敌情资料不足/);assert.equal(unknown.attacks.length,0);
 });
+
+test('shared ground scores retain flagship, air state, enemy and fleet scouting dependencies',()=>{
+  const {withEquipmentIndexCache}=require('../../../src/domain/fleet/equipment_planner'),f=combatFixture();
+  const entry={...f.scheme.ships[0],slots:[...f.guns,620,f.ids.shell]},scheme={...f.scheme,ships:[entry,f.scheme.ships[1]]};
+  const poor={...f.reference,nodes:f.reference.nodes.map(n=>({...n,enemyAirPower:n.noAirBattle?0:1000}))};
+  const reads=[()=>groundCombatContext(f.store,scheme,f.p,{airReference:f.reference}).score(entry),
+    ()=>groundCombatContext(f.store,scheme,f.p,{airReference:f.reference}).score(entry,undefined,{flagship:false}),
+    ()=>groundCombatContext(f.store,scheme,f.p,{airReference:poor}).score(entry),
+    ()=>groundCombatContext(f.store,scheme,profile('砲台小鬼'),{airReference:f.reference}).score(entry),
+    ()=>groundCombatContext(f.store,scheme,f.p,{airReference:f.reference}).score({...entry,slots:[...f.guns,f.ids.wg,f.ids.shell]})];
+  const expected=reads.map(read=>read());
+  assert.notDeepEqual(expected[0],expected[2]);assert.notDeepEqual(expected[0],expected[3]);
+  withEquipmentIndexCache(f.store,()=>{for(let i=0;i<3;i++)reads.forEach((read,j)=>assert.deepEqual(read(),expected[j]));});
+  f.store.info.ships[2].api_sakuteki[0]+=80;
+  const live=reads[0]();assert.deepEqual(withEquipmentIndexCache(f.store,reads[0]),live);
+});

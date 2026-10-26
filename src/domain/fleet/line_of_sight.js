@@ -1,5 +1,6 @@
 'use strict';
 const {combatBonuses}=require('../combat/equipment_bonuses');
+const {snapshotMemo,hasEquipmentIndexCache}=require('./equipment_planner');
 const bonusData=require('../../../data/combat_bonuses.json');
 // Verified 33-formula bonuses, not just visible panel increases. SG initial
 // was fixed in 2022; SG late and other unverified bonuses retain an interval.
@@ -41,6 +42,10 @@ function equipmentScore(e){
   return (raw+improve*Math.sqrt(star))*weight;
 }
 function shipLoS(store,target){
+  if(!hasEquipmentIndexCache(store))return readShipLoS(store,target);
+  return snapshotMemo(store,'shipLoS',JSON.stringify([target.id,target.before,target.after]),()=>readShipLoS(store,target));
+}
+function readShipLoS(store,target){
   const before=itemsFor(store,target.before),after=itemsFor(store,target.after),current=number(target.ship.api_sakuteki);
   if(!valid(current))return {reason:`舰 ${target.id} 缺少当前索敌值`};
   if([...before,...after].some(e=>!e.master||!valid(Number(e.master.api_saku??0))))

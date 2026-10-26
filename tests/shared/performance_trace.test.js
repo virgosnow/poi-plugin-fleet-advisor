@@ -56,3 +56,14 @@ test('debug switches are transient and keep only the latest explicitly published
     perf.clear();assert.equal(perf.getLastReport(),null);
   }finally{perf.setEnabled(false);if(previous===undefined)delete process.env.FLEET_ADVISOR_PROFILE;else process.env.FLEET_ADVISOR_PROFILE=previous;}
 });
+
+test('module measurements restore nested trace stacks on failure and skip clocks in stage-only mode',()=>{
+  let now=0;const trace=new perf.PerformanceTrace({now:()=>++now});
+  trace.run(()=>{
+    assert.throws(()=>perf.measure('air.cover',()=>perf.measure('air.trial',()=>{throw Error('expected');})),/expected/);
+    assert.equal(perf.measure('after',()=>42),42);
+  });
+  assert.equal(trace.stack.length,0);assert.equal(trace.spans.get('air.cover').calls,1);
+  const stages=new perf.PerformanceTrace({level:'stages',now:()=>assert.fail('module clock used')});
+  stages.run(()=>assert.equal(perf.measure('air.cover',()=>42),42));assert.equal(stages.spans.size,0);
+});

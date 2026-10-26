@@ -188,3 +188,40 @@ test('candidate input reuse keeps complete results and does not cross held-slot 
   }));
   assert(trace.snapshot().counters['candidate.inputHit']>=2);
 });
+
+test('air-pair score tiers match exhaustive original traversal, including equal scores and failed high tiers',()=>{
+  const {selectAirPair}=require('../../src/recommendation/loadout/air_fitting');
+  let seed=917;const next=n=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%n;};
+  const order=(a,b)=>a.cruiserIndex-b.cruiserIndex||a.waterIndex-b.waterIndex||a.carrierIndex-b.carrierIndex||a.index-b.index;
+  for(let round=0;round<200;round++){
+    const pairs=[],feasible=new Set();
+    for(let cruiserIndex=0;cruiserIndex<3;cruiserIndex++)for(let carrierIndex=0;carrierIndex<2;carrierIndex++)for(let index=0;index<5;index++){
+      const pair={cruiserIndex,carrierIndex,index,score:1+next(5),waters:[]};
+      for(let w=0;w<4;w++){const water={id:w*3+1};pair.waters.push({water,index:w*2,gain:1+w});
+        if(next(5)===0)feasible.add([cruiserIndex,carrierIndex,index,water.id].join(':'));}
+      pairs.push(pair);
+    }
+    const allowed=(pair,water)=>feasible.has([pair.cruiserIndex,pair.carrierIndex,pair.index,water.id].join(':'));
+    const all=pairs.flatMap(pair=>pair.waters.filter(w=>allowed(pair,w.water)).map(w=>({...pair,water:w.water,waterIndex:w.index})))
+      .sort((a,b)=>b.score-a.score||order(a,b));
+    assert.deepEqual(selectAirPair(pairs,allowed),all[0]||null);
+  }
+  let calls=0;const pairs=[1,10,5].map((score,index)=>({cruiserIndex:0,carrierIndex:0,index,score,waters:[{water:{id:1},index:0,gain:1}]}));
+  assert.equal(selectAirPair(pairs,()=>{calls++;return true;}).score,10);assert.equal(calls,1);
+});
+
+test('route rank reuse distinguishes preferences, settings and replacement row contexts',()=>{
+  const {routeRanker}=require('../../src/recommendation/scoring'),{context}=require('../../src/recommendation/context');
+  const {evaluateNormalRoute}=require('../../src/domain/routes/normal_routes'),{profileForRoute}=require('../../src/domain/routes/sortie_profile');
+  const store=require('../helpers/workbench_fixture')(),scheme={fleet:1,ships:[{id:2,slots:[-1,-1],ex:-1}]};
+  const route=evaluateNormalRoute(store,{area:'1-1',fleet:1,scheme}),profile=profileForRoute('1-1',route),rows=[context(store,{fleet:1},1).byId.get(2)];
+  const rank=()=>routeRanker(route,profile,rows,'ignore','1-1',store,scheme,true),expected=rank();
+  withEquipmentIndexCache(store,()=>{
+    const first=rank();assert.equal(rank(),first);
+    for(const mode of ['shortest','strongest','lowestConsumption'])assert.deepEqual(first(mode),expected(mode));
+    const altered=rows.map(row=>({...row,fuel:row.fuel+100}));
+    const other=routeRanker(route,profile,altered,'ignore','1-1',store,scheme,true);
+    assert.notEqual(other,first);assert.notEqual(other('lowestConsumption').rank,first('lowestConsumption').rank);
+    assert.notEqual(routeRanker(route,profile,rows,'superiority','1-1',store,scheme,true),first);
+  });
+});

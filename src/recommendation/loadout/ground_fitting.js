@@ -1,4 +1,5 @@
 'use strict';
+const {snapshotMemo}=require('../../domain/fleet/equipment_planner');
 const perf=require('../../shared/performance_trace');
 const {canEquip,acceptsOtherSlot}=require('../../domain/fleet/equipment_rules');
 const {dedicated,flags,itemsForEntry,routeGroundTargets,groundCombatContext,fleetGroundScore,groundBomber,carrierGroundState}=require('../../domain/combat/installation_attack');
@@ -70,7 +71,7 @@ function groundLoadoutsCore(store,scheme,inventory,{profile,heldSlots=[],airRefe
     Number(item.master.api_saku||0)+Math.sqrt(Number(store.info.equips[item.id]?.api_level||0))*3;
   for(const group of groups.values())group.sort((a,b)=>raw(b)-raw(a)||a.id-b.id);
   const inventoryById=new Map(inventory.map(i=>[i.id,i])),compatible=new Map();
-  const scoreCache=new Map(),scoring={airReference,scoreCache};
+  const scoreCache=snapshotMemo(store,'groundCombatScores','all',()=>new Map()),scoring={airReference,scoreCache};
   const legal=(entry,k,item)=>{
     const key=[entry.id,k,item.id].join(':');
     if(!compatible.has(key)){

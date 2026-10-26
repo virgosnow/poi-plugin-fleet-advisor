@@ -1,4 +1,5 @@
 'use strict';
+const {snapshotMemo}=require('../fleet/equipment_planner');
 // Shared equipment effects; badges use reference power, ranking keeps its bounded proxy.
 const rules=require('../../../data/installation_effects.json');
 const attack=require('./attack_power');
@@ -277,7 +278,7 @@ function groundCombatContext(store,scheme,profile,{airReference,airEstimate,scor
       Number(store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_saku||0),0);
     return s+Math.max(0,observed-old)+recon(t);
   },0);
-  const cache=scoreCache||new Map(),airKey=JSON.stringify([combatPlanes,[...states],encounters.map(n=>[n.node,n.night,n.targets]),surfaceNodes]);
+  const cache=scoreCache||snapshotMemo(store,'groundCombatScores','all',()=>new Map()),airKey=JSON.stringify([combatPlanes,[...states],encounters.map(n=>[n.node,n.night,n.targets]),surfaceNodes]);
   const score=(entry,fallbackFire,{flagship=projected[0]?.id===entry.id}={})=>{
     const original=byId.get(entry.id);
     const key=[entry.id,entry.slots.join(','),entry.ex,fallbackFire,fleetLoS-recon(original),flagship,airKey].join(':');
@@ -351,7 +352,7 @@ function groundCombatContext(store,scheme,profile,{airReference,airEstimate,scor
     const surface=carrier||sub?0:attack.cap(dayBase.value+5,220)*(main>=2&&scout&&encounters.some(n=>n.state!=='none')?1.5:1);
     const utility=surface*Math.min(1,surfaceNodes/Math.max(1,encounters.length))*.2;
     const result={score:total/Math.max(1,encounters.length)+utility,attacks};
-    if(cache.size>=2048)cache.clear();cache.set(key,result);return result;
+    if(cache.size>=8192)cache.delete(cache.keys().next().value);cache.set(key,result);return result;
   };
   return {targets,score,states,combatPlanes};
 }

@@ -12,7 +12,7 @@ const {aswPotential,num,shipCost,usableSlots}=require('./context');
 const {healthySupremacy,supportedAirGoal,smallCarrierSlot}=require('./loadout/carrier_policy');
 const jets=require('../domain/combat/jet_aviation');
 const carrierCI=require('../domain/combat/carrier_cutin'),metrics=require('../domain/fleet/fleet_metrics');
-const {snapshotMemo}=require('../domain/fleet/equipment_planner');
+const {snapshotMemo,hasEquipmentIndexCache}=require('../domain/fleet/equipment_planner');
 const {routeDifficulty,usefulPower}=require('./route_economy');
 
 function airGoalScore(result,airGoal,area,profile){
@@ -284,7 +284,17 @@ function routeRank(result,profile,rows,preference,airGoal,area,store,scheme,byRo
 // combat, aviation and support facts once, then retain each original formula.
 function routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute){
   const timing=perf.begin('score.candidate');
-  try{return routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute);}finally{perf.end(timing);}
+  try{
+    if(!hasEquipmentIndexCache(store))return routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute);
+    const profiles=snapshotMemo(store,'routeRankers',result,()=>new Map());
+    if(!profiles.has(profile)){if(profiles.size>=64)profiles.delete(profiles.keys().next().value);profiles.set(profile,new Map());}
+    const cache=profiles.get(profile),key=JSON.stringify([area,airGoal,byRoute,scheme,rows.map(r=>r.id)]);
+    const previous=cache.get(key);
+    if(previous&&previous.rows.length===rows.length&&rows.every((row,i)=>row===previous.rows[i])){perf.count('score.candidate.hit');return previous.rank;}
+    const rank=routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute);
+    if(cache.size>=64)cache.delete(cache.keys().next().value);
+    cache.set(key,{rows:rows.slice(),rank});return rank;
+  }finally{perf.end(timing);}
 }
 function routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute=false){
   const chance=result.chanceRange||[0,1],assumed=result.assumedChanceRange||chance;

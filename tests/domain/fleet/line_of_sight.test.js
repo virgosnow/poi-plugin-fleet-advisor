@@ -145,3 +145,16 @@ test('every normal-map LoS predicate respects its own coefficient, strict upper 
   }
   assert(maps>=15);assert(gates>=50);
 });
+
+test('per-ship LoS reuse preserves exact slot changes and refreshes observed panels between searches',()=>{
+  const {withEquipmentIndexCache}=require('../../../src/domain/fleet/equipment_planner'),f=fixture();
+  const variants=[[],[[101,102]],[[104,102]],[[101,102],[-1,-1],105]];
+  const expected=variants.map(args=>f.read(...args));
+  withEquipmentIndexCache(f.store,()=>{
+    for(let round=0;round<3;round++)variants.forEach((args,i)=>assert.deepEqual(f.read(...args),expected[i]));
+    assert.equal(f.read([101,102]).ships[0],f.read([101,102]).ships[0]);
+  });
+  f.store.info.ships[1].api_sakuteki[0]+=20;
+  const live=f.read([101,102]);assert.notDeepEqual(live,expected[1]);
+  assert.deepEqual(withEquipmentIndexCache(f.store,()=>f.read([101,102])),live);
+});
