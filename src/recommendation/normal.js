@@ -390,7 +390,7 @@ async function recommendNormalFleetParallel(store,args,runBatch,scope=run=>run()
   }
   return step.value;
 }
-function* searchNormalFleet(store,args,selectedOptions){
+function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   const {area,target='boss',phase,preference='all',airGoal='ignore',limit=3}=args;
   const byRoute=args.byRoute===true;
   if(args.byRoute!==undefined&&typeof args.byRoute!=='boolean')throw error('INVALID_QUERY','byRoute 须为布尔值');
@@ -411,6 +411,17 @@ function* searchNormalFleet(store,args,selectedOptions){
   const ctx=context(store,args,1);
   if(byRoute)ctx.combatScore=combatHullRanker(store,previewForMap(area,{target,phase}));
   const pool=candidatePool(ctx,preference,initialWantsAsw),fixed=ctx.fixed.map(id=>ctx.byId.get(id));
+  const allSizes=[1,2,3,4,5,6].filter(n=>n>=fixed.length);
+  const viableSizes=byRoute?routePlans.routeFleetSizes(area,requestedRoutes,phase):
+    policy?.templates?[...new Set(policy.templates.map(t=>t.length))]:allSizes.filter(n=>n>=(policy?.minShips||1));
+  // Keep the existing closest-candidate diagnostics for impossible manual
+  // fleets. Templates constrain only the legacy mode that already requires them.
+  const compatibleSizes=allSizes.filter(n=>viableSizes.includes(n));
+  const compact=allowCompact&&area==='1-1'&&target==='boss'&&fixed.length<=2&&
+    fixed.every(row=>![1,19,20,22].includes(row.stype));
+  const sizes=(compatibleSizes.length?compatibleSizes:allSizes).filter(n=>!compact||n<=2);
+  const allowedSizes=new Set(sizes);
+  for(const size of sizes)perf.count('search.size.allowed.'+size);
   const inventory=availableEquipment(store);
   const previewed=new Map();
   const executable=row=>{
@@ -436,6 +447,7 @@ function* searchNormalFleet(store,args,selectedOptions){
   let deferSeeds=true;
   const pendingSeeds=[];
   const evaluate=(rows,schemeOverride,asSeed=false,collect=true)=>{
+    if(!allowedSizes.has(rows.length)){perf.count('candidate.sizeRejected');return;}
     if(!rows.length||rows.length>6||new Set(rows.map(r=>r.id)).size!==rows.length||
       hasDuplicateShipFamily(rows)||!byRoute&&!guideHull(policy,rows))return;
     const key=idsKey(rows);if(!schemeOverride&&seen.has(key))return;
@@ -462,7 +474,7 @@ function* searchNormalFleet(store,args,selectedOptions){
   for(const rows of specialSeeds)evaluate(rows);
   let pathSeeds=null;
   if(byRoute){
-    const options={area,phase,routes:requestedRoutes};
+    const options={area,phase,routes:requestedRoutes,sizes};
     routePlans.hullCache(options); // Own the dependency-keyed table before children return facts.
     const estimatedWork=routePlans.hullSeeds(ctx,{...options,estimate:true},shipFamilyKey);
     const parts=yield {kind:'hulls',args,options,items:[{index:0,count:1}],estimatedWork};
@@ -486,7 +498,7 @@ function* searchNormalFleet(store,args,selectedOptions){
     .filter(type=>[1,2,3,4,21,22].includes(type)).map(type=>[
       ...aswGraded.filter(row=>row.stype===type),
       ...aswGraded.filter(row=>row.stype!==type)]):[];
-  for(let count=Math.max(1,fixed.length);count<=6;count++){
+  for(const count of sizes){
     if(fixed.length===count){evaluate(fixed);continue;}
     for(const ranking of [graded,...(initialWantsAsw?[aswGraded]:[]),...aswTypeRankings,...(combatGraded.length?[combatGraded]:[])]){
       const rows=fixed.slice(),used=new Set(ctx.fixed);
@@ -514,6 +526,12 @@ function* searchNormalFleet(store,args,selectedOptions){
   deferSeeds=false;
   const seedResults=yield {kind:'seeds',args,routes:requestedRoutes,items:pendingSeeds};
   for(const {candidate,paths} of seedResults)collectCandidate(candidate,true,paths);
+  // Small fleets are the existing 1-1 guide preference, not a hard game rule.
+  // If this inventory cannot prepare any such outfit, retain the broad fallback.
+  if(compact&&!candidates.some(candidate=>candidate.guideSuitable)){
+    perf.count('search.compactFallback');
+    return yield* searchNormalFleet(store,args,selectedOptions,false);
+  }
   // Try owned aircraft, reconnaissance planes and route items on promising
   // hulls, then run preview and the full route evaluator on each result.
   // Search speed-constrained hull compositions as well as their current speed.
@@ -522,7 +540,7 @@ function* searchNormalFleet(store,args,selectedOptions){
     for(const wanted of ['fast','fastPlus','fastest']){
       const missing=requestedRoutes.filter(o=>!o.strategy&&!seeds.some(s=>routePlans.planningPath(s.route,o.nodes,{allowTentative:false}).chance.probability>0));
       if(!missing.length)break;
-      const upgraded=routePlans.hullSeeds({...ctx,combatScore:null},{area,phase,routes:missing,speed:wanted},shipFamilyKey);
+      const upgraded=routePlans.hullSeeds({...ctx,combatScore:null},{area,phase,routes:missing,speed:wanted,sizes},shipFamilyKey);
       for(const rows of upgraded.rows){
         const fit=speedLoadout(store,holdDraftEquipment(store,emptyLoadout(store,schemeOf(ctx.fleet,rows),args.heldSlots),args.heldSlots),inventory,wanted,args.heldSlots);
         if(fit)evaluate(rows,fit,true);
@@ -913,6 +931,10 @@ function* searchNormalFleet(store,args,selectedOptions){
   const picked=byRoute?routeResults.flatMap(r=>r.item?[r.item]:[]):preference==='all'?modes.flatMap(mode=>{
     const row=uniqueFor(mode).find(executable);return row?[{...row,preference:mode,scores:row.scoresByPreference[mode]}]:[];
   }):(()=>{const found=[];for(const row of uniqueFor(preference)){if(executable(row))found.push(row);if(found.length>=limit)break;}return found;})();
+  if(compact&&!picked.length){
+    perf.count('search.compactFallback');
+    return yield* searchNormalFleet(store,args,selectedOptions,false);
+  }
   const guideWarnings=guided35?modes.filter(mode=>!picked.some(item=>
     (item.preference||preference)===mode)).map(mode=>
     `${mode==='strongest'?'上路大船流':'下路小船流'}未找到同时满足带路、装备和练度参考线的编成`):

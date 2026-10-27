@@ -7,6 +7,51 @@ const {evaluateNormalRoute}=require('../../../src/domain/routes/normal_routes');
 const {planningPath,possiblePoint}=require('../../../src/domain/routes/route_plans');
 const {recommendNormalEquipment}=require('../../../src/recommendation/index');
 
+test('fleet-size projection keeps equipment, speed, uncertain branches and alternative paths possible',()=>{
+  const {routeFleetSizes}=require('../../../src/domain/routes/route_plans');
+  assert.deepEqual(routeFleetSizes('1-1',routeOptions('1-1')),[1,2,3,4,5,6],'small-fleet preference is not a game rule');
+  assert.deepEqual(routeFleetSizes('1-5',routeOptions('1-5')),[1,2,3,4]);
+  assert.deepEqual(routeFleetSizes('1-2',routeOptions('1-2')),[1,2,3,4,5,6],'random entry and repairable speed keep other fleet sizes possible');
+  assert.deepEqual(routeFleetSizes('4-5',routeOptions('4-5')),[1,2,3,4,5,6]);
+  const paths=routeOptions('1-1'),withRequirement=when=>paths.map(p=>({...p,fleetRequirement:when}));
+  assert.deepEqual(routeFleetSizes('1-1',withRequirement({all:[{shipCount:{max:4}},{los:{coefficient:4,gte:99}}]})),[1,2,3,4]);
+  assert.deepEqual(routeFleetSizes('1-1',withRequirement({any:[{shipCount:{exact:3}},{not:{shipCount:{max:4}}}]})),[3,5,6]);
+  assert.deepEqual(routeFleetSizes('1-1',withRequirement({count:{stypes:[2],min:4}})),[4,5,6]);
+  assert.deepEqual(routeFleetSizes('1-1',withRequirement({not:{count:{stypes:[2],min:4}}})),[1,2,3,4,5,6]);
+});
+
+test('fleet-size pruning never removes a possible concrete hull across normal maps and phases',()=>{
+  const fs=require('fs'),path=require('path'),P=require('../../../src/domain/routes/route_plans'),{predicate}=require('../../../src/domain/routes/normal_routes');
+  let seed=28,checked=0;const next=n=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%n;};
+  for(const file of fs.readdirSync(path.join(__dirname,'../../../data/normal_routes')).filter(f=>/^\d-\d\.json$/.test(f))){
+    const map=require('../../../data/normal_routes/'+file),area=map.area,target=map.bossNodes.length?'boss':map.terminalNodes[0];
+    for(const phase of Object.keys(map.bossPhases||{}).length?Object.keys(map.bossPhases):[undefined]){
+      const options=P.routeOptions(area,target,phase),sizes=P.routeFleetSizes(area,options,phase);
+      for(let size=1;size<=6;size++)for(let sample=0;sample<20;sample++){
+        const ships=Array.from({length:size},(_,i)=>({instanceId:i+1,name:['羽黒改二','神風改','足柄改二','测试舰'][next(4)],
+          stype:1+next(22),radarEquipped:null,drumEquipped:null,landingCraftEquipped:null}));
+        const route={area,phase,ships,targetNodes:options.map(o=>o.nodes.at(-1)),speed:{status:'unknown'}};
+        const possible=options.some(o=>(!o.fleetRequirement||predicate(o.fleetRequirement,ships,{speed:route.speed,lineOfSight:{status:'unknown'}})!==false)&&
+          P.optionPaths(o).some(nodes=>P.hullPath(route,nodes).max>0));
+        if(possible){checked++;assert(sizes.includes(size),`${area} ${phase||''}: size ${size}`);}
+      }
+    }
+  }
+  assert(checked>1000);
+});
+
+test('size-limited hull enumeration keeps the original feasible beams and parallel merge',()=>{
+  const P=require('../../../src/domain/routes/route_plans'),rows=Array.from({length:24},(_,i)=>({
+    id:i+1,name:'舰'+i,stype:[1,2,3,7,11,16][i%6],power:100-i,ship:{api_soku:10}}));
+  const ctx={fixed:[],roster:rows,byId:new Map(rows.map(r=>[r.id,r]))},routes=P.routeOptions('1-5');
+  const full=P.hullSeeds(ctx,{area:'1-5',routes},r=>r.id),options={area:'1-5',routes,sizes:P.routeFleetSizes('1-5',routes)};
+  const limited=P.hullSeeds(ctx,options,r=>r.id);
+  assert.deepEqual(limited.rows,full.rows);assert.deepEqual(limited.baselineRows,full.baselineRows);
+  assert(limited.attempted<full.attempted);
+  const parts=Array.from({length:6},(_,index)=>P.hullSeeds(ctx,{...options,partial:true,shard:{index,count:6}},r=>r.id));
+  assert.deepEqual(P.mergeHullParts(parts.reverse(),ctx.byId),limited);
+});
+
 test('lazy path assessment skips fixed edges and stops at blocked or zero-probability exits',()=>{
   const route={area:'1-1',targetNodes:['C']},nodes=['A','C','X'];
   for(const assessment of [

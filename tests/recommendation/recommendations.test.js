@@ -37,6 +37,47 @@ function armSurfaceDestroyers(store){
   }
 }
 
+test('1-1 constrains automatic seed sizes while retaining manual ships, positions and equipment',()=>{
+  const {PerformanceTrace}=require('../../src/shared/performance_trace'),store=fixture();armSurfaceDestroyers(store);
+  const trace=new PerformanceTrace({level:'stages'});
+  const automatic=trace.run(()=>recommendNormalFleet(store,{area:'1-1',byRoute:true,airGoal:'superiority'}));
+  assert(automatic.recommendations.length>0);assert(automatic.recommendations.every(r=>r.scheme.ships.length<=2));
+  assert(!trace.counters['search.size.allowed.3']);assert(trace.counters['search.size.allowed.1']);
+  const held={id:2,slots:store.info.ships[2].api_slot.slice(),ex:-1,keep:{0:true},holdPosition:true};
+  for(const fixed of [[2],[2,3],[2,3,4],[1,2,3,4,5,6]]){
+    const result=recommendNormalFleet(store,{area:'1-1',byRoute:true,airGoal:'ignore',fixedShipIds:fixed,heldSlots:[held]});
+    assert(result.recommendations.length>0,`manual size ${fixed.length}`);
+    for(const row of result.recommendations){
+      assert(fixed.every(id=>row.scheme.ships.some(e=>e.id===id)));
+      assert.equal(row.scheme.ships[0].id,2);assert.equal(row.scheme.ships[0].slots[0],held.slots[0]);
+      new Controller({getStore:()=>store}).preview('fleet',row.scheme);
+    }
+  }
+});
+
+test('1-1 retains the broad fallback when no small fleet satisfies the guide equipment policy',()=>{
+  const {PerformanceTrace}=require('../../src/shared/performance_trace'),store=fixture();
+  for(const master of Object.values(store.const.$ships))master.api_stype=9;
+  const trace=new PerformanceTrace({level:'stages'}),before=JSON.stringify(store);
+  const result=trace.run(()=>recommendNormalFleet(store,{area:'1-1',byRoute:true}));
+  assert.equal(trace.counters['search.compactFallback'],1);assert(trace.counters['search.size.allowed.6']);
+  assert(result.recommendations.length>0);assert.equal(JSON.stringify(store),before);
+});
+
+test('1-1 retries the broad search if compact candidates fail final operation-plan validation',()=>{
+  const {FleetPlanner}=require('../../src/domain/fleet/fleet_plan'),{PerformanceTrace}=require('../../src/shared/performance_trace');
+  const store=fixture(),preview=FleetPlanner.prototype.preview,trace=new PerformanceTrace({level:'stages'});
+  FleetPlanner.prototype.preview=function(kind,scheme){
+    if(kind==='fleet'&&scheme.ships.length<=2)throw Error('compact plan unavailable');
+    return preview.call(this,kind,scheme);
+  };
+  try{
+    const result=trace.run(()=>recommendNormalFleet(store,{area:'1-1',byRoute:true}));
+    assert.equal(trace.counters['search.compactFallback'],1);
+    assert(result.recommendations.length>0);assert(result.recommendations.every(r=>r.scheme.ships.length>2));
+  }finally{FleetPlanner.prototype.preview=preview;}
+});
+
 function mixedAswFixture(){
   const store=fixture(),types=[3,2,2,2,5,5,1,2];
   for(const [index,stype] of types.entries()){

@@ -215,6 +215,39 @@ function possiblePoint(rules,ships,metrics,prepared){
   }
   return {status:'unknown',destinations:[...destinations]};
 }
+// Necessary fleet-size conditions only. Everything requiring a hull, gear,
+// speed, LoS or route history stays unknown, so a repairable fleet survives.
+// Reuse the rule interpreter and ordered point/path evaluator, not templates.
+function routeFleetSizes(area,options,phase){
+  if(!options.length)return [1,2,3,4,5,6];
+  const sizeOnly=value=>{
+    if(value===true||value==='otherwise')return value;
+    if(!value||typeof value!=='object')return null;
+    if(value.all)return {all:value.all.map(sizeOnly)};
+    if(value.any)return {any:value.any.map(sizeOnly)};
+    if(value.not)return {not:sizeOnly(value.not)};
+    if(value.shipCount)return {shipCount:value.shipCount};
+    // A subtype count cannot exceed the whole fleet. Meeting this necessary
+    // lower bound says nothing about the actual composition, so keep null.
+    const minimum=value.count?.exact??value.count?.min;
+    return minimum>0?{all:[{shipCount:{min:minimum}},null]}:null;
+  };
+  const map=mapFor(area),prepared=new Map(Object.values(map.machineRules||{}).flat()
+    .map(rule=>[rule,preparePredicate(sizeOnly(rule.when))]));
+  const requirements=options.map(option=>preparePredicate(sizeOnly(option.fleetRequirement)));
+  return [1,2,3,4,5,6].filter(size=>{
+    const ships=Array(size).fill(null),assessments=new Map();
+    const assess=from=>{
+      if(!assessments.has(from)){
+        const rules=map.machineRules?.[`${from}#${phase}`]??map.machineRules?.[from];
+        assessments.set(from,rules?possiblePoint(rules,ships,{},prepared):null);
+      }
+      return assessments.get(from);
+    };
+    return options.some((option,i)=>requirements[i](ships,{})!==false&&optionPaths(option).some(nodes=>
+      pathChance({area,phase},nodes,assess).max>0));
+  });
+}
 const thresholds=value=>{
   const result=[];
   const visit=v=>{
@@ -510,6 +543,7 @@ function mergeHullParts(parts,byId){
 }
 function hullSeeds(ctx,options,family){
   const map=mapFor(options.area),phase=options.phase,fixed=ctx.fixed.map(id=>ctx.byId.get(id));
+  const sizes=new Set(options.sizes||[1,2,3,4,5,6]),maxSize=Math.max(fixed.length,...sizes);
   // Hulls are immutable during this search. Normalize each family once instead
   // of repeating string normalization at every node of the enumeration tree.
   const families=new Map();
@@ -542,7 +576,7 @@ function hullSeeds(ctx,options,family){
   // tiny maps. Family/ownership restrictions can only make this bound smaller.
   if(options.estimate){
     let level=1,total=fixed.length?1:0;
-    for(let size=1;size<=6-fixed.length;size++){
+    for(let size=1;size<=maxSize-fixed.length;size++){
       level=level*(buckets.length+size-1)/size;total+=level;
       if(total>180000)return 180001;
     }
@@ -637,9 +671,9 @@ function hullSeeds(ctx,options,family){
     if(rows.length){
       if(++attempted>180000){truncated=true;return;}
       if(!options.shard||(attempted-1)%options.shard.count===options.shard.index)
-        consider(rows,false,stronger?.some((r,i)=>r.id!==rows[i].id)?stronger:null);
+        if(sizes.has(rows.length))consider(rows,false,stronger?.some((r,i)=>r.id!==rows[i].id)?stronger:null);
     }
-    if(rows.length===6)return;
+    if(rows.length===maxSize)return;
     const used=new Set(rows.map(familyKey));
     const combatUsed=stronger?new Set(stronger.map(familyKey)):null;
     for(let i=index;i<buckets.length;i++){
@@ -662,4 +696,4 @@ function hullSeeds(ctx,options,family){
   const unique=lists=>[...new Map(lists.flatMap(([,rows])=>rows).map(s=>[s.rows.map(r=>r.id).join(','),s.rows])).values()];
   return {rows:unique(beams),baselineRows:unique(beams.filter(([key])=>!key.endsWith(':combat'))),attempted,truncated};
 }
-module.exports={optionPaths,optionPlanning,fleetRequirementAssessment,routeOptions,recommendedOptions,currentPhase,pathChance,isPlayerChoice,requirements,requirementDetails,hullSeeds,hullCache,mergeHullParts,possiblePoint,planningPath,hullPath,strategyAssessment,routeDiagnostics,routingNeeds,losGates,losWindows,createLoSWindowReader,withPlanningCache,namedShipRequirements};
+module.exports={optionPaths,optionPlanning,fleetRequirementAssessment,routeOptions,recommendedOptions,currentPhase,pathChance,isPlayerChoice,requirements,requirementDetails,hullSeeds,hullCache,mergeHullParts,possiblePoint,routeFleetSizes,planningPath,hullPath,strategyAssessment,routeDiagnostics,routingNeeds,losGates,losWindows,createLoSWindowReader,withPlanningCache,namedShipRequirements};
