@@ -24,6 +24,14 @@ const questHandoff=Symbol.for('poi-plugin-fleet-advisor.quest-handoff');
 const questReadLedger=Symbol.for('poi-plugin-fleet-advisor.quest-read-ledger');
 let controller=null,service=null,expeditionProgress=null,questObserver=null,progressListener=null;
 let recommendationHost=null;
+function getRecommendationHost(){
+  if(!recommendationHost){
+    const remote=require('@electron/remote');
+    recommendationHost=remote.require(path.join(__dirname,'src/host/recommendation_process.js'))
+      .createRecommendationHost(remote.getCurrentWebContents().id);
+  }
+  return recommendationHost;
+}
 let questAutoRead=null,questReader=null,questTimer=null,requestListener=null,networkListener=null,startListener=null;
 const questPages=new Set();
 function tickQuests(){
@@ -89,10 +97,10 @@ exports.pluginDidLoad=()=>{
     // The main process owns lifecycle only; the coordinator and its existing
     // thread pool run in an independent, disposable utility process.
     createRecommendationWorker:(filename,options)=>{
-      const remote=require('@electron/remote');
-      recommendationHost??=remote.require(path.join(__dirname,'src/host/recommendation_process.js'));
-      return recommendationHost.createRecommendationProcess(options,remote.getCurrentWebContents().id);
+      return getRecommendationHost().create(options);
     },
+    prepareRecommendationWorker:()=>getRecommendationHost().prewarm(),
+    releaseRecommendationWorker:()=>recommendationHost?.release(),
     storageDir:path.join(os.homedir(),'.poi-plugin-fleet-advisor')});
   if(service.persistenceReady&&service.mcpEnabled){
     void service.startMcpServer().catch(error=>{if(service)service.bridgeError=error.message;});
@@ -114,7 +122,7 @@ exports.pluginWillUnload=()=>{const previous=service,progress=expeditionProgress
   if(window.__fleetAdvisorUpdateBusy&&questObserver)window[questHandoff]=questObserver.snapshot();
   questObserver?.dispose();
   service=null;controller=null;expeditionProgress=null;questObserver=null;progressListener=null;
-  return Promise.all([previous?.dispose(),progress?.dispose(),readerCleanup]).then(()=>computeHost?.unload());};
+  return Promise.all([previous?.dispose(),progress?.dispose(),readerCleanup]).then(()=>computeHost?.dispose());};
 
 exports.reactClass=require('./src/ui/shell/panel')(React,{
   getController:()=>service,

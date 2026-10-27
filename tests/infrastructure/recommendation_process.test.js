@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),{EventEmitter}=require('node:events');
-const {createRecommendationProcess}=require('../../src/host/recommendation_process');
+const {createRecommendationProcess,RecommendationProcessHost}=require('../../src/host/recommendation_process');
 const {RecommendationWorker}=require('../../src/infrastructure/workers/recommendation_worker');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function fixture({autoExit=true,startupMs=1000,stopMs=1000}={}){
@@ -13,7 +13,7 @@ function fixture({autoExit=true,startupMs=1000,stopMs=1000}={}){
     children.push(child);return child;
   }}};
   const createWorker=(_file,options)=>createRecommendationProcess(options,1,{electron,startupMs,stopMs});
-  return {owner,app,children,createWorker};
+  return {owner,app,children,createWorker,options:{electron,startupMs,stopMs}};
 }
 test('utility handshake sends exactly one snapshot, reaps before results/maintenance, and releases ownership',async()=>{
   const f=fixture({autoExit:false}),runner=new RecommendationWorker({createWorker:f.createWorker});
@@ -77,4 +77,52 @@ test('cancellation cannot hide a failed kill or allow unload before confirmed ex
   await tick();await assert.rejects(runner.cancel(),{code:'RECOMMENDATION_PROCESS_STOP_TIMEOUT'});await rejected;
   await assert.rejects(runner.dispose(),{code:'RECOMMENDATION_PROCESS_STOP_TIMEOUT'});
   f.children[0].emit('exit',0);await runner.dispose();
+});
+test('prewarm is snapshot-free, shared by tabs and claimed only after result listeners attach',async()=>{
+  const f=fixture(),host=new RecommendationProcessHost(1,f.options);
+  const first=host.prewarm(),second=host.prewarm();assert.equal(f.children.length,1);
+  const child=f.children[0];child.emit('message',{ready:true});await Promise.all([first,second]);
+  assert.equal(child.sent.length,0,'preparing code must never receive a snapshot or task');
+  const handle=host.create({workerData:{store:{immutable:true}}});assert.equal(f.children.length,1);
+  assert.equal(child.sent.length,0,'claiming must not race remote listener registration');
+  handle.start();handle.start();assert.equal(child.sent.length,1);assert(child.sent[0].prewarmed);
+  assert.equal(child.sent[0].store.immutable,true);await handle.terminate();await host.dispose();
+});
+test('a click during preload waits for readiness, and a used process never becomes an idle spare',async()=>{
+  const f=fixture(),host=new RecommendationProcessHost(1,f.options),warming=host.prewarm();
+  const handle=host.create({workerData:{store:{}}});handle.start();assert.equal(f.children[0].sent.length,0);
+  f.children[0].emit('message',{ready:true});await warming;assert.equal(f.children[0].sent.length,1);
+  assert.equal(f.children[0].sent[0].prewarmed,false);await handle.terminate();
+  const next=host.prewarm();assert.equal(f.children.length,2);f.children[1].emit('message',{ready:true});await next;
+  assert.equal(f.children[1].sent.length,0);await host.dispose();
+});
+test('idle timeout releases one unused process without restarting or running search',async()=>{
+  const f=fixture(),host=new RecommendationProcessHost(1,{...f.options,idleMs:10});
+  const preparing=host.prewarm();f.children[0].emit('message',{ready:true});await preparing;
+  await new Promise(resolve=>setTimeout(resolve,30));assert(f.children[0].kills);assert.equal(host.idle,null);
+  assert.equal(f.children.length,1);assert.equal(f.children[0].sent.length,0);await host.dispose();
+});
+test('failed warmup and leaving before ready release the spare, then a later click can calculate cold',async()=>{
+  const f=fixture(),host=new RecommendationProcessHost(1,f.options),preparing=host.prewarm();
+  f.children[0].emit('exit',9);assert.equal(await preparing,false);
+  const next=host.prewarm();await host.release();assert.equal(await next,false);
+  const handle=host.create({workerData:{}});handle.start();f.children[2].emit('message',{ready:true});
+  assert.equal(f.children[2].sent.length,1);await handle.terminate();await host.dispose();
+});
+test('deferred immediate results are not lost, and warmup resumes only after draining the work queue',async()=>{
+  let prepared=0,released=0;
+  const runner=new RecommendationWorker({prepareWorker:()=>prepared++,releaseWorker:()=>released++,createWorker:()=>{
+    const worker=new EventEmitter();worker.start=()=>worker.emit('message',{ok:true,result:42});
+    worker.terminate=async()=>{worker.emit('exit',0);};return worker;
+  }});
+  await runner.setWarmEnabled(true);await tick();assert.equal(prepared,1);
+  const results=await Promise.all([runner.run('recommendNormalFleet',{},{}),runner.run('recommendNormalFleet',{}, {})]);
+  await tick();assert.deepEqual(results,[42,42]);assert.equal(prepared,2,'only one new empty spare after both requests');
+  await runner.setWarmEnabled(false);assert.equal(released,1);await runner.dispose();await tick();assert.equal(prepared,2);
+});
+test('deferred transport startup errors still reap before rejecting',async()=>{
+  let stopped=false;
+  const runner=new RecommendationWorker({createWorker:()=>Object.assign(new EventEmitter(),{
+    start(){throw Error('cannot send snapshot');},terminate:async()=>{stopped=true;}})});
+  await assert.rejects(runner.run('recommendNormalFleet',{},{}),/cannot send snapshot/);assert(stopped);await runner.dispose();
 });

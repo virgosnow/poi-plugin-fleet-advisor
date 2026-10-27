@@ -21,6 +21,17 @@ function setup(t,saved){
 }
 const disabled=e=>e.code==='AUTOMATIC_OPERATIONS_DISABLED';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('visible recommendation tabs share snapshot-free warmup and current-fleet/settings release it',async t=>{
+  const {service:s,data}=setup(t),before=JSON.stringify(data);await s.cacheReady;
+  let prepared=0,released=0;s.recommendations.prepareWorker=()=>prepared++;s.recommendations.releaseWorker=()=>released++;
+  s.recommendations.createWorker=()=>assert.fail('prewarm must not calculate or copy a snapshot');
+  s.setRecommendationPageActive('normal',true);await tick();assert.equal(prepared,1);
+  s.setRecommendationPageActive('normal',false);s.setRecommendationPageActive('expedition',true);await tick();
+  assert.equal(released,0,'peer-tab switch must not discard the prepared process');
+  s.setRecommendationPageActive('expedition',false);await tick();assert.equal(released,1);
+  s.setRecommendationPageActive('manual',true);await tick();assert.equal(prepared,2);
+  assert.equal(JSON.stringify(data),before);
+});
 test('experimental normalization defaults off, including older settings and malformed boolean values',()=>{
   for(const value of [undefined,null,{},[],{automaticOperations:'true'},{automaticOperations:1}])assert.deepEqual(settings.normalize(value),{automaticOperations:false,performanceDebug:false});
   assert.deepEqual(settings.normalize({automaticOperations:true}),{automaticOperations:true,performanceDebug:false});

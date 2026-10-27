@@ -33,7 +33,7 @@ function observedState(state,shipIds=[]) {
 }
 
 class FleetAdvisorService {
-  constructor({controller,getStore,storageDir,now=()=>Date.now(),createRecommendationWorker}) {
+  constructor({controller,getStore,storageDir,now=()=>Date.now(),createRecommendationWorker,prepareRecommendationWorker,releaseRecommendationWorker}) {
     this.controller=controller;this.getStore=getStore;this.now=now;this.storageDir=storageDir;
     this.snapshots=new Snapshots(getStore,now);this.schemes=new Schemes(storageDir,now,
       {getCacheLimit:()=>this.computationSettings.cacheLimitMiB*1024**2});
@@ -41,10 +41,12 @@ class FleetAdvisorService {
     this.performanceLogs=new PerformanceLogs(path.join(storageDir,'recommendation-cache'),
       {getLimitBytes:()=>this.computationSettings.cacheLimitMiB*1024**2});
     this.recommendations=new RecommendationWorker({createWorker:createRecommendationWorker,cacheDir:path.join(storageDir,'recommendation-cache'),
+      prepareWorker:prepareRecommendationWorker,releaseWorker:releaseRecommendationWorker,
       getSettings:()=>this.computationSettings,
       getDiagnostics:()=>this.experimentalSettings?.performanceDebug?{level:'modules'}:performanceTrace.options(),
       onProfile:report=>this.experimentalSettings?.performanceDebug?this.performanceLogs.write(report):undefined});
     this.plans=new Map();this.jobs=new Map();this.keys=new Map();
+    this.recommendationPages=new Set();
     this.listeners=new Set();this.epoch=crypto.randomUUID();this.activeJobId=null;this.bridge=null;this.disposed=false;
     this.stateFile=path.join(storageDir,'mcp-state.json');
     this.mcpEnabled=false;this.persistenceReady=false;this.httpPort=DEFAULT_HTTP_PORT;
@@ -100,6 +102,18 @@ class FleetAdvisorService {
     }
   }
   subscribe(listener){this.listeners.add(listener);return()=>this.listeners.delete(listener);}
+  setRecommendationPageActive(kind,active){
+    if(this.disposed||!['normal','expedition'].includes(kind))return;
+    if(active)this.recommendationPages.add(kind);else this.recommendationPages.delete(kind);
+    // React cleans up the old tab before activating its peer. Coalesce that
+    // transition so normal <-> expedition can share the same empty process.
+    if(this.recommendationWarmScheduled)return;
+    this.recommendationWarmScheduled=true;
+    queueMicrotask(()=>{
+      this.recommendationWarmScheduled=false;
+      if(!this.disposed)void this.recommendations.setWarmEnabled(this.recommendationPages.size>0).catch(()=>{});
+    });
+  }
   getRecommendationFilters(){return selectionFilters.normalize(this.recommendationFilters);}
   getComputationSettings(){return computationSettings.normalize(this.computationSettings);}
   getExperimentalSettings(){return experimentalSettings.normalize(this.experimentalSettings);}

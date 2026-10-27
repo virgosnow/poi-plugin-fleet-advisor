@@ -74,6 +74,10 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const observed=React.useRef(null),view=React.useRef(null),page=React.useRef(null),resumePending=React.useRef(false),initialized=React.useRef(false),routeSelection=React.useRef(null);
     const paused=busy||hidden;
     React.useEffect(()=>{
+      getController()?.setRecommendationPageActive?.(kind,!paused);
+      return()=>getController()?.setRecommendationPageActive?.(kind,false);
+    },[kind,paused]);
+    React.useEffect(()=>{
       setQuestPageActive?.(kind,!paused&&!working);
       return()=>setQuestPageActive?.(kind,false);
     },[kind,paused,working]);

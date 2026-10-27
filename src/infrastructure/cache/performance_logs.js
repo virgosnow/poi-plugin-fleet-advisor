@@ -19,7 +19,8 @@ function sanitize(report){
     ...numbers(report,['elapsedMs','queueMs','workerMs','startupAndTransferMs','teardownMs']),...traceData(report),
     runtime:{...Object.fromEntries(Object.entries(report.runtime||{}).filter(([key,v])=>['plugin','node','v8'].includes(key)&&/^[0-9][a-zA-Z0-9.-]{0,63}$/.test(v))),
       ...(['utility-process','worker-thread'].includes(report.runtime?.execution)?{execution:report.runtime.execution}:{}),
-      ...numbers(report.runtime,['peakRssMiB'])},
+      ...(typeof report.runtime?.prewarmed==='boolean'?{prewarmed:report.runtime.prewarmed}:{}),
+      ...numbers(report.runtime,['peakRssMiB','preloadMs'])},
     stages:(report.stages||[]).slice(0,2048).filter(row=>NAME.test(row.name)).map(row=>({name:row.name,...numbers(row,['ms'])})),
     children:(report.children||[]).slice(0,8).map(child=>({...numbers(child,['worker','startupMs']),...traceData(child),
       calculationStats:Object.fromEntries(Object.entries(child.calculationStats||{}).filter(([name])=>NAME.test(name))

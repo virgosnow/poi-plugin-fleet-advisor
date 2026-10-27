@@ -43,12 +43,12 @@ if(!isMainThread&&workerData?.kind==='expedition-goal'){
 
 // Pure calculations only: snapshots cross the thread boundary, never the live
 // controller, game bridge or account-storage service.
-async function runRecommendation(workerData){
+async function runRecommendation(workerData,started=workerStarted){
   const trace=workerData.diagnostics?new perf.PerformanceTrace(workerData.diagnostics):null;
-  if(trace)trace.stages.push({name:'worker.load',ms:performance.now()-workerStarted});
+  if(trace)trace.stages.push({name:'worker.load',ms:performance.now()-started});
   const report=status=>trace?{version:1,status,level:trace.level,method:workerData.method,
     area:workerData.args?.area||null,phase:workerData.args?.phase||null,
-    workerMs:performance.now()-workerStarted,stages:trace.stages,...trace.snapshot(),
+    workerMs:performance.now()-started,stages:trace.stages,...trace.snapshot(),
     children:trace.children,dispatch:trace.dispatch,implementation:trace.implementation||null,
     runtime:{plugin:require('../../../package.json').version,node:process.versions.node,v8:process.versions.v8,
       execution:process.type==='utility'?'utility-process':'worker-thread',
@@ -88,10 +88,19 @@ if(!isMainThread&&workerData?.kind==='fleet-recommendation')
 
 class RecommendationWorker {
   constructor({createWorker=(filename,options)=>new Worker(filename,options),cacheDir,getSettings=()=>undefined,
-    getDiagnostics=()=>perf.options(),onProfile}={}){
+    getDiagnostics=()=>perf.options(),onProfile,prepareWorker,releaseWorker}={}){
     this.createWorker=createWorker;this.cacheDir=cacheDir;this.pending=Promise.resolve();this.active=null;this.closed=false;
     this.getSettings=getSettings;this.queued=0;this.generation=0;
     this.getDiagnostics=getDiagnostics;this.onProfile=onProfile;this.lastProfile=null;
+    this.prepareWorker=prepareWorker;this.releaseWorker=releaseWorker;this.warmEnabled=false;
+  }
+  prepare(){
+    if(!this.closed&&this.warmEnabled&&!this.queued&&!this.active)
+      void Promise.resolve().then(()=>{if(!this.closed&&this.warmEnabled&&!this.queued)return this.prepareWorker?.();}).catch(()=>{});
+  }
+  async setWarmEnabled(active){
+    this.warmEnabled=active===true;
+    if(this.warmEnabled)this.prepare();else await this.releaseWorker?.();
   }
   // Cache maintenance uses this same queue, so an older search cannot refill
   // files immediately after the user has cleared them.
@@ -100,7 +109,7 @@ class RecommendationWorker {
     if(this.closed)return Promise.reject(cancelled());
     this.queued++;
     const task=this.pending.then(()=>{if(this.closed)throw cancelled();return operation();});
-    const tracked=task.finally(()=>{this.queued--;});
+    const tracked=task.finally(()=>{this.queued--;this.prepare();});
     this.pending=tracked.catch(()=>{});return tracked;
   }
   run(method,store,args){
@@ -152,12 +161,14 @@ class RecommendationWorker {
         });
         worker.once('error',e=>{if(!received)void finish(e);});
         worker.once('exit',code=>{if(!received)void finish(Error('推荐计算提前退出（'+code+'）'));});
+        try{worker.start?.();}catch(error){void finish(error);}
       });
     });
   }
   async cancel(){
     this.generation++;
     await this.active?.cancel();
+    await this.releaseWorker?.();
     if(this.cleanupFailure){
       // A failed kill must also fail unload/hot reload. A later confirmed exit
       // permits cleanup, but this closed queue is never reused for searches.
