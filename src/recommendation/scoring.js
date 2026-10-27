@@ -204,12 +204,13 @@ function jetScoreCore(store,scheme,air,airScore,profile){
     const instance=store.info.equips[id],master=store.const.$equips[instance?.api_slotitem_id],type=Number(master?.api_type?.[2]);
     if(!jets.isJet(type))return [];
     const ship=store.info.ships[entry.id],sm=store.const.$ships[ship.api_ship_id];
-    return [{shipId:entry.id,slot,type,master,planes:Number(ship.api_onslot?.[slot]??sm.api_maxeq?.[slot])}];
+    return [{shipId:entry.id,slot,type,master,planes:Number(ship.api_onslot?.[slot]??sm.api_maxeq?.[slot]),
+      capacity:Number(sm.api_maxeq?.[slot]??ship.api_onslot?.[slot])}];
   }));
   if(!equipped.length)return null; // No jet trace, CI projection or new cost on the ordinary fast path.
   const reference=airScore.routeAirReference,estimate=airScore.routeAirEstimate||estimateRouteAir(air,reference);
   const reasons=[],departure=equipped.filter(e=>e.type===57).reduce((n,e)=>n+Math.max(0,(jets.jetPower(Number(e.master.api_baku),e.planes,{phase:'ordinary'})||0)-25/Math.SQRT2),0);
-  let assaultMin=0,assaultMax=0,ordinary=departure,steel=0;
+  let assaultMin=0,assaultMax=0,ordinary=departure,steel=0,sortieSteel=0;
   if(estimate.status==='estimated'){
     const paths=(estimate.paths||[]).map(path=>{
       const ordinarySteps=(path.steps||[]).filter(s=>['battle','aerialCombat'].includes(reference.nodes.find(n=>n.id===s.node)?.kind));
@@ -219,16 +220,27 @@ function jetScoreCore(store,scheme,air,airScore,profile){
       const high=strikes.reduce((n,s)=>n+Math.max(0,s.power[1]-(s.power[1]>0?25:0)),0)/divisor;
       const normal=ordinarySteps.reduce((sum,s)=>sum+(s.aircraft||[]).filter(a=>a.type===57)
         .reduce((n,a)=>n+a.power.reduce((v,p)=>v+Math.max(0,p-(p>0?25/Math.SQRT2:0)),0)/2,0),0)/divisor;
-      return {low,high,normal,steel:(path.steelConsumed?.min+path.steelConsumed?.max)/2/divisor||0};
+      const sortieSteel=(path.steelConsumed?.min+path.steelConsumed?.max)/2||0;
+      return {low,high,normal,steel:sortieSteel/divisor,sortieSteel};
     });
     if(paths.length)assaultMin=Math.min(...paths.map(p=>p.low));
     assaultMax=Math.max(...paths.map(p=>p.high),0);
     ordinary=paths.length?paths.reduce((n,p)=>n+p.normal,0)/paths.length:departure;
     steel=paths.length?paths.reduce((n,p)=>n+p.steel,0)/paths.length:0;
+    sortieSteel=paths.length?paths.reduce((n,p)=>n+p.sortieSteel,0)/paths.length:0;
   }else{
     reasons.push(estimate.reason||'喷气沿途损耗待确认');
     if(jets.steelAvailable(store)!==0&&reference.nodes.some(n=>jets.applicable(n)!==false))
       assaultMax=equipped.filter(e=>e.type===57).reduce((n,e)=>n+Math.max(0,(jets.jetPower(Number(e.master.api_baku),e.planes)||0)-25),0);
+    // Missing loss data must not make jets appear free. Use a labelled full-
+    // capacity expense ceiling for ranking only; never present it as actual cost.
+    const costs=equipped.map(e=>jets.steelCost(e.master.api_id,e.type,e.capacity));
+    sortieSteel=jets.steelAvailable(store)===0?0:null;
+    if(jets.steelAvailable(store)!==0&&costs.every(Number.isFinite)){
+      const applicable=new Set(reference.nodes.filter(n=>jets.applicable(n)!==false).map(n=>n.id));
+      const stages=Math.max(0,...(reference.paths||[]).map(p=>p.filter(n=>applicable.has(n)).length));
+      sortieSteel=costs.reduce((n,v)=>n+v,0)*stages;
+    }
   }
   // Conditional shelling opportunities matter when a jet replaces the only B
   // of an ordinary FBA. Reuse the real CI constants/rates; multipliers are NOT
@@ -269,12 +281,15 @@ function jetScoreCore(store,scheme,air,airScore,profile){
     else reasons.push('喷气炮击／CI参考攻击力待确认');
   }
   // Interval midpoints are ranking policy, never a claimed shoot-down or hit
-  // probability. Steel's small cost weight is policy, not a game formula.
-  const assault=(assaultMin+assaultMax)/2,steelPenalty=steel*0.02;
+  // probability. Charge the WHOLE sortie, not per-battle average expense.
+  // 0.10 ranking units per steel is an explicit resource preference, neither
+  // a game damage modifier nor a fuel/steel exchange rate (700 steel -> 70).
+  const assault=(assaultMin+assaultMax)/2,steelPenalty=sortieSteel===null?null:sortieSteel*0.10;
   const unsupported=equipped.some(e=>e.type===58);
   return {status:reasons.length?'unknown':'bounded',assault:{min:assaultMin,max:unsupported?null:assaultMax},ordinary:unsupported?null:ordinary,
-    steelPerBattle:estimate.status==='estimated'?steel:null,steelPenalty,ciAdjustment,reasons:[...new Set(reasons.filter(Boolean))],
-    adjustment:assault+ordinary-departure+ciAdjustment-steelPenalty};
+    steelPerBattle:estimate.status==='estimated'?steel:null,steelPerSortie:estimate.status==='estimated'?sortieSteel:null,
+    steelCostBasis:estimate.status==='estimated'?'routeEstimate':sortieSteel===null?'unavailable':'fullCapacityCeiling',steelPenalty,ciAdjustment,reasons:[...new Set(reasons.filter(Boolean))],
+    adjustment:assault+ordinary-departure+ciAdjustment-(steelPenalty??0)};
 }
 
 function routeRank(result,profile,rows,preference,airGoal,area,store,scheme,byRoute=false){

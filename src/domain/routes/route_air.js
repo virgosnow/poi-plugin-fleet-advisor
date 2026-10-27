@@ -485,4 +485,11 @@ function estimateRouteAirMarginsCore(air,reference,minimumOnly=false){
   }
   return saveMargins(cached,key,margins);
 }
-module.exports={routeAirReference,estimateRouteAir,estimateRouteAirMargins,estimateRouteAirMinimum,routeAirMeets,simulateAirPath,stageOneLoss};
+// Fitting may group trials by physical aviation inputs, never by rounded
+// departure air alone. Keep this key beside the simulator so new loss rules
+// automatically extend both caches. Unknown data must not be coalesced.
+function airContributionKey(air){
+  if(air?.status!=='range'||!Array.isArray(air.slots)||air.slots.some(s=>s.unknown||!s.planes||!s.effectiveAntiAir||!s.proficiencyBonus))return null;
+  return air.min+':'+air.max+':'+air.slots.map(s=>aircraftKey(s,false)).sort().join(',');
+}
+module.exports={routeAirReference,estimateRouteAir,estimateRouteAirMargins,estimateRouteAirMinimum,routeAirMeets,simulateAirPath,stageOneLoss,airContributionKey};

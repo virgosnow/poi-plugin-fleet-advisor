@@ -164,7 +164,7 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
       // reserve small slots for utility, even when air superiority is secure.
       const strikeSlots=large.length?large:airSlots.filter(k=>capacity(k)>0).slice(0,1);
       const utilitySlots=airSlots.filter(k=>!strikeSlots.includes(k)).reverse();
-      if(area!=='1-1'&&entry.slots.length>1&&!count([6,56]))assign(pool.fighter,[...utilitySlots,...airSlots]);
+      if(area!=='1-1'&&entry.slots.length>1&&!count([6,56]))assign(pool.fighter,airSlots.slice().reverse());
       if(!count([8,58]))assign(pool.torpedoPlane,strikeSlots);
       if(!count([7,57]))assign(pool.divePlane,strikeSlots);
       while(assign(pool.bomber,strikeSlots)){};

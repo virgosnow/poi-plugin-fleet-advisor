@@ -32,6 +32,62 @@ function complete(store,heldSlots=[]){return completeCombatLoadout(store,emptyLo
   availableEquipment(store),{area:'2-1',heldSlots}).ships[0];}
 const reference={status:'known',enemyAirPower:10,paths:[['Z']],nodes:[{id:'Z',boss:true,enemyAirPower:10}]};
 
+test('carrier seeds use the smallest positive fighter slot even without tiny utility slots',()=>{
+  const store=carrierFixture([36,24,18]);
+  const entry=complete(store);
+  assert.equal(type(store,entry.slots[2]),6);
+  assert.deepEqual(types(store,entry).slice(0,2),[8,7]);
+});
+
+test('water fighter support belongs to no-carrier and lone-light-carrier fleets',()=>{
+  const {waterFighterSupport}=require('../../src/recommendation/loadout/carrier_policy');
+  const store=carrierFixture(),base=scheme(store);
+  assert.equal(waterFighterSupport(store,base),false);
+  store.const.$ships[6001].api_stype=18;assert.equal(waterFighterSupport(store,base),false);
+  store.const.$ships[6001].api_stype=7;assert.equal(waterFighterSupport(store,base),true);
+  assert.equal(waterFighterSupport(store,{ships:[...base.ships,...base.ships]}),false);
+  store.const.$ships[6001].api_stype=16;assert.equal(waterFighterSupport(store,base),true);
+});
+
+test('full carriers repair air with fighters while preserving surface equipment and manual water fighters',()=>{
+  const store=carrierFixture([36,24,18,6]);
+  Object.assign(store.info.ships[2],{api_slot:[801,601,401],api_onslot:[8,8,8]});
+  Object.assign(store.const.$ships[2],{api_stype:6,api_slot_num:3,api_maxeq:[8,8,8]});
+  store.const.$shipTypes[6]={api_equip_type:{45:1,2:1,9:1}};
+  store.const.$equips[9801]={api_id:9801,api_name:'水戦',api_type:[0,0,45,45],api_tyku:20};
+  for(const id of [801,802,803])store.info.equips[id]={api_id:id,api_slotitem_id:9801,api_alv:7,api_level:0};
+  const entries=[{id:1,slots:[101,201,102,301],ex:-1},{id:2,slots:[801,601,401],ex:-1}];
+  const ref={...reference,enemyAirPower:110,nodes:[{id:'Z',boss:true,enemyAirPower:110}]};
+  const held=[{id:2,keep:{0:true}}];
+  const fit=airLoadout(store,{fleet:1,ships:entries},availableEquipment(store),165,ref,'superiority',held);
+  assert.deepEqual(fit.ships[1],entries[1]);
+  assert(reading(store,fit,ref).estimate.margins.superiority.min>=0);
+  assert.equal(type(store,fit.ships[0].slots[0]),8,'largest slot retains its attacker');
+  assert(fit.ships[0].slots.filter(id=>type(store,id)===6).length>=2);
+  const severe={...ref,enemyAirPower:230,nodes:[{id:'Z',boss:true,enemyAirPower:230}]};
+  const without=airLoadout(store,{fleet:1,ships:entries},availableEquipment(store),345,severe,'superiority',held,{allowWaterFallback:false});
+  const fallback=airLoadout(store,{fleet:1,ships:entries},availableEquipment(store),345,severe,'superiority',held);
+  assert(reading(store,without,severe).estimate.margins.superiority.min<0);
+  assert(reading(store,fallback,severe).estimate.margins.superiority.min>=0);
+  assert.equal(fallback.ships[1].slots[0],801,'manual water fighter remains fixed during fallback');
+  assert(fallback.ships[1].slots.some(id=>id===802||id===803));
+});
+
+test('small fleets can still free a gun slot for necessary water fighter cover',()=>{
+  const store=carrierFixture([2,2,2]);
+  store.const.$ships[6001].api_stype=3;
+  store.const.$shipTypes[3]={api_equip_type:{2:1,45:1}};
+  store.const.$equips[9801]={api_id:9801,api_name:'水戦',api_type:[0,0,45,45],api_tyku:10};
+  store.info.equips[801]={api_id:801,api_slotitem_id:9801,api_alv:7,api_level:0};
+  store.info.equips[602]={api_id:602,api_slotitem_id:9006,api_alv:0,api_level:0};
+  const base={fleet:1,ships:[{id:1,slots:[601,602,-1],ex:-1}]};
+  const ref={...reference,enemyAirPower:20,nodes:[{id:'Z',boss:true,enemyAirPower:20}]};
+  const fit=airLoadout(store,base,availableEquipment(store),30,ref,'superiority',[{id:1,keep:{2:true}}]);
+  assert.equal(fit.ships[0].slots[2],-1,'held empty slot remains empty');
+  assert(fit.ships[0].slots.includes(801));
+  assert(reading(store,fit,ref).estimate.margins.superiority.min>=0);
+});
+
 function jetCarrierFixture(){
   const store=carrierFixture([34,21,10,6]);store.info.resources=[1000,1000,1000,1000];
   Object.assign(store.const.$shipTypes[11].api_equip_type,{56:1,57:1});
@@ -160,7 +216,7 @@ test('conventional completion and later air fitting never buy jets by losing the
   assert.equal(JSON.stringify(store),before);
 });
 
-test('jet scoring separates assault, ordinary strike, conditional shelling and per-battle steel; no jets retain the fast path',()=>{
+test('jet scoring separates attack stages and charges whole-sortie steel; no jets retain the fast path',()=>{
   const {routeRank,carrierStrike}=require('../../src/recommendation/scoring');
   const {projectFleet}=require('../../src/domain/fleet/fleet_metrics');
   const store=jetCarrierFixture(),profile={area:'1-1',examples:[['A','C']],counts:{surface:{maximum:2},air:{maximum:0},asw:{maximum:0},night:{maximum:0}}};
@@ -181,11 +237,18 @@ test('jet scoring separates assault, ordinary strike, conditional shelling and p
   store.info.ships[1].api_slot[1]=10199;
   const normalSteel=score(),jet=normalSteel.scores.jetAviation;
   assert.equal(jet.status,'bounded',jet.reasons.join('；'));assert(jet.assault.min>0);assert(jet.steelPerBattle>0);
+  const paths=normalSteel.scores.routeAirEstimate.paths;
+  const total=paths.reduce((n,p)=>n+(p.steelConsumed.min+p.steelConsumed.max)/2,0)/paths.length;
+  assert.equal(jet.steelPerSortie,total);
+  assert(jet.steelPerSortie>jet.steelPerBattle,'multiple jet stages are not averaged away as one battle');
+  assert.equal(jet.steelPenalty,total*0.1);
+  assert.equal(jet.steelCostBasis,'routeEstimate');
   assert(jet.ciAdjustment<0,'replacing the only normal B loses FBA; a jet is not a normal B');
   assert.equal(normalSteel.scores.carrierStrikeProxy,normalSteel.strike,'ordinary attack proxy excludes the additional assault');
   store.info.resources[2]=0;
   const empty=score();assert.deepEqual(empty.scores.jetAviation.assault,{min:0,max:0});
   assert.equal(empty.scores.jetAviation.steelPerBattle,0);assert.equal(empty.strike,normalSteel.strike);
+  assert.equal(empty.scores.jetAviation.steelPerSortie,0);assert.equal(empty.scores.jetAviation.steelPenalty,0);
   profile.area='1-5';profile.examples=[['A','D','E','J']];
   const noAssault=score().scores.jetAviation;assert.equal(noAssault.assault.max,0);assert.equal(noAssault.steelPerBattle,0);
   store.const.$equips[199].api_type=[0,0,58,58];profile.area='1-1';profile.examples=[['A','C']];

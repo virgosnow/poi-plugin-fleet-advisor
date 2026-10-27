@@ -8,6 +8,13 @@ function carrierSlotSize(ship,master,slot){
   return Number(ship.api_onslot?.[slot]??master.api_maxeq?.[slot]??0);
 }
 const smallCarrierSlot=(ship,master,slot)=>carrierSlotSize(ship,master,slot)<=SMALL_CARRIER_SLOT;
+// Surface hulls keep guns/radar when full carrier cover is available. A lone
+// light carrier is the small-fleet exception; manual water fighters are kept.
+function waterFighterSupport(store,scheme){
+  const carriers=scheme.ships.map(e=>Number(store.const.$ships[store.info.ships[e.id].api_ship_id]?.api_stype))
+    .filter(t=>[7,11,18].includes(t));
+  return !carriers.length||carriers.length===1&&carriers[0]===7;
+}
 function carrierUtility(inventory){
   const type=item=>Number(item.master.api_type?.[2]);
   const rank=item=>[6,56].includes(type(item))?0:1;
@@ -97,4 +104,4 @@ function affordableSupremacy(store,before,after){
         row.attacks.every(a=>fitted.attacks.some(b=>b.type===a.type));
     });
 }
-module.exports={SMALL_CARRIER_SLOT,carrierSlotSize,smallCarrierSlot,carrierUtility,healthySupremacy,affordableSupremacy,supportedAirGoal,jetCutInAllowed};
+module.exports={SMALL_CARRIER_SLOT,carrierSlotSize,smallCarrierSlot,carrierUtility,healthySupremacy,affordableSupremacy,supportedAirGoal,jetCutInAllowed,waterFighterSupport};

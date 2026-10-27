@@ -20,6 +20,40 @@ function fixture(){
   return store;
 }
 const scheme=store=>({fleet:1,ships:[{id:1,slots:store.info.ships[1].api_slot.slice(),ex:-1}]});
+
+test('air equivalence ignores names and instances but retains loss-relevant aircraft inputs',()=>{
+  const {airContributionKey}=require('../../src/domain/routes/route_air');
+  const base={status:'range',min:50,max:52,slots:[{shipId:1,slot:0,itemId:10,aircraftType:6,
+    planes:[12,12],effectiveAntiAir:[8,8],proficiencyBonus:[25,25.5]}]};
+  const copy=structuredClone(base);copy.slots[0].itemId=99;
+  assert.equal(airContributionKey(base),airContributionKey(copy));
+  for(const [key,value] of [['aircraftType',7],['planes',[11,12]],['effectiveAntiAir',[8.1,8.1]],['proficiencyBonus',[24,25.5]]]){
+    const other=structuredClone(base);other.slots[0][key]=value;
+    assert.notEqual(airContributionKey(base),airContributionKey(other),'same rounded departure power is not sufficient');
+  }
+  const jet=structuredClone(base);Object.assign(jet.slots[0],{aircraftType:57,masterId:199,jetSteel:1000,bomb:15});
+  const empty=structuredClone(jet);empty.slots[0].jetSteel=0;
+  assert.notEqual(airContributionKey(jet),airContributionKey(empty));
+  empty.slots[0].unknown='capacity';assert.equal(airContributionKey(empty),null);
+});
+
+test('same-air different-name attackers share feasibility without merging their inventory or scores',()=>{
+  const store=fixture(),base=scheme(store),{PerformanceTrace}=require('../../src/shared/performance_trace');
+  // Each lower-power bomber produces the same air/loss input. None can replace
+  // the large fighter here; the search must not rerun losses for every name.
+  base.ships[0].slots=[201,102,103,104];
+  for(let i=0;i<20;i++){
+    const id=1000+i;store.const.$equips[id]={api_id:id,api_name:'不同舰爆'+i,api_type:[0,0,7,7],api_baku:8+i,api_tyku:0};
+    store.info.equips[id]={api_id:id,api_slotitem_id:id,api_alv:7,api_level:0};
+  }
+  const ref={status:'known',enemyAirPower:40,paths:[['A','Z']],nodes:[
+    {id:'A',enemyAirPower:40,antiAir:{status:'known',proportion:0.1,fixed:2}},
+    {id:'Z',boss:true,enemyAirPower:40}]};
+  const trace=new PerformanceTrace(),{airLoadout}=require('../../src/recommendation/loadout/air_fitting');
+  const fit=trace.run(()=>airLoadout(store,base,availableEquipment(store),60,ref));
+  assert(Object.entries(trace.counters).some(([k,v])=>k.startsWith('air.equivalent.hit.')&&v>0));
+  const ids=fit.ships.flatMap(e=>e.slots).filter(id=>id>0);assert.equal(ids.length,new Set(ids).size);
+});
 test('surface and route fitting reuse full inputs and return independent allocations',()=>{
   const {surfaceLoadout,routingLoadout}=require('../../src/recommendation/fitting'),store=fixture(),inventory=availableEquipment(store),base=scheme(store);
   const profile={counts:{surface:{maximum:1}},examples:[['A']],mapPreview:{nodes:[{id:'A',kind:'battle'}]}};
