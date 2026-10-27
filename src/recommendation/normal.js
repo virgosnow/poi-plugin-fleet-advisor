@@ -155,7 +155,8 @@ function candidatePathFacts(store,candidate,options,args,ctx){
   });
 }
 function recommendationBatch(store,batch){
-  return routePlans.withPlanningCache(()=>calculateBatch(store,batch));
+  return perf.withDetails({batch:batch.finalGround?'gear-final-ground':batch.finalAsw?'gear-final-asw':batch.kind},()=>
+    routePlans.withPlanningCache(()=>calculateBatch(store,batch)));
 }
 function calculateBatch(store,batch){
   const {args,items,kind}=batch,{area,phase,airGoal='ignore'}=args;

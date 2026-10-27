@@ -1,4 +1,5 @@
 'use strict';
+const perf=require('../../shared/performance_trace');
 const {estimateRouteAirMinimum,routeAirMeets}=require('../../domain/routes/route_air');
 const jets=require('../../domain/combat/jet_aviation');
 // A conservative fitting preference, not a universal shoot-down threshold.
@@ -67,7 +68,13 @@ function supportedAirGoal(air,reference,goal){
   if(reference?.status!=='known'||air?.status!=='range')return false;
   // Jets have an explicit pre-air loss model; use its actual conservative
   // margin rather than a generic fighter-bomber percentage substitute.
-  if(air.slots.some(s=>jets.isJet(s.aircraftType)))return routeAirMeets(air,reference,goal)===true;
+  if(air.slots.some(s=>jets.isJet(s.aircraftType)))return perf.withDetails({airCheck:'support',airGoal:goal},()=>{
+    // Attribution only: keep the query and its exact existing answer even
+    // when departure air already falls below the route's reference threshold.
+    if(perf.current()?.level==='modules'&&Number.isFinite(reference[goal])&&air.min<reference[goal])
+      perf.detailCount('air.support.departureBelowThreshold');
+    return routeAirMeets(air,reference,goal)===true;
+  });
   const enemy=reference.enemyAirPower??Math.max(0,...reference.nodes.map(n=>n.enemyAirPower??n.upperBound??NaN));
   if(enemy===0)return true;
   if(!Number.isFinite(enemy))return false;

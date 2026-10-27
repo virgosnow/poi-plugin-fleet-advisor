@@ -12,6 +12,10 @@ const {estimateRouteAirMinimum,routeAirMeets}=require('../../domain/routes/route
 const {usableSlots}=require('../context');
 const {smallCarrierSlot,carrierUtility,healthySupremacy,affordableSupremacy,supportedAirGoal,jetCutInAllowed}=require('./carrier_policy');
 function airLoadout(store,scheme,inventory,required,reference,goal,heldSlots,options){
+  return perf.withDetails({airGoal:goal||'superiority',airStep:'other'},()=>
+    measuredAirLoadout(store,scheme,inventory,required,reference,goal,heldSlots,options));
+}
+function measuredAirLoadout(store,scheme,inventory,required,reference,goal,heldSlots,options){
   const timing=perf.begin('loadout.air');
   try{return memoLoadout(store,inventory,'air',[scheme,required,referenceKey(store,reference),
     goal,heldSlots,[...(options?.protectedAttackSlots||[])]],()=>
@@ -98,6 +102,7 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
     .filter(n=>Number.isFinite(n)&&n>=0).map(n=>Math.max(1,goal==='supremacy'?n*3:Math.ceil(n*1.5)));
   const departureFloor=battleThresholds.length?Math.max(...battleThresholds):null;
   const trialPass=(changes,minimum=required)=>{
+    perf.detailCount('air.attempt');
     // No phase can add aircraft. Reject a mathematically impossible trial
     // before allocating/mutating its full slot list. Unknown route simulation
     // uses departure air instead, so retain the weaker of both necessary bounds.
@@ -106,7 +111,7 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
     if(floor!==null){
       const departure=totalAir().min+changes.reduce((sum,[position,id])=>
         sum+contribution(position,id).min-position.current.min,0);
-      if(departure<floor){perf.count('loadout.air.departureReject');return false;}
+      if(departure<floor){perf.count('loadout.air.departureReject');perf.detailCount('air.departureReject');return false;}
     }
     return trial(changes,()=>reference?.status==='known'?
       (routeAirMeets(totalAir(),reference,goal,minimum-required)??total().min>=minimum):total().min>=minimum);
@@ -191,7 +196,7 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
     if(id>0)used.add(id);
   };
   const small=position=>smallCarrierSlot(position.ship,position.master,position.slot);
-  perf.measure('loadout.air.utility',()=>{
+  perf.measureDetail('loadout.air.utility',{airStep:'utility'},()=>{
     // Retire expendable tiny strike slots before air fitting. Keep the last
     // strike plane and manual holds, and never weaken an already met air goal.
     for(const position of positions.filter(p=>[7,11,18].includes(p.stype)&&small(p))){
@@ -260,7 +265,7 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
       replace(best.position,best.item.id);
     }
   };
-  perf.measure('loadout.air.cover',()=>{
+  perf.measureDetail('loadout.air.cover',{airStep:'cover'},()=>{
     // Keep normal carrier fighter cover when carriers are present. Small-ship
     // fleets can instead use one compatible water fighter in a spare slot.
     const hasFighter=()=>positions.some(p=>[6,45,56].includes(typeOf(slots.get(p.shipId)[p.slot]))&&
@@ -318,7 +323,7 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
     // on the actual ship and slot.
     improve(position=>[3,5,6].includes(position.stype),false);
   });
-  perf.measure('loadout.air.release',()=>{
+  perf.measureDetail('loadout.air.release',{airStep:'release'},()=>{
     // Once the target is secure, trade surplus fighters back for strike planes.
     // Retain only swaps that keep the conservative air-power bound above target.
     if(total().min>=required)for(const position of positions){
@@ -353,10 +358,11 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
       if(choice)replace(position,choice.item.id);
     }
   });
-  perf.measure('loadout.air.pairs',()=>{
+  perf.measureDetail('loadout.air.pairs',{airStep:'pairs'},()=>{
     // A water fighter on an eligible cruiser may buy back a carrier strike slot.
     // Prefer expendable utility slots and only make pairs that keep the target.
     for(let step=0;step<3&&!uncontested&&total().min>=required;step++){
+      perf.detailCount('air.pairs.round');
       let best=null;
       const current=total().min,pairs=[];
       const carriers=positions.filter(position=>[7,11,18].includes(position.stype)&&
@@ -381,6 +387,7 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
           }
         }
       }
+      perf.detailCount('air.pairs.generated',pairs.length);
       best=selectAirPair(pairs,(pair,water,gain)=>{
         const {cruiser,carrier,attack}=pair;
         const after=contribution(carrier,attack.id).min;
@@ -388,6 +395,7 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
         return trial([[cruiser,water.id],[carrier,attack.id]],()=>supportedAirGoal(totalAir(),reference,goal));
       });
       if(!best||best.score<=0)break;
+      perf.detailCount('air.pairs.accepted');
       replace(best.cruiser,best.water.id);
       replace(best.carrier,best.attack.id);
     }
@@ -418,7 +426,8 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
         if(core)strikeCore.add(entry.id+':'+core.slot);
       }
     }
-    const upgraded=perf.measure('loadout.air.supremacy',()=>
+    perf.detailCount('air.supremacy.attempt');
+    const upgraded=perf.measureDetail('loadout.air.supremacy',{airMode:'optional-supremacy'},()=>
       airLoadout(store,fitted,inventory,target,reference,'supremacy',heldSlots,{protectedAttackSlots:strikeCore}));
     const attacks=value=>value.ships.reduce((n,e)=>n+e.slots.filter(id=>[7,8,11,57].includes(typeOf(id))).length,0);
     if(upgraded&&affordableSupremacy(store,fitted,upgraded)&&
@@ -428,7 +437,9 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
           before:{slots:ship.api_slot,ex:ship.api_slot_ex},after:entry};
       }));
       const estimate=estimateRouteAirMinimum(air,reference);
-      if(healthySupremacy(store,upgraded,air,{margins:estimate})&&supportedAirGoal(air,reference,'supremacy'))return upgraded;
+      if(healthySupremacy(store,upgraded,air,{margins:estimate})&&supportedAirGoal(air,reference,'supremacy')){
+        perf.detailCount('air.supremacy.accepted');return upgraded;
+      }
     }
   }
   return fitted;
@@ -448,6 +459,7 @@ function selectAirPair(pairs,accept){
     for(const {water,index:waterIndex,gain} of pair.waters){
       const candidate={...pair,water,waterIndex};
       if(best&&!earlier(candidate,best))continue;
+      perf.detailCount('air.pairs.tested');
       if(!accept(pair,water,gain))continue;
       best=candidate;break;
     }

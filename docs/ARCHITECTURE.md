@@ -260,6 +260,10 @@ timing.clear();
 
 `modules` 的 `totalMs` 包含子模块，`selfMs` 扣除子模块；各线程的累计时长允许超过用户等待时间，且是线程内经过时间，**不是操作系统 CPU 时间**，不能与阶段等待时间相加。子线程初始化和 `dispatch` 往返时长均已包含在对应批次的等待内；汇总它们只用于观察任务不均衡及通信开销。`air.trial.hit/miss/fullHit`、纯计算表命中统计帮助区分缓存命中与实际重算。逐模块模式会增加高频调用开销，分析耗时占比优先使用阶段模式，并用关闭打点的同快照测量校准；开启打点不会跳过缓存或改变候选、库存分配及最终核对。
 
+详细制空查询记录使用固定维度后缀 `批次.搜索模式.制空目标.调装步骤.检查入口`：批次包括 `gear`、`gear-final-ground`、`path-fit`、`refinement` 等，搜索模式区分 `requested` 与 `optional-supremacy`，步骤区分 `utility/cover/release/pairs/other`，入口区分直接查询 `direct` 与喷气支持条件复核 `support`。`air.query` 记录调用数和累计时间，`air.query.hit/miss/pass/fail/unknown` 分别记录缓存与判断结果；同一调用的结果维度与缓存维度不能相加。`air.attempt`、`air.departureReject` 记录进入试配及查询前淘汰；`air.pairs.generated/tested/accepted/round` 区分双槽候选生成、实际逐水战测试、接受换装与迭代次数，生成数不包含水战备选的展开倍数。`air.supremacy.attempt/accepted` 是实际进入空确升级及被该次调装接受的次数，不代表最终推荐数。`air.support.departureBelowThreshold` 只观察喷气支持复核前出击制空已低于参考门槛的情形，不改变判断或提前返回。
+
+上述细分仅在 `modules` 模式启用，不保存舰娘、装备实例、完整配置或查询签名。`withDetails` 只供同步嵌套计算使用，以 `finally` 恢复外层归属；不要包裹跨 `await` 的异步工作。通常模式与 `stages` 模式不建立归属表或细分时钟。先按查询次数定位搜索来源，再用关闭详细打点的测量评估性能，不能把详细打点耗时当成普通运行耗时。
+
 方案文件、可识别损坏备份和残留写入文件均计入预算。容量扫描只查文件属性、不递归或跟随链接。主线程串行管理方案写入和推荐协调 Worker 的磁盘变更，候选子线程只读，避免超额并发写入。
 
 `schemeCache=false` 时保存返回 `SCHEME_CACHE_DISABLED`，已有方案可读可删。写入优先回收计算缓存；无法放入或回收失败时返回 `CACHE_CAPACITY_EXCEEDED`，不覆盖原方案。降低上限可能清除无法容纳的方案，主线程同步清空内存。方案不是长期配置。

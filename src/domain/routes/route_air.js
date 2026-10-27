@@ -431,16 +431,25 @@ function estimateRouteAirMinimum(air,reference){
 // never substitutes a partial value for a margin or changes ranking numbers.
 // null means unknown, so callers retain their existing unknown-data policy.
 function routeAirMeets(air,reference,goal,minimum=0){
+  const timing=perf.detailBegin('air.query');
+  try{
+    const result=routeAirMeetsCore(air,reference,goal,minimum);
+    perf.detailCount(result===true?'air.query.pass':result===false?'air.query.fail':'air.query.unknown');
+    return result;
+  }finally{perf.end(timing);}
+}
+function routeAirMeetsCore(air,reference,goal,minimum){
   if(!air||reference?.status!=='known'||air.status!=='range'||!Array.isArray(air.slots)||
     air.slots.some(s=>s.unknown||!s.planes||!s.effectiveAntiAir||!s.proficiencyBonus))return null;
   const keys=air.slots.map(s=>aircraftKey(s,false)),signature=keys.slice().sort().join(';'),plan=simulationPaths(reference);
   let cache=marginCache.get(plan.trial);if(!cache){cache=new Map();marginCache.set(plan.trial,cache);}
   const minimumEntry=cache.get('min:'+signature)||cache.get(signature);
-  if(minimumEntry){minimumEntry.hot=true;perf.count('air.test.hit');return minimumEntry.value?minimumEntry.value[goal].min>=minimum:null;}
+  if(minimumEntry){minimumEntry.hot=true;perf.count('air.test.hit');perf.detailCount('air.query.hit');return minimumEntry.value?minimumEntry.value[goal].min>=minimum:null;}
   const key='test:'+goal+':'+minimum+':'+signature,entry=cache.get(key);
-  if(entry){entry.hot=true;perf.count('air.test.hit');return entry.value;}
+  if(entry){entry.hot=true;perf.count('air.test.hit');perf.detailCount('air.query.hit');return entry.value;}
   const result=plan.trial(air,keys,true,{goal:goal==='supremacy'?1:0,minimum});
   perf.count('air.test.miss');
+  perf.detailCount('air.query.miss');
   if(result!==undefined){
     if(result===false)return saveMargins(cache,key,false);
     saveMargins(cache,'min:'+signature,result);

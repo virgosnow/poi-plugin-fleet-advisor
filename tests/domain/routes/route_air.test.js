@@ -50,6 +50,26 @@ const combat=(id='A',enemy=100,kind='battle')=>({id,kind,enemyAirPower:enemy,
   antiAir:{status:'known',proportion:0.25,fixed:12}});
 const boss={...combat('Z'),boss:true};
 
+test('air query attribution reconciles cache hits and pass/fail without changing results',()=>{
+  const perf=require('../../../src/shared/performance_trace');
+  const {routeAirMeets}=require('../../../src/domain/routes/route_air');
+  const ref={status:'known',nodes:[combat('A',71),boss],paths:[['A','Z']]};
+  const air=aircraft(31,33),before=structuredClone(air),trace=new perf.PerformanceTrace();
+  trace.run(()=>perf.withDetails({batch:'gear',airGoal:'superiority',airStep:'release'},()=>{
+    assert.equal(routeAirMeets(air,ref,'superiority'),true);
+    assert.equal(routeAirMeets(air,ref,'superiority'),true);
+    assert.equal(routeAirMeets(air,ref,'superiority',1000),false);
+    assert.equal(routeAirMeets(null,ref,'superiority'),null);
+  }));
+  const suffix='.gear.requested.superiority.release.direct',n=name=>trace.counters['air.query.'+name+suffix]||0;
+  assert.equal(trace.spans.get('air.query'+suffix).calls,4);
+  assert.equal(n('hit')+n('miss')+n('unknown'),4);
+  assert.equal(n('pass'),2);assert.equal(n('fail'),1);assert.equal(n('unknown'),1);
+  assert(n('hit')>=1);assert(n('miss')>=1);assert.deepEqual(air,before);
+  const {sanitize}=require('../../../src/infrastructure/cache/performance_logs');
+  assert.deepEqual(sanitize({...trace.snapshot(),level:'modules'}).counters,trace.counters);
+});
+
 test('boss air is measured before boss losses; preceding fights can break departure superiority',()=>{
   const fleet=aircraft(),before=JSON.stringify(fleet);
   const direct=simulateAirPath(fleet,[boss]),via=simulateAirPath(fleet,[combat(),boss]);

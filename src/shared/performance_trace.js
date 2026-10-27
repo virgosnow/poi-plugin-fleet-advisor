@@ -27,6 +27,25 @@ function measure(name,calculate){
   const token=begin(name);try{return calculate();}finally{end(token);}
 }
 function count(name,amount=1){const trace=current();if(trace)trace.counters[name]=(trace.counters[name]||0)+amount;}
+// Synchronous, code-owned labels only: never include ship/equipment IDs or
+// query contents. Detailed attribution is absent from normal/stage-only runs.
+function withDetails(labels,calculate){
+  const trace=current();if(trace?.level!=='modules')return calculate();
+  const previous=trace.details;trace.details={...previous,...labels};
+  try{return calculate();}finally{trace.details=previous;}
+}
+function detailKey(trace,name){
+  const d=trace.details||{};
+  return `${name}.${d.batch||'coordinator'}.${d.airMode||'requested'}.${d.airGoal||'none'}.${d.airStep||'other'}.${d.airCheck||'direct'}`;
+}
+function detailCount(name,amount=1){
+  const trace=current();if(trace?.level!=='modules')return;
+  const key=detailKey(trace,name);trace.counters[key]=(trace.counters[key]||0)+amount;
+}
+function detailBegin(name){
+  const trace=current();return trace?.level==='modules'?trace.begin(detailKey(trace,name)):null;
+}
+function measureDetail(name,labels,calculate){return withDetails(labels,()=>measure(name,calculate));}
 function stage(name,calculate){
   const trace=current();if(!trace)return calculate();
   const start=trace.now();try{return calculate();}finally{trace.stages.push({name,ms:trace.now()-start});}
@@ -58,5 +77,5 @@ function summarize(report){
     startupAndTransferMs:report.startupAndTransferMs,otherWorkerMs:Math.max(0,report.workerMs-accountedMs),
     stages:[...stages.values()],modules:[...modules.values()].sort((a,b)=>b.selfMs-a.selfMs),counters};
 }
-module.exports={PerformanceTrace,current,begin,end,measure,count,stage,stageAsync,setEnabled,isEnabled,options,publish,
+module.exports={PerformanceTrace,current,begin,end,measure,count,withDetails,detailCount,detailBegin,measureDetail,stage,stageAsync,setEnabled,isEnabled,options,publish,
   summarize,getLastReport:()=>lastReport,clear:()=>{lastReport=null;}};

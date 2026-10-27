@@ -2,6 +2,27 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const perf=require('../../src/shared/performance_trace');
 
+test('detail attribution restores outer labels after nested failures and is absent in stages mode',()=>{
+  const trace=new perf.PerformanceTrace();
+  trace.run(()=>perf.withDetails({batch:'gear',airGoal:'superiority'},()=>{
+    assert.throws(()=>perf.withDetails({airMode:'optional-supremacy',airGoal:'supremacy'},()=>{
+      perf.detailCount('attempt');throw Error('expected');
+    }),/expected/);
+    perf.measureDetail('release',{airStep:'release'},()=>{
+      const token=perf.detailBegin('query');perf.detailCount('hit');perf.end(token);
+    });
+  }));
+  assert.equal(trace.details,undefined);assert.equal(trace.stack.length,0);
+  assert.equal(trace.counters['attempt.gear.optional-supremacy.supremacy.other.direct'],1);
+  assert.equal(trace.counters['hit.gear.requested.superiority.release.direct'],1);
+  assert.equal(trace.spans.get('query.gear.requested.superiority.release.direct').calls,1);
+  const stages=new perf.PerformanceTrace({level:'stages',now:()=>assert.fail('unexpected clock')});
+  stages.run(()=>assert.equal(perf.withDetails({batch:'gear'},()=>{
+    perf.detailCount('ignored');assert.equal(perf.detailBegin('ignored'),null);return 42;
+  }),42));
+  assert.deepEqual(stages.counters,{});assert.equal(stages.details,undefined);
+});
+
 test('nested synchronous timings separate inclusive and exclusive elapsed time',()=>{
   let now=0;const trace=new perf.PerformanceTrace({now:()=>now});
   trace.run(()=>{
