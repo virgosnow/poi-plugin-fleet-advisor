@@ -4,13 +4,16 @@ const perf=require('../../shared/performance_trace');
 const {parallelism}=require('../../config/computation_settings');
 const {Worker,isMainThread,parentPort,workerData}=require('worker_threads');
 const {withEquipmentIndexCache}=require('../../domain/fleet/equipment_planner');
+const {BatchReceiver}=require('./batch_transport');
+const v8=require('v8');
 
 // Leave CPU capacity for poi/game rendering. The coordinator only dispatches
 // while these workers run; dependent search stages still use one thread.
 
 if(!isMainThread&&workerData?.kind==='recommendation-batch'){
   const trace=workerData.diagnostics?new perf.PerformanceTrace(workerData.diagnostics):null;
-  const {store,cacheDirectory,version,cacheMaxBytes}=workerData,indexes=new Map();
+  const {cacheDirectory,version,cacheMaxBytes}=workerData,indexes=new Map(),planningIndexes=new Map();
+  const store=v8.deserialize(Buffer.from(workerData.snapshot));
   const {CalculationCache,withCalculationCache}=require('../../shared/calculation_cache');
   const {RecommendationCache}=require('../cache/recommendation_cache');
   // Only the coordinator persists tables: token dictionaries must never be
@@ -21,13 +24,17 @@ if(!isMainThread&&workerData?.kind==='recommendation-batch'){
   const run=fn=>cache?withCalculationCache(cache,fn,{flush:false}):fn();
   const calculate=require('../../recommendation/index').recommendationBatch;
   const startupMs=trace?performance.now()-workerStarted:0;
-  parentPort.on('message',({id,batch})=>{
+  const receiver=new BatchReceiver();
+  parentPort.on('message',message=>{
+    const {id}=message;
     try{
+      const batch=receiver.read(message);
       const started=trace?performance.now():0;
       const compute=()=>{
         const token=perf.begin('batch.'+batch.kind);
         try{return batch.kind==='cache'?{equipment:cache?.equipmentEntries()||[],hulls:cache?.hullEntries()||[]}:
-          run(()=>withEquipmentIndexCache(store,()=>calculate(store,batch),indexes));}
+          run(()=>require('../../domain/routes/route_plans').withPlanningCache(()=>
+            withEquipmentIndexCache(store,()=>calculate(store,batch),indexes),planningIndexes));}
         finally{perf.end(token);}
       };
       const result=trace?trace.run(compute):compute();
@@ -44,11 +51,17 @@ class RecommendationPool {
     this.cacheDirectory=cacheDirectory;this.version=version;this.createWorker=createWorker;
     this.cacheMaxBytes=cacheMaxBytes;
     this.mergeEquipmentEntries=mergeEquipmentEntries;this.mergeHullEntries=mergeHullEntries;
-    this.workers=[];this.closed=false;this.nextId=0;
+    this.workers=[];this.closed=false;this.nextId=0;this.nextBatchId=0;
     this.trace=perf.current();
   }
   spawn(){
-    const worker=this.createWorker(__filename,{workerData:{kind:'recommendation-batch',store:this.store,
+    if(!this.snapshot)this.snapshot=perf.measure('workers.snapshot',()=>{
+      const bytes=v8.serialize(this.store),shared=new SharedArrayBuffer(bytes.length);
+      new Uint8Array(shared).set(bytes);perf.count('workers.snapshot.bytes',bytes.length);return shared;
+    });
+    // Only bytes are shared. Each worker reconstructs its own private objects
+    // once, preserving the original isolation and immutable search scope.
+    const worker=this.createWorker(__filename,{workerData:{kind:'recommendation-batch',snapshot:this.snapshot,
       cacheDirectory:this.cacheDirectory,version:this.version,cacheMaxBytes:this.cacheMaxBytes,
       diagnostics:this.trace?{level:this.trace.level}:null}});
     const slot={worker,pending:null,failure:null,index:this.workers.length};
@@ -70,12 +83,20 @@ class RecommendationPool {
     });
     this.workers.push(slot);return slot;
   }
-  execute(slot,batch){
+  execute(slot,batch,items=batch.items){
     if(slot.failure)return Promise.reject(slot.failure);
     return new Promise((resolve,reject)=>{
       const id=++this.nextId;slot.pending={id,resolve,reject,...this.trace?
-        {kind:batch.kind,items:batch.items?.length||0,started:performance.now()}: {}};
-      try{slot.worker.postMessage({id,batch});}catch(e){slot.pending=null;reject(e);}
+        {kind:batch.kind,items:items?.length||0,started:performance.now()}: {}};
+      try{
+        let header;
+        if(slot.batch!==batch){
+          slot.batch=batch;slot.batchId=++this.nextBatchId;
+          const {items:unused,...common}=batch;header=common;
+          if(this.trace)perf.count('workers.header.sent');
+        }else if(this.trace)perf.count('workers.header.reused');
+        slot.worker.postMessage({id,batchId:slot.batchId,...header?{header}:{},items});
+      }catch(e){slot.pending=null;reject(e);}
     });
   }
   async run(batch,fallback){
@@ -86,6 +107,9 @@ class RecommendationPool {
     // fitting batches; a tiny map should not start a pool just for this stage.
     const minimum=fitting&&this.workers.length?4:24;
     if(this.size===1||(hulls?batch.estimatedWork<2000:batch.items.length<minimum))return fallback();
+    // Registration is per invocation, even if a caller reuses a batch object
+    // with a new phase/held-slot query after the previous invocation completed.
+    batch={...batch};
     const count=hulls?this.size:Math.min(this.size,Math.max(
       Math.ceil(batch.items.length/(fitting?2:24)),
       batch.kind==='gear'?Math.min(this.workers.length,Math.ceil(batch.items.length/2)):0));
@@ -102,7 +126,7 @@ class RecommendationPool {
       await Promise.all(this.workers.slice(0,count).map(async slot=>{
         while(next<batch.items.length){
           const start=next;next+=chunkSize;
-          const rows=await this.execute(slot,{...batch,items:batch.items.slice(start,start+chunkSize)});
+          const rows=await this.execute(slot,batch,batch.items.slice(start,start+chunkSize));
           for(let i=0;i<rows.length;i++)results[start+i]=rows[i];
         }
       }));
@@ -112,7 +136,7 @@ class RecommendationPool {
   async dispose(){
     this.closed=true;
     await Promise.all(this.workers.map(slot=>slot.worker.terminate()));
-    this.workers=[];
+    this.workers=[];this.snapshot=null;
   }
   async flush(){
     if((!this.mergeEquipmentEntries&&!this.mergeHullEntries&&!this.trace)||this.closed)return;

@@ -20,6 +20,17 @@ function fixture(){
   return store;
 }
 const scheme=store=>({fleet:1,ships:[{id:1,slots:store.info.ships[1].api_slot.slice(),ex:-1}]});
+test('surface and route fitting reuse full inputs and return independent allocations',()=>{
+  const {surfaceLoadout,routingLoadout}=require('../../src/recommendation/fitting'),store=fixture(),inventory=availableEquipment(store),base=scheme(store);
+  const profile={counts:{surface:{maximum:1}},examples:[['A']],mapPreview:{nodes:[{id:'A',kind:'battle'}]}};
+  const calls=[()=>surfaceLoadout(store,base,inventory,'5-2',undefined,profile),
+    ()=>surfaceLoadout(store,base,inventory,'5-2',undefined,profile,[{...base.ships[0],keep:{0:true,1:true,2:true,3:true}}]),
+    ()=>routingLoadout(store,base,inventory,{kind:'radarCarriers',count:1})];
+  const expected=calls.map(call=>call());
+  withEquipmentIndexCache(store,()=>{
+    for(let pass=0;pass<3;pass++)calls.forEach((call,i)=>{const actual=call();assert.deepEqual(actual,expected[i]);if(actual)actual.ships[0].slots.fill(-1);});
+  });
+});
 
 test('immutable search batches share stock indexes without retaining live ownership or availability',()=>{
   const store=fixture(),plain=availableEquipment(store),scope=new Map();
@@ -187,6 +198,21 @@ test('candidate input reuse keeps complete results and does not cross held-slot 
     for(let i=0;i<3;i++)batches.forEach((batch,j)=>assert.deepEqual(recommendationBatch(store,batch),expected[j]));
   }));
   assert(trace.snapshot().counters['candidate.inputHit']>=2);
+  assert(trace.snapshot().counters['candidate.setup.hit']>=2,'full query preparation is shared without crossing holds');
+});
+test('prepared evaluators keep captured holds when a caller reuses and edits its query object',()=>{
+  const {recommendationBatch}=require('../../src/recommendation/normal'),store=require('../helpers/workbench_fixture')();
+  store.const.$shipTypes[2]={api_equip_type:{1:1}};
+  store.const.$equips[1]={api_id:1,api_name:'主炮',api_type:[0,0,1,1],api_houg:5};
+  for(const id of [101,102])store.info.equips[id]={api_id:id,api_slotitem_id:1};
+  const original={fleet:1,area:'1-1',byRoute:true,airGoal:'ignore'},mutable=structuredClone(original);
+  const held=[{id:2,slots:[-1,-1],ex:-1,keep:{0:true,1:true}}];
+  const run=args=>recommendationBatch(store,{kind:'seeds',args,items:[[2]]});
+  const plain=run(original),locked=run({...original,heldSlots:held});assert.notDeepEqual(plain,locked);
+  withEquipmentIndexCache(store,()=>{
+    assert.deepEqual(run(mutable),plain);mutable.heldSlots=held;assert.deepEqual(run(mutable),locked);
+    assert.deepEqual(run(structuredClone(original)),plain);
+  });
 });
 
 test('air-pair score tiers match exhaustive original traversal, including equal scores and failed high tiers',()=>{

@@ -4,6 +4,12 @@ const {Worker}=require('node:worker_threads');
 const {RecommendationPool,parallelism}=require('../../src/infrastructure/workers/recommendation_pool');
 const {recommendNormalFleet,recommendNormalFleetParallel}=require('../../src/recommendation/index');
 const fixture=require('../helpers/workbench_fixture');
+const {BatchReceiver}=require('../../src/infrastructure/workers/batch_transport');
+function wire(worker,inspect){
+  const receiver=new BatchReceiver(),post=worker.postMessage.bind(worker);
+  worker.postMessage=message=>{inspect?.(message);return post({id:message.id,batch:receiver.read(structuredClone(message))});};
+  return worker;
+}
 
 test('parallel expedition goals retain complete results and stop their only child',async()=>{
   const {parallelExpeditionGoals}=require('../../src/infrastructure/workers/recommendation_worker'),r=require('../../src/recommendation/index');
@@ -47,17 +53,21 @@ test('CPU budget reserves host capacity and caps the compute pool',()=>{
 });
 
 test('out-of-order batches preserve order, share each snapshot once and reuse bounded workers',async()=>{
-  const store={privateSnapshot:true},created=[];
+  const store={privateSnapshot:true},created=[],packets=[],snapshots=[];
   const pool=new RecommendationPool(store,{size:8,createWorker:(_file,options)=>{
-    assert.equal(options.workerData.store,store);
+    assert.deepEqual(require('node:v8').deserialize(Buffer.from(options.workerData.snapshot)),store);
+    snapshots.push(options.workerData.snapshot);
     const worker=new EventEmitter();worker.stopped=false;created.push(worker);
     worker.postMessage=({id,batch})=>setTimeout(()=>worker.emit('message',{id,result:batch.items.map(n=>n*2)}),batch.items[0]===0?30:1);
-    worker.terminate=async()=>{worker.stopped=true;worker.emit('exit',0);};return worker;
+    worker.terminate=async()=>{worker.stopped=true;worker.emit('exit',0);};return wire(worker,message=>packets.push(message));
   }});
   try{
     const items=Array.from({length:240},(_,i)=>i);
     for(let i=0;i<2;i++)assert.deepEqual(await pool.run({kind:'seeds',items},()=>assert.fail('unexpected fallback')),items.map(n=>n*2));
     assert.equal(created.length,8);
+    assert(snapshots.every(snapshot=>snapshot===snapshots[0]),'serialize once; all threads read the same immutable bytes');
+    assert.equal(packets.filter(packet=>packet.header).length,16,'one registration per worker and batch, not per chunk');
+    assert(packets.some(packet=>!packet.header),'later chunks reuse their registered header');
     assert.equal(await pool.run({items:[1]},()=>42),42);
   }finally{await pool.dispose();}
   assert(created.every(w=>w.stopped));
@@ -72,6 +82,19 @@ test('a crashed child fails the batch and terminates siblings without leaving pe
   }});
   await assert.rejects(pool.run({kind:'seeds',items:new Array(60).fill(0)},()=>{}),/test crash/);
   assert(workers.every(w=>w.stopped));assert.equal(pool.workers.length,0);
+});
+test('reusing a batch object cannot retain previous query parameters in a worker',async()=>{
+  const pool=new RecommendationPool({}, {size:2,createWorker:()=>{
+    const worker=new EventEmitter();worker.postMessage=({id,batch})=>setImmediate(()=>
+      worker.emit('message',{id,result:batch.items.map(n=>n+batch.args.offset)}));
+    worker.terminate=async()=>{};return wire(worker);
+  }});
+  const batch={kind:'seeds',args:{offset:1},items:Array.from({length:48},(_,i)=>i)};
+  try{
+    assert.deepEqual(await pool.run(batch,()=>assert.fail()),batch.items.map(n=>n+1));
+    batch.args={offset:20};
+    assert.deepEqual(await pool.run(batch,()=>assert.fail()),batch.items.map(n=>n+20));
+  }finally{await pool.dispose();}
 });
 
 test('real threads preserve complete results, fixed ships, held slots and the input snapshot',async()=>{
@@ -117,7 +140,7 @@ test('small fitting jobs reuse warm workers, preserve trial order and keep tiny 
       received.push({worker:created.indexOf(worker),kind:batch.kind,items:batch.items});
       setTimeout(()=>worker.emit('message',{id,result:batch.items}),batch.items[0]===0?15:1);
     };
-    worker.terminate=async()=>{};return worker;
+    worker.terminate=async()=>{};return wire(worker);
   }});
   try{
     const items=Array.from({length:12},(_,i)=>i);
@@ -186,7 +209,7 @@ test('large hull jobs spread across the entire pool regardless of how few fleet 
     const worker=new EventEmitter();
     worker.postMessage=({id,batch})=>{received.push(batch.items[0]);
       setTimeout(()=>worker.emit('message',{id,result:batch.items}),batch.items[0].index===0?20:1);};
-    worker.terminate=async()=>{};return worker;
+    worker.terminate=async()=>{};return wire(worker);
   }});
   try{
     const expected=Array.from({length:6},(_,index)=>({index,count:6}));

@@ -72,6 +72,13 @@ function candidatePool(ctx,mode,wantsASW){
 // 3-5 has two materially different wiki攻略 routes. The level floor is a
 // recommender safety heuristic, not a route requirement or a wiki threshold.
 function candidateEvaluator(store,args,ctx,inventory){
+  const factories=snapshotMemo(store,'search.evaluatorFactories',inventory,()=>new Map()),key=JSON.stringify(args);
+  if(factories.has(key)){perf.count('candidate.setup.hit');return factories.get(key);}
+  perf.count('candidate.setup.miss');
+  const evaluator=prepareCandidateEvaluator(store,structuredClone(args),ctx,inventory);
+  factories.set(key,evaluator);return evaluator;
+}
+function prepareCandidateEvaluator(store,args,ctx,inventory){
   const {area,target='boss',phase,airGoal='ignore',preference='all'}=args;
   const byRoute=args.byRoute===true,policy=guidePolicy(area,target,phase);
   const modes=byRoute||preference==='all'?NORMAL_PREFERENCES:[preference];

@@ -1,5 +1,6 @@
 'use strict';
 const perf=require('../shared/performance_trace');
+const {memoLoadout,referenceKey}=require('./loadout/search_memo');
 const {airLoadout}=require('./loadout/air_fitting');
 // Equipment variants for route constraints and combat roles; preserve held slots.
 const {canEquip,acceptsOtherSlot}=require('../domain/fleet/equipment_rules');
@@ -160,6 +161,9 @@ function gearVariantCore(store,scheme,inventory,kind,profile,area,phase,{stopWhe
 }
 // Fit carrier-count routing gear even when utility slots are already occupied.
 function routingLoadout(store,scheme,inventory,need,heldSlots=[]){
+  return memoLoadout(store,inventory,'routing',[scheme,need,heldSlots],()=>routingLoadoutCore(store,scheme,inventory,need,heldSlots));
+}
+function routingLoadoutCore(store,scheme,inventory,need,heldSlots){
   const holds=new Map(heldSlots.filter(Boolean).map(s=>[s.id,s]));
   const entries=scheme.ships.map(s=>({...s,slots:(s.slots||usableSlots(store,s.id)).slice()}));
   const used=new Set(entries.flatMap(s=>s.slots.concat(s.ex??store.info.ships[s.id].api_slot_ex)).filter(id=>id>0));
@@ -302,6 +306,10 @@ function surfaceWeaponCount(store,entry){
   }).length;
 }
 function surfaceLoadout(store,scheme,inventory,area,phase,profile,heldSlots=[]){
+  return memoLoadout(store,inventory,'surface',[scheme,area,phase,referenceKey(store,profile),heldSlots],()=>
+    surfaceLoadoutCore(store,scheme,inventory,area,phase,profile,heldSlots));
+}
+function surfaceLoadoutCore(store,scheme,inventory,area,phase,profile,heldSlots){
   const original=scheme;
   // Retire excess automatic ASW kits before restoring surface weapons. Manual
   // slots remain authoritative, even when they exceed the automatic budget.
