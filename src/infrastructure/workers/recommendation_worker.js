@@ -43,14 +43,16 @@ if(!isMainThread&&workerData?.kind==='expedition-goal'){
 
 // Pure calculations only: snapshots cross the thread boundary, never the live
 // controller, game bridge or account-storage service.
-if(!isMainThread&&workerData?.kind==='fleet-recommendation')(async()=>{
+async function runRecommendation(workerData){
   const trace=workerData.diagnostics?new perf.PerformanceTrace(workerData.diagnostics):null;
   if(trace)trace.stages.push({name:'worker.load',ms:performance.now()-workerStarted});
   const report=status=>trace?{version:1,status,level:trace.level,method:workerData.method,
     area:workerData.args?.area||null,phase:workerData.args?.phase||null,
     workerMs:performance.now()-workerStarted,stages:trace.stages,...trace.snapshot(),
     children:trace.children,dispatch:trace.dispatch,implementation:trace.implementation||null,
-    runtime:{plugin:require('../../../package.json').version,node:process.versions.node,v8:process.versions.v8}}:undefined;
+    runtime:{plugin:require('../../../package.json').version,node:process.versions.node,v8:process.versions.v8,
+      execution:process.type==='utility'?'utility-process':'worker-thread',
+      ...(process.type==='utility'?{peakRssMiB:process.resourceUsage().maxRSS/1024}:{})}}:undefined;
   const execute=async()=>{
   try{
     if(!METHODS.has(workerData.method))throw Error('Unsupported recommendation method');
@@ -76,17 +78,19 @@ if(!isMainThread&&workerData?.kind==='fleet-recommendation')(async()=>{
       require('../cache/recommendation_cache').cachedRecommendation(workerData.cacheDir,
       workerData.method,workerData.store,workerData.args,
       ()=>perf.stage('search.sync',()=>require('../../recommendation/index')[workerData.method](workerData.store,workerData.args)),workerData.settings);
-    parentPort.postMessage({ok:true,result,profile:report('success')});
-  }catch(e){parentPort.postMessage({ok:false,error:{message:e.message,code:e.code,stack:e.stack},profile:report('error')});}
+    return {ok:true,result,profile:report('success')};
+  }catch(e){return {ok:false,error:{message:e.message,code:e.code,stack:e.stack},profile:report('error')};}
   };
   return trace?trace.run(execute):execute();
-})();
+}
+if(!isMainThread&&workerData?.kind==='fleet-recommendation')
+  void runRecommendation(workerData).then(message=>parentPort.postMessage(message));
 
 class RecommendationWorker {
   constructor({createWorker=(filename,options)=>new Worker(filename,options),cacheDir,getSettings=()=>undefined,
     getDiagnostics=()=>perf.options(),onProfile}={}){
     this.createWorker=createWorker;this.cacheDir=cacheDir;this.pending=Promise.resolve();this.active=null;this.closed=false;
-    this.getSettings=getSettings;this.queued=0;
+    this.getSettings=getSettings;this.queued=0;this.generation=0;
     this.getDiagnostics=getDiagnostics;this.onProfile=onProfile;this.lastProfile=null;
   }
   // Cache maintenance uses this same queue, so an older search cannot refill
@@ -103,43 +107,68 @@ class RecommendationWorker {
     if(this.closed)return Promise.reject(cancelled());
     if(!METHODS.has(method))return Promise.reject(Error('Unsupported recommendation method'));
     const requested=this.getDiagnostics(),diagnostics=requested?{level:requested.level==='modules'?'modules':'stages'}:null;
-    const queuedAt=diagnostics?performance.now():0;
+    const queuedAt=diagnostics?performance.now():0,generation=this.generation;
     // Serialize heavy work from different tabs/MCP callers to avoid CPU spikes.
     return this.enqueue(()=>{
+      if(generation!==this.generation)throw cancelled();
       return new Promise((resolve,reject)=>{
         const settings=require('../../config/computation_settings').normalize(this.getSettings());
         const started=diagnostics?performance.now():0;
         const worker=this.createWorker(__filename,{workerData:{kind:'fleet-recommendation',method,store,args,cacheDir:this.cacheDir,settings,diagnostics}});
-        let settled=false,received=false;
-        const finish=(reason,result)=>{
-          if(settled)return;settled=true;this.active=null;
-          reason?reject(reason):resolve(result);
+        let finishing=false,received=false,wasCancelled=false,completion;
+        const active={worker,cancel:()=>{wasCancelled=true;return finish(cancelled());}};
+        const finish=(reason,result,message)=>{
+          if(finishing)return completion;finishing=true;
+          completion=(async()=>{
+            const receivedAt=performance.now();
+            try{
+              // Reap before the next request or maintenance: no orphan workers,
+              // late writes after clear, or accumulating per-search heaps.
+              await worker.terminate();
+            }catch(error){
+              this.closed=true;reason=Object.assign(Error(error?.message||'计算进程回收失败'),error);
+              this.cleanupFailure={worker,error:reason};
+            }
+            if(diagnostics&&message?.profile){
+              const elapsedMs=receivedAt-started;
+              this.lastProfile={...message.profile,elapsedMs,queueMs:started-queuedAt,
+                startupAndTransferMs:Math.max(0,elapsedMs-message.profile.workerMs),
+                teardownMs:performance.now()-receivedAt};
+              perf.publish(this.lastProfile);
+              try{await this.onProfile?.(this.lastProfile);}catch(_){/* Diagnostics never fail a recommendation. */}
+            }
+            if(this.active===active)this.active=null;
+            if(this.cleanupFailure)reject(this.cleanupFailure.error);
+            else if(wasCancelled)reject(cancelled());else if(reason)reject(Object.assign(Error(reason.message||String(reason)),reason));
+            else resolve(result);
+          })();
+          return completion;
         };
-        this.active={worker,cancel:()=>finish(cancelled())};
-        worker.once('message',async message=>{
-          received=true;if(settled)return;
-          // Calculation has finished. Keep the queue occupied until optional
-          // logging completes; a normal Worker exit must not race the writer.
-          this.active=null;
-          if(diagnostics&&message.profile){
-            const elapsedMs=performance.now()-started;
-            this.lastProfile={...message.profile,elapsedMs,queueMs:started-queuedAt,
-              startupAndTransferMs:Math.max(0,elapsedMs-message.profile.workerMs)};
-            perf.publish(this.lastProfile);
-            try{await this.onProfile?.(this.lastProfile);}catch(_){/* Diagnostics never fail a recommendation. */}
-          }
-          finish(message.ok?null:Object.assign(Error(message.error.message),message.error),message.result);
+        this.active=active;
+        worker.once('message',message=>{
+          received=true;
+          if(!message||typeof message.ok!=='boolean')return void finish(Error('推荐进程返回了无效结果'));
+          void finish(message.ok?null:message.error||Error('推荐计算失败'),message.result,message);
         });
-        worker.once('error',e=>{if(!received)finish(e);});
-        worker.once('exit',code=>{if(!received)finish(Error(`推荐线程提前退出（${code}）`));});
+        worker.once('error',e=>{if(!received)void finish(e);});
+        worker.once('exit',code=>{if(!received)void finish(Error('推荐计算提前退出（'+code+'）'));});
       });
     });
   }
+  async cancel(){
+    this.generation++;
+    await this.active?.cancel();
+    if(this.cleanupFailure){
+      // A failed kill must also fail unload/hot reload. A later confirmed exit
+      // permits cleanup, but this closed queue is never reused for searches.
+      await this.cleanupFailure.worker.terminate();
+      this.cleanupFailure=null;
+    }
+  }
   async dispose(){
     this.closed=true;
-    const active=this.active;
-    if(active){active.cancel();await active.worker.terminate();}
+    await this.cancel();
     await this.pending;
   }
 }
-module.exports={RecommendationWorker,parallelExpeditionGoals};
+module.exports={RecommendationWorker,parallelExpeditionGoals,runRecommendation};

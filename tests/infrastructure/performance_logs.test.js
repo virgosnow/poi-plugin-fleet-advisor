@@ -12,9 +12,12 @@ test('logs whitelist diagnostics, stay within the shared cache budget and preser
   const root=setup(t),logs=new PerformanceLogs(root,{getLimitBytes:()=>6000});
   const value=report();Object.assign(value,{store:{nickname:'PRIVATE_TEST'},args:{token:'PRIVATE_TEST'},error:'PRIVATE_TEST'});
   value.spans[0].shipId='PRIVATE_TEST';
+  value.teardownMs=12;value.runtime={execution:'utility-process',peakRssMiB:1400,pid:'PRIVATE_TEST',store:'PRIVATE_TEST'};
   assert((await logs.write(value)).saved);
   const file=(await cacheFiles(root,'logs'))[0],text=fs.readFileSync(file.file,'utf8'),parsed=JSON.parse(text);
   assert(!text.includes('PRIVATE_TEST'));assert.equal(parsed.profile.area,'4-5');assert.equal(parsed.summary.modules[0].calls,12);
+  assert.equal(parsed.summary.teardownMs,12);
+  assert.deepEqual(parsed.profile.runtime,{execution:'utility-process',peakRssMiB:1400});
   for(let i=0;i<10;i++)assert((await logs.write(report())).saved);
   const files=await cacheFiles(root,'logs');assert(files.length<11);assert(files.reduce((n,f)=>n+f.size,0)<=6000);
   const unrelated=path.join(logs.directory,'my-notes.json');fs.writeFileSync(unrelated,'keep');

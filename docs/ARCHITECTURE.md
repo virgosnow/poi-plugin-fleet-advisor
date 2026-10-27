@@ -23,7 +23,7 @@ src/
     cache/                    推荐、计算与地图资源缓存
     persistence/              编成方案与远征进度存储
     quests/                   任务列表观察、首次读取协调与内存状态
-    workers/                  推荐协调 Worker 与候选线程池
+    workers/                  推荐进程入口、任务队列与候选线程池
   config/                     全局筛选与计算资源设置
   shared/                     名称匹配、错误与纯计算上下文
   bridge/                     HTTP、MCP 协议及工具适配
@@ -62,7 +62,7 @@ flowchart TD
   UI[页面] --> APP[FleetAdvisorService]
   MCP[本机 HTTP MCP] --> APP
   APP --> SNAP[只读快照]
-  SNAP --> WORKER[推荐协调 Worker]
+  SNAP --> WORKER[独立计算进程内的协调器]
   WORKER --> POOL[候选线程池]
   POOL --> RULES[搜索与业务规则]
   RULES --> RESULT[候选与指标]
@@ -198,11 +198,13 @@ flowchart TD
 
 属性型远征优先满足普通成功条件。运输桶优先放在属性装备适配潜力较低的槽位，避免把少数能装声呐、电探的槽位全部占用。大成功额外运输桶使属性无法达标时，退回必需桶数重试，手动指定的桶不移除。装备短名单停滞后再展开同属性候选和已收录蓝字联动条件所需装备，避免把零白字但有用的电探等装备提前过滤；仍不保证全局最优。
 
-## 线程与缓存
+## 计算进程、线程与缓存
 
-`infrastructure/workers/recommendation_worker.js` 管理协调线程和远征目标并行；`recommendation_pool.js` 分配常规候选任务。线程间只传快照、任务和结果，在线宿主、控制器及账号存储服务不跨线程。
+`infrastructure/workers/recommendation_worker.js` 串行管理 UI / MCP 推荐请求、取消和缓存维护，并提供共用计算入口。poi 通过 `host/recommendation_process.js` 在主进程中托管 Electron `utilityProcess`，每个请求使用独立进程；`recommendation_process_entry.js` 在其中直接运行协调器，`recommendation_pool.js` 保持现有候选线程池。主进程只负责启动、传输和回收，不运行搜索。仅快照、任务和结果跨进程，在线宿主、控制器及账号存储服务不跨边界。离线 Node 测试和工具仍使用同一实现的协调 Worker。
 
-常规线程可自动选择或指定 1–8，远征使用独立的 1–2 线程设置，实际数量受可用处理器限制。Worker 使用模块 `__filename` 作为入口，共用计算实现。
+进程通过就绪握手接收一次快照，正常结束后回收整棵计算线程树并释放搜索内存，确认退出后才交付结果及处理下一请求或缓存清理。`cancel()` 取消当前与此前排队的推荐，后续请求可重新启动；`dispose()` 同时关闭队列。异常退出、计算错误与启动超时拒绝本次请求，下一次重新创建进程，不偷偷返回部分结果或重试整次搜索。终止失败时重试回收；仍不能确认退出则关闭该队列并提示重启 poi，避免并存写入者。页面销毁、刷新、渲染进程崩溃和 poi 退出由主进程独立回收，插件卸载同时释放主进程模块缓存。启动握手限时 30 秒，搜索本身不设置任意耗时截断。
+
+常规线程可自动选择或指定 1–8，远征使用独立的 1–2 线程设置，实际数量受可用处理器限制。进程隔离不改变候选顺序、枚举预算、评分、手动槽位、库存分配或带路／制空／索敌核对；线程设置仍只控制原有并行计算预算。
 
 | 缓存 | 键与复用 | 必须重新执行 |
 | --- | --- | --- |
@@ -248,9 +250,9 @@ timing.clear();
 
 程序调用可给 `RecommendationWorker` 传入 `getDiagnostics: () => ({level: 'stages'})` 或 `modules`，通过 `lastProfile` / `onProfile` 读取报告；`getDiagnostics: () => null` 可强制关闭。独立 Node 进程也支持 `FLEET_ADVISOR_PROFILE=1` / `modules`。离线复现使用 `node tools/bench/profile-recommendation.cjs --store <私有快照.json> --area 4-5 --output <项目外报告.json> --threads 6 --level stages`。该工具默认关闭完整结果缓存以测量重算；可用 `--cache <私有目录>` 复用底层缓存，用 `--result-cache true` 测量完整缓存命中。
 
-报告的 `elapsedMs` 为调用方启动 Worker 至收到结果的等待时间，排队时间单列在 `queueMs`；`startupAndTransferMs` 为此时长减协调 Worker 内的时长，包括原生线程启动、输入复制与结果传输等，不能进一步冒称精确的单项复制时间。`stages` 是按执行顺序记录、互不嵌套的等待时间，含候选生成、装备试配、逐路线修补、筛选、缓存和线程收尾；未归入阶段的少量协调开销在汇总中单列。
+报告的 `elapsedMs` 为调用方启动计算进程（离线为 Worker）至收到结果的等待时间，排队时间单列在 `queueMs`；`startupAndTransferMs` 为此时长减协调 Worker 内的时长，包括原生线程启动、输入复制与结果传输等，不能进一步冒称精确的单项复制时间。`stages` 是按执行顺序记录、互不嵌套的等待时间，含候选生成、装备试配、逐路线修补、筛选、缓存和线程收尾；未归入阶段的少量协调开销在汇总中单列。
 
-调试日志写盘发生在 Worker 结果收到之后，不计入上述计算时长；推荐队列等待写盘结束后才交付结果及处理清理请求。不能在 `onProfile` 回调中再等待同一个推荐队列的 `maintain()`，否则会形成循环等待。
+`teardownMs` 单列收到结果至确认进程／线程退出的时间；`runtime.execution` 区分独立进程与离线 Worker，独立进程的 `peakRssMiB` 包括其中所有候选线程。调试日志写盘发生在结果收到和进程回收之后，不计入上述计算时长；推荐队列等待写盘结束后才交付结果及处理清理请求。不能在 `onProfile` 回调中再等待同一个推荐队列的 `maintain()`，否则会形成循环等待。
 
 `modules` 的 `totalMs` 包含子模块，`selfMs` 扣除子模块；各线程的累计时长允许超过用户等待时间，且是线程内经过时间，**不是操作系统 CPU 时间**，不能与阶段等待时间相加。子线程初始化和 `dispatch` 往返时长均已包含在对应批次的等待内；汇总它们只用于观察任务不均衡及通信开销。`air.trial.hit/miss/fullHit`、纯计算表命中统计帮助区分缓存命中与实际重算。逐模块模式会增加高频调用开销，分析耗时占比优先使用阶段模式，并用关闭打点的同快照测量校准；开启打点不会跳过缓存或改变候选、库存分配及最终核对。
 

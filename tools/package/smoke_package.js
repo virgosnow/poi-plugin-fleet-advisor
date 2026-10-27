@@ -56,6 +56,9 @@ async function main() {
   require(path.join(root,'package/src/infrastructure/quests/quest_observer.js'));
   const {QuestAutoRead}=require(path.join(root,'package/src/infrastructure/quests/quest_auto_read.js'));
   require(path.join(root,'package/src/host/quest_reader.js'));
+  require(path.join(root,'package/src/host/recommendation_process.js'));
+  if(!fs.existsSync(path.join(root,'package/src/infrastructure/workers/recommendation_process_entry.js')))
+    throw Error('Packed independent recommendation process entry missing');
   let questReads=0;
   const bootstrap=new QuestAutoRead({stableMs:0,getContext:()=>({sessionKey:'package-smoke',ready:true,idle:true,compatible:true}),
     getQuestState:()=>({known:false}),read:async()=>{questReads++;throw Error('Simulated task read failure');}});

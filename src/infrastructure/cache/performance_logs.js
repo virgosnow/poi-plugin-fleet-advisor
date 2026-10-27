@@ -16,8 +16,10 @@ function sanitize(report){
     implementation:/^[a-f0-9]{64}$/.test(report.implementation)?report.implementation:null,
     method:['recommendNormalFleet','recommendNormalEquipment','recommendExpeditionFleet','recommendExpeditionEquipment'].includes(report.method)?report.method:null,
     area:/^\d-\d$/.test(report.area)?report.area:null,phase:/^gauge\d(?:Or\d)?$/.test(report.phase)?report.phase:null,
-    ...numbers(report,['elapsedMs','queueMs','workerMs','startupAndTransferMs']),...traceData(report),
-    runtime:Object.fromEntries(Object.entries(report.runtime||{}).filter(([key,v])=>['plugin','node','v8'].includes(key)&&/^[0-9][a-zA-Z0-9.-]{0,63}$/.test(v))),
+    ...numbers(report,['elapsedMs','queueMs','workerMs','startupAndTransferMs','teardownMs']),...traceData(report),
+    runtime:{...Object.fromEntries(Object.entries(report.runtime||{}).filter(([key,v])=>['plugin','node','v8'].includes(key)&&/^[0-9][a-zA-Z0-9.-]{0,63}$/.test(v))),
+      ...(['utility-process','worker-thread'].includes(report.runtime?.execution)?{execution:report.runtime.execution}:{}),
+      ...numbers(report.runtime,['peakRssMiB'])},
     stages:(report.stages||[]).slice(0,2048).filter(row=>NAME.test(row.name)).map(row=>({name:row.name,...numbers(row,['ms'])})),
     children:(report.children||[]).slice(0,8).map(child=>({...numbers(child,['worker','startupMs']),...traceData(child),
       calculationStats:Object.fromEntries(Object.entries(child.calculationStats||{}).filter(([name])=>NAME.test(name))

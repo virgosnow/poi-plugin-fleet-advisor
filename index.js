@@ -23,6 +23,7 @@ const {WorkerObserver}=require('./src/vision/worker_observer');
 const questHandoff=Symbol.for('poi-plugin-fleet-advisor.quest-handoff');
 const questReadLedger=Symbol.for('poi-plugin-fleet-advisor.quest-read-ledger');
 let controller=null,service=null,expeditionProgress=null,questObserver=null,progressListener=null;
+let recommendationHost=null;
 let questAutoRead=null,questReader=null,questTimer=null,requestListener=null,networkListener=null,startListener=null;
 const questPages=new Set();
 function tickQuests(){
@@ -85,18 +86,20 @@ exports.pluginDidLoad=()=>{
     createObserver:host=>new WorkerObserver({createWorker:filename=>host.createObserverWorker(filename)}),
     onProgress:value=>service?.progress(value)});
   service=new FleetAdvisorService({controller,getStore:currentStore,
-    // Like vision workers, Node workers must be created by Electron's main
-    // process; rendering and game input stay in their existing contexts.
+    // The main process owns lifecycle only; the coordinator and its existing
+    // thread pool run in an independent, disposable utility process.
     createRecommendationWorker:(filename,options)=>{
-      const {Worker}=require('@electron/remote').require('worker_threads');
-      return new Worker(filename,options);
+      const remote=require('@electron/remote');
+      recommendationHost??=remote.require(path.join(__dirname,'src/host/recommendation_process.js'));
+      return recommendationHost.createRecommendationProcess(options,remote.getCurrentWebContents().id);
     },
     storageDir:path.join(os.homedir(),'.poi-plugin-fleet-advisor')});
   if(service.persistenceReady&&service.mcpEnabled){
     void service.startMcpServer().catch(error=>{if(service)service.bridgeError=error.message;});
   }
 };
-exports.pluginWillUnload=()=>{const previous=service,progress=expeditionProgress;
+exports.pluginWillUnload=()=>{const previous=service,progress=expeditionProgress,computeHost=recommendationHost;
+  recommendationHost=null;
   require('./src/ui/shell/plugin_brand').unregister(window.document);
   if(progressListener)window.removeEventListener('game.response',progressListener);
   if(requestListener)window.removeEventListener('game.request',requestListener);
@@ -111,7 +114,7 @@ exports.pluginWillUnload=()=>{const previous=service,progress=expeditionProgress
   if(window.__fleetAdvisorUpdateBusy&&questObserver)window[questHandoff]=questObserver.snapshot();
   questObserver?.dispose();
   service=null;controller=null;expeditionProgress=null;questObserver=null;progressListener=null;
-  return Promise.all([previous?.dispose(),progress?.dispose(),readerCleanup]);};
+  return Promise.all([previous?.dispose(),progress?.dispose(),readerCleanup]).then(()=>computeHost?.unload());};
 
 exports.reactClass=require('./src/ui/shell/panel')(React,{
   getController:()=>service,

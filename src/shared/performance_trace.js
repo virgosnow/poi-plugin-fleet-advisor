@@ -54,7 +54,7 @@ function summarize(report){
       }
   }
   const accountedMs=[...stages.values()].reduce((sum,row)=>sum+row.ms,0);
-  return {elapsedMs:report.elapsedMs,queueMs:report.queueMs,workerMs:report.workerMs,
+  return {elapsedMs:report.elapsedMs,queueMs:report.queueMs,workerMs:report.workerMs,teardownMs:report.teardownMs,
     startupAndTransferMs:report.startupAndTransferMs,otherWorkerMs:Math.max(0,report.workerMs-accountedMs),
     stages:[...stages.values()],modules:[...modules.values()].sort((a,b)=>b.selfMs-a.selfMs),counters};
 }
