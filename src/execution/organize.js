@@ -1,5 +1,6 @@
 'use strict';
 const {enterScreen}=require('./navigation');
+const {navigatePages}=require('./picker_navigation');
 
 const P = require('../domain/fleet/organize_planner');
 const {resolvePlan,fleets}=P;
@@ -89,9 +90,12 @@ async function restoreOrganization(session, scheme) {
     await session.input(612+(i%2)*487,324+Math.floor(i/2)*172);
     let read = await session.until('picker', pickerArg, readyPicker);
     if (!read.tab || !read.tab.valid) throw new Error('Destination tab not confirmed in picker');
+    const seenSorts=new Set();
     for (let count = 0; !(read.sort.mode === 'new' && read.sort.direction === 'desc'); count++) {
       if (count >= 5 || !read.sort.valid || read.sort.mode === 'unknown') throw new Error('NEW descending sort unavailable');
       const previous = JSON.stringify(read.sort);
+      if(seenSorts.has(previous))throw new Error('Ship sorting repeated a state; stopping without retry');
+      seenSorts.add(previous);
       await session.input(...G.sort);
       read = await session.until('picker', pickerArg, r => readyPicker(r) && JSON.stringify(r.sort) !== previous);
     }
@@ -104,19 +108,18 @@ async function restoreOrganization(session, scheme) {
       read = await session.until('picker', pickerArg, r => readyPicker(r) && isNew(r) && same(r.filter.states, previous));
     }
     if (!validList(read)) throw new Error('Filtered NEW list not confirmed');
-    for (let count = 0; read.page.activePage !== pos.page; count++) {
-      if (count >= 40) throw new Error('Page navigation limit exceeded');
-      const index = read.page.labels.indexOf(pos.page), before = read.page.activePage;
-      if (index >= 0) await session.input(read.page.centers[index],677);
-      else await session.input(...(pos.page < before ? G.first : G.next));
-      // No blind retry: a swallowed click waits until deadline, then stops.
-      read = await session.until('picker', pickerArg, r => validList(r) && r.page.activePage !== before);
-    }
+    await navigatePages(session,read.page,pos.page,{total:pos.total,first:G.first,forward:G.next,
+      read:async predicate=>{
+        read=await session.until('picker',pickerArg,r=>validList(r)&&predicate(r.page));
+        return read.page;
+      }});
     const arg = {row: pos.row, checkLevel:false, ...pickerArg, mask: desired.mask, page: pos.page};
-    // Locate by the observed NEW order, filter and page. Level text is not
-    // required for organization; exact instance/request and final store state
-    // are still checked passively after the ordinary game input.
-    await session.until('rowidentity', arg);
+    // No input occurred since this stable picker read. The former level-free
+    // rowidentity only repeated its sort/filter/page checks on another image.
+    // Validate that proof directly; keep the fresh confirmation-card gate and
+    // exact request/store checks after the row click.
+    if(!Number.isInteger(pos.row)||pos.row<0||pos.row>9||!validList(read)||read.page.activePage!==pos.page)
+      throw new Error('Filtered NEW list not confirmed');
     await session.input(870,259+43*pos.row);
     const card = await session.until('cardidentity', arg);
     if (!card.commit) throw new Error('Confirmation button not confirmed');

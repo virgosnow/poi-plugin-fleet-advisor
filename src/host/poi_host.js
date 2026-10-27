@@ -32,9 +32,14 @@ class PoiHost {
     const {Worker}=this.remote.require('worker_threads');
     return new Worker(filename);
   }
-  check() {
+  check(full = true) {
     if(this.closed||this.error)throw new Error(this.error||'Host closed');
-    if(!this.owned||!this.wc||this.wc.isDestroyed()||!this.wc.debugger.isAttached())throw new Error('Game connection unavailable');
+    if(!this.owned||!this.wc)throw new Error('Game connection unavailable');
+    // Detach/navigation/destruction listeners invalidate local flags immediately.
+    // Timer and promise bookkeeping need not rediscover remote objects; every
+    // observation/input boundary still performs the complete target check.
+    if(!full)return;
+    if(this.wc.isDestroyed()||!this.wc.debugger.isAttached())throw new Error('Game connection unavailable');
     if(this.discover().id!==this.wc.id)throw new Error('Game target changed');
   }
   fail(message) {this.error=this.error||message;this.monitor.cancel();}
@@ -73,7 +78,7 @@ class PoiHost {
     // by Electron at fractional zoom and can produce tiled captures. Observers
     // normalize the full viewport pixels to the validated 1200×720 CSS area.
     const result=await this.command('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:false});
-    this.check();
+    this.check(false);
     if(!result||typeof result.data!=='string')throw new Error('Screenshot unavailable');
     const buffer=Buffer.from(result.data,'base64');
     // The physical capture size is fixed per run (device scale factor); a
@@ -97,7 +102,7 @@ class PoiHost {
       // CDP is local via webContents.debugger, with no TCP listener.
       await this.command('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});
       if(kind==='click') {
-        this.check();
+        this.check(false);
         await this.command('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1});
         // Always release a successfully pressed button, including on stop.
         await this.command('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});
@@ -105,12 +110,12 @@ class PoiHost {
       if(mutation) {
         const deadline=this.now()+10000;
         while(this.monitor.matchedAction!==actionId) {
-          this.check();
+          this.check(false);
           if(this.now()>=deadline)throw new Error('No matching request; submission will not be retried');
           await new Promise(resolve=>setTimeout(resolve,10));
         }
       }
-      this.check();
+      this.check(false);
     } catch(error) {this.fail(error.message);throw error;}
     finally {this.inputBusy=false;}
   }

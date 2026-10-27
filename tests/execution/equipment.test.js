@@ -111,14 +111,27 @@ test('concrete projection preserves full planner acceptance across inventory all
 
 const {restoreEquipment}=require('../../src/execution/equipment');
 function runtime(options={}) {
-  const f=fixture(),inputs=[],snapshots=[],observations=[],progress=[];let now=0,primary=options.initialCategory??null,activePage=options.initialPage||1,pickerCount=0,menu=false,mode=options.initialMode||'stock',screen='home',filterCleared=!options.filterStuck;
+  const f=fixture(),inputs=[],snapshots=[],observations=[],progress=[];let now=0,primary=options.initialCategory??null,activePage=options.initialPage||1,pickerCount=0,menu=false,mode=options.initialMode||'stock',screen='home',filterCleared=!options.filterStuck,selectedShip=1,selectedSlot=0,lastPage,lastTotal;
   const session={host:{getStore:()=>f.data},now:()=>++now,onProgress(event){progress.push(event);},check(){if(this.validate)this.validate();},
     async observe(kind,arg={}){return this.until(kind,arg);},
     async until(kind,arg={},predicate=r=>r.valid){
       this.check();observations.push(kind);
+      if(kind==='batch'){
+        const results=[];for(const read of arg.checks)results.push(await this.until(read.kind,read.arg,()=>true));
+        const result={valid:results.every(r=>r.valid),results};
+        if(!predicate(result))throw Error('Observation timed out: batch');return result;
+      }
       if(kind==='screen'){const result={valid:true,mode:screen};if(!predicate(result))throw Error('Observation timed out: screen');return result;}
-      if(kind==='equipmode'&&!filterCleared)throw new Error('Observation timed out');
-      const page={valid:true,activePage,labels:[1,2],centers:[739,793]};
+      if(kind==='equipmode'&&!filterCleared){
+        if(options.knownFilteredHeader)return {valid:false,mode:null};
+        throw new Error('Observation timed out');
+      }
+      if(kind==='cells'&&options.ignoreMenu)throw new Error('Observation timed out: cells');
+      const category=selectedSlot==='ex'?0:({0:0,1:4,11:9,20:10})[primary]??0;
+      const list=(mode==='others'?f.api.otherPickerList:f.api.freePickerList)(category,selectedShip,selectedSlot);
+      const total=lastTotal=Math.max(1,Math.ceil(list.length/10));activePage=Math.min(activePage,total);
+      const start=Math.max(1,Math.min(activePage-2,total-4));
+      const page=lastPage={valid:true,activePage,labels:Array.from({length:Math.min(5,total)},(_,i)=>start+i),centers:[739,793,847,901,955]};
       const result=kind==='equipmode'?{valid:true,mode}:kind==='borrowconfirm'?{valid:!options.badConfirm,commit:{x:470,y:480}}:kind==='screen'?{valid:true,mode:'home'}:kind==='cells'?{valid:!options.menuCategories,primaries:[0,1,11],categories:options.menuCategories||[0,4,9],centers:[{x:811,y:197},{x:811,y:226},{x:811,y:255}]}:kind==='pageread'?page:kind==='equippicker'?{valid:true,primary,category:({0:0,1:4,11:9,20:10})[primary]??null,page}:kind==='equipclear'?{valid:!options.missingClear,tab:{valid:!options.wrongTab},commit:options.missingCommit?null:{x:485,y:245+50*arg.slots}}:{valid:true};
       if(!predicate(result))throw new Error('Observation timed out');return result;
     },
@@ -126,17 +139,22 @@ function runtime(options={}) {
     async input(x,y,mutation,kind='click'){
       this.check();inputs.push({x,y,mutation,kind});
       if(x===477&&y===339)screen='equipment';
+      if(x===310)selectedShip=f.data.info.fleets[0].api_ship[(y-255)/75];
       if(x===750&&[271,321,366,412,457].includes(y)&&!mutation) {
+        selectedSlot=[271,321,366,412,457].indexOf(y);
         if(options.pickerCategories&&pickerCount<options.pickerCategories.length)primary=options.pickerCategories[pickerCount];
         pickerCount++;
       }
+      if(x===1133&&y===481)selectedSlot='ex';
       if(x===1135&&y===168&&!options.ignoreMode)mode=mode==='stock'?'others':'stock';
       if(x===824&&y===168)menu=true;
       if(menu&&x===811) {
         if(!options.ignoreCategory){primary=[0,1,11][[197,226,255].indexOf(y)];activePage=1;if(y===197)filterCleared=true;}
         menu=false;
       }
-      if(y===677&&[739,793].includes(x))activePage=x===739?1:2;
+      if(y===677&&lastPage?.centers.includes(x))activePage=lastPage.labels[lastPage.centers.indexOf(x)];
+      if(y===678&&x===621)activePage=1;
+      if(y===678&&x===1003)activePage=options.rightToEnd?lastTotal:Math.min(lastTotal,activePage+5);
       if(mutation&&!options.noStore) {
         const sh=f.data.info.ships[mutation.ship];
         if(mutation.path==='api_req_kaisou/slot_deprive') {
@@ -162,8 +180,8 @@ test('consecutive normal slots select a category once and reuse the retained sel
   const f=runtime();await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104,105,106]}]});
   assert.deepEqual(f.data.info.ships[1].api_slot,[104,105,106]);
   assert.equal(f.inputs.filter(i=>i.x===824&&i.y===168).length,1);
-  assert.equal(f.observations.filter(k=>k==='cells').length,2);
-  assert.equal(f.observations.filter(k=>k==='equippicker').length,4);
+  assert.equal(f.observations.filter(k=>k==='cells').length,1);
+  assert.equal(f.observations.filter(k=>k==='equippicker').length,7);
 });
 
 test('equipment refuses an unknown initial screen before fleet or slot input',async()=>{
@@ -176,7 +194,7 @@ test('equipment refuses an unknown initial screen before fleet or slot input',as
 test('an already selected category skips the menu even for the first slot',async()=>{
   const f=runtime({initialCategory:1});await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104,105]}]});
   assert(!f.inputs.some(i=>i.x===824&&i.y===168));assert(!f.observations.includes('cells'));
-  assert.equal(f.observations.filter(k=>k==='equippicker').length,2);
+  assert.equal(f.observations.filter(k=>k==='equippicker').length,4);
 });
 
 test('different equipment types within the retained transport group need no category switch',async()=>{
@@ -234,6 +252,39 @@ test('a category switch that does not take effect stops before installing',async
   await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104]}]}),/Observation timed out/);
   assert(!f.inputs.some(i=>i.mutation));
 });
+function crowdedPicker(options={}){
+  const f=runtime({initialCategory:0,rightToEnd:true,...options});
+  f.data.info.equips[105].api_slotitem_id=2;
+  for(let i=0;i<450;i++){
+    f.data.info.equips[1000+i]={api_slotitem_id:1};
+    f.data.info.equips[2000+i]={api_slotitem_id:2};
+  }
+  return f;
+}
+test('a distant target in all equipment uses its narrow category without first/last page bouncing',async()=>{
+  const f=crowdedPicker();await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[105]}]});
+  assert.deepEqual(f.data.info.ships[1].api_slot,[105,-1,-1]);
+  assert.equal(f.inputs.filter(i=>i.x===824&&i.y===168).length,1);
+  assert(f.inputs.some(i=>i.x===811&&i.y===255));
+  assert(!f.inputs.some(i=>i.y===677||i.y===678));
+});
+test('a distant inventory position already on screen does not force a category change',async()=>{
+  const f=crowdedPicker({initialPage:46});await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[105]}]});
+  assert.deepEqual(f.data.info.ships[1].api_slot,[105,-1,-1]);
+  assert(!f.inputs.some(i=>i.x===824&&i.y===168));assert(!f.inputs.some(i=>i.y===677||i.y===678));
+});
+test('an unreadable reset menu is opened once and never toggled repeatedly',async()=>{
+  const f=runtime({filterStuck:true,ignoreMenu:true});
+  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104]}]}),/分类菜单不可操作/);
+  assert.equal(f.inputs.filter(i=>i.x===824&&i.y===168).length,1);
+  assert(!f.inputs.some(i=>i.mutation?.path==='api_req_kaisou/slotset'));
+});
+test('a recognized filtered list with an unreadable header takes the one reset path directly',async()=>{
+  const f=runtime({filterStuck:true,knownFilteredHeader:true,initialCategory:1});
+  await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104]}]});
+  assert.deepEqual(f.data.info.ships[1].api_slot,[104,-1,-1]);
+  assert.equal(f.inputs.filter(i=>i.x===824&&i.y===168).length,1);
+});
 
 test('reusing a category recalculates the remaining list and navigates from the retained page',async()=>{
   const f=runtime({initialCategory:1,initialPage:2});f.data.info.ships[1].api_slot=[-1,-1,-1];
@@ -242,7 +293,7 @@ test('reusing a category recalculates the remaining list and navigates from the 
   await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[114,113]}]});
   assert(!f.inputs.some(i=>i.x===824&&i.y===168));
   assert.deepEqual(f.inputs.filter(i=>i.x===750&&[218,621].includes(i.y)).map(i=>i.y),[218,621]);
-  assert(f.inputs.some(i=>i.x===739&&i.y===677));
+  assert(!f.inputs.some(i=>i.y===677),'removing the last item on page two clamps the remaining list to page one');
   assert.deepEqual(f.data.info.ships[1].api_slot,[114,113,-1]);
 });
 test('equipment bulk-clear then install enforces the complete slot target',async()=>{

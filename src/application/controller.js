@@ -71,7 +71,8 @@ class Controller {
     if(!plan.organization.done) {
       stages.organization=await restoreOrganization(this.session,org);
       this.onProgress({phase:'organization-ready',fleet:plan.fleet});
-      if(eq.ships.length)await this.returnHomeAndPark();
+      // Equipment navigation confirms organization -> home -> equipment in
+      // one sequence, without re-reading home or parking between stages.
     }else this.onProgress({phase:'organization-ready',fleet:plan.fleet});
     this.session.check();
     if(JSON.stringify(Object.entries(this.getStore().info.ships).map(([id,s])=>[id,s.api_slot,s.api_slot_ex]))!==equipmentSnapshot)

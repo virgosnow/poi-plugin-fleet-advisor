@@ -7,8 +7,8 @@ const timedOut=error=>error.message==='Observation timed out: screen';
 
 // Only stable base screens authorize navigation. Capture failures,
 // cancellation and store drift must never trigger a recovery click.
-async function readScreen(session) {
-  try {return await session.until('screen',{},known);}
+async function readScreen(session,arg={}) {
+  try {return await session.until('screen',arg,known);}
   catch(error) {
     session.check();
       if(!timedOut(error))throw error;
@@ -23,20 +23,21 @@ async function readScreen(session) {
 
 async function enterScreen(session,target) {
   if(!MODES.has(target))throw new Error('Unsupported navigation target');
-  let screen=await readScreen(session);
-  if(screen.mode===target)return;
+  const arg=target==='equipment'?{includeFleet:true}:{};
+  let screen=await readScreen(session,arg);
+  if(screen.mode===target)return screen;
   const move=async destination=>{
     const origin=screen.mode;
     for(let attempt=0;attempt<3;attempt++) {
       await session.input(...ENTRY[destination]);
       try {
-        screen=await session.until('screen',{},r=>known(r)&&r.mode===destination);
+        screen=await session.until('screen',arg,r=>known(r)&&r.mode===destination);
         return;
       } catch(error) {
         session.check();
         if(!timedOut(error))throw error;
       }
-      screen=await readScreen(session);
+      screen=await readScreen(session,arg);
       if(screen.mode===destination)return; // Late arrival: no duplicate click.
       if(screen.mode!==origin)throw new Error('导航后画面发生意外变化，已停止操作');
     }
@@ -44,6 +45,7 @@ async function enterScreen(session,target) {
   };
   if(screen.mode!=='home')await move('home');
   if(target!=='home')await move(target);
+  return screen;
 }
 
 module.exports={enterScreen};

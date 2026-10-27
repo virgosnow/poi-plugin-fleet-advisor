@@ -1,7 +1,10 @@
 'use strict';
 const {createEquipmentPlanner}=require('../domain/fleet/equipment_planner');
 const {enterScreen}=require('./navigation');
+const {createEquipmentGuard}=require('./equipment_guard');
+const {navigatePages,chooseEquipmentCategory}=require('./picker_navigation');
 const SLOT_Y=[271,321,366,412,457];
+const together=(session,checks,predicate=()=>true,stableFrames=2)=>session.until('batch',{checks},r=>r.valid&&predicate(r.results),6000,{stableFrames}).then(r=>r.results);
 
 async function restoreEquipment(session,scheme) {
   const planner=createEquipmentPlanner(()=>session.host.getStore()), plan=planner.resolvePlan(scheme);
@@ -9,22 +12,19 @@ async function restoreEquipment(session,scheme) {
   session.onProgress({phase:'equipment-start',fleet:plan.fleet,completed});
   if(plan.done)return {ok:true,done:true,changed:0};
   const data=()=>session.host.getStore();
-  const fleetSnapshot=JSON.stringify(data().info.fleets);
-  const inventoryRevision=()=>JSON.stringify(Object.entries(data().info.equips).map(([id,e])=>[id,e.api_slotitem_id,e.api_level||0,e.api_alv||0]));
-  const inventorySnapshot=inventoryRevision();
-  const expected=new Map(Object.keys(data().info.ships).map(id=>[Number(id),planner.currentState(id)]));
+  const guard=createEquipmentGuard(data),{expected}=guard;
   let changing=new Set(),changes=0;
-  session.validate=()=>{
-    if(inventoryRevision()!==inventorySnapshot)throw new Error('Equipment inventory or improvement changed during run');
-    if(JSON.stringify(data().info.fleets)!==fleetSnapshot)throw new Error('Fleet changed during equipment run');
-    if(Object.keys(data().info.ships).length!==expected.size)throw new Error('Roster changed during equipment run');
-    for(const [id,state] of expected)if(!changing.has(id)&&!planner.sameState(planner.currentState(id),state))throw new Error('Equipment changed outside this run');
-  };
-  await enterScreen(session,'equipment');
+  session.validate=()=>guard.validate(changing);
+  const screen=await enterScreen(session,'equipment');
   const tab=[Math.round(222+(plan.fleet-1)*45.7),175];
-  await session.until('equipTabs',{});
-  await session.input(...tab);
-  await session.until('equipTabs',{fleet:plan.fleet});
+  // Navigation already read this tab on its two confirmed base-screen frames.
+  // Custom/older observers without fleet metadata still require a fresh read.
+  const currentTab=Number.isInteger(screen?.fleet)&&screen.fleet>=1&&screen.fleet<=4
+    ?{selected:[screen.fleet]}:await session.until('equipTabs',{});
+  if(currentTab.selected?.[0]!==plan.fleet){
+    await session.input(...tab);
+    await session.until('equipTabs',{fleet:plan.fleet});
+  }
   const batches=[];
   for(const step of plan.steps) {
     let batch=batches[batches.length-1];
@@ -37,7 +37,7 @@ async function restoreEquipment(session,scheme) {
     await session.input(310,255+index*75);
     // Confirm the tab before opening the slot. The passive request monitor
     // and complete store checks stop later actions on an unexpected change.
-    await session.until('equipTabs',{fleet:plan.fleet});
+    // equipship already checks this fleet tab on the same image.
     await session.until('equipship',{fleet:plan.fleet,expectedLevel:Number(data().info.ships[ship.shipId].api_lv)});
     for(const [step,op] of ship.ops.entries()) {
       session.check();
@@ -72,32 +72,39 @@ async function restoreEquipment(session,scheme) {
         await session.input(op.kind==='ex'?1133:750,op.kind==='ex'?481:SLOT_Y[op.j]);
         const arg={layout:'equip',total:Math.max(1,Math.ceil(Object.keys(data().info.equips).length/10))};
         const desiredMode=op.source?'others':'stock';
-        let mode;
-        try {mode=await session.until('equipmode',{});}
+        const pickerKind=op.kind==='ex'?'pageread':'equippicker';
+        const readView=async()=>{
+          const result=await session.until('batch',{checks:[{kind:'equipmode'},{kind:pickerKind,arg}]},r=>{
+            const [mode,picker]=r.results||[];
+            return r.valid||(op.kind!=='ex'&&!mode?.valid&&picker?.valid&&Number.isInteger(picker.category));
+          });
+          if(!result.valid){const error=new Error('Equipment picker mode unreadable');error.code='PICKER_MODE_UNREADABLE';throw error;}
+          return result.results;
+        };
+        let mode,pickerView;
+        try {[mode,pickerView]=await readView();}
         catch(error) {
-          if(!/timed out/.test(error.message))throw error;
+          if(error.code!=='PICKER_MODE_UNREADABLE'&&!/timed out/.test(error.message))throw error;
           // A leftover category filter swaps the header icon (plane instead
           // of the bar) and shifts the whole label strip, so every header
           // template misses and the mode read times out. Probe-reset once:
           // open the category menu and pick row 0 (全装備). Rows the ship
           // cannot equip render dark and fail their templates, so judge the
-          // menu by row 0 alone — cells.valid is too strict here. Two
-          // attempts cover the menu's open/closed toggle.
+          // menu by row 0 alone — cells.valid is too strict here. Reset only
+          // once; an unreadable menu must not start blind open/close attempts.
           session.onProgress({phase:'equipment',detail:'装备列表模式不可读，尝试自动复位分类筛选'});
           let cleared=false;
-          for(let attempt=0;attempt<2&&!cleared;attempt++) {
-            try {
-              await session.input(824,168);
-              const cells=await session.until('cells',{},r=>r.categories&&r.categories[0]===0,2500);
-              await session.wait(450);
-              await session.input(Math.round(cells.centers[0].x),Math.round(cells.centers[0].y));
-              cleared=true;
-            } catch(menuError) {
-              if(!/timed out/.test(menuError.message))throw menuError;
-            }
+          try {
+            await session.input(824,168);
+            const cells=await session.until('cells',{},r=>r.categories&&r.categories[0]===0,2500);
+            await session.wait(450);
+            await session.input(Math.round(cells.centers[0].x),Math.round(cells.centers[0].y));
+            cleared=true;
+          } catch(menuError) {
+            if(!/timed out/.test(menuError.message))throw menuError;
           }
           if(!cleared)throw new Error('装备列表模式无法识别且分类菜单不可操作：可能残留分类筛选、其他显示状态或未关闭的弹窗；请在游戏中恢复标准列表（全装備）后重试');
-          try {mode=await session.until('equipmode',{});}
+          try {[mode,pickerView]=await readView();}
           catch(retry) {
             if(!/timed out/.test(retry.message))throw retry;
             throw new Error('分类复位后装备列表模式仍不可读：可能开启了其他列表显示模式（如道具详细）；请恢复标准显示后重试');
@@ -105,7 +112,7 @@ async function restoreEquipment(session,scheme) {
         }
         if(mode.mode!==desiredMode) {
           await session.input(1135,168);
-          mode=await session.until('equipmode',{},r=>r.valid&&r.mode===desiredMode);
+          [mode,pickerView]=await together(session,[{kind:'equipmode'},{kind:pickerKind,arg}],r=>r[0].mode===desiredMode);
         }
         const pickerList=op.source?planner.otherPickerList:planner.freePickerList;
         let list,selected;
@@ -115,15 +122,17 @@ async function restoreEquipment(session,scheme) {
           return op.kind==='ex'?result:result.page;
         };
         let read;
-        if(op.kind==='ex') {list=pickerList(0,ship.shipId,'ex');read=await readPicker();}
+        if(op.kind==='ex') {list=pickerList(0,ship.shipId,'ex');read=pickerView;}
         else {
           // The game retains the category between slots. Read it alongside
           // the page, rather than reopening the menu or trusting a cache.
-          const picker=await session.until('equippicker',arg);
-          selected=planner.groupDefs.find(d=>d.id===picker.category&&planner.categoryAccepts(d.id,op.id));
+          const picker=pickerView;
+          const choice=chooseEquipmentCategory(planner,{category:picker.category,read:picker.page,
+            item:op.id,ship:ship.shipId,slot:op.j,borrow:!!op.source});
+          selected=choice.retained?planner.groupDefs.find(d=>d.id===choice.id):null;
           read=picker.page;
           if(!selected) {
-            const preferred=planner.categoryFor(op.id);
+            const preferred=planner.groupDefs.find(d=>d.id===choice.id);
             const allEquipment=planner.groupDefs.find(d=>d.id===0);
             const hasUsableRow=r=>Array.isArray(r.categories)
               &&(r.categories.includes(preferred.id)||r.categories[0]===allEquipment.id);
@@ -132,15 +141,14 @@ async function restoreEquipment(session,scheme) {
             // A leftover dialog (or a rare filtered state) can swallow the
             // menu click. Dark rows the ship cannot use must not invalidate
             // the whole menu; require a readable target row or 全装備 instead.
+            // Keep the calibrated opening-animation allowance, but do not
+            // capture the same menu twice on either side of that allowance.
+            await session.wait(450);
             try {cells=await session.until('cells',{},hasUsableRow);}
             catch(error) {
               if(!/timed out/.test(error.message))throw error;
               throw new Error('分类菜单未能打开（可能残留分类筛选或未关闭的弹窗）；若刚手动筛选过装备，请先在游戏中恢复为全装備后重试');
             }
-            // Read again after the opening animation before preferring the
-            // category-specific row over the always available 全装備 row.
-            await session.wait(450);
-            cells=await session.until('cells',{},hasUsableRow);
             let index;
             for(const def of [preferred,allEquipment]) {
               const found=cells.categories.indexOf(def.id);
@@ -150,26 +158,24 @@ async function restoreEquipment(session,scheme) {
             await session.input(cells.centers[index].x,cells.centers[index].y);
             read=await readPicker();
           }
-          list=pickerList(selected.id,ship.shipId,op.j);
+          list=choice.retained?choice.list:pickerList(selected.id,ship.shipId,op.j);
         }
         const rank=list.findIndex(e=>e.id===op.id);
         if(rank<0)throw new Error('Equipment missing from picker');
         const page=Math.floor(rank/10)+1,row=rank%10;
-        for(let count=0;read.activePage!==page;count++) {
-          if(count>=60)throw new Error('Equipment page navigation limit');
-          const index=read.labels.indexOf(page),before=read.activePage;
-          if(index>=0)await session.input(read.centers[index],677);
-          // (1003,678) jumps to the last page and (621,678) to the first;
-          // either way the next read exposes a window containing the target
-          // label, which the following iteration clicks directly.
-          else await session.input(page<before?621:1003,678);
-          read=await readPicker(r=>r.activePage!==before);
-        }
+        const total=Math.max(1,Math.ceil(list.length/10));arg.total=total;
+        read=await navigatePages(session,read,page,{total,first:[621,678],forward:[1003,678],read:readPicker});
         const cy=Math.round(218+44.75*row);
-        await session.until('equipmode',{},r=>r.valid&&r.mode===desiredMode);
-        await session.until('rowicon',{box:[546,cy-22,599,cy+22],t3:planner.t3of(op.id)});
+        // A fresh frame verifies all selection preconditions together. The
+        // list was already stable across two frames; no input follows this
+        // final gate except selecting its verified row.
+        await together(session,[{kind:'equipmode'},{kind:pickerKind,arg},
+          {kind:'rowicon',arg:{box:[546,cy-22,599,cy+22],t3:planner.t3of(op.id)}}],r=>{
+          const view=r[1],p=op.kind==='ex'?view:view.page;
+          return r[0].mode===desiredMode&&p?.valid&&p.activePage===page&&(op.kind==='ex'||view.category===selected.id);
+        },1);
         await session.input(750,cy);
-        await session.until('pix',{pts:[[1075,655],[1040,655]],exp:[[19,113,114],[18,124,124]],tol:45});
+        await session.until('pix',{pts:[[1075,655],[1040,655]],exp:[[19,113,114],[18,124,124]],tol:45},undefined,6000,{stableFrames:1});
         session.check();
         checkSource();
         if(op.source) {

@@ -123,7 +123,7 @@ function fakeSession(options={}) {
       this.check();observations.push({kind,arg,inputCount:inputs.length});let result;
       if(kind==='screen')result={valid:true,mode:'organization'};
       if(kind==='orgtab')result={valid:true};
-      if(kind==='picker')result={valid:true,sort:{valid:true,mode:options.sortCycle?.[sortIndex]||options.sort||'new',direction:options.direction||'desc'},filter:{states:mask},tab:{valid:true},page:{valid:true,activePage:page,labels:[1,2,3,4],centers:[760,813,867,920]}};
+      if(kind==='picker')result={valid:true,sort:{valid:true,mode:options.sortCycle?.[sortIndex]||options.sort||'new',direction:options.direction||'desc'},filter:{states:mask},tab:{valid:true},page:{valid:true,activePage:page,labels:[1,2,3,4].slice(0,arg.total),centers:[760,813,867,920]}};
       if(kind==='rowidentity')result=options.wrongRow&&arg.checkLevel!==false?{valid:false,reason:'level mismatch',level:options.wrongRow}:{valid:true,level:arg.expectedLevel};
       if(kind==='cardidentity')result={valid:true,level:arg.expectedLevel,commit:{x:1032,y:669}};
       if(kind==='orgclear')result={valid:!options.missingClear,tab:{valid:!options.wrongClearTab},commit:options.missingCommit?null:{x:625,y:178}};
@@ -193,13 +193,14 @@ test('alternating ship types share one filter setup and one merged read per unch
   assert.deepEqual(f.state.info.fleets[0].api_ship,targets);
   assert.equal(f.inputs.filter(i=>i.y===166).length,6);
   assert(!f.inputs.slice(f.inputs.findIndex(i=>i.mutation)+1).some(i=>i.y===166||i.y===199));
-  const reads=f.observations.filter(o=>o.kind==='picker'),rows=f.observations.filter(o=>o.kind==='rowidentity');
+  const reads=f.observations.filter(o=>o.kind==='picker'),rows=f.observations.filter(o=>o.kind==='cardidentity');
   assert.equal(reads.length,6+targets.length); // setup confirmations plus one opening read per ship
   assert.equal(new Set(reads.map(o=>o.inputCount)).size,reads.length);
   assert(reads.every(o=>o.arg.total===1));
   assert.deepEqual(rows.map(o=>o.arg.row),[0,1,2,3]);
   assert(rows.every(o=>o.arg.checkLevel===false));
   assert(rows.every(o=>JSON.stringify(o.arg.mask)===JSON.stringify(mask)));
+  assert(!f.observations.some(o=>o.kind==='rowidentity'));
 });
 
 test('matching union and current page require no filter, sort or page clicks',async()=>{
@@ -208,7 +209,7 @@ test('matching union and current page require no filter, sort or page clicks',as
   await restoreOrganization(f.session,{fleet:1,ships:[35,34,33]});
   assert(!f.inputs.some(i=>[166,199,677].includes(i.y)));
   assert.equal(f.observations.filter(o=>o.kind==='picker').length,2);
-  assert(f.observations.filter(o=>o.kind==='rowidentity').every(o=>o.arg.mask[0]===1));
+  assert(f.observations.filter(o=>o.kind==='cardidentity').every(o=>o.arg.mask[0]===1));
 });
 
 test('a reset between ships restores the same union rather than the next ship type',async()=>{
@@ -224,7 +225,7 @@ test('unknown unrelated type keeps the full roster for all targets',async()=>{
   f.state.const.$ships[1035].api_stype=999;f.state.const.$ships[1033].api_stype=9;
   await restoreOrganization(f.session,{fleet:1,ships:[34,33]});
   assert.equal(f.inputs.filter(i=>i.y===166).length,7);
-  const rows=f.observations.filter(o=>o.kind==='rowidentity');
+  const rows=f.observations.filter(o=>o.kind==='cardidentity');
   assert(rows.every(o=>o.arg.mask.every(v=>v===1)));
   assert.deepEqual(rows.map(o=>o.arg.row),[1,2]);
 });
@@ -249,6 +250,12 @@ test('recognized Lv sort reaches NEW through type sort before selecting a ship',
   assert.deepEqual(f.state.info.fleets[0].api_ship,[35]);
   assert.equal(f.inputs.filter(i=>i.x===1160&&i.y===199).length,2);
 });
+test('repeated ship sorting states stop before another cycle or any mutation',async()=>{
+  const f=fakeSession({fleets:[[1],[5,6]],sortCycle:['type','level','type']});
+  await assert.rejects(restoreOrganization(f.session,{fleet:1,ships:[35]}),/sorting repeated/);
+  assert.equal(f.inputs.filter(i=>i.x===1160&&i.y===199).length,2);
+  assert(!f.inputs.some(i=>i.mutation));
+});
 test('a differing level does not block the organization executor',async()=>{
   const f=fakeSession({wrongRow:13,fleets:[[1],[5,6]]});
   await restoreOrganization(f.session,{fleet:1,ships:[35]});
@@ -257,9 +264,16 @@ test('a differing level does not block the organization executor',async()=>{
 });
 
 test('changed list context still stops before opening confirmation',async()=>{
-  const f=fakeSession({fleets:[[1],[5,6]],observe:(result,kind)=>{if(kind==='rowidentity'){result.valid=false;result.reason='list changed';}}});
-  await assert.rejects(restoreOrganization(f.session,{fleet:1,ships:[35]}),/Observation timed out: rowidentity/);
+  const f=fakeSession({fleets:[[1],[5,6]],mask:[0,0,0,0,1,0,0,0],observe:(result,kind)=>{if(kind==='picker')result.page.valid=false;}});
+  await assert.rejects(restoreOrganization(f.session,{fleet:1,ships:[35]}),/Observation timed out: picker/);
   assert(!f.inputs.some(i=>i.mutation));assert(!f.inputs.some(i=>i.x===870));
+});
+test('removing the repeated list read does not bypass the fresh confirmation card',async()=>{
+  const f=fakeSession({fleets:[[1],[5,6]],observe:(result,kind)=>{
+    assert.notEqual(kind,'rowidentity');if(kind==='cardidentity')result.valid=false;
+  }});
+  await assert.rejects(restoreOrganization(f.session,{fleet:1,ships:[35]}),/Observation timed out: cardidentity/);
+  assert(!f.inputs.some(i=>i.mutation));
 });
 test('reversed NEW direction cannot enter row selection',async()=>{
   const f=fakeSession({direction:'asc',fleets:[[1],[5,6]]});await assert.rejects(restoreOrganization(f.session,{fleet:1,ships:[35]}));

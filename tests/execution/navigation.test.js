@@ -25,6 +25,16 @@ test(`navigation ${from} -> ${to} uses only confirmed base screens`,async()=>{
 test('unknown starting screen gets no input',async()=>{
   const f=harness('unknown');await assert.rejects(enterScreen(f.session,'equipment'),/无法识别当前画面/);assert.equal(f.inputs.length,0);
 });
+test('navigation returns the fleet from the same stable equipment-screen frames',async()=>{
+  const f=harness('home',{frame:({frame})=>frame.mode==='equipment'?{...frame,fleet:3}:frame});
+  assert.deepEqual(await enterScreen(f.session,'equipment'),{valid:true,mode:'equipment',fleet:3});
+  assert.equal(f.stats().captures,4);assert.equal(f.inputs.length,1);
+});
+test('a changing equipment fleet must stabilize before navigation returns',async()=>{
+  const f=harness('equipment',{frame:({frame,captures})=>({...frame,fleet:captures===1?1:2})});
+  assert.equal((await enterScreen(f.session,'equipment')).fleet,2);
+  assert.equal(f.stats().captures,3);assert.equal(f.inputs.length,0);
+});
 for(const to of ['organization','equipment']) {
   test(`${to} entry retries a swallowed click only after confirming home`,async()=>{
     const f=harness('home',{onInput:(input,n)=>n===1?'home':to});await enterScreen(f.session,to);assert.equal(f.inputs.length,2);assert(f.inputs.every(i=>i.x!==107));

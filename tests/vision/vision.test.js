@@ -83,6 +83,12 @@ test('remodel navigation requires base layout and rejects every stored picker or
   assert((await observer.observe('equipTabs',covered)).valid);
   assert(!(await observer.observe('screen',covered)).valid);
 });
+test('equipment screen optionally returns the selected fleet without accepting an overlay',async()=>{
+  const observer=new V.Observer(),frame=fixture('equip/fleet2');
+  assert.deepEqual(await observer.observe('screen',frame,{includeFleet:true}),{valid:true,mode:'equipment',fleet:2});
+  assert.deepEqual(await observer.observe('screen',frame),{valid:true,mode:'equipment'});
+  assert(!(await observer.observe('screen',fixture('equip/confirm'),{includeFleet:true})).valid);
+});
 
 test('all-equipment removal recognizes the hovered label at the correct slot-count height',async()=>{
   const observer=new V.Observer({recognize(){throw Error('Equipment tooltip should not need OCR');}});

@@ -139,6 +139,12 @@ class Observer {
   constructor() {}
   async observe(kind,frame,arg={}) {
     const im=(frame instanceof Pixels?frame:Pixels.decode(frame)).normalize();
+    if(kind==='batch') {
+      if(!Array.isArray(arg.checks)||!arg.checks.length||arg.checks.length>8||arg.checks.some(c=>!c||typeof c.kind!=='string'||c.kind==='batch'))throw new Error('Invalid observation batch');
+      const results=[];
+      for(const check of arg.checks)results.push(await this.observe(check.kind,im,check.arg));
+      return {valid:results.every(r=>r.valid),results};
+    }
     if(kind==='orgtab')return orgtab(im,arg.fleet);
     if(kind==='pageread')return pageread(im,arg);
     if(kind==='equipmode'||kind==='borrowconfirm') {
@@ -246,8 +252,10 @@ class Observer {
       // and confirmation overlays move or dim these anchors.
       const remodelPts=[[470,120],[840,160],[455,210],[460,690],[505,450],[820,450],[935,150],[475,150]];
       const remodelRGB=[[60,59,57],[238,230,220],[123,96,55],[165,129,74],[240,229,218],[243,235,226],[236,224,213],[43,38,21]];
-      if(remodelPts.every(([x,y],i)=>im.rgb(x,y).every((v,k)=>Math.abs(v-remodelRGB[i][k])<=25))&&(await this.observe('equipTabs',im)).valid)
-        return {valid:true,mode:'equipment'};
+      if(remodelPts.every(([x,y],i)=>im.rgb(x,y).every((v,k)=>Math.abs(v-remodelRGB[i][k])<=25))){
+        const tab=await this.observe('equipTabs',im);
+        if(tab.valid)return {valid:true,mode:'equipment',...(arg.includeFleet?{fleet:tab.selected[0]}:{})};
+      }
       return {valid:false,mode:'unknown'};
     }
     if(kind==='rowidentity'||kind==='cardidentity') {
