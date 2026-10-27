@@ -422,3 +422,54 @@ test('ground damage facts survive changed air states without reusing fleet scout
   f.store.info.ships[entry.id].api_karyoku[0]+=30;
   const fresh=cases[0]();assert.deepEqual(withEquipmentIndexCache(f.store,cases[0]),fresh);
 });
+
+test('ground broad fitting skips combat preparation when every slot is held',()=>{
+  const {PerformanceTrace}=require('../../../src/shared/performance_trace'),f=combatFixture();
+  const trace=new PerformanceTrace(),heldSlots=f.scheme.ships.map(e=>({...e,
+    keep:{...Object.fromEntries(e.slots.map((_,i)=>[i,true])),ex:true}}));
+  const result=trace.run(()=>groundLoadouts(f.store,f.scheme,f.inventory,
+    {profile:f.p,airReference:f.reference,packages:false,heldSlots}));
+  assert.deepEqual(result,[]);assert.equal(trace.counters['ground.context.miss']||0,0);
+  assert.equal(trace.counters['ground.noCandidates'],f.scheme.ships.length);
+});
+
+test('different ground trials share preparation without sharing mutable results or stock allocation',()=>{
+  const {withEquipmentIndexCache}=require('../../../src/domain/fleet/equipment_planner');
+  const {PerformanceTrace}=require('../../../src/shared/performance_trace'),f=combatFixture();
+  const base={profile:f.p,airReference:f.reference,packages:false};
+  // Distinct holds bypass the complete-result cache without changing the plan.
+  const options=[base,{...base,heldSlots:[{id:2,keep:{}}]},
+    {...base,heldSlots:[{id:1,keep:{}},{id:2,keep:{}}]}];
+  const expected=options.map(o=>groundLoadouts(f.store,f.scheme,f.inventory,o));
+  assert(expected[0].length);
+  const trace=new PerformanceTrace(),before=JSON.stringify([f.scheme,f.inventory]);
+  trace.run(()=>withEquipmentIndexCache(f.store,()=>options.forEach((o,i)=>{
+    const actual=groundLoadouts(f.store,f.scheme,f.inventory,o);assert.deepEqual(actual,expected[i]);
+    const ids=actual[0].ships.flatMap(e=>e.slots.concat(e.ex)).filter(id=>id>0);
+    assert.equal(ids.length,new Set(ids).size);
+    actual[0].ships[0].slots.fill(-1);
+  })));
+  assert.equal(trace.counters['ground.inventory.build'],1);
+  assert(trace.counters['ground.context.hit']>0);
+  assert.equal(JSON.stringify([f.scheme,f.inventory]),before);
+});
+
+test('shared ground preparation distinguishes changed fleet order, equipment ownership, enemy and air input',()=>{
+  const {withEquipmentIndexCache}=require('../../../src/domain/fleet/equipment_planner'),f=combatFixture();
+  const base={profile:f.p,airReference:f.reference,packages:false};
+  const occupied=structuredClone(f.scheme);occupied.ships[1].slots[1]=f.ids.shell;
+  const changed=structuredClone(f.scheme);changed.ships[0].slots[2]=620;
+  const cases=[[f.scheme,base],[{...f.scheme,ships:f.scheme.ships.slice().reverse()},base],[occupied,base],[changed,base],
+    [f.scheme,{...base,profile:profile('集積地棲姫')}],
+    [f.scheme,{...base,airReference:{...f.reference,nodes:f.reference.nodes.map(n=>({...n,enemyAirPower:9999}))}}]];
+  const expected=cases.map(([s,o])=>groundLoadouts(f.store,s,f.inventory,o));
+  withEquipmentIndexCache(f.store,()=>cases.forEach(([s,o],i)=>assert.deepEqual(groundLoadouts(f.store,s,f.inventory,o),expected[i])));
+  for(const result of expected[2]){
+    const ids=result.ships.flatMap(e=>e.slots.concat(e.ex)).filter(id=>id>0);assert.equal(ids.length,new Set(ids).size);
+  }
+  // New searches and live reads must rebuild legality after master permissions change.
+  f.store.const.$shipTypes[3].api_equip_type={1:1,10:1};
+  const fresh=groundLoadouts(f.store,f.scheme,f.inventory,base);
+  assert.notDeepEqual(fresh,expected[0]);
+  assert.deepEqual(withEquipmentIndexCache(f.store,()=>groundLoadouts(f.store,f.scheme,f.inventory,base)),fresh);
+});
