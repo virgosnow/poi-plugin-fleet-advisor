@@ -4,7 +4,7 @@ const perf=require('../../shared/performance_trace');
 // reviewed machineRules may drive a route verdict; prose alone is evidence.
 const fs=require('fs'),path=require('path');
 const {error}=require('../../shared/errors');
-const {projectFleet,evaluateCandidate}=require('../fleet/fleet_metrics');
+const {projectFleet,evaluateProjectedCandidate}=require('../fleet/fleet_metrics');
 const {createFleetPlanner}=require('../fleet/fleet_plan');
 const {losPredicate}=require('../fleet/line_of_sight');
 const {snapshotMemo}=require('../fleet/equipment_planner');
@@ -88,19 +88,21 @@ function assessAirControl(map,airPower,phase){
     routeSustainability:'notSimulated',
     limitation:'仅比较母港或候选编成的出击前制空范围与所列速查门槛；资料不保证覆盖所有路线或敌编成，且未模拟道中损耗及基地航空队，不能保证一路空优或空确'};
 }
-function resolveFleet(store,fleet,scheme){
-  return snapshotMemo(store,'resolvedRouteFleets',JSON.stringify([fleet,scheme]),()=>resolveFleetUncached(store,fleet,scheme));
+function resolveFleet(store,fleet,scheme,search=false){
+  return snapshotMemo(store,search?'resolvedSearchRouteFleets':'resolvedRouteFleets',JSON.stringify([fleet,scheme]),()=>resolveFleetUncached(store,fleet,scheme,search));
 }
-function resolveFleetUncached(store,fleet,scheme){
+function resolveFleetUncached(store,fleet,scheme,search){
   let plan;
   if(scheme){
-    plan=createFleetPlanner(()=>store).preview('fleet',scheme);
+    const planner=createFleetPlanner(()=>store);
+    plan=perf.measure('route.plan',()=>search?planner.project(scheme):planner.preview('fleet',scheme));
   }else{
     const data=store.info.fleets[fleet-1];
     if(!data)throw error('INVALID_QUERY','舰队数据不可用');
     plan={organization:{targets:data.api_ship.filter(id=>id>0)},equipment:{expected:[]}};
   }
-  const projected=projectFleet(store,plan),metrics=evaluateCandidate(store,plan);
+  const projected=perf.measure('route.projection',()=>projectFleet(store,plan));
+  const metrics=perf.measure('route.metrics',()=>evaluateProjectedCandidate(store,projected));
   const carried=row=>row.after.slots.concat(row.after.ex>0?[row.after.ex]:[])
     .filter(id=>id>0)
     .map(id=>{
@@ -367,7 +369,14 @@ function evaluateNormalRoute(store,options){
   try{return snapshotMemo(store,'evaluatedNormalRoutes',JSON.stringify(options),()=>evaluateNormalRouteCore(store,options));}
   finally{perf.end(timing);}
 }
-function evaluateNormalRouteCore(store,{area,target='boss',fleet=1,scheme,phase}={}){
+// Separate entry/cache prevents a search projection from satisfying a public
+// preview query. Its planning shortcut is limited to immutable search scopes.
+function evaluateSearchRoute(store,options){
+  const timing=perf.begin('route.evaluate');
+  try{return snapshotMemo(store,'evaluatedSearchRoutes',JSON.stringify(options),()=>evaluateNormalRouteCore(store,options,true));}
+  finally{perf.end(timing);}
+}
+function evaluateNormalRouteCore(store,{area,target='boss',fleet=1,scheme,phase}={},search=false){
   const map=maps.get(area);
   if(!map)throw error('INVALID_QUERY','未知常规海域；请先查询海域列表');
   if(!Number.isInteger(fleet)||fleet<1||fleet>4)throw error('INVALID_QUERY','fleet 必须是 1-4');
@@ -375,7 +384,7 @@ function evaluateNormalRouteCore(store,{area,target='boss',fleet=1,scheme,phase}
   if(scheme&&scheme.fleet!==fleet)throw error('INVALID_QUERY','scheme.fleet 必须与 fleet 相同');
   if(phase!==undefined&&!['gauge1','gauge2','gauge3','gimmick'].includes(phase))
     throw error('INVALID_QUERY','phase 须为 gauge1、gauge2、gauge3 或 gimmick');
-  const {ships,metrics}=resolveFleet(store,fleet,scheme);
+  const {ships,metrics}=resolveFleet(store,fleet,scheme,search);
   const assess=createRouteAssessor(ships,metrics);
   const airControl=assessAirControl(map,metrics.airPower,phase);
   const unmappedLandingCraft=ships.filter(ship=>ship.landingCraftEquipped===null)
@@ -476,5 +485,5 @@ function fixedArrivalCondition(route){
   }
   return null;
 }
-module.exports={listNormalMaps,evaluateNormalRoute,predicate,preparePredicate,preparePoint,evaluatePoint,fixedArrivalCondition,
+module.exports={listNormalMaps,evaluateNormalRoute,evaluateSearchRoute,predicate,preparePredicate,preparePoint,evaluatePoint,fixedArrivalCondition,
   LANDING_CRAFT_IDS,LANDING_CRAFT_EXCLUDED};

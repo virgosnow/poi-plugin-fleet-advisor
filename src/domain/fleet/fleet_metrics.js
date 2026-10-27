@@ -5,6 +5,7 @@
 const RULE_VERSION='candidate-metrics-2026-10-26-ship-jets';
 const {lineOfSight}=require('./line_of_sight');
 const {openingASW}=require('../combat/opening_asw');
+const {snapshotMemo,hasEquipmentIndexCache}=require('./equipment_planner');
 const jets=require('../combat/jet_aviation');
 const AIR_TYPES=new Set([6,7,8,11,26,45,56,57,58]);
 const PROFICIENCY_RANGES=[[0,9],[10,24],[25,39],[40,54],[55,69],[70,84],[85,99],[100,120]];
@@ -157,7 +158,8 @@ function predictedSpeed(group,gear){
 
 function speed(store,projected){
   if(!projected.length)return {status:'unknown',fleetSpeed:null,fleetSpeedCode:null,ships:[],reason:'尚未编入舰娘'};
-  const ships=projected.map(target=>{
+  const ships=projected.map(target=>snapshotMemo(store,'metricShipSpeed',
+    hasEquipmentIndexCache(store)?JSON.stringify([target.id,target.before,target.after]):null,()=>{
     const before=propulsion(store,target.before),after=propulsion(store,target.after);
     if(JSON.stringify(before)===JSON.stringify(after)){
       const observed=SPEED_NAME[Number(target.ship.api_soku)];
@@ -174,7 +176,7 @@ function speed(store,projected){
       return {shipId:target.id,speed:null,status:'unknown',group,propulsion:after,reason:'新型缶改修资料缺失，无法确认速力档位'};
     return {shipId:target.id,speed:predicted||null,status:predicted?'computed':'unknown',
       group:group||null,propulsion:after,reason:predicted?null:'未收录该舰的速力强化组'};
-  });
+  }));
   if(ships.some(entry=>!entry.speed))return {status:'unknown',ships,reason:'至少一舰的速力无法判定'};
   const index=Math.min(...ships.map(entry=>SPEED_ORDER.indexOf(entry.speed)));
   return {status:ships.some(entry=>entry.status==='computed')?'computed':'observed',
@@ -183,16 +185,20 @@ function speed(store,projected){
 }
 
 function asw(store,projected){
-  const ships=projected.map(target=>openingASW(store,target));
+  const ships=projected.map(target=>snapshotMemo(store,'metricShipASW',
+    hasEquipmentIndexCache(store)?JSON.stringify([target.id,target.before,target.after]):null,()=>openingASW(store,target)));
   return {status:ships.some(ship=>ship.status==='unknown')?'unknown':'computed',ships,
     assumptions:['按通常舰队昼战、有潜水目标的出击前条件检查',
       '换装对潜扣除旧装备及蓝字、加入新装备及蓝字；缺失资料不视为通过']};
 }
 
 function evaluateCandidate(store,plan,conditions={}){
-  const projected=projectFleet(store,plan);
+  return evaluateProjectedCandidate(store,projectFleet(store,plan),conditions);
+}
+
+function evaluateProjectedCandidate(store,projected,conditions={}){
   return {airPower:airPower(store,projected,conditions),lineOfSight:lineOfSight(store,projected,conditions),
     speed:speed(store,projected),openingASW:asw(store,projected)};
 }
 
-module.exports={RULE_VERSION,projectFleet,evaluateCandidate,airPower,lineOfSight,speed,speedGroup,asw};
+module.exports={RULE_VERSION,projectFleet,evaluateCandidate,evaluateProjectedCandidate,airPower,lineOfSight,speed,speedGroup,asw};

@@ -2,7 +2,7 @@
 const {canEquip,acceptsOtherSlot}=require('../fleet/equipment_rules');
 const {lineOfSight}=require('../fleet/fleet_metrics');
 const {losWindows,planningPath,createLoSWindowReader}=require('./route_plans');
-const {evaluateNormalRoute}=require('./normal_routes');
+const {evaluateSearchRoute}=require('./normal_routes');
 // Give repairable strong fleets a chance before comparing their final routing.
 // Half the existing budget follows combat quality, half follows the ordinary
 // ranking. Already-in-window outfits need no fitting and consume no place.
@@ -101,7 +101,7 @@ function fitRouteLoS(store,scheme,inventory,{route,nodes,heldSlots=[]}){
   }
   if(!changed||gap>0)return null;
   const fitted={fleet:scheme.fleet,ships:entries};
-  const verified=evaluateNormalRoute(store,{area:route.area,target:route.target,phase:route.phase||undefined,scheme:fitted});
+  const verified=evaluateSearchRoute(store,{area:route.area,target:route.target,phase:route.phase||undefined,scheme:fitted});
   return planningPath(verified,nodes,{allowTentative:false}).chance.probability===1?fitted:null;
 }
 module.exports={fitRouteLoS,selectLoSFinalists};

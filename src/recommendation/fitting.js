@@ -34,7 +34,7 @@ function gearVariantCore(store,scheme,inventory,kind,profile,area,phase,{stopWhe
   if(kind==='los'&&!gatedPaths.length)return null;
   const losMet=value=>{
     const target=profile?.targetNodes?.length===1?profile.targetNodes[0]:'boss';
-    const route=routes.evaluateNormalRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:value});
+    const route=routes.evaluateSearchRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:value});
     return gatedPaths.every(nodes=>routePlans.planningPath(route,nodes).losShortfall===0);
   };
   const holds=new Map(heldSlots.filter(Boolean).map(s=>[s.id,s.keep||{}]));

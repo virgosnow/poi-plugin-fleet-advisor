@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createEquipmentPlanner,withEquipmentIndexCache}=require('../../src/domain/fleet/equipment_planner');
+const {createFleetPlanner}=require('../../src/domain/fleet/fleet_plan');
 function fixture(){
  const ships={1:{api_ship_id:1,api_lv:20,api_slot:[101,102,-1],api_slot_ex:103},2:{api_ship_id:2,api_lv:10,api_slot:[201,-1,-1],api_slot_ex:0}};
  const equips={};for(const id of [101,102,103,104,105,106,107,201,301])equips[id]={api_slotitem_id:id===103?2:1,api_level:id===106?10:0,api_alv:0};
@@ -9,6 +10,80 @@ function fixture(){
  const plan=ships=>{const result=api.resolvePlan({fleet:1,ships});S.run={plan:result};return result;};
  return {api,S,data,plan};
 }
+test('search projection matches full preview for concrete swaps, borrowing and expansion slots',()=>{
+ const f=fixture(),planner=createFleetPlanner(()=>f.data);
+ f.data.info.ships[2].api_slot_ex=-1;
+ const schemes=[
+  {fleet:1,ships:[{id:1,slots:[201,104,-1],ex:-1},{id:2,slots:[101,102,-1],ex:103}]},
+  {fleet:1,ships:[{id:2,slots:[101,102,104],ex:103},{id:1,slots:[201,106,107],ex:-1}]},
+  {fleet:1,ships:[{id:1,slots:[201,104,-1],ex:103}]},
+ ];
+ const before=JSON.stringify(f.data);
+ for(const scheme of schemes){
+  const full=planner.preview('fleet',scheme);
+  withEquipmentIndexCache(f.data,()=>{
+   const projected=planner.project(scheme);
+   assert.equal(projected.equipment.steps,undefined);
+   assert.deepEqual(projected.organization,full.organization);
+   assert.deepEqual(projected.equipment.expected,full.equipment.expected.filter(e=>full.organization.targets.includes(e.shipId)));
+   projected.equipment.expected[0].state.slots.fill(-1);
+   assert.deepEqual(planner.project(scheme).equipment.expected,full.equipment.expected.filter(e=>full.organization.targets.includes(e.shipId)));
+   assert.deepEqual(planner.preview('fleet',scheme),full,'final preview still constructs every operation');
+  });
+  assert.deepEqual(planner.project(scheme),full,'outside immutable search always use full planning');
+ }
+ assert.equal(JSON.stringify(f.data),before);
+});
+test('projection retains all allocation guards and falls back for partial or named schemes',()=>{
+ for(const change of [
+  (f,s)=>s.ships[0].slots=[101,101,-1],
+  (f,s)=>s.ships[0].slots=[301,-1,-1], // land base
+  (f,s)=>s.ships[0].slots=[-1,104,-1],
+  (f,s)=>s.ships[0].slots=[999,-1,-1],
+  (f,s)=>{s.ships[0].slots=[201,-1,-1];f.data.info.repairs=[{api_ship_id:2}];},
+  f=>f.data.info.repairs=[{api_ship_id:1}],
+  f=>f.data.info.fleets[0].api_mission=[1],
+  (f,s)=>{f.data.info.ships[1].api_slot_ex=0;s.ships[0].ex=103;},
+  f=>f.data.const.$shipTypes[2].api_equip_type={12:1},
+  (f,s)=>s.ships.push({...s.ships[0]}),
+ ]){
+  const f=fixture(),s={fleet:1,ships:[{id:1,slots:[104,105,-1],ex:-1}]};change(f,s);
+  const p=createFleetPlanner(()=>f.data);
+  assert.throws(()=>p.preview('fleet',s));
+  assert.throws(()=>withEquipmentIndexCache(f.data,()=>p.project(s)));
+ }
+ const f=fixture(),p=createFleetPlanner(()=>f.data);
+ for(const scheme of [
+  {fleet:1,ships:[{id:1,slots:[201]},{id:2}]},
+  {fleet:1,ships:[{name:'ship1',slots:['gun','gun'],ex:'any'}]},
+ ])withEquipmentIndexCache(f.data,()=>assert.deepEqual(p.project(scheme),p.preview('fleet',scheme)));
+});
+test('concrete projection preserves full planner acceptance across inventory allocations',()=>{
+ const f=fixture(),p=createFleetPlanner(()=>f.data);f.data.info.ships[2].api_slot_ex=-1;
+ let seed=27,valid=0,rejected=0;
+ const next=n=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%n;};
+ const evaluate=fn=>{try{return {value:fn()};}catch(error){return {error:error.message};}};
+ withEquipmentIndexCache(f.data,()=>{
+  for(let i=0;i<300;i++){
+   const ids=[101,102,104,105,106,107,201];
+   for(let k=ids.length-1;k>0;k--){const j=next(k+1);[ids[j],ids[k]]=[ids[k],ids[j]];}
+   const ships=[1,2].map(id=>({id,slots:ids.splice(0,3),ex:id===1?103:-1}));
+   if(i%3===0)ships[0].slots[next(3)]=[301,-1,999,ships[1].slots[0]][next(4)];
+   const scheme={fleet:1,ships:i%2?ships:ships.slice().reverse()};
+   const full=evaluate(()=>p.preview('fleet',scheme)),projection=evaluate(()=>p.project(scheme));
+   assert.equal(!!projection.error,!!full.error,JSON.stringify(scheme));
+   if(full.error){rejected++;continue;}
+   valid++;assert.deepEqual(projection.value.equipment.expected,full.value.equipment.expected);
+  }
+ });
+ assert(valid>100&&rejected>30);
+ // Corrupt duplicate source ownership is handled by the existing full planner.
+ f.data.info.ships[2].api_slot=[101,-1,-1];
+ const scheme={fleet:1,ships:[{id:1,slots:[104,105,106],ex:-1},{id:2,slots:[107,201,-1],ex:103}]};
+ const full=p.preview('fleet',scheme),projected=withEquipmentIndexCache(f.data,()=>p.project(scheme));
+ assert.deepEqual(projected.organization,full.organization);
+ assert.deepEqual(projected.equipment,full.equipment);
+});
 (async()=>{
  await test('two same names use different instances and prefer current slots',()=>{const f=fixture();assert(f.plan([{id:1,slots:['gun','gun']}]).done);});
  await test('adding same-name equipment keeps equipped slots and installs incrementally',()=>{const f=fixture();f.plan([{id:1,slots:['gun','gun','gun']}]);const d=f.S.run.plan.ships[0];assert.deepEqual(d.want.slots,[101,102,104]);assert.deepEqual(d.ops.map(op=>op.kind),['slot']);assert.deepEqual(d.ops.map(op=>op.id),[104]);assert.equal(d.ops[0].j,2);});

@@ -115,7 +115,7 @@ function prepareCandidateEvaluator(store,args,ctx,inventory){
           allocated.add(id);
         }
       }
-      const route=routes.evaluateNormalRoute(store,{area,target,phase,fleet:ctx.fleet,scheme});
+      const route=routes.evaluateSearchRoute(store,{area,target,phase,fleet:ctx.fleet,scheme});
       const profile=profileForRoute(area,route);
       const rank=routeRanker(route,profile,rows,airGoal,area,store,scheme,byRoute);
       const scoresByPreference=Object.fromEntries(modes.map(mode=>[mode,rank(mode)]));
@@ -204,7 +204,7 @@ function calculateBatch(store,batch){
     const plan=routePlans.optionPlanning(trial.route,option),nodes=plan.nodes||option.nodes;
     if(plan.losShortfall>0){
       const v=gearVariant(store,trial.scheme,inventory,'los',base.profile,area,phase,{heldSlots:args.heldSlots,maxPlacements:12,allowCombatLoss:true,
-        stopWhen:value=>{const route=routes.evaluateNormalRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:holdDraftEquipment(store,value,args.heldSlots)});
+        stopWhen:value=>{const route=routes.evaluateSearchRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:holdDraftEquipment(store,value,args.heldSlots)});
           const plan=routePlans.optionPlanning(route,option);return plan.chance.max>0&&plan.losShortfall===0;}});
       if(v){trial=evaluate(rows,v)||trial;attempts++;}
     }
@@ -231,7 +231,7 @@ function calculateBatch(store,batch){
       const held=speedHolds(store,item.scheme,args.heldSlots),score=item.score;
       let fitted=airGoal==='ignore'?item.scheme:
         airLoadout(store,item.scheme,inventory,score.airGoalRequired,score.routeAirReference,airGoal,held)||item.scheme;
-      const route=routes.evaluateNormalRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:fitted});
+      const route=routes.evaluateSearchRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:fitted});
       fitted=fitRouteLoS(store,fitted,inventory,{route,nodes:batch.option.nodes,heldSlots:held})||fitted;
       if(fitted!==item.scheme)evaluateFit(fitted);
     }else if(kind==='los-fit'){
@@ -251,7 +251,7 @@ function calculateBatch(store,batch){
       // An untouched scheme already has an exact route assessment. This is
       // request-local reuse, never a hull estimate or a cross-snapshot result.
       const preparedRoute=fitted===item.scheme?item.route:
-        routes.evaluateNormalRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:fitted});
+        routes.evaluateSearchRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:fitted});
       if(fitted!==item.scheme)evaluateFit(fitted);
       if(airGoal!=='ignore'){
         const profile=profileForRoute(area,preparedRoute,routePlans.optionPaths(option));
@@ -262,7 +262,7 @@ function calculateBatch(store,batch){
       if(routePlans.optionPlanning(preparedRoute,option).losShortfall){
         const fit=gearVariant(store,fitted,inventory,'los',item.profile,area,phase,{heldSlots:args.heldSlots,maxPlacements:24,allowCombatLoss:true,
           stopWhen:scheme=>{const held=holdDraftEquipment(store,scheme,args.heldSlots);
-            const route=routes.evaluateNormalRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:held});
+            const route=routes.evaluateSearchRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:held});
             const check=routePlans.optionPlanning(route,option);return check.chance.max>0&&check.losShortfall===0;}});
         if(fit)evaluateFit(fit);
       }
@@ -301,7 +301,7 @@ function calculateBatch(store,batch){
           const plan=routePlans.optionPlanning(candidate.route,seed.option);
           if(plan.losShortfall>0){
             const fitted=gearVariant(store,candidate.scheme,inventory,'los',seed.profile,area,phase,{heldSlots:args.heldSlots,maxPlacements:24,allowCombatLoss:true,
-              stopWhen:value=>{const route=routes.evaluateNormalRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:holdDraftEquipment(store,value,args.heldSlots)});
+              stopWhen:value=>{const route=routes.evaluateSearchRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:holdDraftEquipment(store,value,args.heldSlots)});
                 const check=routePlans.optionPlanning(route,seed.option);return check.chance.max>0&&check.losShortfall===0;}});
             if(fitted){attempts++;singles.push(evaluate(rows,fitted));}
           }
@@ -400,7 +400,7 @@ function* searchNormalFleet(store,args,selectedOptions){
     throw error('INVALID_QUERY','airGoal 须为 ignore、superiority 或 supremacy');
   if(!Number.isInteger(limit)||limit<1||limit>5)throw error('INVALID_QUERY','limit 须为 1–5');
   // Let the route engine validate area, target and phase before searching.
-  const initial=routes.evaluateNormalRoute(store,{area,target,fleet:args.fleet??1,phase});
+  const initial=routes.evaluateSearchRoute(store,{area,target,fleet:args.fleet??1,phase});
   const requestedRoutes=byRoute?(selectedOptions||routePlans.recommendedOptions(area,target,phase,args.automaticFilters)):[];
   if(initial.verdict==='noBoss')throw error('INVALID_QUERY','该图没有 Boss，请指定目标点位');
   const modes=byRoute||preference==='all'?NORMAL_PREFERENCES:[preference];
@@ -943,7 +943,7 @@ function* searchNormalFleet(store,args,selectedOptions){
     recommendations:options.map((item,i)=>{
       let scheme=orderEquipment(store,item.scheme,args.heldSlots);
       if(scheme!==item.scheme)ctx.preview.preview('fleet',scheme);
-      let route=scheme===item.scheme?item.route:routes.evaluateNormalRoute(store,{area,target,phase,fleet:ctx.fleet,scheme});
+      let route=scheme===item.scheme?item.route:routes.evaluateSearchRoute(store,{area,target,phase,fleet:ctx.fleet,scheme});
       let profile=scheme===item.scheme?item.profile:profileForRoute(area,route,item.profile.routePaths?.map(p=>p.nodes));
       let scores=scheme===item.scheme?item.scores:routeRank(route,profile,scheme.ships.map(s=>ctx.byId.get(s.id)),
         item.preference||preference,airGoal,area,store,scheme,byRoute);
@@ -1031,7 +1031,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
     try{
       if(!jetCutInAllowed(store,candidate,heldSlots))return null;
       ctx.preview.preview('fleet',candidate);
-      const route=routes.evaluateNormalRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:candidate});
+      const route=routes.evaluateSearchRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:candidate});
       const fullProfile=profileForRoute(area,route);
       const selectedPaths=selectedRoute?routePlans.optionPaths(selectedRoute):null;
       const profile=selectedRoute?profileForRoute(area,route,selectedPaths):fullProfile;
@@ -1101,13 +1101,13 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
       const next=routingLoadout(store,fitted,inventory,need,heldSlots);if(next)fitted=normalize(next);
     }
     if(fitted!==seed.scheme)evaluate(fitted);
-    const preparedRoute=routes.evaluateNormalRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:fitted});
+    const preparedRoute=routes.evaluateSearchRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:fitted});
     const preparedProfile=profileForRoute(area,preparedRoute,routePlans.optionPaths(selectedRoute));
     const reference=routeAirReference(preparedRoute,area,preparedProfile);
     const air=airLoadout(store,fitted,inventory,reference.superiority,reference,'superiority',heldSlots);
     if(air)evaluate(air);
     const fit=gearVariant(store,fitted,inventory,'los',seed.profile,area,phase,{heldSlots,maxPlacements:24,allowCombatLoss:true,
-      stopWhen:value=>{const route=routes.evaluateNormalRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:normalize(value)});
+      stopWhen:value=>{const route=routes.evaluateSearchRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:normalize(value)});
         const check=routePlans.optionPlanning(route,selectedRoute);return check.chance.max>0&&check.losShortfall===0;}});
     if(fit)evaluate(fit);
   }

@@ -1,7 +1,7 @@
 'use strict';
 // Pure plan creation; no host, session or game operation can be created here.
 const {resolvePlan}=require('./organize_planner');
-const {createEquipmentPlanner,snapshotMemo}=require('./equipment_planner');
+const {createEquipmentPlanner,snapshotMemo,hasEquipmentIndexCache}=require('./equipment_planner');
 
 // A unified plan carries the fleet layout AND per-ship equipment in one
 // ships array: {id/name, slots?, ex?}. Entries without slots/ex only take
@@ -35,6 +35,23 @@ function splitUnifiedScheme(scheme) {
 class FleetPlanner {
   constructor(getStore,{resolveOrganization=resolvePlan}={}){
     this.getStore=getStore;this.resolveOrganization=resolveOrganization;
+  }
+  // Internal immutable-search projection. Partial/name-based requests and live
+  // callers retain full planning, including implicit donor-slot compaction.
+  project(scheme){
+    const store=this.getStore();
+    const concrete=hasEquipmentIndexCache(store)&&Array.isArray(scheme.ships)&&scheme.ships.every(entry=>{
+      const ship=store.info.ships[entry?.id],master=store.const.$ships[ship?.api_ship_id];
+      const count=Number(master?.api_slot_num??ship?.api_slotnum??ship?.api_slot?.length);
+      return Number.isInteger(entry?.id)&&entry.name===undefined&&Array.isArray(entry.slots)&&
+        entry.slots.length===count&&entry.slots.every(id=>Number.isInteger(id)&&(id===-1||id>0))&&
+        Number.isInteger(entry.ex)&&(entry.ex===-1||entry.ex>0);
+    });
+    if(!concrete)return this.preview('fleet',scheme);
+    const {org,eq}=splitUnifiedScheme(scheme),organization=this.preview('organization',org);
+    const equipment=createEquipmentPlanner(this.getStore).resolvePlan(eq,
+      {fleetShips:organization.targets,projectionOnly:true});
+    return {organization,equipment};
   }
   preview(kind,scheme) {
     if(kind==='organization')return snapshotMemo(this.getStore(),'organizationPlans',JSON.stringify(scheme),()=>this.resolveOrganization(this.getStore(),scheme));

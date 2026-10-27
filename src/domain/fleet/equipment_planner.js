@@ -124,6 +124,7 @@ function createEquipmentPlanner(getStore) {
     const plan = {fleet, fleetShips:options.fleetShips||fleetShipIds(fleet), ships:[], expected:[], notes:[]};
     const sources=sourceMap();
     const free = snapshotMemo(store(),'equipmentPlanningFree','all',()=>new Set(freeListAll().map(x => x.id))), seenShips = new Set(), requests = [];
+    const concreteIds=options.projectionOnly?new Set():null;
     const drafts = scheme.ships.map(raw => {
       const sh = typeof raw === 'number' ? {id:raw} : typeof raw === 'string' ? {name:raw} : raw;
       if (!sh || (sh.id === undefined && sh.name === undefined)) throw new Error('舰条目缺id/name');
@@ -153,6 +154,17 @@ function createEquipmentPlanner(getStore) {
         let candidates;
         if (typeof spec === 'number') {
           if (!Number.isInteger(spec) || spec <= 0 || !info().equips[spec]) throw new Error('装备实例不存在: '+spec);
+          if(concreteIds){
+            // Every slot is explicit in a search projection: there is no name
+            // choice or implicit retained slot to solve by bipartite matching.
+            if(!(free.has(spec)||owned.has(spec)||sources[spec]&&availableShip(sources[spec].shipId))||
+              !canEquip(sid,spec,j)||!(owned.has(spec)||!sources[spec]||R.acceptsOtherSlot(store(),sid,spec,j)))
+              throw new Error('无可用装备(排除基地、远征和修理中来源): '+spec);
+            if(concreteIds.has(spec))throw new Error('装备数量不足或实例重复，无法一对一分配');
+            concreteIds.add(spec);
+            if(j==='ex')want.ex=spec;else want.slots[j]=spec;
+            return;
+          }
           candidates = [spec];
         } else {
           const obj = typeof spec === 'string' ? {name:spec} : spec;
@@ -173,6 +185,28 @@ function createEquipmentPlanner(getStore) {
       (sh.slots || []).forEach((spec,j) => request(spec,j)); request(sh.ex,'ex');
       return draft;
     });
+    if(concreteIds){
+      // Refuse accidental use with partial/flexible requests. FleetPlanner
+      // falls back to full preview for those schemes, including donor effects.
+      if(scheme.ships.some((entry,i)=>!Number.isInteger(entry.id)||entry.name!==undefined||
+        !Array.isArray(entry.slots)||entry.slots.length!==drafts[i].before.slots.length||
+        !entry.slots.concat(entry.ex).every(id=>Number.isInteger(id)&&(id===-1||id>0))))
+        throw new Error('搜索投影需要完整的装备实例');
+      for(const d of drafts)for(const state of [d.before,d.want]){
+        const firstEmpty=state.slots.indexOf(-1);
+        if(firstEmpty>=0&&state.slots.slice(firstEmpty+1).some(id=>id>0))throw new Error('普通装备槽不能在空槽后指定装备: '+d.shipId);
+      }
+      const initial=snapshotMemo(store(),'equipmentPlanningStates','all',()=>Object.keys(info().ships).map(id=>[Number(id),currentState(id)]));
+      const unique=snapshotMemo(store(),'equipmentProjectionOwnership','unique',()=>{
+        const seen=new Set();
+        for(const [,state]of initial)for(const id of state.slots.concat(state.ex))if(id>0){
+          if(seen.has(id))return false;seen.add(id);
+        }
+        return true;
+      });
+      if(!unique)return resolvePlan(scheme,{...options,projectionOnly:false});
+      return {fleet,expected:drafts.map(d=>({shipId:d.shipId,state:{slots:d.want.slots.slice(),ex:d.want.ex}}))};
+    }
     // Bipartite assignment: explicit IDs and constrained requests cannot be
     // consumed twice by earlier unconstrained name requests.
     const owners = new Map(), assigned = new Map();

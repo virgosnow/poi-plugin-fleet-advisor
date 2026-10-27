@@ -29,6 +29,29 @@ function fixture(){
 const plan=(ship1={slots:[101,102],ex:-1},ship2={slots:[201],ex:0})=>({
   organization:{targets:[1,2]},equipment:{expected:[{shipId:1,state:ship1},{shipId:2,state:ship2}]}
 });
+test('per-ship metrics reuse unchanged outfits, retain order and expire with the immutable scope',()=>{
+  const {withEquipmentIndexCache}=require('../../../src/domain/fleet/equipment_planner');
+  const {evaluateProjectedCandidate}=require('../../../src/domain/fleet/fleet_metrics');
+  const store=fixture(),base=plan(),changed=plan({slots:[301,302],ex:103});
+  const expected=[base,changed].map(p=>evaluateCandidate(store,p));
+  withEquipmentIndexCache(store,()=>{
+    const first=evaluateCandidate(store,base),next=evaluateCandidate(store,changed);
+    assert.deepEqual(first,expected[0]);assert.deepEqual(next,expected[1]);
+    assert.strictEqual(first.speed.ships[1],next.speed.ships[1]);
+    assert.strictEqual(first.openingASW.ships[1],next.openingASW.ships[1]);
+    assert.notStrictEqual(first.speed.ships[0],next.speed.ships[0]);
+    assert.notStrictEqual(first.openingASW.ships[0],next.openingASW.ships[0]);
+    assert.deepEqual(evaluateProjectedCandidate(store,projectFleet(store,base)),first);
+    const reversed={...base,organization:{targets:[2,1]}};
+    assert.deepEqual(evaluateCandidate(store,reversed).openingASW.ships,first.openingASW.ships.slice().reverse());
+    base.equipment.expected[0].state.slots=[301,302];
+    assert.equal(evaluateCandidate(store,base).speed.ships[0].speed,'fastPlus');
+  });
+  store.info.ships[1].api_taisen=[110,0];store.info.equips[103].api_level=7;
+  const live=evaluateCandidate(store,changed);
+  assert.notDeepEqual(live.openingASW,expected[1].openingASW);
+  assert.deepEqual(withEquipmentIndexCache(store,()=>evaluateCandidate(store,changed)),live);
+});
 
 test('fighter power uses per-slot flooring and visible proficiency as a range',()=>{
   const store=fixture();

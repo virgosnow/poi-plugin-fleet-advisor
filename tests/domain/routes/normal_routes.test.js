@@ -44,6 +44,26 @@ function fixture(){
       $equips:{},$shipTypes:{},$equipShip:{},$exslotEquips:[],
       $exslotEquipShips:{},$exslotEquipLimits:{}}};
 }
+test('search route projection equals public full preview across every map and phase',()=>{
+  const {evaluateSearchRoute}=require('../../../src/domain/routes/normal_routes');
+  const {withEquipmentIndexCache}=require('../../../src/domain/fleet/equipment_planner');
+  const store=fixture(),scheme={fleet:1,ships:[1,2,3,4,5,6].map(id=>({id,slots:[-1],ex:-1}))};
+  const before=JSON.stringify(store);
+  for(const {area} of listNormalMaps().maps){
+    const map=require(`../../../data/normal_routes/${area}.json`);
+    for(const phase of [undefined,...Object.keys(map.bossPhases||{})]){
+      const options={area,phase,fleet:1,scheme,target:map.bossNodes.length?'boss':map.terminalNodes[0]};
+      const expected=evaluateNormalRoute(store,options);
+      withEquipmentIndexCache(store,()=>{
+        assert.deepEqual(evaluateSearchRoute(store,options),expected,`${area} ${phase}`);
+        assert.deepEqual(evaluateNormalRoute(store,options),expected);
+      });
+    }
+  }
+  assert.equal(JSON.stringify(store),before);
+  store.info.fleets[0].api_mission=[1];
+  assert.throws(()=>evaluateSearchRoute(store,{area:'4-5',scheme}));
+});
 
 test('every reviewed fixed edge in a branch table is reported as fixed across normal maps and phases',()=>{
   const store=fixture();let checked=0;
