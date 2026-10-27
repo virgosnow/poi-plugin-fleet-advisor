@@ -12,7 +12,7 @@ function fixture(){
       api_houg:[fire[i],fire[i]],api_raig:[torpedo[i],torpedo[i]],api_yomi:String(id)});
     Object.assign(ship,{api_maxhp:60,api_nowhp:60,api_lv:90,api_lucky:[30,99],api_kyouka:[0,0,0,0,0],
       api_slot:[-1,-1,-1,-1],api_onslot:[1,1,5,0],api_karyoku:[fire[i],fire[i]],api_raisou:[torpedo[i],torpedo[i]],
-      api_soukou:[60,60],api_sakuteki:[80,80]});
+      api_soukou:[60,60],api_kaihi:[70,70],api_sakuteki:[80,80]});
     const slots=[1,1,10,19].map((type,k)=>{
       const iid=id*100+k,mid=type;
       store.const.$equips[mid]={api_id:mid,api_name:'测试装备'+mid,api_type:[0,0,type,type],api_houg:type===1?10:0,api_saku:type===10?9:0};
@@ -88,7 +88,7 @@ test('night CI reads the fixed flagship bonus instead of treating all positions 
 test('a lone fragile escort gets a protection option without treating an ordinary light fleet as an outlier',()=>{
   const {store,scheme,rows,profile}=fixture();
   assert.equal(fragileEscort(rows,profile),null);
-  Object.assign(rows[1].ship,{api_maxhp:20,api_nowhp:20,api_soukou:[10,10]});
+  Object.assign(rows[1].ship,{api_maxhp:20,api_nowhp:20,api_soukou:[10,10],api_kaihi:[30,30]});
   assert.equal(fragileEscort(rows,profile),2);
   const first=fleetOrderChoices(store,scheme,profile,rows)[0];
   assert.equal(first.scheme.ships[0].id,2);assert.equal(first.reason,'flagshipProtection');
@@ -96,6 +96,37 @@ test('a lone fragile escort gets a protection option without treating an ordinar
   assert(fixedFlag.every(c=>c.scheme.ships[0].id===1&&c.reason!=='flagshipProtection'));
   Object.assign(rows[0].ship,{api_maxhp:22,api_nowhp:22,api_soukou:[10,10]});
   assert.equal(fragileEscort(rows,profile),null);
+});
+
+test('high-evasion light ships do not win flagship protection from low armor alone',()=>{
+  const {store,scheme,rows,profile}=fixture();
+  for(const row of rows)Object.assign(row.ship,{api_maxhp:90,api_nowhp:90,api_soukou:[100,100],api_kaihi:[65,65]});
+  rows[1].master.api_name='夕立改二';
+  Object.assign(rows[1].ship,{api_maxhp:31,api_nowhp:31,api_soukou:[52,52],api_kaihi:[94,94]});
+  assert.equal(fragileEscort(rows,profile,{store,scheme}),null);
+  const choices=fleetOrderChoices(store,scheme,profile,rows);
+  assert(choices.length>0);assert(choices.every(c=>c.reason!=='flagshipProtection'));
+  assert.equal(choices[0].scheme.ships[0].id,3,'powerful battleship can take the first attack instead');
+  rows[1].ship.api_kaihi=[40,40];
+  assert.equal(fragileEscort(rows,profile,{store,scheme}),2,'both low evasion and low armor qualify');
+  rows[1].ship.api_soukou=[100,100];
+  assert.equal(fragileEscort(rows,profile,{store,scheme}),null,'small HP with low evasion alone is insufficient');
+});
+
+test('protection uses planned equipment evasion and does not treat absent stats as zero',()=>{
+  const {store,scheme,rows,profile}=fixture();
+  Object.assign(rows[1].ship,{api_maxhp:20,api_nowhp:20,api_soukou:[10,10],api_kaihi:[30,30]});
+  assert.equal(fragileEscort(rows,profile,{store,scheme}),2);
+  store.const.$equips[900]={api_id:900,api_type:[0,0,13,13],api_name:'回避电探',api_houk:40};
+  store.info.equips[900]={api_id:900,api_slotitem_id:900};
+  scheme.ships[1].slots[3]=900;
+  assert.equal(fragileEscort(rows,profile,{store,scheme}),null,'new equipment removes the low-evasion condition');
+  store.info.ships[2].api_slot[3]=900;store.info.ships[2].api_kaihi=[70,70];
+  scheme.ships[1].slots[3]=-1;
+  assert.equal(fragileEscort(rows,profile,{store,scheme}),2,'removing observed evasion equipment changes the decision');
+  delete rows[1].ship.api_kaihi;assert.equal(fragileEscort(rows,profile,{store,scheme}),null);
+  rows[1].ship.api_kaihi=[30,30];delete rows[2].ship.api_kaihi;
+  assert.equal(fragileEscort(rows,profile,{store,scheme}),null,'missing peer data cannot establish a relative outlier');
 });
 test('manual positions, active Nelson participants and ASW-only fleets remain protected',()=>{
   const {store,scheme,rows,profile}=fixture();

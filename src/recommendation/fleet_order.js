@@ -85,16 +85,27 @@ function combatReadings(store,scheme,profile,rows,air){
   return {readings,targets,land:!!land};
 }
 
-// A lone durability outlier can benefit from flagship covering. This relative
-// threshold is a recommendation policy, not a formula for being covered or sunk.
+// Protect a lone low-armor AND low-evasion durability outlier. HP/armor alone
+// wrongly promotes evasive destroyers above hard-hitting ships. These cutoffs
+// are a conservative ordering policy, not hit or survival probabilities.
 function fragileEscort(rows,profile,{store,scheme}={}){
   if(rows.length<4||routeDifficulty(profile).tier==='routine')return null;
-  const values=rows.map(row=>{const hp=Number(row.ship.api_maxhp),armor=store&&scheme?plannedCombatStat(store,row,scheme,'api_soukou','api_souk'):Number(row.ship.api_soukou?.[0]);
-    return {id:row.id,stype:row.stype,durability:hp>0&&armor>0?hp*armor:null};});
-  if(values.some(v=>v.durability===null))return null;
+  const values=rows.map(row=>{
+    const stat=(shipKey,equipKey)=>{
+      const raw=Array.isArray(row.ship[shipKey])?row.ship[shipKey][0]:row.ship[shipKey];
+      // Unknown is not zero: missing evasion must not nominate a fragile ship.
+      if(raw==null||!Number.isFinite(Number(raw))||Number(raw)<0)return null;
+      return store&&scheme?plannedCombatStat(store,row,scheme,shipKey,equipKey):Number(raw);
+    };
+    const hp=Number(row.ship.api_maxhp),armor=stat('api_soukou','api_souk'),evasion=stat('api_kaihi','api_houk');
+    return {id:row.id,stype:row.stype,armor,evasion,durability:hp>0&&armor>0?hp*armor:null};
+  });
+  if(values.some(v=>v.durability===null||v.evasion===null))return null;
   const ranked=values.slice().sort((a,b)=>a.durability-b.durability),first=ranked[0];
   if([13,14].includes(first.stype))return null;
   const rest=ranked.slice(1),middle=rest[Math.floor(rest.length/2)].durability;
+  const median=key=>rest.map(v=>v[key]).sort((a,b)=>a-b)[Math.floor(rest.length/2)];
+  if(first.evasion>=60||first.evasion>=median('evasion')*.8||first.armor>=median('armor')*.8)return null;
   return first.durability<middle*.55&&rest[0].durability>=first.durability*1.6?first.id:null;
 }
 function fleetOrderChoices(store,scheme,profile,rows,{locked=new Map(),air,limit=8}={}){
