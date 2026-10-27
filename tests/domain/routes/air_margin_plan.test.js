@@ -71,3 +71,23 @@ test('air trials share quiet-branch work while retaining distinct enemy conditio
   assert.equal(estimateRouteAir(air,c).paths[0].steps[0].node,'B');
   assert.deepEqual(estimateRouteAirMinimum(air,a),estimateRouteAirMinimum(air,c));
 });
+
+test('successful air threshold publishes exact minima for other goals and later ground scoring',()=>{
+  const {PerformanceTrace}=require('../../../src/shared/performance_trace');
+  const ref={status:'known',paths:[['A','B'],['A','C']],nodes:['A','B','C'].map((id,i)=>({id,kind:'battle',
+    enemyAirPower:27+i,antiAir:{status:'known',proportion:.11,fixed:3}}))};
+  const air={status:'range',slots:[{aircraftType:6,planes:[37,40],effectiveAntiAir:[12.123,12.123],proficiencyBonus:[22,23]}]};
+  const trace=new PerformanceTrace();
+  trace.run(()=>{
+    assert.equal(routeAirMeets(air,ref,'superiority'),true);
+    assert.equal(trace.counters['air.test.reusedMargins'],1);
+    const misses=trace.counters['air.test.miss'];
+    for(const goal of ['superiority','supremacy'])for(const minimum of [-20,0,60]){
+      const expected=Math.min(...ref.paths.map(path=>simulateAirPath(air,path.map(id=>ref.nodes.find(n=>n.id===id))).margins[goal].min));
+      assert.equal(routeAirMeets(air,ref,goal,minimum),expected>=minimum);
+      assert.equal(estimateRouteAirMinimum(air,ref)[goal].min,expected);
+    }
+    assert.equal(trace.counters['air.test.miss'],misses);
+    assert.equal(trace.counters['air.trial.miss'],undefined);
+  });
+});

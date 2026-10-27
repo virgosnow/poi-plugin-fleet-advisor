@@ -436,12 +436,16 @@ function routeAirMeets(air,reference,goal,minimum=0){
   const keys=air.slots.map(s=>aircraftKey(s,false)),signature=keys.slice().sort().join(';'),plan=simulationPaths(reference);
   let cache=marginCache.get(plan.trial);if(!cache){cache=new Map();marginCache.set(plan.trial,cache);}
   const minimumEntry=cache.get('min:'+signature)||cache.get(signature);
-  if(minimumEntry){minimumEntry.hot=true;return minimumEntry.value?minimumEntry.value[goal].min>=minimum:null;}
+  if(minimumEntry){minimumEntry.hot=true;perf.count('air.test.hit');return minimumEntry.value?minimumEntry.value[goal].min>=minimum:null;}
   const key='test:'+goal+':'+minimum+':'+signature,entry=cache.get(key);
   if(entry){entry.hot=true;perf.count('air.test.hit');return entry.value;}
   const result=plan.trial(air,keys,true,{goal:goal==='supremacy'?1:0,minimum});
   perf.count('air.test.miss');
-  if(result!==undefined)return saveMargins(cache,key,result);
+  if(result!==undefined){
+    if(result===false)return saveMargins(cache,key,false);
+    saveMargins(cache,'min:'+signature,result);
+    perf.count('air.test.reusedMargins');return result[goal].min>=minimum;
+  }
   const margins=estimateRouteAirMinimum(air,reference);
   return saveMargins(cache,key,margins?margins[goal].min>=minimum:null);
 }

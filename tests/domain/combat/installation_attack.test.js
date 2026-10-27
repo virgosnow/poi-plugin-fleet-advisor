@@ -390,3 +390,35 @@ test('shared ground scores retain flagship, air state, enemy and fleet scouting 
   f.store.info.ships[2].api_sakuteki[0]+=80;
   const live=reads[0]();assert.deepEqual(withEquipmentIndexCache(f.store,reads[0]),live);
 });
+
+test('ground fitting memo preserves held slots, inventory, enemy, air conditions and returned ownership',()=>{
+  const {withEquipmentIndexCache}=require('../../../src/domain/fleet/equipment_planner');
+  const {PerformanceTrace}=require('../../../src/shared/performance_trace');
+  const f=combatFixture(),base={profile:f.p,airReference:f.reference};
+  const options=[base,{...base,packages:false},{...base,heldSlots:f.scheme.ships.map(e=>({...e,keep:Object.fromEntries(e.slots.map((_,i)=>[i,true]))}))},
+    {...base,profile:profile('集積地棲姫')},{...base,airReference:{...f.reference,nodes:f.reference.nodes.map(n=>({...n,enemyAirPower:9999}))}}];
+  const expected=options.map(o=>groundLoadouts(f.store,f.scheme,f.inventory,o));assert(expected[0].length);
+  const reduced=f.inventory.slice(0,2),less=groundLoadouts(f.store,f.scheme,reduced,base),trace=new PerformanceTrace();
+  trace.run(()=>withEquipmentIndexCache(f.store,()=>{
+    for(let repeat=0;repeat<2;repeat++)options.forEach((o,i)=>{
+      const result=groundLoadouts(f.store,f.scheme,f.inventory,o);assert.deepEqual(result,expected[i]);
+      if(result[0])result[0].ships[0].slots.fill(-1);
+    });
+    assert.deepEqual(groundLoadouts(f.store,f.scheme,reduced,base),less);
+  }));
+  assert(trace.counters['loadout.ground.hit']>=5);
+});
+
+test('ground damage facts survive changed air states without reusing fleet scouting or flagship rates',()=>{
+  const {withEquipmentIndexCache}=require('../../../src/domain/fleet/equipment_planner'),f=combatFixture();
+  const entry={...f.scheme.ships[0],slots:[...f.guns,620,f.ids.shell]},scheme={...f.scheme,ships:[entry,f.scheme.ships[1]]};
+  const cases=[];
+  for(const enemy of [0,20,5000])for(const name of ['港湾棲姫','砲台小鬼','集積地棲姫'])for(const flagship of [true,false]){
+    const ref={...f.reference,nodes:f.reference.nodes.map(n=>({...n,enemyAirPower:enemy}))};
+    const p=profile(name);cases.push(()=>groundCombatContext(f.store,scheme,p,{airReference:ref,scoreCache:new Map()}).score(entry,80,{flagship}));
+  }
+  const expected=cases.map(read=>read());
+  withEquipmentIndexCache(f.store,()=>{for(let pass=0;pass<2;pass++)cases.forEach((read,i)=>assert.deepEqual(read(),expected[i]));});
+  f.store.info.ships[entry.id].api_karyoku[0]+=30;
+  const fresh=cases[0]();assert.deepEqual(withEquipmentIndexCache(f.store,cases[0]),fresh);
+});

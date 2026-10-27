@@ -93,7 +93,10 @@ function createMarginPlan(paths,{airState,stageOneLoss,slotPower}){
     for(const branch of root.children.values())if(visit(branch,[air.slots.map(s=>s.planes[0]),air.slots.map(s=>s.planes[1])],[steel,steel])===false)return false;
     if(paths.some(p=>!p.length))for(let goal=0;goal<2;goal++)for(let side=0;side<sides;side++)margins[goal][side]=Math.min(margins[goal][side],0);
     perf.count('air.plan.used');
-    if(threshold)return (count?margins[threshold.goal][0]:0)>=threshold.minimum;
+    // A successful threshold walk visited every required node. Its exact
+    // minimum margins are already known and can serve later fitting/scoring.
+    // Early failures still return false without publishing partial margins.
+    if(threshold&&(count?margins[threshold.goal][0]:0)<threshold.minimum)return false;
     return {superiority:{min:count?margins[0][0]:0,...minimumOnly?{}:{max:count?margins[0][1]:0}},supremacy:{min:count?margins[1][0]:0,...minimumOnly?{}:{max:count?margins[1][1]:0}}};
   };
 }

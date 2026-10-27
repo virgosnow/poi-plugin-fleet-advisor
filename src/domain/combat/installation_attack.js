@@ -283,65 +283,77 @@ function groundCombatContext(store,scheme,profile,{airReference,airEstimate,scor
     const original=byId.get(entry.id);
     const key=[entry.id,entry.slots.join(','),entry.ex,fallbackFire,fleetLoS-recon(original),flagship,airKey].join(':');
     if(cache.has(key))return cache.get(key);
-    const target={...original,after:entry,
-      items:itemsForEntry(store,entry).map(e=>({...e,type:type(e.master)}))};
-    const carrier=attack.groundAviation(target.master,target.items),sub=[13,14].includes(Number(target.master.api_stype));
-    const surfaceNight=!carrier||Number(target.master.api_stype)===22;
-    const dayBase=attack.fireBase(target,store),nightImprovements=target.items.map(nightCI.nightImprovement);
-    const nightBase={...dayBase,value:dayBase.value===null||nightImprovements.includes(null)?null:
-      dayBase.value-target.items.reduce((s,e)=>s+(attack.dayImprovement(e)||0),0)+nightImprovements.reduce((a,b)=>a+b,0)};
-    // Missing historical intrinsic data must not erase all ranking value. Keep
-    // the existing panel-difference fallback private to the heuristic.
-    if(dayBase.value===null||nightBase.value===null){
-      const raw=items=>items.reduce((s,e)=>s+Number(e.master.api_houg||0),0);
-      const observed=Number(Array.isArray(target.ship.api_karyoku)?target.ship.api_karyoku[0]:target.ship.api_karyoku)||0;
-      const before=itemsForEntry(store,{id:entry.id});
-      const fire=fallbackFire??observed-raw(before)+raw(target.items);
-      if(dayBase.value===null)dayBase.value=fire+target.items.reduce((s,e)=>s+(attack.dayImprovement(e)||0),0);
-      if(nightBase.value===null)nightBase.value=fire+target.items.reduce((s,e)=>s+(nightCI.nightImprovement(e)||0),0);
-    }
-    const main=target.items.filter(e=>[1,2,3,38].includes(e.type)).length,
-      secondary=target.items.some(e=>e.type===4),ap=target.items.some(e=>e.type===19),
-      radar=target.items.some(e=>[12,13,93].includes(e.type));
-    const scout=target.items.some(e=>[10,11].includes(e.type)&&e.planes>0);
-    const modes=[];
-    if(!carrier&&!sub&&scout){
-      if(main>=2&&ap)modes.push({multiplier:1.5,hits:1,coefficient:150});
-      if(main&&secondary&&ap)modes.push({multiplier:1.3,hits:1,coefficient:140});
-      if(main&&secondary&&radar)modes.push({multiplier:1.2,hits:1,coefficient:130});
-      if(main&&secondary)modes.push({multiplier:1.1,hits:1,coefficient:120});
-      if(main>=2)modes.push({multiplier:1.2,hits:2,coefficient:130});
-    }
-    const nightMode=attack.groundNightMode(target);
-    const nightRate=nightMode.hits===2?1:nightMode.multiplier===1?0:
-      nightCI.reading(target,flagship,[{...nightMode,coefficient:main>=3?140:130}],null).rows[0].rate??0;
-    const rawLuck=Array.isArray(target.ship.api_lucky)?target.ship.api_lucky[0]:target.ship.api_lucky,
-      luck=rawLuck==null?NaN:Number(rawLuck);
+    // Ship/loadout damage is independent of route air state and fleet LoS.
+    // Reuse it across those contexts, then apply their observation rates below.
+    const facts=snapshotMemo(store,'groundAttackFacts',JSON.stringify([entry.id,entry.slots,entry.ex,fallbackFire,flagship]),()=>{
+      const target={...original,after:{...entry,slots:entry.slots.slice()},
+        items:itemsForEntry(store,entry).map(e=>({...e,type:type(e.master)}))};
+      const carrier=attack.groundAviation(target.master,target.items),sub=[13,14].includes(Number(target.master.api_stype));
+      const surfaceNight=!carrier||Number(target.master.api_stype)===22;
+      const dayBase=attack.fireBase(target,store),nightImprovements=target.items.map(nightCI.nightImprovement);
+      const nightBase={...dayBase,value:dayBase.value===null||nightImprovements.includes(null)?null:
+        dayBase.value-target.items.reduce((s,e)=>s+(attack.dayImprovement(e)||0),0)+nightImprovements.reduce((a,b)=>a+b,0)};
+      // Missing historical intrinsic data must not erase all ranking value. Keep
+      // the existing panel-difference fallback private to the heuristic.
+      if(dayBase.value===null||nightBase.value===null){
+        const raw=items=>items.reduce((s,e)=>s+Number(e.master.api_houg||0),0);
+        const observed=Number(Array.isArray(target.ship.api_karyoku)?target.ship.api_karyoku[0]:target.ship.api_karyoku)||0;
+        const before=itemsForEntry(store,{id:entry.id});
+        const fire=fallbackFire??observed-raw(before)+raw(target.items);
+        if(dayBase.value===null)dayBase.value=fire+target.items.reduce((s,e)=>s+(attack.dayImprovement(e)||0),0);
+        if(nightBase.value===null)nightBase.value=fire+target.items.reduce((s,e)=>s+(nightCI.nightImprovement(e)||0),0);
+      }
+      const main=target.items.filter(e=>[1,2,3,38].includes(e.type)).length,
+        secondary=target.items.some(e=>e.type===4),ap=target.items.some(e=>e.type===19),
+        radar=target.items.some(e=>[12,13,93].includes(e.type));
+      const scout=target.items.some(e=>[10,11].includes(e.type)&&e.planes>0);
+      const modes=[];
+      if(!carrier&&!sub&&scout){
+        if(main>=2&&ap)modes.push({multiplier:1.5,hits:1,coefficient:150});
+        if(main&&secondary&&ap)modes.push({multiplier:1.3,hits:1,coefficient:140});
+        if(main&&secondary&&radar)modes.push({multiplier:1.2,hits:1,coefficient:130});
+        if(main&&secondary)modes.push({multiplier:1.1,hits:1,coefficient:120});
+        if(main>=2)modes.push({multiplier:1.2,hits:2,coefficient:130});
+      }
+      const nightMode=attack.groundNightMode(target);
+      const nightRate=nightMode.hits===2?1:nightMode.multiplier===1?0:
+        nightCI.reading(target,flagship,[{...nightMode,coefficient:main>=3?140:130}],null).rows[0].rate??0;
+      const rawLuck=Array.isArray(target.ship.api_lucky)?target.ship.api_lucky[0]:target.ship.api_lucky,
+        luck=rawLuck==null?NaN:Number(rawLuck);
+      const ready=!carrier||carrierGroundState(target.items)==='ready';
+      const gearLoS=target.items.reduce((s,e)=>s+Number(e.master.api_saku||0),0);
+      const powers=new Map();
+      const powerFor=key=>{
+        if(powers.has(key))return powers.get(key);
+        const effect=equipmentEffects(target.items,key,{stype:target.master.api_stype}),
+          nightEffect=equipmentEffects(target.items,key,{night:true,stype:target.master.api_stype});
+        const singleDay=ready&&!sub?attack.groundAttack(target,effect,dayBase,{groundBomber})||0:0;
+        const modesPower=modes.map(mode=>(attack.groundAttack(target,effect,dayBase,{groundBomber,multiplier:mode.multiplier})||0)*mode.hits);
+        const singleNight=surfaceNight?attack.groundAttack(target,nightEffect,nightBase,{night:true})||0:0;
+        const night=surfaceNight?singleNight+nightRate*((attack.groundAttack(target,nightEffect,nightBase,
+          {night:true,multiplier:nightMode.multiplier})||0)*nightMode.hits-singleNight):0;
+        const value={singleDay,modesPower,night};powers.set(key,value);return value;
+      };
+      return {target,carrier,sub,dayBase,main,scout,modes,nightMode,luck,gearLoS,powerFor};
+    });
+    const {target,carrier,sub,dayBase,main,scout,modes,nightMode,luck,gearLoS,powerFor}=facts;
     const saku=Math.max(0,fleetLoS-recon(original)+recon(target)),fleetTerm=Math.floor(Math.sqrt(saku)+saku*.1);
-    const gearLoS=target.items.reduce((s,e)=>s+Number(e.master.api_saku||0),0);
     const probability=(mode,state)=>{
       if(!Number.isFinite(luck)||state==='none')return 0;
       const term=Math.floor(Math.floor(Math.sqrt(Math.max(0,luck))+10)+
         (state==='supremacy'?.7*(fleetTerm+1.6*gearLoS+10):.6*(fleetTerm+1.2*gearLoS)))+(flagship?15:0);
       return Math.min(1,Math.max(0,term/mode.coefficient));
     };
-    const ready=!carrier||carrierGroundState(target.items)==='ready';
     const attacks=[];let total=0;
     for(const encounter of encounters){
       let encounterPower=0;
       for(const key of encounter.targets){
-        const effect=equipmentEffects(target.items,key,{stype:target.master.api_stype}),
-          nightEffect=equipmentEffects(target.items,key,{night:true,stype:target.master.api_stype});
-        const singleDay=ready&&!sub?attack.groundAttack(target,effect,dayBase,{groundBomber})||0:0;
+        const {singleDay,modesPower,night}=powerFor(key);
         let day=singleDay,remaining=1,doubleRate=0;
-        for(const mode of modes){
-          const occurrence=remaining*probability(mode,encounter.state);remaining-=occurrence;
-          const power=attack.groundAttack(target,effect,dayBase,{groundBomber,multiplier:mode.multiplier})||0;
-          day+=occurrence*(power*mode.hits-singleDay);if(mode.hits===2)doubleRate+=occurrence;
+        for(let i=0;i<modes.length;i++){
+          const mode=modes[i],occurrence=remaining*probability(mode,encounter.state);remaining-=occurrence;
+          day+=occurrence*(modesPower[i]-singleDay);if(mode.hits===2)doubleRate+=occurrence;
         }
-        const singleNight=surfaceNight?attack.groundAttack(target,nightEffect,nightBase,{night:true})||0:0;
-        const night=surfaceNight?singleNight+nightRate*((attack.groundAttack(target,nightEffect,nightBase,
-          {night:true,multiplier:nightMode.multiplier})||0)*nightMode.hits-singleNight):0;
         // Night follow-up is a combat opportunity, not an assumed extra round.
         const power=encounter.night?night:day+night*.65;
         encounterPower+=power<=1000?power:1000+20*Math.sqrt(power-1000);

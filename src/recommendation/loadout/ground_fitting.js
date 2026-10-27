@@ -1,6 +1,7 @@
 'use strict';
 const {snapshotMemo}=require('../../domain/fleet/equipment_planner');
 const perf=require('../../shared/performance_trace');
+const {memoLoadout,referenceKey}=require('./search_memo');
 const {canEquip,acceptsOtherSlot}=require('../../domain/fleet/equipment_rules');
 const {dedicated,flags,itemsForEntry,routeGroundTargets,groundCombatContext,fleetGroundScore,groundBomber,carrierGroundState}=require('../../domain/combat/installation_attack');
 const {aswEscortLimit,aswEscortIds}=require('./loadout_policy');
@@ -42,9 +43,10 @@ function carrierGroundLoadout(store,scheme,inventory,profile,locks,airReference)
   return changed?[current]:[];
 }
 
-function groundLoadouts(store,scheme,inventory,options){
+function groundLoadouts(store,scheme,inventory,options={}){
   const timing=perf.begin('loadout.ground');
-  try{return groundLoadoutsCore(store,scheme,inventory,options);}finally{perf.end(timing);}
+  try{return memoLoadout(store,inventory,'ground',[scheme,referenceKey(store,options.profile),options.heldSlots===undefined?[]:options.heldSlots,
+    referenceKey(store,options.airReference),options.packages===undefined?true:options.packages],()=>groundLoadoutsCore(store,scheme,inventory,options));}finally{perf.end(timing);}
 }
 function groundLoadoutsCore(store,scheme,inventory,{profile,heldSlots=[],airReference,packages=true}={}){
   if(!routeGroundTargets(profile).length)return [];
