@@ -1256,7 +1256,7 @@ test('merged 1-4 map highlights follow the actual fleet while keeping genuine ra
 });
 
 test('pending or stale fleet inspections do not preview full styles until the fleet is cleared',()=>{
-  const h=harness(),option=W.mapOverview('1-4').options.find(o=>o.key.endsWith('@light'));
+  const h=harness(),option=W.mapOverview('1-4').options.find(o=>o.key.endsWith('@carriers'));
   h.store.const.$ships[1].api_stype=16;h.store.const.$ships[4].api_stype=7;
   h.set('area','1-4');h.set('mapRoute',option.key);h.set('slots',[1,2,3,4].map(id=>W.entry(h.store,id)));
   const settings={kind:'normal',fleet:1,area:'1-4',target:'boss',phase:'',missionId:1,revision:0};

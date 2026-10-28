@@ -47,7 +47,7 @@ function routeOptions(area,target='boss',phase){
     name:p.counts?.night?.maximum?'夜战突进流':p.counts?.asw?.maximum?'对潜护航流':
       ['近海推进流','侧翼迂回流','远航推进流'][i]}));
   return choices.map(p=>({key:p.id?`${p.nodes.join('>')}@${p.id}`:area==='3-5'?(p.nodes.join('')==='FGK'?'lower':'upper'):p.nodes.join('>'),
-    name:p.name,label:`${p.name}（${p.strategy?.pathLabel||p.pathLabel||p.nodes.join('→')}）`,nodes:p.nodes,
+    name:p.name,label:p.labelMode==='name'?p.name:`${p.name}（${p.strategy?.pathLabel||p.pathLabel||p.nodes.join('→')}）`,nodes:p.nodes,
     ...(p.paths?{paths:p.paths,pathLabel:p.pathLabel}:{}),
     ...(guide?.arrivalMode==='boss'?{arrivalMode:'boss'}:{}),
     ...(p.strategy?{strategy:p.strategy}:{}),
