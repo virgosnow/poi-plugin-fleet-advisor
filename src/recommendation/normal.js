@@ -10,6 +10,7 @@ const {aviationBattleshipLoadouts}=require('./loadout/aviation_fitting');
 const {routeGroundTargets}=require('../domain/combat/installation_attack');
 const {nightLoadout}=require('./loadout/night_equipment');
 const {auxiliaryVariants}=require('./loadout/auxiliary_refinement');
+const {gearShortlist,reserveForRoutes}=require('./gear_shortlist');
 const {jetLoadouts}=require('./loadout/jet_fitting');
 const {jetCutInAllowed}=require('./loadout/carrier_policy');
 const {specialAttackCores,arrangeSpecialAttack}=require('../domain/combat/special_attacks');
@@ -632,10 +633,45 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   if(policy||byRoute)gearKinds.push('surface');
   if(gearSeeds.some(seed=>seed.profile?.counts?.night?.maximum))gearKinds.push('night');
   let variantAttempts=0;
-  const gearResults=yield {kind:'gear',args,routes:requestedRoutes,gearKinds,items:gearSeeds.map(({scheme,profile,scores})=>
-    ({scheme,profile,scores:{airGoalRequired:scores.airGoalRequired,routeAirReference:scores.routeAirReference}}))};
-  for(const result of gearResults){variantAttempts+=result.attempts;for(const row of result.singles)collectCandidate(row);}
-  for(const result of gearResults)for(const row of result.combined)collectCandidate(row);
+  const gearKey=seed=>idsKey(seed.rows),protectedGearKeys=new Set([...guideSeedKeys,...specialSeeds.map(idsKey)]);
+  const shortlist=perf.stage('selection.gear-shortlist',()=>gearShortlist(gearSeeds,{
+    routes:requestedRoutes,key:gearKey,rank:(s,o)=>pathRank(s,o,true),scores:pathScores,
+    hullPower:s=>s.rows.reduce((n,r)=>n+ctx.combatScore(r),0),airPotential,protectedKeys:protectedGearKeys,
+    enabled:byRoute&&area!=='1-1'}));
+  const gearPruning={available:gearSeeds.length,primary:shortlist.primary.length,deferred:shortlist.reserve.length,expanded:0};
+  const gearStart=candidates.length,gearByKey=new Map();
+  const collectGear=()=>{
+    candidates.length=gearStart;
+    const ordered=gearSeeds.map(s=>gearByKey.get(gearKey(s))).filter(Boolean);
+    for(const result of ordered)for(const row of result.singles)collectCandidate(row);
+    for(const result of ordered)for(const row of result.combined)collectCandidate(row);
+  };
+  const gearItems=rows=>rows.map(({scheme,profile,scores})=>
+    ({scheme,profile,scores:{airGoalRequired:scores.airGoalRequired,routeAirReference:scores.routeAirReference}}));
+  const gearResults=yield {kind:'gear',args,routes:requestedRoutes,gearKinds,items:gearItems(shortlist.primary)};
+  gearResults.forEach((result,i)=>{variantAttempts+=result.attempts;gearByKey.set(gearKey(shortlist.primary[i]),result);});
+  collectGear();
+  if(shortlist.reserve.length){
+    const missing=requestedRoutes.filter(option=>{
+      // Dedicated speed/LoS passes below retain their original search pools.
+      if(option.strategy)return false;
+      const ready=candidates.filter(row=>routePlans.fleetRequirementAssessment(row.route,option).eligible&&
+        strictChance(row,option).probability>0&&planning(row,option).losShortfall===0&&
+        (airGoal==='ignore'||pathScores(row,option).airGoalTier===3))
+        .sort((a,b)=>pathRank(b,option)-pathRank(a,option)).find(executable);
+      if(!ready)return true;
+      const arrival=row=>option.arrivalMode==='boss'?(row.route.probability??row.route.chanceRange?.[0]??0):strictChance(row,option).min;
+      return gearSeeds.some(row=>Number.isFinite(pathRank(row,option,true))&&arrival(row)>arrival(ready)+1e-9);
+    });
+    const reserve=reserveForRoutes(shortlist,missing,gearKey);
+    if(reserve.length){
+      gearPruning.expanded=reserve.length;
+      const more=yield {kind:'gear',args,routes:requestedRoutes,gearKinds,items:gearItems(reserve)};
+      more.forEach((result,i)=>{variantAttempts+=result.attempts;gearByKey.set(gearKey(reserve[i]),result);});collectGear();
+    }
+  }
+  perf.count('candidate.gear.selected',gearPruning.primary);perf.count('candidate.gear.deferred',gearPruning.deferred);
+  perf.count('candidate.gear.expanded',gearPruning.expanded);
   // Fit LoS for the selected path; keep the first passing checkpoint instead of
   // letting a stronger but deficient pre-fitting scheme win the final ranking.
   for(const option of requestedRoutes){
@@ -1017,7 +1053,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       routeAfterEquipPending:item.routeAfterEquipPending,
       note:'舰娘与装备来自快照；可组合建议水上战、对潜、对地、制空与索敌换装，借装来源见 donorShipIds；Boss 前弹药按满补给估算，随机路线显示范围'};}),
     search:{kind:'boundedHeuristic',attempted:seen.size,evaluated:seeds.length,
-      equipmentVariantsTried:variantAttempts,poolSize:pool.length,combatRefinement:refinement,specialPositioning:positioning,lightening,fleetOrdering,auxiliaryRefinement,
+      equipmentVariantsTried:variantAttempts,poolSize:pool.length,gearPruning,combatRefinement:refinement,specialPositioning:positioning,lightening,fleetOrdering,auxiliaryRefinement,
       ...(pathSeeds?{routeCompositionsTried:pathSeeds.attempted,routeCompositionSearchTruncated:pathSeeds.truncated}:{}),
       globalOptimal:false,reason:'按练度、作战角色、低耗与对潜能力保留不同候选，配装后复核路线并有界尝试局部战力升级；保留攻略、制空、索敌和手动条件，不保证全局最优'},
     ...(guided35?{guide:{source:'https://wikiwiki.jp/kancolle/北方海域/3-5',
