@@ -87,8 +87,8 @@ function antiAirCutins(target){
   add(bb&&airRadar,4,'主炮＋三式弹＋高射装置＋电探');add(bb,6,'主炮＋三式弹＋高射装置');
   return matches.sort((a,b)=>(b.fixed??0)-(a.fixed??0)||(b.multiplier??0)-(a.multiplier??0)||a.id-b.id);
 }
-function fleetAntiAir(targets){
-  const ships=new Map(targets.map(t=>[t.id,{cutins:antiAirCutins(t),rate:0}]));
+function fleetAntiAir(targets,cutinsFor=antiAirCutins){
+  const ships=new Map(targets.map(t=>[t.id,{cutins:cutinsFor(t),rate:0}]));
   const rows=targets.flatMap((t,position)=>ships.get(t.id).cutins.map(c=>({...c,shipId:t.id,position,
     roll:rolls[c.id]===undefined?null:rolls[c.id]/101})));
   const known=rows.every(c=>c.roll!==null&&priorities.includes(c.id));

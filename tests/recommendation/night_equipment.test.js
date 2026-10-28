@@ -109,6 +109,9 @@ test('5-3 considers owned Nelson, assigns strong participants to 1/3/5, and resp
     store.info.ships[id]={...store.info.ships[8],api_id:id,api_ship_id:id,api_lv:99,
       api_fuel:15,api_bull:15,api_karyoku:[25,25],api_raisou:[50,50]};
   }
+  // Make the intended heavy-cruiser participants strictly stronger, rather
+  // than asserting one arbitrary ship-type tie among equal synthetic panels.
+  store.info.ships[6].api_karyoku=[70,70];
   add(510,33,27,'照明弾');
   const args={area:'5-3',byRoute:true,airGoal:'ignore'},before=JSON.stringify(store);
   const result=recommendNormalFleet(store,args),route=result.routeResults[0];

@@ -4,6 +4,7 @@ const {orderCarrierUtility,orderAircraftSlots}=require('../../domain/fleet/equip
 const {snapshotMemo}=require('../../domain/fleet/equipment_planner');
 const {openingASW}=require('../../domain/combat/opening_asw');
 const {smallCarrierSlot,carrierUtility}=require('./carrier_policy');
+const combatValue=require('./combat_value');
 const type=m=>Number(m?.api_type?.[2]);
 const master=(store,id)=>store.const.$equips[store.info.equips[id]?.api_slotitem_id];
 const oneOneIrrelevant=new Set([14,15,17,18,19,24,30,37,40,42,43,44,46,54,93]);
@@ -112,6 +113,7 @@ function combatPools(inventory){
 function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,heldSlots=[]}={}){
   const pool=combatPools(inventory),locks=new Map(heldSlots.filter(Boolean).map(s=>[s.id,s.keep||{}]));
   const entries=scheme.ships.map(s=>({...s,slots:s.slots.slice()}));
+  const airDemand=combatValue.airExposure(store,profile),losDemand=combatValue.losNeeded(store,profile,area);
   const used=new Set(entries.flatMap(s=>s.slots.concat(s.ex)).filter(id=>id>0));
   const limit=profile?aswEscortLimit(profile,store):area==='1-5'?Infinity:2;
   const escorts=aswEscortIds(store,entries,asw?limit:0);
@@ -172,7 +174,10 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
         !entries.some(e=>e.slots.some(id=>type(master(store,id))===9))),[k]);
     }else if(!pure){
       const target=asw&&(submarineObjective(profile,store)||escortSeed)&&[1,2,21,22].includes(stype)?1:2;
-      while(count([1,2,3])<target&&assign(pool.guns)){};
+      while(count([1,2,3])<target){
+        const slot=positions.find(k=>!keep[k]&&entry.slots[k]<=0);
+        if(slot===undefined||!assign(combatValue.rankGuns(store,entry,pool.guns,slot,airDemand)))break;
+      }
       // Water tenders and aviation hulls need useful aircraft, not inherited cargo.
       if(stype===10&&!count([10,11])){
         const airSlots=positions.slice().sort((a,b)=>capacity(b)-capacity(a)||a-b);
@@ -198,7 +203,9 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
     .map(p=>({...p,options:auxiliary.filter(i=>!used.has(i.id)&&legal(p.entry,p.k,i))}));
   while(pending.length){
     pending.sort((a,b)=>a.options.filter(i=>!used.has(i.id)).length-b.options.filter(i=>!used.has(i.id)).length);
-    const p=pending.shift(),chosen=p.options.find(i=>!used.has(i.id));if(!chosen)continue;
+    const p=pending.shift(),chosen=combatValue.rankEquipment(store,p.entry,pool.auxiliary,p.k,
+      {air:airDemand,los:losDemand,auxiliary:true,oneOne:area==='1-1'}).find(i=>!used.has(i.id));
+    if(!chosen)continue;
     if(p.k==='ex')p.entry.ex=chosen.id;else p.entry.slots[p.k]=chosen.id;used.add(chosen.id);
   }
   // The game's normal slots compact on removal. Keep explicit manual gaps

@@ -14,6 +14,7 @@ const jets=require('../domain/combat/jet_aviation');
 const carrierCI=require('../domain/combat/carrier_cutin'),metrics=require('../domain/fleet/fleet_metrics');
 const {snapshotMemo,hasEquipmentIndexCache}=require('../domain/fleet/equipment_planner');
 const {routeDifficulty,usefulPower}=require('./route_economy');
+const combatValue=require('./loadout/combat_value');
 
 function airGoalScore(result,airGoal,area,profile){
   const reference=routeAirReference(result,area,profile);
@@ -35,6 +36,8 @@ function airGoalScore(result,airGoal,area,profile){
 }
 function plannedCombatStat(store,row,scheme,shipKey,equipKey){
   const entry=scheme.ships.find(ship=>ship.id===row.id);
+  const key={api_karyoku:'firePower',api_raisou:'torpedo',api_taiku:'antiAir',api_soukou:'armor'}[shipKey];
+  if(key)return combatValue.plannedStats(store,entry||{id:row.id})[key];
   const current=[...usableSlots(store,row.id),row.ship.api_slot_ex],
     planned=[...(entry?.slots||usableSlots(store,row.id)),entry?.ex??row.ship.api_slot_ex];
   const torpedo=id=>id>0?Number(store.const.$equips[
@@ -76,17 +79,18 @@ function openingTorpedo(store,rows,scheme){
   }
   return {count,power};
 }
-function combatCapability(rows,result,profile,store,scheme){
+function combatCapability(rows,result,profile,store,scheme,airExposure=0){
   const timing=perf.begin('score.combat');
-  try{return combatCapabilityCore(rows,result,profile,store,scheme);}finally{perf.end(timing);}
+  try{return combatCapabilityCore(rows,result,profile,store,scheme,airExposure);}finally{perf.end(timing);}
 }
-function combatCapabilityCore(rows,result,profile,store,scheme){
+function combatCapabilityCore(rows,result,profile,store,scheme,airExposure){
   // Candidate sampling considers experience and remodel tier, while combat
   // strength still needs hull firepower, torpedoes and armor. A high-level
   // destroyer alone must not outscore a battleship on surface-only maps.
   const surfaceValues=rows.map(row=>
     plannedCombatStat(store,row,scheme,'api_karyoku','api_houg')*1.5+plannedTorpedoStat(store,row,scheme)*0.8+
-    num(row.ship.api_soukou)*0.45+num(row.ship.api_taiku)*0.15+
+    plannedCombatStat(store,row,scheme,'api_soukou','api_souk')*0.45+
+    (airExposure?plannedCombatStat(store,row,scheme,'api_taiku','api_tyku'):num(row.ship.api_taiku))*0.15+
       row.level*0.25+([7,11,18].includes(row.stype)?60:0));
   const surface=surfaceValues.reduce((n,value)=>n+value,0);
   const openingTorp=openingTorpedo(store,rows,scheme);
@@ -317,10 +321,11 @@ function routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute=f
   const hops=profile?.hops?.maximum??result.reachableHops?.maximum??99;
   const air=result.airControl?.fleetAirPower;
   const airMin=air?.status==='range'?air.min:0;
-  const combat=combatCapability(rows,result,profile,store,scheme);
+  const airScore=airGoalScore(result,airGoal,area,profile);
+  const antiAir=combatValue.antiAirScore(store,scheme,profile,airScore.routeAirReference);
+  const combat=combatCapability(rows,result,profile,store,scheme,antiAir.exposure);
   const nightSupport=profile?.counts?.night?.maximum?nightReadiness(store,scheme):null;
   const specialAttack=specialAttackScore(store,rows,scheme,profile);
-  const airScore=airGoalScore(result,airGoal,area,profile);
   const jet=jetScore(store,scheme,air,airScore,profile);
   const groundAttack=fleetGroundScore(store,scheme,profile,entry=>plannedCombatStat(store,rows.find(r=>r.id===entry.id),scheme,'api_karyoku','api_houg'),
     {airReference:airScore.routeAirReference,airEstimate:airScore.routeAirEstimate});
@@ -399,8 +404,8 @@ function routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute=f
   return {rank:airScore.airGoalTier*1e10+routePriority*1e8+
       (nightSupport?.supportTier||0)*1e7+specialBonus+groundAttack.bonus*100+
       (profile?.counts?.night?.maximum>=2&&!nightSupport?.zuiunEquipped?Math.max(0,Math.min(2,nightSupport?.flareCarriers||0)-1)*1000:0)+preferenceScore+probability-
-      airScore.airGoalShortfall*10000,
-    ...airScore,...jet?{jetAviation:jet}:{},opportunisticSupremacy:supremacyPreference>0,nightSupport,specialAttack,groundAttack,
+      airScore.airGoalShortfall*10000+antiAir.value*20,
+    ...airScore,...jet?{jetAviation:jet}:{},antiAirDefense:antiAir,opportunisticSupremacy:supremacyPreference>0,nightSupport,specialAttack,groundAttack,
     routePriority,routeChance:chance,assumedChance:assumed,
     graphHops:result.reachableHops||null,strengthProxy:strength,
     routeEconomy:{...difficulty,effectiveStrength,specialBonus,largeAirAttacks},
