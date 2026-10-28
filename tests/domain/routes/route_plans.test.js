@@ -661,7 +661,7 @@ test('guide routes take precedence, retain readable names and never pad the list
     assert(guide.routes.every(r=>require('../../../src/domain/routes/route_plans').optionPaths(r).every(nodes=>paths.some(p=>p.nodes.join('>')===nodes.join('>')))),key+' guide path must exist');
     const choices=routeOptions(area,target,phase);
     assert.deepEqual(choices.map(r=>r.nodes),guide.routes.map(r=>r.nodes),key);
-    for(const [i,r]of choices.entries()){assert.equal(r.basis,'guide');assert.equal(r.source,guide.source);assert.equal(r.label,guide.routes[i].labelMode==='name'?r.name:`${r.name}（${r.strategy?.pathLabel||r.pathLabel||r.nodes.join('→')}）`);}
+    for(const r of choices){assert.equal(r.basis,'guide');assert.equal(r.source,guide.source);assert.equal(r.label,`${r.name}（${r.strategy?.pathLabel||r.pathLabel||r.nodes.join('→')}）`);}
   }
   assert.deepEqual(routeOptions('2-5').map(r=>r.name),['下路空母流','上路大船流','上转下轻量流']);
   assert.equal(routeOptions('4-4').length,2);
@@ -714,7 +714,7 @@ test('normal route titles keep node references, fleet claims and stage labels co
     const [area,phase]=key.split(':');
     const options=routeOptions(area,area==='1-6'?'N':'boss',phase);
     assert.equal(options.length,guide.routes.length,`${key}: every reviewed name is visible`);
-    for(const [i,option]of options.entries())assert.equal(option.label,guide.routes[i].labelMode==='name'?option.name:`${option.name}（${option.strategy?.pathLabel||option.pathLabel||option.nodes.join('→')}）`);
+    for(const option of options)assert.equal(option.label,`${option.name}（${option.strategy?.pathLabel||option.pathLabel||option.nodes.join('→')}）`);
   }
   // These paths accept other legal fleets: do not label them by one guide example.
   for(const [area,phase,key,forbidden]of [

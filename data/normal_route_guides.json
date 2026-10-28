@@ -3860,7 +3860,7 @@
               ]
             ]
           ],
-          "labelMode": "name"
+          "pathLabel": "A/B→…→H/I/J→L"
         },
         {
           "id": "carriers",
@@ -4000,7 +4000,7 @@
               ]
             ]
           ],
-          "labelMode": "name"
+          "pathLabel": "A/B→…→H/I/J→L"
         },
         {
           "id": "light",
@@ -4124,7 +4124,7 @@
               ]
             ]
           ],
-          "labelMode": "name"
+          "pathLabel": "A/B→…→H/I/J→L"
         }
       ],
       "arrivalMode": "boss",

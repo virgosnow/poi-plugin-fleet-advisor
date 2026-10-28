@@ -159,6 +159,23 @@ function harness(kind='normal',automaticFilters){
   return {render,find,control,chooseGoal,get,set,service,calls,store,effects};
 }
 
+test('selected routes separate the style name from the compact parenthesized path without replacing native selection',()=>{
+  const h=harness(),options=W.mapOverview('1-4').options.filter(o=>o.key.includes('@'));
+  h.set('area','1-4');
+  for(const option of options){
+    h.set('mapRoute',option.key);const tree=h.render();
+    const select=h.control(tree,'参考路线');
+    assert.equal(select.type,'select');assert.equal(select.props.value,option.key);
+    assert(select.children.some(n=>n.type==='option'&&n.children.includes(option.label)));
+    const caption=h.find(tree,n=>n.props.className==='paa-wb-route-caption');
+    assert.equal(caption.props['aria-hidden'],true);
+    assert.deepEqual(caption.children.map(n=>n.children.join('')),[option.name,'（A/B→…→H/I/J→L）']);
+    assert.equal(h.find(tree,n=>n.props.className==='paa-wb-route-path').props['data-tooltip'],undefined);
+  }
+  h.set('mapRoute','');assert(!h.find(h.render(),n=>n.props.className==='paa-wb-route-caption'));
+  assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
+});
+
 test('adding ships before normal-map completion retains worn gear and skips fitting and route inspection',async()=>{
   const h=harness();let previews=0;
   const preview=h.service.preview;h.service.preview=(...args)=>{previews++;return preview(...args);};

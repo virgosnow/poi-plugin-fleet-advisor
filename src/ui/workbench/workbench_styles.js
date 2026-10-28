@@ -265,6 +265,9 @@ module.exports=`
 .paa-workbench[data-kind=normal] .paa-wb-left{padding:16px;gap:12px}
 .paa-workbench[data-kind=normal] .paa-wb-left>.paa-wb-context-controls{display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:0 2px 8px;margin:0;border:0;background:none}
 .paa-workbench[data-kind=normal] .paa-wb-route-picker{padding:0;min-height:40px}.paa-workbench[data-kind=normal] .paa-wb-route-picker::after{content:none}
+.paa .paa-wb-route-picker .paa-wb-field[data-route-caption=true] select{color:transparent}.paa .paa-wb-route-picker .paa-wb-field[data-route-caption=true] option{color:var(--paa-text)}
+.paa .paa-wb-route-picker .paa-wb-field>.paa-wb-route-caption{position:absolute;inset:0 30px 0 12px;display:flex;align-items:center;gap:3px;min-width:0;pointer-events:none;overflow:hidden;color:var(--paa-text);font-size:14px;line-height:22px}
+.paa-wb-route-name{flex:none;white-space:nowrap}.paa-wb-route-path{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--paa-muted);font-size:12px}.paa-wb-route-picker select:disabled~.paa-wb-route-caption{opacity:.55}
 .paa-workbench[data-kind=normal] .paa-wb-left :is(.paa-wb-map-section,.paa-wb-route-status,.paa-wb-threat){min-width:0;margin:0;padding:14px 16px;border:1px solid var(--paa-line);border-radius:10px;background:var(--paa-card)}
 .paa-workbench[data-kind=normal] .paa-wb-left .paa-wb-map-section{padding:8px 0 12px}
 .paa-workbench[data-kind=normal] .paa-wb-map-section>.paa-route-preview{margin:0}

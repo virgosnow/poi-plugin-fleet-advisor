@@ -392,7 +392,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       commit(next);setPopup(null);
       if(popup.slot===undefined&&(kind!=='normal'||prepared.current))return refreshEquipment(next);
     };
-    const field=(label,value,onChange,options)=>h('label',{className:'paa-wb-field'},h('span',null,label),h('select',{'aria-label':label,value,disabled,onChange:e=>onChange(e.target.value)},...options.map(([value,name,optionDisabled])=>h('option',{key:value,value,disabled:optionDisabled},name))));
+    const field=(label,value,onChange,options,route)=>h('label',{className:'paa-wb-field','data-route-caption':!!route},h('span',null,label),h('select',{'aria-label':label,value,disabled,onChange:e=>onChange(e.target.value)},...options.map(([value,name,optionDisabled])=>h('option',{key:value,value,disabled:optionDisabled},name))),
+      route?h('span',{className:'paa-wb-route-caption','aria-hidden':true},h('span',{className:'paa-wb-route-name'},route.name),h('span',{className:'paa-wb-route-path'},`（${route.strategy?.pathLabel||route.pathLabel||route.nodes.join('→')}）`)):null);
     const normalRouteControl=kind==='normal'?h('div',{className:'paa-wb-section-head paa-wb-route-picker'},h('h3',null,'路线'),
       field(area==='3-5'&&target==='boss'?'攻略流派':'参考路线',mapRoute,value=>{
         if(disabled)return;
@@ -401,7 +402,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         if(area==='3-5'&&target==='boss')return changeStyle(value);
         inspectSelection(value);setMapRoute(value);setNodeId(null);
         if(prepared.current&&(draftContext===conditionKey||!slots.some(Boolean)))return complete(style,true,value);
-      },[['','选择路线'],...routeOptions.map(c=>[c.key,c.label])])):null;
+      },[['','选择路线'],...routeOptions.map(c=>[c.key,c.label])],selectedRoute)):null;
     const contextControls=h('div',{className:'paa-wb-context-controls'},
         kind==='normal'?h(AreaPicker,{maps:catalog,mapMasters:store.const.$maps,value:area,onChange:changeArea,disabled,hidden}):
         h(React.Fragment,null,h(AreaPicker,{kind:'expedition',missions:catalog,missionMasters:store.const.$missions,missionProgress:store.expeditionProgress,fleets:store.info.fleets,useItems:store.const.$useitems,value:missionId,onChange:changeMission,disabled,hidden}),expeditionView.goal({value:goal,onChange:changeGoal,disabled})),normalRouteControl);

@@ -1,11 +1,11 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const plans=require('../../../src/domain/routes/route_plans');
-test('1-4 recommends three distinct composition styles with name-only labels',()=>{
+test('1-4 recommends three distinct composition styles with compact merged-path labels',()=>{
   const options=plans.recommendedOptions('1-4'),catalog=plans.routeOptions('1-4');
   assert.deepEqual(options.map(o=>o.name),['战舰推进流','空母洗地流','小船护航流']);
   for(const option of options){
-    assert.equal(option.label,option.name);
+    assert.equal(option.label,option.name+'（A/B→…→H/I/J→L）');
     assert.equal(option.arrivalMode,'boss');assert(option.templates.length>0);assert.equal(option.paths.length,7);
     assert(option.paths.every(p=>p.at(-1)==='L'));
     assert(option.paths.some(p=>p.includes('H')));assert(option.paths.some(p=>p.includes('J')));
