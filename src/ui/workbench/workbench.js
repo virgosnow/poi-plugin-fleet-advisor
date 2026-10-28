@@ -207,7 +207,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;},[popup,search,equipmentCategory,shipType]);
     const choosePlan=(row,key=conditionKey,selectedRoute='')=>{
       const current=getStore(),next=W.merge(current,slots,row.scheme,{preservePositions:kind!=='normal'}),
-        nextRoute=row.routeKey||selectedRoute||row.guideStyle||(row.profile?.examples?.[0]||[]).join('>');
+        nextRoute=row.routeKey||selectedRoute||'';
       if(!row.planningOnly)getController().preview('fleet',W.scheme(next,fleet));
       const inspection=W.inspect(getController(),current,next,{...settings,phase:phaseForRoute(nextRoute)});
       observed.current=current;commit(next,inspection);prepared.current=true;setDraftContext(key);setPathIndex(0);setNodeId(null);setNotice('路线与编成已同步');
@@ -229,9 +229,9 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           (kind!=='expedition'||cached.stamp===stamp&&cached.found.goals?.[requestedGoal]))found=kind==='expedition'?{...cached.found,...cached.found.goals[requestedGoal]}:cached.found;
         else{
           const service=getController(),{snapshotId}=service.createSnapshot();
-          const query={snapshotId,fleet,fixedShipIds:slots.filter(s=>s&&(s.pin||Object.keys(s.keep).length)).map(s=>s.id),excludedShipIds:excluded,limit:3};
+          const query={snapshotId,fleet,fixedShipIds:slots.filter(s=>s&&(s.pin||Object.keys(s.keep).length)).map(s=>s.id),excludedShipIds:excluded};
           found=await (kind==='normal'?service.recommendNormalFleet({...query,area,target,phase:phase||undefined,
-            airGoal:'superiority',preference:'all',byRoute:true,heldSlots:W.recommendationHolds(slots,{preservePositions:false})}):service.recommendExpeditionFleet({...query,missionId,goal:requestedGoal,heldSlots:W.recommendationHolds(slots),
+            airGoal:'superiority',heldSlots:W.recommendationHolds(slots,{preservePositions:false})}):service.recommendExpeditionFleet({...query,limit:3,missionId,goal:requestedGoal,heldSlots:W.recommendationHolds(slots),
               ...(slots[0]&&(slots[0].pin||Object.keys(slots[0].keep).length)?{fixedFlagshipId:slots[0].id}:{})}));
         }
         if(!alive.current||token!==operation.current||![origin,key].includes(latest.current))return;
@@ -242,8 +242,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         const routeResult=found.routeResults?.find(r=>r.key===selectedKey);
         if(routeResult&&!routeResult.chance){setMapRoute(selectedKey);return;}
         if(!found.recommendations?.length&&!(kind==='expedition'&&found.closestRecommendation))throw Error(found.reason||found.message||'当前条件下没有可用方案，请调整固定舰娘或目标');
-        const row=found.routeResults?found.recommendations.find(r=>r.routeKey===selectedKey):area==='3-5'&&target==='boss'&&kind==='normal'?found.recommendations.find(r=>r.guideStyle===requestedStyle):
-          kind==='normal'&&requestedRoute?found.recommendations.find(r=>(r.profile?.routePaths||[]).some(p=>p.nodes.join('>')===requestedRoute)):found.recommendations[0]||found.closestRecommendation;
+        const row=kind==='normal'?found.recommendations.find(r=>r.routeKey===(selectedKey||found.recommendations[0]?.routeKey)):
+          found.recommendations[0]||found.closestRecommendation;
         if(!row)throw Error('所选路线没有可用方案，当前编成已保留，请调整固定舰娘或装备');
         choosePlan(row,key,requestedRoute);
       }catch(e){if(alive.current&&token===operation.current&&[origin,key].includes(latest.current))setError(e.message);}

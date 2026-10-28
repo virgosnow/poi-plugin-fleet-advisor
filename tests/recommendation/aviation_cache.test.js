@@ -187,14 +187,14 @@ test('jet CI power reuse keeps scores identical and distinguishes changed carrie
   const store=fixture(),original=carrierCI.attackPowers;let calls=0;
   carrierCI.attackPowers=(...args)=>{calls++;return original(...args);};
   try{
-    const {routeRank}=require('../../src/recommendation/scoring');
+    const {scoreRoute}=require('../../src/recommendation/scoring');
     const base=scheme(store);base.ships[0].slots=[301,101,103,104];
     const profile={area:'1-1',examples:[['A','C']],counts:{surface:{maximum:2},air:{maximum:0},asw:{maximum:0},night:{maximum:0}}};
     const score=s=>{
       const targets=metrics.projectFleet(store,{organization:{targets:[1]},equipment:{expected:[{shipId:1,state:s.ships[0]}]}});
       const row={id:1,ship:store.info.ships[1],master:store.const.$ships[1],stype:11,level:50,fuel:80,ammo:80};
-      return routeRank({chanceRange:[1,1],verdict:'guaranteed',airControl:{fleetAirPower:metrics.airPower(store,targets)}},
-        profile,[row],'strongest','superiority','1-1',store,s,true);
+      return scoreRoute({chanceRange:[1,1],verdict:'guaranteed',airControl:{fleetAirPower:metrics.airPower(store,targets)}},
+        profile,[row],'superiority','1-1',store,s);
     };
     const plain=score(base),changed={...base,ships:[{...base.ships[0],slots:[302,101,103,104]}]},expected=score(changed);
     withEquipmentIndexCache(store,()=>{
@@ -222,7 +222,7 @@ test('candidate input reuse keeps complete results and does not cross held-slot 
   const {recommendationBatch}=require('../../src/recommendation/normal');
   const {PerformanceTrace}=require('../../src/shared/performance_trace');
   const store=require('../helpers/workbench_fixture')();
-  const args={fleet:1,area:'1-1',airGoal:'ignore',byRoute:true};
+  const args={fleet:1,area:'1-1',airGoal:'ignore',};
   const batches=[{kind:'seeds',args,items:[[2],[3]]},
     {kind:'seeds',args:{...args,heldSlots:[{id:2,slots:[-1,-1],ex:-1,keep:{0:true,1:true}}]},items:[[2]]}];
   const expected=batches.map(batch=>recommendationBatch(store,batch));
@@ -239,7 +239,7 @@ test('prepared evaluators keep captured holds when a caller reuses and edits its
   store.const.$shipTypes[2]={api_equip_type:{1:1}};
   store.const.$equips[1]={api_id:1,api_name:'主炮',api_type:[0,0,1,1],api_houg:5};
   for(const id of [101,102])store.info.equips[id]={api_id:id,api_slotitem_id:1};
-  const original={fleet:1,area:'1-1',byRoute:true,airGoal:'ignore'},mutable=structuredClone(original);
+  const original={fleet:1,area:'1-1',airGoal:'ignore'},mutable=structuredClone(original);
   const held=[{id:2,slots:[-1,-1],ex:-1,keep:{0:true,1:true}}];
   const run=args=>recommendationBatch(store,{kind:'seeds',args,items:[[2]]});
   const plain=run(original),locked=run({...original,heldSlots:held});assert.notDeepEqual(plain,locked);
@@ -270,18 +270,18 @@ test('air-pair score tiers match exhaustive original traversal, including equal 
   assert.equal(selectAirPair(pairs,()=>{calls++;return true;}).score,10);assert.equal(calls,1);
 });
 
-test('route rank reuse distinguishes preferences, settings and replacement row contexts',()=>{
-  const {routeRanker}=require('../../src/recommendation/scoring'),{context}=require('../../src/recommendation/context');
+test('route score reuse distinguishes settings and replacement row contexts',()=>{
+  const {scoreRoute}=require('../../src/recommendation/scoring'),{context}=require('../../src/recommendation/context');
   const {evaluateNormalRoute}=require('../../src/domain/routes/normal_routes'),{profileForRoute}=require('../../src/domain/routes/sortie_profile');
   const store=require('../helpers/workbench_fixture')(),scheme={fleet:1,ships:[{id:2,slots:[-1,-1],ex:-1}]};
   const route=evaluateNormalRoute(store,{area:'1-1',fleet:1,scheme}),profile=profileForRoute('1-1',route),rows=[context(store,{fleet:1},1).byId.get(2)];
-  const rank=()=>routeRanker(route,profile,rows,'ignore','1-1',store,scheme,true),expected=rank();
+  const rank=()=>scoreRoute(route,profile,rows,'ignore','1-1',store,scheme),expected=rank();
   withEquipmentIndexCache(store,()=>{
     const first=rank();assert.equal(rank(),first);
-    for(const mode of ['shortest','strongest','lowestConsumption'])assert.deepEqual(first(mode),expected(mode));
+    assert.deepEqual(first,expected);
     const altered=rows.map(row=>({...row,fuel:row.fuel+100}));
-    const other=routeRanker(route,profile,altered,'ignore','1-1',store,scheme,true);
-    assert.notEqual(other,first);assert.notEqual(other('lowestConsumption').rank,first('lowestConsumption').rank);
-    assert.notEqual(routeRanker(route,profile,rows,'superiority','1-1',store,scheme,true),first);
+    const other=scoreRoute(route,profile,altered,'ignore','1-1',store,scheme);
+    assert.notEqual(other,first);assert.notEqual(other.rank,first.rank);
+    assert.notEqual(scoreRoute(route,profile,rows,'superiority','1-1',store,scheme),first);
   });
 });

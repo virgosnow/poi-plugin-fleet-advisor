@@ -1,6 +1,13 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {gearShortlist,reserveForRoutes}=require('../../src/recommendation/gear_shortlist');
+test('speed hull budget retains late combat, ASW and aviation alternatives before fitting engines',()=>{
+  const {hullShortlist}=require('../../src/recommendation/gear_shortlist');
+  const rows=Array.from({length:100},(_,id)=>({id,power:id===90?100:0,asw:id===91?100:0,air:id===92?100:0}));
+  const before=JSON.stringify(rows),chosen=hullShortlist(rows,{key:r=>r.id,roles:[r=>r.power,r=>r.asw,r=>r.air]});
+  assert.equal(chosen.length,48);for(const id of [0,23,90,91,92])assert(chosen.some(r=>r.id===id));
+  assert.equal(new Set(chosen.map(r=>r.id)).size,48);assert.equal(JSON.stringify(rows),before);
+});
 const routes=[{key:'upper'},{key:'lower'}];
 const seeds=()=>Array.from({length:100},(_,i)=>({id:i,profile:{},rank:100-i,hull:100-i,air:0,
   scores:{strengthProxy:100-i,groundAttack:{bonus:0},specialAttack:{bonus:0},aswCombat:{readiness:0},openingTorpedoProxy:0}}));
@@ -26,7 +33,12 @@ test('shortlist keeps each route covered, and restores only the reserve relevant
   assert.deepEqual(reserveForRoutes(result,[],options.key),[]);
   assert.deepEqual(reserveForRoutes(result,routes,options.key),result.reserve);
 });
-test('small or legacy searches remain unchanged and incomplete scores do not invent a leading candidate',()=>{
+test('a guide seed cannot bypass a proven hull failure, while equipment-repairable rows stay eligible',()=>{
+  const rows=seeds(),result=gearShortlist(rows,{...options,protectedKeys:new Set([98,99]),
+    rank:r=>r.id===99?-Infinity:r.rank});
+  assert(result.primary.some(r=>r.id===98));assert(!result.primary.some(r=>r.id===99));
+});
+test('small or disabled shortlists remain unchanged and incomplete scores do not invent a leading candidate',()=>{
   const rows=seeds();
   for(const opts of [{enabled:false},{routes:[]}]){
     const result=gearShortlist(rows,{...options,...opts});assert.equal(result.primary,rows);assert.deepEqual(result.reserve,[]);
@@ -39,11 +51,13 @@ test('small or legacy searches remain unchanged and incomplete scores do not inv
 
 test('a first wave without enough aircraft expands the original reserve and preserves manual ships and slots',()=>{
   const store=require('../helpers/workbench_fixture')(),{recommendNormalFleet}=require('../../src/recommendation/normal');
+  store.const.$ships[9]={...store.const.$ships[1],api_id:9,api_name:'测试战舰',api_stype:8};
+  store.info.ships[9]={...store.info.ships[1],api_id:9,api_ship_id:9,api_karyoku:[100,100]};
   store.const.$equips[500]={api_id:500,api_name:'测试保留主炮',api_type:[0,0,1,1],api_houg:5};
   store.info.equips[1001]={api_id:1001,api_slotitem_id:500,api_level:0};
   store.const.$shipTypes[2]={api_equip_type:{1:1}};store.info.ships[2].api_slot=[1001,-1];
   const held={id:2,slots:[1001,-1],ex:0,keep:{0:true},holdPosition:true},before=JSON.stringify(store);
-  const result=recommendNormalFleet(store,{area:'1-4',byRoute:true,airGoal:'superiority',fixedShipIds:[2],heldSlots:[held]});
+  const result=recommendNormalFleet(store,{area:'1-4',airGoal:'superiority',fixedShipIds:[2],heldSlots:[held]});
   const p=result.search.gearPruning;assert(p.deferred>0);assert.equal(p.expanded,p.deferred);
   assert(result.recommendations.length>0);
   for(const row of result.recommendations){

@@ -57,7 +57,7 @@ Omitting `slots` keeps the observed normal equipment. Providing `slots` defines 
 
 #### Manual constraints
 
-`fixedShipIds` requires those hulls to be included; it does not specify positions. `excludedShipIds` prevents inclusion. They cannot overlap. Automatic preferences come from the independent sortie/expedition settings; manual hulls override soft filters, while actual availability and legal equipment allocation are still checked. `planningOnly` means the result is not currently executable merely because recommendation succeeded.
+`fixedShipIds` requires those hulls to be included; it does not specify positions. `excludedShipIds` prevents inclusion. They cannot overlap. Automatic filters come from the independent sortie/expedition settings; manual hulls override soft filters, while actual availability and legal equipment allocation are still checked. `planningOnly` means the result is not currently executable merely because recommendation succeeded.
 
 `heldSlots` is a position-indexed array of up to six entries. Preserve holes with `null`. A row has `id`, optional `pin`, `slots` (up to five instance IDs / `-1` / `null`), `ex`, and `keep`. `pin:true` retains the hull in this position. `keep` keys are `"0"`–`"4"` or `"ex"`, with value `true`; these also retain the hull/position. A retained value `-1` deliberately leaves that slot empty. Retained equipment must exist, be equippable, and must not be claimed twice. Rows without pin/keep are not manual constraints.
 
@@ -109,7 +109,7 @@ All successful tool calls return data in MCP `result.structuredContent`; `conten
 
 Mechanism badges retain their structured numeric fields and multiline detail: combat speed, opening air/torpedo/ASW, anti-air, day/night attacks, night CI, contact, ground and ship-specific special attacks, smoke/illumination, and expedition morale/drums/income where applicable. No tag means its detector did not establish eligibility, not that the ship can never activate it. For candidate status, raw ship attributes/plane counts remain observed values; `metrics` and mechanisms evaluate before/after equipment changes explicitly.
 
-Normal defaults are `byRoute=true`, `airGoal=superiority`. `routeKey` narrows full search to that route; otherwise the global route limit and phase quotas match the page. Without explicit phase, map preview/evaluation uses observed progress (phase 1 planning if unknown); route catalogs/recommendations can include other phases. A route key itself identifies its phase. `byRoute=false` retains preference search (`all`, `shortest`, `strongest`, `lowestConsumption`); it cannot be combined with `routeKey`.
+Normal search always uses route requirements and a single combat score; default `airGoal=superiority`. `routeKey` narrows full search to that route; otherwise the global route limit and phase quotas match the page. Without explicit phase, map preview/evaluation uses observed progress (phase 1 planning if unknown); route catalogs/recommendations can include other phases. A route key itself identifies its phase.
 
 Arrival excludes retreat/battle outcomes. `arrival` describes selected/merged route or overall Boss arrival according to the strategy; do not add probabilities from different recommended fleets. `fleetSummary.air.reference/estimate` contains selected-route per-node thresholds and aircraft-loss estimates. The map catalog field `airControl` contains static reference information; use route evaluation for loss-adjusted results. LoS gates may have different coefficients: read `planning.losRequirements` / `fleetSummary.los`, not just coefficient 4. Missing data remains unknown. Search is bounded; `notFound` does not prove a solution is impossible.
 
@@ -437,7 +437,7 @@ Effect: **read-only**.
 
 #### `fleet_advisor_recommend_normal_fleet`
 
-Recommend hulls/equipment with the page search. MCP defaults byRoute=true, airGoal=superiority. routeResults include notFound diagnostics and probabilities. routeKey restricts the exact route. Honors sortie filters/locks. Bounded search, not global optimization or victory guarantee.
+Recommend hulls/equipment with the page search. Defaults to route-based search and airGoal=superiority. routeResults include notFound diagnostics and probabilities. routeKey restricts the exact route. Honors sortie filters/locks. Bounded search, not global optimization or victory guarantee.
 
 Effect: **read-only**.
 
@@ -452,10 +452,7 @@ Effect: **read-only**.
 | `fixedShipIds` | array<integer> | no | Owned ship INSTANCE IDs, not catalog IDs. maxItems=6 |
 | `excludedShipIds` | array<integer> | no | — |
 | `heldSlots` | array<null or object> | no | Position-indexed draft with null holes. pin or keep retains the hull and, by default, its position. Set holdPosition=false to allow fleet sorting. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty. maxItems=6 |
-| `byRoute` | boolean | no | Default true; false uses preference search and is incompatible with routeKey. |
-| `preference` | `all` / `shortest` / `strongest` / `lowestConsumption` | no | Preference search only; default all. |
 | `airGoal` | `ignore` / `superiority` / `supremacy` | no | MCP default superiority. Conservative aircraft-loss estimates are not combat guarantees. |
-| `limit` | integer | no | Preference candidate count; route count uses global maxRoutes. minimum=1; maximum=5 |
 
 #### `fleet_advisor_recommend_normal_equipment`
 

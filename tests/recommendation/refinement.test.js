@@ -92,7 +92,7 @@ test('merged Boss routes do not buy a small branch-probability gain by dropping 
   }
   assert.equal(comparisons[0].boss,1);assert.equal(comparisons[1].boss,1);
   assert(comparisons[1].branch>comparisons[0].branch);
-  const result=recommendNormalFleet(store,{area,routeKey,byRoute:true,airGoal:'superiority',fixedShipIds:[1,2,3,4,5]});
+  const result=recommendNormalFleet(store,{area,routeKey,airGoal:'superiority',fixedShipIds:[1,2,3,4,5]});
   const row=result.recommendations[0];assert(row);assert(row.scheme.ships.some(e=>e.id===6));
   assert.equal(row.route.probability,1);assert.equal(row.scores.airGoalTier,3);
   assert.equal(JSON.stringify(store),before);
@@ -104,7 +104,7 @@ test('local replacement of a carrier with a closed expansion retains a legal, fu
   store.const.$ships[8]={...store.const.$ships[6],api_id:8,api_name:'备用强力轻母',api_maxeq:[28,24,20,4]};
   store.info.ships[8]={...store.info.ships[6],api_id:8,api_ship_id:8,api_slot_ex:0,api_onslot:[28,24,20,4]};
   const {recommendNormalEquipment,recommendationBatch}=require('../../src/recommendation/normal');
-  const area='1-4',routeKey='B>C>F>E>H>L',args={area,byRoute:true,airGoal:'superiority',fixedShipIds:[1,2,3,4,5]};
+  const area='1-4',routeKey='B>C>F>E>H>L',args={area,airGoal:'superiority',fixedShipIds:[1,2,3,4,5]};
   const base=recommendNormalEquipment(store,{area,routeKey,scheme:{fleet:1,ships:[1,2,3,4,5,6].map(id=>({id}))}});
   const before=JSON.stringify(store),option=require('../../src/domain/routes/route_plans').routeOptions(area,'boss').find(o=>o.key===routeKey);
   const [result]=recommendationBatch(store,{kind:'refinement',args,items:[{ids:[1,2,3,4,5,8],base:{scheme:base.scheme,profile:base.profile},option}]});

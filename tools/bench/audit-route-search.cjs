@@ -27,7 +27,7 @@ for(const map of maps){
   const phases=Object.entries(map.bossPhases||{}).filter(([,nodes])=>nodes.length).map(([phase])=>phase);
   for(const phase of phases.length?[...phases,undefined]:[undefined]){
     const target=map.bossNodes.length?'boss':map.terminalNodes[0],start=Date.now();
-    const args={area:map.area,target,phase,byRoute:true,airGoal:'superiority',automaticFilters:{maxRoutes}};
+    const args={area:map.area,target,phase,airGoal:'superiority',automaticFilters:{maxRoutes}};
     let result;
     if(process.argv.includes('--parallel')){
       const {RecommendationPool}=require('../../src/infrastructure/workers/recommendation_pool');

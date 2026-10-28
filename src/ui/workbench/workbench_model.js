@@ -154,11 +154,7 @@ function inspect(service,store,slots,settings){
 }
 function routeChoices(result){
   if(result?.routeResults)return result.routeResults.map(r=>({...r,row:r.recommendationIndex===null?null:result.recommendations[r.recommendationIndex]}));
-  const seen=new Set();return (result?.recommendations||[]).filter(row=>{
-    const key=row.guideStyle||(row.profile?.examples?.[0]||[]).join('>')||JSON.stringify(row.scheme.ships.map(s=>s.id));
-    if(seen.has(key))return false;seen.add(key);return true;
-  }).slice(0,3).map(row=>({key:row.guideStyle||row.profile?.examples?.[0]?.join('>')||String(row.rank),
-    label:row.guideStyle==='upper'?'上路大船流':row.guideStyle==='lower'?'下路小船流':row.profile?.examples?.[0]?.join(' → ')||'推荐路线',row}));
+  return (result?.recommendations||[]).filter(row=>row.routeKey).map(row=>({key:row.routeKey,label:row.routeKey,row}));
 }
 function badges(report){
   const air=report.route?.airControl,assessment=air?.assessment?.superiority;

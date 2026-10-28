@@ -93,7 +93,7 @@ test('failed setting writes roll back permission, and malformed saved data never
 });
 
 test('performance debug persists independently, writes safe local logs and can be cleared without changing drafts or game state',async t=>{
-  const {service:s,data}=setup(t),before=JSON.stringify(data),args={fleet:1,area:'1-1',byRoute:true};
+  const {service:s,data}=setup(t),before=JSON.stringify(data),args={fleet:1,area:'1-1',};
   await s.recommendations.run('recommendNormalFleet',data,args);
   assert.equal((await s.getComputationStatus()).cache.logs.files,0);
   s.setExperimentalSettings({performanceDebug:true});assert.equal(s.getExperimentalSettings().automaticOperations,false);
@@ -111,11 +111,11 @@ test('performance debug persists independently, writes safe local logs and can b
 
 test('queued log clearing runs after a completed calculation has persisted its report',async t=>{
   const {service:s,data}=setup(t);s.setExperimentalSettings({performanceDebug:true});await s.cacheReady;
-  const result=s.recommendations.run('recommendNormalFleet',data,{fleet:1,area:'1-1',byRoute:true});
+  const result=s.recommendations.run('recommendNormalFleet',data,{fleet:1,area:'1-1',});
   const clear=s.clearRecommendationCache('logs');await result;await clear;
   assert.equal((await s.getComputationStatus()).cache.logs.files,0,'no old report can reappear after clearing');
   s.performanceLogs.getLimitBytes=()=>1;
-  await s.recommendations.run('recommendNormalFleet',data,{fleet:1,area:'1-1',byRoute:true});
+  await s.recommendations.run('recommendNormalFleet',data,{fleet:1,area:'1-1',});
   assert((await s.getComputationStatus()).cache.logs.writeError,'logging failure is visible without failing the recommendation');
 });
 

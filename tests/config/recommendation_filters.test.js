@@ -106,7 +106,7 @@ test('service injects global preferences into workers and future planning never 
   assert.equal(W.mapOverview('2-3','boss',undefined,{maxRoutes:2}).options.length,2);
   assert.equal(W.mapOverview('2-3').profile.routePaths.length,16);
   for(const [area,maxRoutes]of [['1-4',5],['1-4',2],['7-2',2],['7-2',4]]){
-    const result=R.recommendNormalFleet(store,{area,byRoute:true,automaticFilters:{maxRoutes}});
+    const result=R.recommendNormalFleet(store,{area,automaticFilters:{maxRoutes}});
     assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),P.recommendedOptions(area,'boss',undefined,{maxRoutes}).map(r=>[r.phase,r.key]));
     assert(result.recommendations.length<=maxRoutes);
   }
@@ -144,7 +144,7 @@ test('snapshot worker and UI use the same observed phase allocation',async()=>{
   const service=new FleetAdvisorService({storageDir:dir,getStore:()=>store,controller:new Controller({getStore:()=>store})});
   try{
     const {snapshotId}=service.createSnapshot();
-    const result=await service.recommendNormalFleet({snapshotId,area:'7-2',byRoute:true});
+    const result=await service.recommendNormalFleet({snapshotId,area:'7-2',});
     assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),
       P.recommendedOptions('7-2','boss',undefined,undefined,store).map(r=>[r.phase,r.key]));
     assert.equal(result.routeResults.filter(r=>r.phase==='gauge2').length,3);

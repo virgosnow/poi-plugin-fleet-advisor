@@ -202,7 +202,7 @@ test('shared tooltip placement stays beside its anchor and inside the CSS viewpo
   assert.deepEqual(position({left:-20,top:2,bottom:36},{width:300,height:160},{width:320,height:180}),{left:8,top:8});
 });
 test('resource settings reach real workers without changing complete recommendations',async t=>{
-  const store=require('../helpers/workbench_fixture')(),args={area:'2-3',byRoute:true,airGoal:'superiority'},root=directory(t);
+  const store=require('../helpers/workbench_fixture')(),args={area:'2-3',airGoal:'superiority'},root=directory(t);
   const expected=require('../../src/recommendation/index').recommendNormalFleet(store,args);
   for(const threads of [1,2,8]){
     const runner=new RecommendationWorker({cacheDir:root,getSettings:()=>({threads,resultCache:false,calculationCache:threads!==1,cacheLimitMiB:128})});

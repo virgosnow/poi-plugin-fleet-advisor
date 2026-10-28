@@ -113,7 +113,7 @@ test('merged guide branches never count alternative player-controlled exits as i
 
 test('5-3 recommendation and manual equipment updates accept the H branch without changing chosen ships',()=>{
   const store=fleet([3,2,2,2,2,2]),before=JSON.stringify(store),selected=option('5-3','D>G>I>O>K>E>Q');
-  const result=recommendNormalFleet(store,{area:'5-3',byRoute:true,fixedShipIds:ids});
+  const result=recommendNormalFleet(store,{area:'5-3',fixedShipIds:ids});
   const found=result.routeResults.find(row=>row.key===selected.key);
   assert.equal(found.status,'available',found.message);assert.equal(found.chance.probability,1);
   const row=result.recommendations[found.recommendationIndex];

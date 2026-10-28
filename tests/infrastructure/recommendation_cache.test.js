@@ -132,7 +132,7 @@ test('code and data content changes invalidate persisted searches even without a
 });
 test('worker cache returns identical results across worker restarts without rewriting a cache hit',async t=>{
   const {RecommendationWorker}=require('../../src/infrastructure/workers/recommendation_worker'),dir=directory(t);
-  const store=require('../helpers/workbench_fixture')(),args={snapshotId:'one',area:'1-1',byRoute:true};
+  const store=require('../helpers/workbench_fixture')(),args={snapshotId:'one',area:'1-1',};
   let runner=new RecommendationWorker({cacheDir:dir});
   try{
     const first=await runner.run('recommendNormalFleet',store,args);
@@ -158,7 +158,7 @@ test('worker cache returns identical results across worker restarts without rewr
 test('parallel hull facts survive a changed snapshot and reordered descriptor dictionaries',async t=>{
   const dir=directory(t),store=require('../helpers/workbench_fixture')(),{RecommendationPool}=require('../../src/infrastructure/workers/recommendation_pool');
   const {recommendNormalFleet,recommendNormalFleetParallel}=require('../../src/recommendation/index');
-  const args={area:'2-3',byRoute:true,airGoal:'superiority'};
+  const args={area:'2-3',airGoal:'superiority'};
   for(let round=0;round<2;round++){
     store.info.basic.api_nickname='cache-test-'+round;
     const result=await cachedRecommendationAsync(dir,'recommendNormalFleet',store,args,async(scope,cache)=>{

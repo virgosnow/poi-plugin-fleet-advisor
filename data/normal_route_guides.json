@@ -3686,7 +3686,8 @@
               "L"
             ]
           ],
-          "pathLabel": "A/B→D→E→H→L"
+          "pathLabel": "A/B→D→E→H→L",
+          "recommend": false
         },
         {
           "nodes": [
@@ -3715,7 +3716,8 @@
               "L"
             ]
           ],
-          "pathLabel": "B→C→F→(E)→H→L"
+          "pathLabel": "B→C→F→(E)→H→L",
+          "recommend": false
         },
         {
           "nodes": [
@@ -3742,7 +3744,8 @@
               "L"
             ]
           ],
-          "pathLabel": "A/B→D→G→J→L"
+          "pathLabel": "A/B→D→G→J→L",
+          "recommend": false
         },
         {
           "nodes": [
@@ -3752,7 +3755,262 @@
             "I",
             "L"
           ],
-          "name": "上路绕行流"
+          "name": "上路绕行流",
+          "recommend": false
+        },
+        {
+          "id": "heavy",
+          "name": "大船推进流",
+          "nodes": [
+            "A",
+            "D",
+            "E",
+            "H",
+            "L"
+          ],
+          "paths": [
+            [
+              "A",
+              "D",
+              "E",
+              "H",
+              "L"
+            ],
+            [
+              "A",
+              "D",
+              "G",
+              "J",
+              "L"
+            ],
+            [
+              "B",
+              "C",
+              "F",
+              "H",
+              "L"
+            ],
+            [
+              "B",
+              "C",
+              "F",
+              "I",
+              "L"
+            ],
+            [
+              "B",
+              "D",
+              "E",
+              "H",
+              "L"
+            ],
+            [
+              "B",
+              "D",
+              "G",
+              "J",
+              "L"
+            ],
+            [
+              "B",
+              "C",
+              "F",
+              "E",
+              "H",
+              "L"
+            ]
+          ],
+          "pathLabel": "随机分支汇合至Boss",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                8,
+                9,
+                10,
+                11,
+                18
+              ],
+              "min": 1
+            }
+          },
+          "templates": [
+            [
+              [
+                8,
+                9,
+                10
+              ],
+              [
+                7,
+                11,
+                18
+              ],
+              [
+                3,
+                4,
+                5,
+                6
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                6,
+                16
+              ]
+            ],
+            [
+              [
+                11,
+                18
+              ],
+              [
+                11,
+                18
+              ],
+              [
+                3,
+                4,
+                5,
+                6
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                6,
+                16
+              ]
+            ]
+          ]
+        },
+        {
+          "id": "light",
+          "name": "小船护航流",
+          "nodes": [
+            "A",
+            "D",
+            "E",
+            "H",
+            "L"
+          ],
+          "paths": [
+            [
+              "A",
+              "D",
+              "E",
+              "H",
+              "L"
+            ],
+            [
+              "A",
+              "D",
+              "G",
+              "J",
+              "L"
+            ],
+            [
+              "B",
+              "C",
+              "F",
+              "H",
+              "L"
+            ],
+            [
+              "B",
+              "C",
+              "F",
+              "I",
+              "L"
+            ],
+            [
+              "B",
+              "D",
+              "E",
+              "H",
+              "L"
+            ],
+            [
+              "B",
+              "D",
+              "G",
+              "J",
+              "L"
+            ],
+            [
+              "B",
+              "C",
+              "F",
+              "E",
+              "H",
+              "L"
+            ]
+          ],
+          "pathLabel": "随机分支汇合至Boss",
+          "fleetRequirement": {
+            "count": {
+              "stypes": [
+                8,
+                9,
+                10,
+                11,
+                18
+              ],
+              "max": 0
+            }
+          },
+          "templates": [
+            [
+              [
+                7
+              ],
+              [
+                7
+              ],
+              [
+                3,
+                4
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                6,
+                16
+              ]
+            ],
+            [
+              [
+                3,
+                4
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                2
+              ],
+              [
+                6,
+                16
+              ]
+            ]
+          ]
         }
       ],
       "arrivalMode": "boss",
@@ -3781,6 +4039,16 @@
             "J"
           ],
           "name": "近海对潜流"
+        },
+        {
+          "nodes": [
+            "A",
+            "D",
+            "F",
+            "G",
+            "J"
+          ],
+          "name": "轻舰对潜流"
         }
       ],
       "previousSource": "https://wikiwiki.jp/kancolle/%E9%8E%AE%E5%AE%88%E5%BA%9C%E6%B5%B7%E5%9F%9F/1-5",
@@ -4212,7 +4480,14 @@
             "H",
             "J"
           ],
-          "name": "G点侦察流"
+          "name": "G点侦察流",
+          "fleetRequirement": {
+            "allStypes": [
+              2,
+              3,
+              16
+            ]
+          }
         },
         {
           "nodes": [
@@ -4223,7 +4498,14 @@
             "H",
             "J"
           ],
-          "name": "F点迂回流"
+          "name": "F点迂回流",
+          "fleetRequirement": {
+            "allStypes": [
+              2,
+              3,
+              16
+            ]
+          }
         }
       ],
       "previousSource": "https://wikiwiki.jp/kancolle/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-3",

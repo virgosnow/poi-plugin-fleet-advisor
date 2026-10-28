@@ -136,7 +136,7 @@ test('real recommendation work runs off the UI thread and preserves calculation 
   const timer=setInterval(()=>ticks++,1);
   try{
     for(const [method,args] of [
-      ['recommendNormalFleet',{area:'1-3',byRoute:true,fleet:1,limit:1}],
+      ['recommendNormalFleet',{area:'1-3',fleet:1,limit:1}],
       ['recommendExpeditionFleet',{missionId:1,fleet:2,limit:1}],
       ['recommendNormalEquipment',{area:'1-1',scheme:{fleet:1,ships:[{id:2,slots:[-1,-1]}]}}],
       ['recommendExpeditionEquipment',{missionId:1,scheme:{fleet:2,ships:[{id:2,slots:[-1,-1]}]}}]
@@ -158,7 +158,7 @@ test('recommendation worker failures release the queue and disposal cancels runn
   try{
     await assert.rejects(runner.run('recommendNormalFleet',store,{area:'99-99'}));
     assert((await runner.run('recommendNormalFleet',store,{area:'1-1'})).recommendations.length);
-    const active=runner.run('recommendNormalFleet',store,{area:'1-3',byRoute:true});
+    const active=runner.run('recommendNormalFleet',store,{area:'1-3',});
     const queued=runner.run('recommendNormalFleet',store,{area:'1-1'});
     const assertions=Promise.all([active,queued].map(p=>assert.rejects(p,e=>e.code==='RECOMMENDATION_CANCELLED')));
     await Promise.resolve();await runner.dispose();await assertions;

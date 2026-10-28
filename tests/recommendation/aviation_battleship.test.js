@@ -85,7 +85,7 @@ test('real type-7 carrier bombers on aviation battleships receive opening aviati
 test('1-4 normal equipment and fleet searches retain an observation plane and avoid optional reconnaissance cargo',()=>{
   const store=fixture(),before=JSON.stringify(store);
   const equipment=recommendNormalEquipment(store,{area:'1-4',scheme:scheme()});
-  const full=recommendNormalFleet(store,{area:'1-4',byRoute:true,fixedShipIds:[1,2,3,4,5,6],airGoal:'superiority'});
+  const full=recommendNormalFleet(store,{area:'1-4',fixedShipIds:[1,2,3,4,5,6],airGoal:'superiority'});
   assert(full.recommendations.length>0,full.reason);
   for(const fitted of [equipment.scheme,...full.recommendations.map(r=>r.scheme)]){
     assert(fitted.ships[0].slots.some(id=>[10,11].includes(type(store,id))));

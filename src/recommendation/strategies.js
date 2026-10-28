@@ -33,7 +33,8 @@ function threeFiveSeeds(ctx){
   const sorters=[
     (a,b)=>b.power-a.power||a.id-b.id,
     (a,b)=>score(b)-score(a)||a.id-b.id,
-    (a,b)=>shipCost(a)-shipCost(b)||score(b)-score(a)||a.id-b.id,
+    (a,b)=>(b.master.api_maxeq||[]).reduce((n,v)=>n+Math.sqrt(v||0),0)-
+      (a.master.api_maxeq||[]).reduce((n,v)=>n+Math.sqrt(v||0),0)||score(b)-score(a)||a.id-b.id,
     (a,b)=>num(b.ship.api_sakuteki)-num(a.ship.api_sakuteki)||score(b)-score(a)
   ];
   const results=[];
@@ -60,35 +61,6 @@ function threeFiveSeeds(ctx){
     if(compatible)results.push(rows);
   }
   return results;
-}
-function threeFiveStyle(store,scheme,rows,route,profile){
-  const path=profile?.examples?.[0]?.join('');
-  const los=route.lineOfSight;
-  const losCoefficient=path==='BDHK'?4:path==='FGK'?1:null;
-  const losMinimum=path==='BDHK'?40:path==='FGK'?28:null;
-  const pathNodes=path?['start',...path.slice(0,-1).split('')]:[];
-  const plannedRoute=los?.status==='estimate'&&profile?.status==='possible'&&
-    route.chanceRange?.[1]===1&&losCoefficient!==null&&
-    Number(los.scoresByCoefficient?.[losCoefficient])-Number(los.thresholdMargin||0)>=losMinimum&&
-    route.pointAssessments?.filter(point=>pathNodes.includes(point.from)).every(point=>
-      point.assessment?.status==='fixed'||
-      (point.from===(path==='BDHK'?'H':'G')&&point.assessment?.status==='unknown'));
-  if(rows.length!==6||rows.some(row=>row.level<THREE_FIVE_MIN_LEVEL)||
-    rows.some(row=>!threeFiveArmed(store,row,scheme))||
-    !(route.chanceRange?.[0]===1&&profile?.status==='known'||plannedRoute)||
-    profile.pathCount!==1)
-    return null;
-  const count=types=>rows.filter(row=>types.includes(row.stype)).length;
-  if(path==='FGK'&&((count([2])===5&&count([3])===1)||count([2])===6))
-    return 'lower';
-  const carriers=count([11,18]),cruisers=count([5,6]),battleships=count([8,9]);
-  const air=route.airControl?.fleetAirPower;
-  // 170 is an approximate pre-sortie parity floor inferred from the upper
-  // route's final-state 381 air-superiority quick-reference line.
-  if(path==='BDHK'&&cruisers===3&&
-    (carriers===3&&battleships===0||carriers===2&&battleships===1)&&
-    air?.status==='range'&&air.min>=THREE_FIVE_UPPER_MIN_AIR)return 'upper';
-  return null;
 }
 // These are攻略 suitability checks, not additional route rules. In particular,
 // a route to an installation boss is not useful without an installation hitter.
@@ -239,17 +211,15 @@ function guideSeeds(ctx,policy,sorterLimit=6){
   if(!policy?.templates)return [];
   const battle=row=>num(row.ship.api_karyoku)+num(row.ship.api_raisou)*0.6+
     num(row.ship.api_soukou)*0.4+row.level*0.5;
+  const aviation=row=>(row.master.api_maxeq||[]).reduce((n,v)=>n+Math.sqrt(v||0),0);
   const sorters=[
     (a,b)=>b.power-a.power||a.id-b.id,
     (a,b)=>battle(b)-battle(a)||a.id-b.id,
-    (a,b)=>shipCost(a)-shipCost(b)||battle(b)-battle(a)||a.id-b.id,
-    // Keep the inexpensive air/utility backbone, but cover fighting destroyers
-    // independently. A whole-fleet battle sort can change the aircraft carriers
-    // at the same time and lose an otherwise feasible night/air configuration.
+    (a,b)=>aviation(b)-aviation(a)||battle(b)-battle(a)||a.id-b.id,
+    // Preserve aviation capacity while independently covering fighting escorts.
     (a,b)=>a.stype===2&&b.stype===2?battle(b)-battle(a)||a.id-b.id:
-      shipCost(a)-shipCost(b)||battle(b)-battle(a)||a.id-b.id,
-    (a,b)=>(b.ship.api_slot||[]).filter(id=>id>0).length-
-      (a.ship.api_slot||[]).filter(id=>id>0).length||battle(b)-battle(a),
+      aviation(b)-aviation(a)||battle(b)-battle(a)||a.id-b.id,
+    (a,b)=>Number(b.master.api_slot_num||0)-Number(a.master.api_slot_num||0)||battle(b)-battle(a),
     (a,b)=>{
       const aAsw=aswPotential(ctx.store,a),bAsw=aswPotential(ctx.store,b);
       return (Number.isFinite(bAsw-aAsw)?bAsw-aAsw:0)||battle(b)-battle(a);
@@ -460,20 +430,29 @@ function specialFleetSeeds(ctx,policies,heldSlots,night){
   const power=row=>num(row.ship.api_karyoku)+(night?num(row.ship.api_raisou):0);
   const templates=[...new Map(policies.filter(Boolean).filter(p=>p.templates)
     .flatMap(p=>p.templates.map(t=>[JSON.stringify(t),{...p,templates:[t]}]))).values()];
+  const choices=[];
   for(const core of cores){
     if(core.some((r,i)=>locked.has(i)&&locked.get(i)!==r.id||[...locked].some(([p,id])=>id===r.id&&p!==i)))continue;
     const fixed=[...new Set([...ctx.fixed,...locked.values(),...core.map(r=>r.id)])];
     if(fixed.length>6)continue;
+    const variants=[];
     for(const policy of templates){
-      for(const rows of guideSeeds({...ctx,fixed},policy,4)){
+      for(const rows of guideSeeds({...ctx,fixed},policy,2)){
         const ordered=arrangeSpecialAttack(rows,core,{locked,power});if(!ordered)continue;
-        const key=idsKey(ordered);if(seen.has(key))continue;seen.add(key);output.push(ordered);
-        if(output.length>=64)return output;
+        const key=idsKey(ordered);if(seen.has(key))continue;seen.add(key);variants.push(ordered);
+        if(variants.length>=8)break;
       }
+      if(variants.length>=8)break;
     }
+    if(variants.length)choices.push(variants);
+  }
+  // Share the bounded budget across attack cores, rather than allowing the
+  // first core's many guide variants to consume every place.
+  for(let index=0;index<8;index++)for(const variants of choices)if(variants[index]){
+    output.push(variants[index]);if(output.length>=64)return output;
   }
   return output;
 }
 
 
-module.exports={THREE_FIVE_MIN_LEVEL,THREE_FIVE_UPPER_MIN_AIR,guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,remainingSlots,specialFleetSeeds,specialPositionLocks,threeFiveSeeds,threeFiveStyle};
+module.exports={THREE_FIVE_MIN_LEVEL,THREE_FIVE_UPPER_MIN_AIR,guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,remainingSlots,specialFleetSeeds,specialPositionLocks,threeFiveSeeds};

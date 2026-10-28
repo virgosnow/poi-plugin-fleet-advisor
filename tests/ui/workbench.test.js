@@ -21,7 +21,7 @@ test('normalized draft constraints preserve full recommendation results with man
   const store=fixture(),recommend=require('../../src/recommendation/index').recommendNormalFleet;
   for(const slots of [Array(6).fill(null),[W.entry(store,1),W.entry(store,2),null,null,null,null],
     [null,{...W.entry(store,2),pin:true},{...W.entry(store,3),keep:{0:true}},null,null,null]]){
-    const args={area:'1-1',byRoute:true,fixedShipIds:slots.filter(s=>s&&(s.pin||Object.keys(s.keep).length)).map(s=>s.id)};
+    const args={area:'1-1',fixedShipIds:slots.filter(s=>s&&(s.pin||Object.keys(s.keep).length)).map(s=>s.id)};
     assert.deepEqual(recommend(store,{...args,heldSlots:W.recommendationHolds(slots)}),recommend(store,{...args,heldSlots:slots}));
   }
 });

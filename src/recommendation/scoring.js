@@ -296,29 +296,25 @@ function jetScoreCore(store,scheme,air,airScore,profile){
     adjustment:assault+ordinary-departure+ciAdjustment-(steelPenalty??0)};
 }
 
-function routeRank(result,profile,rows,preference,airGoal,area,store,scheme,byRoute=false){
-  return routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute)(preference);
-}
-// Preferences only change the final weighting. Compute the same candidate's
-// combat, aviation and support facts once, then retain each original formula.
-function routeRanker(result,profile,rows,airGoal,area,store,scheme,byRoute){
+// One route objective: constraints first, then useful combat strength and the
+// route's existing resource weighting. No parallel preference score sets.
+function scoreRoute(result,profile,rows,airGoal,area,store,scheme){
   const timing=perf.begin('score.candidate');
   try{
-    if(!hasEquipmentIndexCache(store))return routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute);
-    const profiles=snapshotMemo(store,'routeRankers',result,()=>new Map());
+    if(!hasEquipmentIndexCache(store))return scoreRouteCore(result,profile,rows,airGoal,area,store,scheme);
+    const profiles=snapshotMemo(store,'routeScores',result,()=>new Map());
     if(!profiles.has(profile)){if(profiles.size>=64)profiles.delete(profiles.keys().next().value);profiles.set(profile,new Map());}
-    const cache=profiles.get(profile),key=JSON.stringify([area,airGoal,byRoute,scheme,rows.map(r=>r.id)]);
+    const cache=profiles.get(profile),key=JSON.stringify([area,airGoal,scheme,rows.map(r=>r.id)]);
     const previous=cache.get(key);
     if(previous&&previous.rows.length===rows.length&&rows.every((row,i)=>row===previous.rows[i])){perf.count('score.candidate.hit');return previous.rank;}
-    const rank=routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute);
+    const rank=scoreRouteCore(result,profile,rows,airGoal,area,store,scheme);
     if(cache.size>=64)cache.delete(cache.keys().next().value);
     cache.set(key,{rows:rows.slice(),rank});return rank;
   }finally{perf.end(timing);}
 }
-function routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute=false){
+function scoreRouteCore(result,profile,rows,airGoal,area,store,scheme){
   const chance=result.chanceRange||[0,1],assumed=result.assumedChanceRange||chance;
   const reach=assumed[1],lower=chance[0],probability=assumed[0];
-  const hops=profile?.hops?.maximum??result.reachableHops?.maximum??99;
   const air=result.airControl?.fleetAirPower;
   const airMin=air?.status==='range'?air.min:0;
   const airScore=airGoalScore(result,airGoal,area,profile);
@@ -339,7 +335,7 @@ function routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute=f
     supportedAirGoal(air,airScore.routeAirReference,'supremacy')?carrier*0.3:0;
   const strength=combat.strength+strike*0.7+(jet?.adjustment||0)*0.7+
     supremacyPreference+(airGoal==='ignore'?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5);
-  const difficulty=byRoute&&area!=='1-1'?routeDifficulty(profile):{tier:'combat',enabled:false};
+  const difficulty=area!=='1-1'?routeDifficulty(profile):{tier:'combat',enabled:false};
   const largeAirAttacks=difficulty.enabled?rows.reduce((sum,row)=>{
     if(![7,11,18].includes(row.stype))return sum;
     const entry=scheme.ships.find(e=>e.id===row.id);
@@ -359,8 +355,6 @@ function routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute=f
   const specialBonus=difficulty.enabled?Math.min(specialAttack.bonus,difficulty.specialCeiling)+
     Math.max(0,specialAttack.bonus-difficulty.specialCeiling)*difficulty.excessWeight*0.1:specialAttack.bonus;
   const cost=rows.reduce((sum,row)=>sum+shipCost(row),0);
-  const battleCount=profile?.counts?
-    profile.counts.surface.maximum+profile.counts.air.maximum+profile.counts.asw.maximum:hops;
   const fuelUse=profile?.fuelConsumedFraction?.maximum;
   const ammoUse=profile?.ammoConsumedFraction?.maximum;
   const sortieCost=Number.isFinite(fuelUse)&&Number.isFinite(ammoUse)?
@@ -387,23 +381,12 @@ function routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute=f
   // Every 1-1 enemy can attack submarines; a pair of subs is cheap but takes
   // concentrated ASW fire if the opening torpedoes leave survivors.
   const oneOneSubRisk=rows.filter(row=>[13,14].includes(row.stype)).length;
-  return preference=>{
-  const preferenceScore=area==='1-1'?
-    preference==='shortest'?probability*10000-rows.length*1500+
-      oneOneEffective*3-sortieCost*5-oneOneHeavy*700-oneOneSubRisk*900:
-      preference==='strongest'?oneOneEffective*100-sortieCost*15-
-        oneOneHeavy*2000-oneOneSubRisk*5000:
-        -sortieCost*30+Math.min(160,oneOneEarly)*12-rows.length*300-
-          oneOneHeavy*1000-oneOneSubRisk*1500:
-    preference==='shortest'?-battleCount*10000-hops*1000+
-    strength*2-sortieCost-readinessPenalty:
-    // Route combat priority retains the relative value of opening/special
-    // attack opportunities; the legacy pure-strength API has its own scale.
-    preference==='strongest'?effectiveStrength*(byRoute?20:100)-sortieCost*(difficulty.enabled?difficulty.costWeight:0.01)-readinessPenalty:
-      -sortieCost*20+strength*2-readinessPenalty;
+  const combatScore=area==='1-1'?oneOneEffective*100-sortieCost*15-
+    oneOneHeavy*2000-oneOneSubRisk*5000:
+    effectiveStrength*20-sortieCost*(difficulty.enabled?difficulty.costWeight:0.01)-readinessPenalty;
   return {rank:airScore.airGoalTier*1e10+routePriority*1e8+
       (nightSupport?.supportTier||0)*1e7+specialBonus+groundAttack.bonus*100+
-      (profile?.counts?.night?.maximum>=2&&!nightSupport?.zuiunEquipped?Math.max(0,Math.min(2,nightSupport?.flareCarriers||0)-1)*1000:0)+preferenceScore+probability-
+      (profile?.counts?.night?.maximum>=2&&!nightSupport?.zuiunEquipped?Math.max(0,Math.min(2,nightSupport?.flareCarriers||0)-1)*1000:0)+combatScore+probability-
       airScore.airGoalShortfall*10000+antiAir.value*20,
     ...airScore,...jet?{jetAviation:jet}:{},antiAirDefense:antiAir,opportunisticSupremacy:supremacyPreference>0,nightSupport,specialAttack,groundAttack,
     routePriority,routeChance:chance,assumedChance:assumed,
@@ -421,7 +404,6 @@ function routeRankerCore(result,profile,rows,airGoal,area,store,scheme,byRoute=f
     neededAswShips:combat.neededAsw,
     neededSurfaceShips:combat.neededSurface,
     fullSupplyCostProxy:cost,sortieCostProxy:sortieCost};
-  };
 }
 
-module.exports={carrierStrike,combatHullRanker,openingAirStrike,openingTorpedo,plannedCombatStat,plannedTorpedoStat,routeRank,routeRanker};
+module.exports={carrierStrike,combatHullRanker,openingAirStrike,openingTorpedo,plannedCombatStat,plannedTorpedoStat,scoreRoute};

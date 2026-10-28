@@ -7,7 +7,7 @@ const fixture=require('../helpers/workbench_fixture');
 test('profiling remains outside result caches and cache hits skip search without stale timing',async t=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fleet-advisor-profile-'));
   t.after(()=>{if(path.dirname(dir)===os.tmpdir()&&path.basename(dir).startsWith('fleet-advisor-profile-'))fs.rmSync(dir,{recursive:true,force:true});});
-  const store=fixture(),args={area:'1-1',fleet:1,byRoute:true};store.info.basic.api_nickname='PRIVATE_PROFILE_TEST';
+  const store=fixture(),args={area:'1-1',fleet:1,};store.info.basic.api_nickname='PRIVATE_PROFILE_TEST';
   const plain=new RecommendationWorker({getDiagnostics:()=>null}),traced=new RecommendationWorker({cacheDir:dir,
     getDiagnostics:()=>({level:'modules'}),onProfile:async()=>{await new Promise(resolve=>setImmediate(resolve));throw Error('logger failure');}});
   try{
@@ -31,7 +31,7 @@ test('profiling remains outside result caches and cache hits skip search without
 test('parallel batch tracing retains the same candidates and collects each child once',async()=>{
   const {RecommendationPool}=require('../../src/infrastructure/workers/recommendation_pool');
   const {recommendationBatch}=require('../../src/recommendation/index');
-  const store=fixture(),trace=new PerformanceTrace(),batch={kind:'combat',args:{fleet:1,area:'1-1',byRoute:true},
+  const store=fixture(),trace=new PerformanceTrace(),batch={kind:'combat',args:{fleet:1,area:'1-1',},
     items:Array.from({length:24},()=>[1,2])};
   const expected=recommendationBatch(store,batch);
   await trace.run(async()=>{

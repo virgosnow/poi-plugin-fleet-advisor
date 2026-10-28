@@ -143,7 +143,7 @@ function harness(kind='normal',automaticFilters){
       return [state[i],value=>{state[i]=typeof value==='function'?value(state[i]):value;}];},
     useRef(initial){const i=refIndex++;return refs[i]||(refs[i]={current:initial});},useEffect:(fn,deps)=>effects.push({fn,deps})};
   const store=fixture(),controller=new Controller({getStore:()=>store}),calls={fleet:0,equipment:0};
-  const plan=(id,guideStyle)=>({guideStyle,scheme:W.scheme([W.entry(store,id)],1)});
+  const plan=(id,routeKey)=>({routeKey,scheme:W.scheme([W.entry(store,id)],1)});
   const service={createSnapshot:()=>({snapshotId:'test'}),preview:(...args)=>controller.preview(...args),
     recommendNormalFleet:()=>{calls.fleet++;return {recommendations:[plan(2,'lower'),plan(1,'upper')]};},
     recommendNormalEquipment:args=>{calls.equipment++;return {scheme:args.scheme};}};
@@ -188,7 +188,7 @@ test('adding ships before normal-map completion retains worn gear and skips fitt
     h.calls.fleet++;
     assert.deepEqual(args.fixedShipIds,[2,3]);
     assert(args.heldSlots.filter(Boolean).every(s=>s.holdPosition===false));
-    return {recommendations:[{guideStyle:'upper',scheme:W.scheme([3,1,2,4,5,6].map(id=>W.entry(h.store,id)),1)}]};
+    return {recommendations:[{routeKey:'upper',scheme:W.scheme([3,1,2,4,5,6].map(id=>W.entry(h.store,id)),1)}]};
   };
   await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
   assert.equal(h.get('error'),'');assert.deepEqual(h.get('slots').map(s=>s.id),[3,1,2,4,5,6]);
@@ -320,7 +320,7 @@ test('workbench unmount discards pending recommendations and places errors besid
   h.service.recommendNormalFleet=()=>new Promise(resolve=>{finish=resolve;});
   const tree=h.render(),pending=h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
   await new Promise(resolve=>setTimeout(resolve,30));assert(finish);
-  cleanup();finish({recommendations:[{guideStyle:'lower',scheme:W.scheme([W.entry(h.store,2)],1)}]});
+  cleanup();finish({recommendations:[{routeKey:'lower',scheme:W.scheme([W.entry(h.store,2)],1)}]});
   await pending;assert(h.get('slots').every(s=>s===null));assert.deepEqual(h.get('choices'),[]);
   h.set('error','装备资料已变化');
   const failed=h.render(),right=h.find(failed,n=>n.props.className==='paa-wb-right');
@@ -1089,7 +1089,7 @@ test('failed recommendations keep the draft, but obsolete results cannot refill 
   tree=h.render();const pending=h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
   await new Promise(resolve=>setTimeout(resolve,30));
   tree=h.render();h.find(tree,n=>n.type?.name==='AreaPicker').props.onChange('1-1');h.render();
-  finish({recommendations:[{guideStyle:'upper',scheme:W.scheme([W.entry(h.store,1)],1)}]});await pending;
+  finish({recommendations:[{routeKey:'upper',scheme:W.scheme([W.entry(h.store,1)],1)}]});await pending;
   assert.deepEqual(h.get('slots'),Array(6).fill(null));assert.equal(h.get('working'),false);assert.equal(h.get('error'),'');
 });
 
@@ -1107,7 +1107,7 @@ test('global exclusions invalidate cached and in-flight recommendations while pr
   tree=render();const pending=h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
   await new Promise(resolve=>setTimeout(resolve,30));
   const current=JSON.stringify(h.get('slots'));filters={...filters,minLevel:80};render();
-  finish({recommendations:[{guideStyle:'upper',scheme:W.scheme([W.entry(h.store,8)],1)}]});await pending;
+  finish({recommendations:[{routeKey:'upper',scheme:W.scheme([W.entry(h.store,8)],1)}]});await pending;
   assert.equal(JSON.stringify(h.get('slots')),current);assert.equal(h.get('working'),false);assert(before);
 });
 
@@ -1144,7 +1144,7 @@ test('complete follows the selected non-first route and cached switches retain u
   const h=harness();h.set('area','2-2');
   const options=W.mapOverview('2-2').options;
   h.service.recommendNormalFleet=args=>{
-    assert.equal(args.byRoute,true);h.calls.fleet++;
+    assert.equal(args.airGoal,'superiority');h.calls.fleet++;
     return {routeResults:options.map((o,i)=>({...o,status:i===1?'notFound':'available',chance:i===1?null:{min:1,max:1,probability:1},recommendationIndex:i===1?null:i===0?0:1,message:i===1?'缺少符合此路线的船':'',diagnostics:i===1?{briefWarnings:['C → E：带路条件未满足'],warnings:['冗长的带路规则重复说明']}:null})),
       recommendations:[0,2].map((i,j)=>({routeKey:options[i].key,selectedPath:options[i].nodes,scheme:W.scheme([W.entry(h.store,j+2)],1)}))};
   };
@@ -1228,7 +1228,8 @@ test('a route recommendation inspects the final changed hulls before the first c
 });
 
 test('merged 1-4 map highlights follow the actual fleet while keeping genuine random alternatives',()=>{
-  const store=fixture(),overview=W.mapOverview('1-4'),option=overview.options.find(o=>o.name==='上路护航流');
+  const store=fixture(),overview=W.mapOverview('1-4');
+  const option=require('../../src/domain/routes/route_plans').routeOptions('1-4').find(o=>o.name==='上路护航流');overview.options.push(option);
   const {evaluateNormalRoute}=require('../../src/domain/routes/normal_routes');
   const {profileForRoute}=require('../../src/domain/routes/sortie_profile');
   const draw=require('../../src/ui/maps/route_preview');
@@ -1255,7 +1256,7 @@ test('merged 1-4 map highlights follow the actual fleet while keeping genuine ra
 });
 
 test('pending or stale fleet inspections do not preview full styles until the fleet is cleared',()=>{
-  const h=harness(),option=W.mapOverview('1-4').options.find(o=>o.name==='上路护航流');
+  const h=harness(),option=W.mapOverview('1-4').options.find(o=>o.key.endsWith('@light'));
   h.store.const.$ships[1].api_stype=16;h.store.const.$ships[4].api_stype=7;
   h.set('area','1-4');h.set('mapRoute',option.key);h.set('slots',[1,2,3,4].map(id=>W.entry(h.store,id)));
   const settings={kind:'normal',fleet:1,area:'1-4',target:'boss',phase:'',missionId:1,revision:0};

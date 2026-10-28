@@ -99,7 +99,7 @@ test('reusing a batch object cannot retain previous query parameters in a worker
 
 test('real threads preserve complete results, fixed ships, held slots and the input snapshot',async()=>{
   const store=fixture(),before=structuredClone(store);
-  const args={area:'2-3',byRoute:true,airGoal:'superiority',fixedShipIds:[1],excludedShipIds:[8],
+  const args={area:'2-3',airGoal:'superiority',fixedShipIds:[1],excludedShipIds:[8],
     heldSlots:[{id:1,slots:[-1,-1],keep:{0:true},pin:true}],automaticFilters:{excludeUnremodeled:false}};
   const expected=recommendNormalFleet(store,args);
   for(const size of [6,8]){

@@ -21,7 +21,7 @@ const scenarios=maps.flatMap(map=>{
 });
 const cases=[],start=Date.now();
 for(const scenario of scenarios)for(const airGoal of ['ignore','superiority','supremacy']){
-  const query={...scenario,airGoal,preference:'all',fleet:1,limit:3},caseStart=Date.now();
+  const query={...scenario,airGoal,fleet:1},caseStart=Date.now();
   const entry={...query,status:'error',recommendations:[]};
   try{
     const result=recommendNormalFleet(store,query);
@@ -31,7 +31,7 @@ for(const scenario of scenarios)for(const airGoal of ['ignore','superiority','su
       controller.preview('fleet',row.scheme);
       fixedArrivalCondition(row.route);
       const legacy={...row.route};delete legacy.speed;fixedArrivalCondition(legacy);
-      entry.recommendations.push({preference:row.preference,preferences:row.preferences||[row.preference],
+      entry.recommendations.push({routeKey:row.routeKey,
         ships:row.scheme.ships.map(ship=>({id:ship.id,
           name:store.const.$ships[store.info.ships[ship.id].api_ship_id].api_name})),
         verdict:row.route.verdict,paths:row.profile.examples,

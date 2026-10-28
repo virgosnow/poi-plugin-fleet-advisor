@@ -17,7 +17,7 @@ async function main(){
   if(options['result-cache']&&!['true','false'].includes(options['result-cache']))throw Error('result-cache must be true or false');
   const captured=JSON.parse(fs.readFileSync(path.resolve(options.store),'utf8')),store=captured.store||captured;
   const args=options.args?JSON.parse(fs.readFileSync(path.resolve(options.args),'utf8')):
-    {fleet:1,area:options.area,byRoute:true,airGoal:'superiority',automaticFilters:captured.filters};
+    {fleet:1,area:options.area,airGoal:'superiority',automaticFilters:captured.filters};
   const settings={threads,resultCache:options['result-cache']==='true',calculationCache:!!options.cache};
   const worker=new RecommendationWorker({cacheDir:options.cache?path.resolve(options.cache):undefined,
     getSettings:()=>settings,getDiagnostics:()=>({level})});

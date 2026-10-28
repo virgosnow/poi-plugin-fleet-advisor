@@ -66,7 +66,7 @@ test('1-3 true F-H diversions do not become success merely because H can also re
 test('1-3 recommendation and equipment reevaluation share the explicit merged strategy',()=>{
   for(const type of [16,22]){
     const state=fleet([type,3,2,2,2,2]),ids=[1,2,3,4,5,6],before=JSON.stringify(state),option=upper();
-    const result=recommendNormalFleet(state,{area:'1-3',byRoute:true,fixedShipIds:ids});
+    const result=recommendNormalFleet(state,{area:'1-3',fixedShipIds:ids});
     const selected=result.routeResults.find(row=>row.key===option.key);
     assert.equal(selected.status,'available',selected.message);assert.equal(selected.chance.probability,1);
     const row=result.recommendations[selected.recommendationIndex];

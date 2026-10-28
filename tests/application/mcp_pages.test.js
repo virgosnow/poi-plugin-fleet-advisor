@@ -103,7 +103,12 @@ test('HTTP tool validation and catalog reject old names, unknown arguments and c
   assert.throws(()=>invokeTool(mock,'fleet_advisor_evaluate_fleet',{snapshotId:sid}),e=>e.code==='INVALID_QUERY');assert.equal(calls,0);
   assert.throws(()=>invokeTool(mock,'fleet_advisor_recommend_normal_fleet',{snapshotId:sid,area:'1-2',heldSlots:[{id:1,pin:true,keep:{x:true}}]}),e=>e.code==='INVALID_QUERY');
   const defaults=invokeTool(mock,'fleet_advisor_recommend_normal_fleet',{snapshotId:sid,area:'1-2'});
-  assert.equal(defaults.byRoute,true);assert.equal(defaults.airGoal,'superiority');
+  assert(!Object.hasOwn(defaults,'byRoute'));assert.equal(defaults.airGoal,'superiority');
+  const properties=TOOL_DEFS.find(t=>t.name==='fleet_advisor_recommend_normal_fleet').inputSchema.properties;
+  for(const key of ['preference','byRoute','limit']){
+    assert(!Object.hasOwn(properties,key));
+    assert.throws(()=>invokeTool(mock,'fleet_advisor_recommend_normal_fleet',{snapshotId:sid,area:'1-2',[key]:true}),e=>e.code==='INVALID_QUERY');
+  }
 });
 test('manual ship/equipment locks are validated and equipment recommendations preserve hulls and slot locks',async t=>{
   const data=store(),s=service(t,data),snapshotId=s.createSnapshot().snapshotId,args={snapshotId};
@@ -127,7 +132,7 @@ test('MCP selected-route fleet search matches the page algorithm and honors held
   const input={snapshotId,area:'1-2',routeKey:route.key,heldSlots};
   const result=await invokeTool(s,'fleet_advisor_recommend_normal_fleet',input);
   const snapshot=s.snapshots.get(snapshotId).store,filters=s.getRecommendationFilters().normal;
-  const expected=require('../../src/recommendation/index').recommendNormalFleet(snapshot,{...input,byRoute:true,airGoal:'superiority',fixedShipIds:[1],automaticFilters:filters});
+  const expected=require('../../src/recommendation/index').recommendNormalFleet(snapshot,{...input,airGoal:'superiority',fixedShipIds:[1],automaticFilters:filters});
   assert(result.recommendations.length);assert.equal(result.routeResults.length,1);
   assert.deepEqual(result.recommendations.map(r=>r.scheme),expected.recommendations.map(r=>r.scheme));
   assert(result.recommendations.every(r=>r.routeKey===route.key&&r.scheme.ships[0].id===1));

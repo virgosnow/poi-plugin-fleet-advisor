@@ -81,7 +81,7 @@ test('7-3 recommendation and manual refitting preserve the real speed item and s
   const store=fleet(),before=JSON.stringify(store),selected=option();
   const heldSlots=[{...scheme(true).ships[0],pin:true,keep:{0:true}}];
   const heldBefore=JSON.stringify(heldSlots);
-  const result=recommendNormalFleet(store,{area:'7-3',phase:'gauge2',byRoute:true,fixedShipIds:ids,heldSlots});
+  const result=recommendNormalFleet(store,{area:'7-3',phase:'gauge2',fixedShipIds:ids,heldSlots});
   const found=result.routeResults.find(row=>row.key===selected.key);
   assert.equal(found.status,'available',found.message);assert.equal(found.chance.probability,1);
   const row=result.recommendations[found.recommendationIndex];

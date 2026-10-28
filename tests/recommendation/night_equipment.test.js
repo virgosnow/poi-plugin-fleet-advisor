@@ -83,7 +83,7 @@ test('manual searchlights survive night normalization without adding any new sea
 
 test('5-3 recommendations prefer two distributed flares when spare slots and inventory allow',()=>{
   const {store,add}=fixture();add(510,33,27,'照明弾');
-  const result=recommendNormalFleet(store,{area:'5-3',preference:'lowestConsumption',airGoal:'ignore'});
+  const result=recommendNormalFleet(store,{area:'5-3',airGoal:'ignore'});
   const row=result.recommendations[0];assert(row);
   assert.equal(row.scores.nightSupport.flareCarriers,2);
   assert.equal(row.scores.nightSupport.searchlights,0);
@@ -113,11 +113,11 @@ test('5-3 considers owned Nelson, assigns strong participants to 1/3/5, and resp
   // than asserting one arbitrary ship-type tie among equal synthetic panels.
   store.info.ships[6].api_karyoku=[70,70];
   add(510,33,27,'照明弾');
-  const args={area:'5-3',byRoute:true,airGoal:'ignore'},before=JSON.stringify(store);
+  const args={area:'5-3',airGoal:'ignore'},before=JSON.stringify(store);
   const result=recommendNormalFleet(store,args),route=result.routeResults[0];
   const row=result.recommendations[route.recommendationIndex];assert(row);
   assert.equal(row.scheme.ships[0].id,7);assert.equal(row.scores.specialAttack.label,'Nelson Touch');
-  assert.equal(row.preference,'strongest');
+  assert(row.routeKey);
   assert.deepEqual(new Set(row.scheme.ships.filter(s=>[8,9,11,12].includes(s.id)).map(s=>s.id)),new Set([8,9]));
   assert.deepEqual(row.scores.specialAttack.participants.map(p=>p.position),[1,3,5]);
   for(const i of [2,4])assert.equal(store.const.$ships[row.scheme.ships[i].id].api_stype,6);
@@ -166,7 +166,7 @@ test('6-5 mixed-route finalists enable an owned Yamato pair without moving held 
   }
   for(let id=520;id<524;id++)add(id,3,3,'46cm三連装砲',{api_houg:26});
   for(let id=524;id<528;id++)add(id,1,1,'小口径主炮',{api_houg:5});
-  const args={area:'6-5',byRoute:true,airGoal:'ignore'},before=JSON.stringify(store);
+  const args={area:'6-5',airGoal:'ignore'},before=JSON.stringify(store);
   const api=require('../../src/recommendation/index'),r=api.recommendNormalFleet(store,args);
   const pick=result=>result.recommendations.find(row=>row.routeKey==='B>C>D>G>M');
   const row=pick(r);assert(row);assert.equal(row.pathChance.probability,1);
@@ -191,7 +191,7 @@ test('final special positioning cannot replace a route-required light-cruiser fl
     Object.assign(store.info.ships[id],{api_lv:99,api_sakuteki:[500,500],api_soku:10});
     store.const.$shipTypes[type]={api_equip_type:Object.fromEntries([1,2,3,5,10,11,12,13,14,15,33,39,45].map(t=>[t,1]))};
   }
-  const result=recommendNormalFleet(store,{area:'6-4',byRoute:true,airGoal:'ignore'});
+  const result=recommendNormalFleet(store,{area:'6-4',airGoal:'ignore'});
   const row=result.recommendations.find(r=>r.routeKey==='B>D>C>F>N');assert(row);
   assert.equal(row.pathChance.probability,1);assert.equal(row.scheme.ships[0].id,1);
   assert(row.scheme.ships.some(e=>e.id===2));assert.equal(row.scores.specialAttack.bonus,0);
@@ -212,11 +212,10 @@ test('night Zuiun is an alternative to flare; expansion secondary guns are corre
   assert.equal(nightReadiness(store,unfilled).zuiun,0);
   assert(!unfilled.ships.some(e=>e.slots.includes(501)),'unfilled night Zuiun still should not be mixed with flare');
 });
-test('all three 5-3 recommendations meet guide hulls, night gear and the actual DGIOKEQ route',()=>{
+test('5-3 route recommendations retain night gear and route-specific ammunition',()=>{
   const {store}=fixture();
-  const result=recommendNormalFleet(store,{area:'5-3',preference:'all',airGoal:'ignore'});
-  assert.deepEqual(new Set(result.recommendations.flatMap(row=>row.preferences)),
-    new Set(['shortest','strongest','lowestConsumption']));
+  const result=recommendNormalFleet(store,{area:'5-3',airGoal:'ignore'});
+  assert(result.recommendations.length>0);
   for(const row of result.recommendations){
     assert(row.scheme.ships.every(e=>store.info.ships[e.id].api_lv>=75));
     assert.equal(row.scores.nightSupport.supportTier,2);
@@ -224,13 +223,13 @@ test('all three 5-3 recommendations meet guide hulls, night gear and the actual 
     assert.equal(row.profile.routePaths[0].nodes.join(''),'DGIOKEQ');
     assert.equal(row.profile.routePaths[0].ammoAtTargetPercent,80);
     assert.equal(row.profile.routePaths[0].counts.night.maximum,2);
-    const detour=row.profile.routePaths.find(p=>p.nodes.includes('P'));
+    const detour=require('../../src/domain/routes/sortie_profile').profileForRoute('5-3',row.route).routePaths.find(p=>p.nodes.includes('P'));
     assert.equal(detour.nodes.join(''),'DGIOPKEQ');
     assert.equal(detour.ammoAtTargetPercent,70);
     assert.equal(detour.counts.night.maximum,3);
     assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',row.scheme));
   }
   delete store.info.equips[500];delete store.info.equips[501];
-  const scarce=recommendNormalFleet(store,{area:'5-3',preference:'lowestConsumption'}).recommendations[0];
+  const scarce=recommendNormalFleet(store,{area:'5-3',}).recommendations[0];
   assert(scarce);assert(scarce.scores.nightSupport.warnings.length>=2);
 });

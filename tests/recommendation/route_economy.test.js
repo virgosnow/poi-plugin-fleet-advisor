@@ -76,12 +76,12 @@ function fleetFixture(){
 test('an easy map retains a capable carrier and surface escorts instead of spending on a high-cost battleship',()=>{
   const store=fleetFixture(),before=JSON.stringify(store);
   const {recommendNormalFleet}=require('../../src/recommendation/normal');
-  const result=recommendNormalFleet(store,{area:'1-4',routeKey:'B>C>F>E>H>L',byRoute:true,airGoal:'superiority',fixedShipIds:[1,2,3,4]});
+  const result=recommendNormalFleet(store,{area:'1-4',routeKey:'B>C>F>E>H>L',airGoal:'superiority',fixedShipIds:[1,2,3,4]});
   const best=result.recommendations[0];assert(best);assert(!best.scheme.ships.some(e=>e.id===7));
   assert(best.scheme.ships.some(e=>[5,6].includes(e.id)));assert.equal(best.scores.airGoalTier,3);
   assert.equal(best.route.probability,1);assert(best.scores.routeEconomy.enabled);
   assert(result.search.lightening.tried<=4);
-  const held=recommendNormalFleet(store,{area:'1-4',byRoute:true,airGoal:'superiority',fixedShipIds:[1,2,3,4,7]});
+  const held=recommendNormalFleet(store,{area:'1-4',airGoal:'superiority',fixedShipIds:[1,2,3,4,7]});
   assert(held.recommendations.every(r=>r.scheme.ships.some(e=>e.id===7)));
   assert.equal(JSON.stringify(store),before);
 });

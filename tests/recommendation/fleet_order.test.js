@@ -67,7 +67,7 @@ test('full normal-map search sorts an entirely manual fleet and keeps each ship 
     store.info.ships[entry.id].api_slot=entry.slots.slice();
   }
   const draft=scheme.ships.map(s=>({...s,pin:true,keep:{0:true}}));
-  const args=recommendationArgs(store,{area:'3-5',byRoute:true,airGoal:'ignore',
+  const args=recommendationArgs(store,{area:'3-5',airGoal:'ignore',
     heldSlots:W.recommendationHolds(draft,{preservePositions:false})});
   const result=recommendNormalFleet(store,args);
   assert(result.recommendations.length,JSON.stringify({reason:result.reason,routes:result.routeResults?.map(r=>({key:r.key,status:r.status,message:r.message}))}));assert.doesNotThrow(()=>verifyConstraints(result,args));

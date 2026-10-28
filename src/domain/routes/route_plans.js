@@ -54,7 +54,7 @@ function routeOptions(area,target='boss',phase){
     ...(p.fleetRequirement?{fleetRequirement:p.fleetRequirement}:{}),
     ...(phase?{phase}:{}),basis:guidePaths.length?'guide':'inferred',source:guidePaths.length?guide.source:null,
     ...(mapFor(area).phaseNotes?.[phase]?{phaseNote:mapFor(area).phaseNotes[phase]}:{}),
-    templates:p.templates||null}));
+    ...(p.recommend===false?{recommend:false}:{}),templates:p.templates||null}));
 }
 // Limit the candidate catalog before expensive fleet/equipment searches.
 // Full routeOptions and the graph remain available for route diagnostics and Boss odds.
@@ -65,7 +65,7 @@ function currentPhase(area,store){
 }
 function recommendedOptions(area,target='boss',phase,settings,store){
   const {maxRoutes}=require('../../config/recommendation_filters').normalizeGroup('normal',settings);
-  const options=routeOptions(area,target,phase),groups=new Map();
+  const options=routeOptions(area,target,phase).filter(option=>option.recommend!==false),groups=new Map();
   for(const option of options){
     if(!groups.has(option.phase))groups.set(option.phase,[]);
     groups.get(option.phase).push(option);
@@ -510,8 +510,8 @@ function routingNeeds(route,nodes){
     from=to;}
   return [...new Map(found.map(r=>[r.kind+':'+r.count,r])).values()];
 }
-// Cover ship-type compositions explicitly, independently of the three global
-// preference winners. Gear-dependent predicates stay unknown until real fitting.
+// Cover ship-type compositions explicitly, independently of grade-sampled
+// seeds. Gear-dependent predicates stay unknown until real fitting.
 // Retain several hull choices per path/size for the full evaluator below.
 function hullCache(options){
   return options.reuseFacts===false?null:calculationTable('hullFeasibility',

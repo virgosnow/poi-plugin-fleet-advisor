@@ -97,13 +97,13 @@ async function main() {
   const cacheDir=path.join(root,'search-cache'),recommendationWorker=new RecommendationWorker({cacheDir});
   try{
     const snapshot=require('../../tests/helpers/workbench_fixture')();
-    const result=await recommendationWorker.run('recommendNormalFleet',snapshot,{area:'1-1',limit:1,byRoute:true});
+    const result=await recommendationWorker.run('recommendNormalFleet',snapshot,{area:'1-1'});
     if(!result.recommendations.length)throw Error('Packed recommendation worker returned no result');
     const entries=fs.readdirSync(cacheDir).filter(n=>n.endsWith('.bin'));
     if(entries.length!==1)throw Error('Packed recommendation cache was not written');
     const cacheFile=path.join(cacheDir,entries[0]),past=new Date(Date.now()-60000);
     fs.utimesSync(cacheFile,past,past);const stamp=fs.statSync(cacheFile).mtimeMs;
-    const again=await recommendationWorker.run('recommendNormalFleet',snapshot,{area:'1-1',limit:1,byRoute:true});
+    const again=await recommendationWorker.run('recommendNormalFleet',snapshot,{area:'1-1'});
     require('assert/strict').deepEqual(again,result);
     if(fs.statSync(cacheFile).mtimeMs!==stamp)throw Error('Packed recommendation cache did not hit');
     const calculations=path.join(cacheDir,'calculations'),tables=fs.readdirSync(calculations).filter(n=>n.endsWith('.bin'));
@@ -111,7 +111,7 @@ async function main() {
     for(const name of tables)fs.utimesSync(path.join(calculations,name),past,past);
     const times=tables.map(name=>fs.statSync(path.join(calculations,name)).mtimeMs);
     snapshot.info.basic.api_nickname='changed snapshot';
-    const changed=await recommendationWorker.run('recommendNormalFleet',snapshot,{area:'1-1',limit:1,byRoute:true});
+    const changed=await recommendationWorker.run('recommendNormalFleet',snapshot,{area:'1-1'});
     require('assert/strict').deepEqual(changed,result);
     require('assert/strict').deepEqual(tables.map(name=>fs.statSync(path.join(calculations,name)).mtimeMs),times);
     const expeditionArgs={missionId:1,fleet:2,limit:1};
