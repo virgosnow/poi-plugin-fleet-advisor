@@ -66,7 +66,7 @@ MCP 服务采用 Node.js 内置 HTTP 实现，不捆绑协议 SDK 或客户端�
 
 `data/org_clear_escorts.json` 的 `detach` 来自游戏原版 `organize_filter.png` 的 `organize_filter_48/49`（选舰面板「はずす」按钮），按原版 `organize_filter_6` 背景合成，仅保存识别用色彩参考、来源地址、图集 SHA-256 和权利说明。`tools/vision/build-organization-detach.py` 从项目外图集重建参考；`tests/fixtures/org/detach.png` 使用已脱敏选舰页锚点与该按钮合成，不作为真实点击验收证据。原图集不随插件分发，素材权利归游戏权利方。
 
-`data/equip_clear_all.json` 的 `normalRemove` 来自游戏原版 `remodel_main.png` 中 `remodel_main_56`（普通槽卸下叉号），保留来源地址、图集 SHA-256 和权利说明。`tools/vision/build-equipment-remove.py` 从项目外图集重建 15×15 掩码，原图集不随插件分发。`tests/fixtures/equip/normal-remove.png` 为已脱敏改装页锚点与原版叉号的合成识别用例，不作为真实点击验收证据。游戏素材权利归游戏权利方。
+`data/equip_clear_all.json` 的 `normalRemove` 来自游戏原版 `remodel_main.png` 中 `remodel_main_56`（普通槽卸下叉号），保留来源地址、图集 SHA-256 和权利说明。`tools/vision/build-equipment-remove.py` 从项目外图集重建 15×15 掩码，原图集不随插件分发。`tests/fixtures/equip/normal-remove.png`、`normal-remove-3.png`、`normal-remove-4.png` 来自五槽、三槽和四槽的真实改装画面，只保留基础页面锚点、舰队页签及卸装控件区域；其余像素清空，不含账号 HUD 或图片元数据。这些素材验证识别，不代表已执行卸装。游戏素材权利归游戏权利方。
 
 `data/equip_borrow.json` 中的 `sourceToggleOthers`、`sourceToggleStock` 来自游戏实际 UI 的“ストック装備”和“他艦娘装備中”按钮，`sortFilteredStock` 为库存筛选状态的排序标题校准样本。只保存识别所需像素，不含账号信息；用于确认其他舰娘装备／库存列表。游戏图像权利归游戏权利方，对应回归素材仅保留模式标题、排序标题和切换按钮。
 

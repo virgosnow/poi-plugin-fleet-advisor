@@ -132,7 +132,7 @@ function runtime(options={}) {
       const total=lastTotal=Math.max(1,Math.ceil(list.length/10));activePage=Math.min(activePage,total);
       const start=Math.max(1,Math.min(activePage-2,total-4));
       const page=lastPage={valid:true,activePage,labels:Array.from({length:Math.min(5,total)},(_,i)=>start+i),centers:[739,793,847,901,955]};
-      const result=kind==='equipmode'?{valid:true,mode}:kind==='borrowconfirm'?{valid:!options.badConfirm,commit:{x:470,y:480}}:kind==='screen'?{valid:true,mode:'home'}:kind==='cells'?{valid:!options.menuCategories,primaries:[0,1,11],categories:options.menuCategories||[0,4,9],centers:[{x:811,y:197},{x:811,y:226},{x:811,y:255}]}:kind==='pageread'?page:kind==='equippicker'?{valid:true,primary,category:({0:0,1:4,11:9,20:10})[primary]??null,page}:kind==='equipremove'?{valid:!options.badRemove,commit:options.badRemove?null:{x:1167,y:[271,321,366,412,457][arg.slot]}}:kind==='equipclear'?{valid:!options.missingClear,tab:{valid:!options.wrongTab},commit:options.missingCommit?null:{x:485,y:245+50*arg.slots}}:{valid:true};
+      const result=kind==='equipmode'?{valid:true,mode}:kind==='borrowconfirm'?{valid:!options.badConfirm,commit:{x:470,y:480}}:kind==='screen'?{valid:true,mode:'home'}:kind==='cells'?{valid:!options.menuCategories,primaries:[0,1,11],categories:options.menuCategories||[0,4,9],centers:[{x:811,y:197},{x:811,y:226},{x:811,y:255}]}:kind==='pageread'?page:kind==='equippicker'?{valid:true,primary,category:({0:0,1:4,11:9,20:10})[primary]??null,page}:kind==='equipremove'?{valid:!options.badRemove,commit:options.badRemove?null:{x:824,y:271+47*arg.slot}}:kind==='equipclear'?{valid:!options.missingClear,tab:{valid:!options.wrongTab},commit:options.missingCommit?null:{x:485,y:245+50*arg.slots}}:{valid:true};
       if(!predicate(result))throw new Error('Observation timed out');return result;
     },
     async wait(){now+=10000;this.check();},
@@ -374,6 +374,22 @@ test('a missing normal-slot remove button prevents all mutations',async()=>{
   const f=runtime({badRemove:true});
   await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[101]}]}));
   assert.equal(f.inputs.filter(i=>i.mutation).length,0);assert.deepEqual(f.data.info.ships[1].api_slot,[101,102,-1]);
+});
+
+test('ordinary removal uses the point recognized on a real base frame, never the extra-slot column',async()=>{
+  const f=runtime(),observe=new(require('../../src/vision/observers').Observer)();
+  const image=require('node:fs').readFileSync(__dirname+'/../fixtures/equip/normal-remove-3.png');
+  const until=f.session.until.bind(f.session);let verified;
+  f.session.until=async(kind,arg,predicate=r=>r.valid,...rest)=>{
+    if(kind!=='equipremove')return until(kind,arg,predicate,...rest);
+    verified=await observe.observe(kind,image,arg);assert(predicate(verified));return verified;
+  };
+  await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[101]}]});
+  const inputs=f.inputs.filter(i=>i.mutation);
+  assert.equal(inputs.length,1);assert.equal(inputs[0].mutation.item,-1);
+  assert.deepEqual({x:inputs[0].x,y:inputs[0].y},verified.commit);
+  assert.equal(inputs[0].x,824);assert.deepEqual(f.data.info.ships[1].api_slot,[101,-1,-1]);
+  assert.equal(f.data.info.ships[1].api_slot_ex,103);
 });
 test('unexpected normal-slot compaction stops before any following installation',async()=>{
   const f=runtime({afterMutation:(state,m)=>{if(m.item===-1)state.info.ships[1].api_slot=[102,101,-1];}});

@@ -213,9 +213,12 @@ class Observer {
       const tab=await this.observe('equipTabs',im,{fleet:arg.fleet});
       if(!tab.valid||(await this.observe('screen',im)).mode!=='equipment')return {valid:false,reason:'normal removal base screen missing'};
       const template=clearEquipment.normalRemove,[w,h]=template.size,expected=template.mask.join('');
-      const cy=[271,321,366,412,457][arg.slot];let best=null;
+      // Normal slots end at x=824 on the verified base remodel panel.
+      // x=1167 belongs to the extra-slot detach control. The game lays out
+      // ordinary rows 47 CSS pixels apart, including five-slot ships.
+      const cy=271+47*arg.slot;let best=null;
       for(let dy=-12;dy<=12;dy++)for(let dx=-3;dx<=3;dx++){
-        const left=1167-Math.floor(w/2)+dx,top=cy-Math.floor(h/2)+dy;let intersection=0,union=0;
+        const left=824-Math.floor(w/2)+dx,top=cy-Math.floor(h/2)+dy;let intersection=0,union=0;
         for(let y=0;y<h;y++)for(let x=0;x<w;x++){
           const [r,g,b]=im.rgb(left+x,top+y),actual=g>110&&g-r>35&&b-r>35,wanted=expected[y*w+x]==='1';
           if(actual&&wanted)intersection++;if(actual||wanted)union++;
