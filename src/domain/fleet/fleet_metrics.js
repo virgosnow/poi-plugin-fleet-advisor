@@ -26,11 +26,18 @@ const ids=state=>state.slots.filter(id=>id>0).concat(state.ex>0?[state.ex]:[]);
 
 function projectFleet(store,plan){
   const expected=new Map(plan.equipment.expected.map(entry=>[entry.shipId,entry.state]));
-  return plan.organization.targets.map(id=>{
+  return plan.organization.targets.map(id=>projectShip(store,id,expected.get(id)));
+}
+// The route evaluator and combat scoring share the same immutable ship
+// projection. Outside a search scope snapshotMemo deliberately does not retain it.
+function projectShip(store,id,state){
+  return snapshotMemo(store,'projectedCombatShips',JSON.stringify([id,state||null]),()=>{
     const ship=store.info.ships[id],shipMaster=store.const.$ships[ship.api_ship_id];
     const count=Number(shipMaster.api_slot_num??ship.api_slotnum??ship.api_slot.length);
     const before={slots:ship.api_slot.slice(0,count).map(Number),ex:Number(ship.api_slot_ex)};
-    const after=expected.get(id)||before;
+    // Initial fitting mutates its local arrays. Never let a cached projection
+    // retain those arrays after it has derived the corresponding item list.
+    const after=state?{...state,slots:state.slots.slice()}:before;
     return {id,ship,master:shipMaster,before,after,
       changed:JSON.stringify(before)!==JSON.stringify(after),
       items:ids(after).map(equipmentId=>({id:equipmentId,instance:item(store,equipmentId),
@@ -201,4 +208,4 @@ function evaluateProjectedCandidate(store,projected,conditions={}){
     speed:speed(store,projected),openingASW:asw(store,projected)};
 }
 
-module.exports={RULE_VERSION,projectFleet,evaluateCandidate,evaluateProjectedCandidate,airPower,lineOfSight,speed,speedGroup,asw};
+module.exports={RULE_VERSION,projectFleet,projectShip,evaluateCandidate,evaluateProjectedCandidate,airPower,lineOfSight,speed,speedGroup,asw};

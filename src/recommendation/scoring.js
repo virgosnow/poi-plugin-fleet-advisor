@@ -62,7 +62,7 @@ function combatHullRanker(store,profile){
     cache.set(row.id,value);return value;
   };
 }
-function openingTorpedo(store,rows,scheme){
+function openingTorpedo(store,rows,scheme,panels){
   let power=0,count=0;
   for(const row of rows){
     const entry=scheme.ships.find(ship=>ship.id===row.id);
@@ -71,7 +71,7 @@ function openingTorpedo(store,rows,scheme){
     const kohyoteki=planned.some(id=>Number(master(id)?.api_type?.[2])===22&&
       /甲標的/.test(master(id)?.api_name||''));
     if(!([13,14].includes(row.stype)&&row.level>=10||kohyoteki))continue;
-    const effective=plannedTorpedoStat(store,row,scheme);
+    const effective=panels?.get(row.id)?.torpedo??plannedTorpedoStat(store,row,scheme);
     // A pre-shelling attack can prevent return fire; this is a bounded
     // strength proxy, not a guaranteed hit or a damage simulation.
     power+=Math.min(125,effective)*1.1+35;
@@ -87,13 +87,13 @@ function combatCapabilityCore(rows,result,profile,store,scheme,airExposure){
   // Candidate sampling considers experience and remodel tier, while combat
   // strength still needs hull firepower, torpedoes and armor. A high-level
   // destroyer alone must not outscore a battleship on surface-only maps.
-  const surfaceValues=rows.map(row=>
-    plannedCombatStat(store,row,scheme,'api_karyoku','api_houg')*1.5+plannedTorpedoStat(store,row,scheme)*0.8+
-    plannedCombatStat(store,row,scheme,'api_soukou','api_souk')*0.45+
-    (airExposure?plannedCombatStat(store,row,scheme,'api_taiku','api_tyku'):num(row.ship.api_taiku))*0.15+
-      row.level*0.25+([7,11,18].includes(row.stype)?60:0));
+  const panels=new Map(rows.map(row=>[row.id,combatValue.plannedStats(store,
+    scheme.ships.find(e=>e.id===row.id)||{id:row.id})]));
+  const surfaceValues=rows.map(row=>{const stats=panels.get(row.id);return stats.firePower*1.5+stats.torpedo*0.8+
+    stats.armor*0.45+(airExposure?stats.antiAir:num(row.ship.api_taiku))*0.15+
+      row.level*0.25+([7,11,18].includes(row.stype)?60:0);});
   const surface=surfaceValues.reduce((n,value)=>n+value,0);
-  const openingTorp=openingTorpedo(store,rows,scheme);
+  const openingTorp=openingTorpedo(store,rows,scheme,panels);
   const aswTypes=new Set([1,2,3,4,21,22]);
   const opening=new Map((result.openingASW?.ships||[]).map(ship=>[ship.shipId,ship]));
   const aswShips=rows.filter(row=>aswTypes.has(row.stype)||opening.get(row.id)?.eligible===true);
@@ -116,7 +116,7 @@ function combatCapabilityCore(rows,result,profile,store,scheme,airExposure){
   const aswNodes=aswEncounterWeight(profile);
   const nightNodes=profile?.counts?.night?.maximum||0;
   const night=rows.filter(row=>![7,11,18].includes(row.stype)).reduce((sum,row)=>
-    sum+plannedCombatStat(store,row,scheme,'api_karyoku','api_houg')+plannedTorpedoStat(store,row,scheme)+
+    sum+panels.get(row.id).firePower+panels.get(row.id).torpedo+
       row.level*0.15,0);
   const combatNodes=surfaceNodes+airNodes+aswNodes+nightNodes;
   const strength=combatNodes?

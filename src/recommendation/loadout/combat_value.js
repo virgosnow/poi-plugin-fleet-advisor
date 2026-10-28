@@ -1,7 +1,8 @@
 'use strict';
 // Ranking policies, not damage/accuracy formulas. Numerical blue bonuses and
 // mutually exclusive AA cut-ins come from the same rules as the UI badges.
-const {projectFleet}=require('../../domain/fleet/fleet_metrics');
+const {projectShip}=require('../../domain/fleet/fleet_metrics');
+const perf=require('../../shared/performance_trace');
 const {combatBonuses}=require('../../domain/combat/equipment_bonuses');
 const {fleetAntiAir,antiAirCutins}=require('../../domain/combat/anti_air_cutin');
 const {snapshotMemo}=require('../../domain/fleet/equipment_planner');
@@ -12,8 +13,7 @@ const effectKeys=new WeakMap();
 function targetFor(store,entry){
   const ship=store.info.ships[entry.id];
   const state={slots:entry.slots||ship.api_slot,ex:entry.ex??ship.api_slot_ex};
-  return snapshotMemo(store,'combatValue.targets',JSON.stringify([entry.id,state]),()=>
-    projectFleet(store,{organization:{targets:[entry.id]},equipment:{expected:[{shipId:entry.id,state}]}})[0]);
+  return projectShip(store,entry.id,state);
 }
 function effectKey(target){
   if(effectKeys.has(target))return effectKeys.get(target);
@@ -31,7 +31,10 @@ function blueStats(store,target){
   });
 }
 function plannedStats(store,entry){
+  perf.count('combat.panels.read');
+  const timing=perf.begin('combat.panels');try{
   return snapshotMemo(store,'combatValue.panels',JSON.stringify(entry),()=>{
+    perf.count('combat.panels.build');
     const target=targetFor(store,entry),before=targetFor(store,{id:entry.id});
     const oldBlue=blueStats(store,before),blue=blueStats(store,target),known=oldBlue.known&&blue.known;
     const raw=(t,key)=>t.items.reduce((n,e)=>n+Number(e.master?.[key]||0),0);
@@ -41,6 +44,7 @@ function plannedStats(store,entry){
       antiAir:panel('api_taiku','api_tyku','antiAir'),armor:panel('api_soukou','api_souk'),
       known,reasons:[...new Set([...oldBlue.reasons,...blue.reasons])]};
   });
+  }finally{perf.end(timing);}
 }
 function airExposure(store,profile,reference){
   if(!profile)return 0;
@@ -65,6 +69,7 @@ function cutinsFor(store,target){
   return snapshotMemo(store,'combatValue.cutins',effectKey(target),()=>antiAirCutins(target));
 }
 function antiAirScore(store,scheme,profile,reference){
+  const timing=perf.begin('score.antiAir');try{
   const exposure=airExposure(store,profile,reference);
   if(!exposure)return {value:0,rate:null,exposure:0};
   const targets=scheme.ships.map(e=>targetFor(store,e));
@@ -72,6 +77,7 @@ function antiAirScore(store,scheme,profile,reference){
     fleetAntiAir(targets,t=>cutinsFor(store,t)));
   const value=aa.known?aa.rows.reduce((n,c)=>n+c.rate*((c.fixed||0)+4*((c.multiplier||1)-1)),0)*exposure:0;
   return {value,rate:aa.total,exposure,known:aa.known&&aa.rows.every(c=>c.fixed!==null&&c.multiplier!==null)};
+  }finally{perf.end(timing);}
 }
 const rawAttack=m=>Number(m.api_houg||0)*3+Number(m.api_houm||0)*2+Number(m.api_raig||0);
 function equipmentAffinity(store,entry,item,air){
@@ -104,10 +110,13 @@ function equipmentValue(store,entry,item,slot,{air=0,los=false,auxiliary=false}=
       aa+blueValue+ci;
 }
 function rankEquipment(store,entry,items,slot,options){
+  const timing=perf.begin(options.auxiliary?'loadout.rank.auxiliary':'loadout.rank.guns');try{
   // Score a master/improvement group once, then use its real instances in the
   // original deterministic tie order. No extra whole-fleet search is added.
   const cache=snapshotMemo(store,'combatValue.equipmentOrders',items,()=>new Map());
-  const key=JSON.stringify([entry.id,slot,options,options.auxiliary?utilityRoles(store,entry):null]);if(cache.has(key))return cache.get(key);
+  const key=JSON.stringify([entry.id,slot,options,options.auxiliary?utilityRoles(store,entry):null]);
+  if(cache.has(key)){perf.count('loadout.rank.hit');return cache.get(key);}
+  perf.count('loadout.rank.build');
   const groups=new Map(),scores=new Map(),legal=[];
   for(const item of items){
     if(options.oneOne&&rawAttack(item.master)<=0)continue;
@@ -124,6 +133,7 @@ function rankEquipment(store,entry,items,slot,options){
   const result=legal.filter(i=>!options.auxiliary||scores.get(i.id)>0)
     .sort((a,b)=>scores.get(b.id)-scores.get(a.id)||a.id-b.id);
   if(cache.size>=2048)cache.delete(cache.keys().next().value);cache.set(key,result);return result;
+  }finally{perf.end(timing);}
 }
 const rankGuns=(store,entry,items,slot,air)=>rankEquipment(store,entry,items,slot,{air});
 module.exports={targetFor,blueStats,plannedStats,airExposure,losNeeded,antiAirScore,equipmentValue,rankGuns,rankEquipment};

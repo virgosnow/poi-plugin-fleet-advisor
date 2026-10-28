@@ -7,6 +7,7 @@ const {withEquipmentIndexCache}=require('../../src/domain/fleet/equipment_planne
 const {canEquip}=require('../../src/domain/fleet/equipment_rules');
 const {fleetAntiAir}=require('../../src/domain/combat/anti_air_cutin');
 const {plannedCombatStat}=require('../../src/recommendation/scoring');
+const {auxiliaryVariants}=require('../../src/recommendation/loadout/auxiliary_refinement');
 function combatFixture(name='初月改二',masterId=968){
   const store=fixture(),ship=store.info.ships[1];
   Object.assign(store.const.$ships[masterId]={...store.const.$ships[1]},
@@ -119,4 +120,73 @@ test('numerical grouping never bypasses instance ownership or the stricter other
   assert(canEquip(store,1,201,0));assert(canEquip(store,1,202,0));
   const ranked=withEquipmentIndexCache(store,()=>value.rankGuns(store,{id:1,slots:[-1,-1,-1,-1],ex:-1},items,0,1));
   assert.deepEqual(ranked.map(i=>i.id),[201]);
+});
+
+function auxiliaryFixture(name='初月改二',id=968){
+  const store=combatFixture(name,id);
+  store.const.$equips[410]={api_id:410,api_name:'21号対空電探改二',api_type:[0,0,13,11],api_tyku:7,api_saku:7,api_houm:4,api_houk:4};
+  store.info.equips[601]={api_slotitem_id:410,api_level:0};
+  store.const.$equips[121]={api_id:121,api_name:'94式高射装置',api_type:[0,0,36,30],api_tyku:3,api_houk:1};
+  store.info.equips[501]={api_slotitem_id:121,api_level:0};
+  store.const.$shipTypes[2].api_equip_type[36]=1;store.const.$exslotEquips.push(36);
+  return {store,scheme:{fleet:1,ships:[{id:1,slots:[201,202,601,401],ex:105}]}};
+}
+test('bounded auxiliary proposals remove redundant radar roles on different hulls without dropping the CI or main guns',()=>{
+  for(const [name,id]of [['初月改二',968],['秋月改二',963]]){
+    const {store,scheme}=auxiliaryFixture(name,id),before=JSON.stringify([store,scheme]);
+    const choices=withEquipmentIndexCache(store,()=>auxiliaryVariants(store,scheme,availableEquipment(store),{profile:airProfile}));
+    assert(choices.length>0&&choices.length<=6);
+    assert(choices.some(c=>[...c.scheme.ships[0].slots,c.scheme.ships[0].ex].filter(id=>
+      [12,13,93].includes(store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_type[2])).length===1));
+    for(const c of choices){
+      assert.deepEqual(c.scheme.ships[0].slots.slice(0,2),[201,202]);
+      const a=fleetAntiAir([value.targetFor(store,scheme.ships[0])]),b=fleetAntiAir([value.targetFor(store,c.scheme.ships[0])]);
+      assert(b.total>=a.total);assert.equal(new Set(c.scheme.ships.flatMap(e=>[...e.slots,e.ex]).filter(id=>id>0)).size,5);
+    }
+    assert.equal(JSON.stringify([store,scheme]),before);
+  }
+});
+test('auxiliary slot reassignment respects fixed gear, explicit empty slots, inventory owners and trial limit',()=>{
+  const {store,scheme}=auxiliaryFixture(),entry=scheme.ships[0],inventory=availableEquipment(store);
+  const fixed={...entry,keep:{2:true,3:true}};
+  const choices=withEquipmentIndexCache(store,()=>auxiliaryVariants(store,scheme,inventory,{profile:airProfile,heldSlots:[fixed],limit:100}));
+  assert(choices.length>0&&choices.length<=6);
+  for(const c of choices){assert.equal(c.scheme.ships[0].slots[2],601);assert.equal(c.scheme.ships[0].slots[3],401);}
+  assert.deepEqual(auxiliaryVariants(store,scheme,inventory,{profile:airProfile,heldSlots:[{...entry,keep:{0:true,1:true,2:true,3:true,ex:true}}]}),[]);
+  const other={id:2,slots:[501,-1],ex:0},occupied={...scheme,ships:[entry,other]};
+  for(const c of auxiliaryVariants(store,occupied,inventory,{profile:airProfile,limit:2})){
+    assert(!c.scheme.ships[0].slots.includes(501));assert.notEqual(c.scheme.ships[0].ex,501);
+  }
+});
+test('route and combat scoring share immutable projections without retaining mutable fitting arrays',()=>{
+  const store=combatFixture(),metrics=require('../../src/domain/fleet/fleet_metrics');
+  withEquipmentIndexCache(store,()=>{
+    const state={slots:[201,202,103,104],ex:105};
+    const projected=metrics.projectFleet(store,{organization:{targets:[1]},equipment:{expected:[{shipId:1,state}]}})[0];
+    assert.equal(projected,value.targetFor(store,{id:1,...state}));
+    state.slots[0]=101;
+    assert.equal(projected.after.slots[0],201);assert.equal(projected.items[0].id,201);
+    assert.equal(value.targetFor(store,{id:1,slots:[201,202,103,104],ex:105}),projected);
+    assert.notEqual(value.targetFor(store,{id:1,...state}),projected);
+  });
+});
+
+test('auxiliary refinement leaves protected combat roles and manual empty slots untouched',()=>{
+  const {store,scheme}=auxiliaryFixture(),entry=scheme.ships[0];
+  store.const.$equips[999]={api_id:999,api_name:'测试保留装备',api_type:[0,0,33,0]};
+  store.info.equips[901]={api_slotitem_id:999,api_level:0};
+  const held={...entry,slots:[201,202,601,-1],keep:{3:true}};
+  for(const c of auxiliaryVariants(store,{...scheme,ships:[held]},availableEquipment(store),{profile:airProfile,heldSlots:[held]})){
+    assert.equal(c.scheme.ships[0].slots[3],-1);
+  }
+  // Propulsion in the expansion is outside the auxiliary role search; it
+  // cannot be displaced even if a machine gun would improve the proxy score.
+  assert.deepEqual(auxiliaryVariants(store,{...scheme,ships:[{...entry,ex:901}]},availableEquipment(store),{profile:airProfile}),[]);
+  for(const t of [7,14,22,24,30,42,54]){
+    store.const.$equips[999].api_type[2]=t;
+    const source={...entry,slots:[201,202,901,401]};
+    for(const c of auxiliaryVariants(store,{...scheme,ships:[source]},availableEquipment(store),{profile:airProfile})){
+      assert.equal(c.scheme.ships[0].slots[2],901);
+    }
+  }
 });

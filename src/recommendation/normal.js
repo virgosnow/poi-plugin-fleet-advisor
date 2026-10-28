@@ -9,6 +9,7 @@ const {groundLoadout,groundLoadouts}=require('./loadout/ground_fitting');
 const {aviationBattleshipLoadouts}=require('./loadout/aviation_fitting');
 const {routeGroundTargets}=require('../domain/combat/installation_attack');
 const {nightLoadout}=require('./loadout/night_equipment');
+const {auxiliaryVariants}=require('./loadout/auxiliary_refinement');
 const {jetLoadouts}=require('./loadout/jet_fitting');
 const {jetCutInAllowed}=require('./loadout/carrier_policy');
 const {specialAttackCores,arrangeSpecialAttack}=require('../domain/combat/special_attacks');
@@ -957,6 +958,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     defaultRouteDiagnostics(seeds[0].route,seeds[0].profile,target):null;
   const confirmedCount=options.filter(item=>item.scores.airGoalTier===3).length;
   const fleetOrdering={tried:0,improved:0,protected:0};
+  const auxiliaryRefinement={tried:0,improved:0};
   return {area,target,phase:phase||null,preference,airGoal,fleet:ctx.fleet,
     ...(byRoute?{routeResults:routeResults.map(({item,...result})=>({...result,recommendationIndex:item?options.findIndex(o=>o.routeKey===result.key):null}))}:{}),
     airGoalSummary:{confirmedCount,returnedCount:options.length,
@@ -975,7 +977,24 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       const base={...item,scheme,route,profile,scores},oldPlan=option?planning(base,option):null;
       const oldChance=option?strictChance(base,option):routePlans.planningPath(route,item.selectedPath||profile.examples?.[0]||[]).chance;
       let orderReason=null;
-      perf.stage('selection.fleet-order',()=>{for(const choice of fleetOrderChoices(store,scheme,profile,scheme.ships.map(e=>ctx.byId.get(e.id)),
+      perf.stage('selection.fleet-order',()=>{
+      // Reuse the existing equipped-winner evaluator. No new batch, hull
+      // generation, or specialist fitting chain is started for these trials.
+      for(const proposal of auxiliaryVariants(store,scheme,inventory,{profile,heldSlots:args.heldSlots})){
+        auxiliaryRefinement.tried++;const trial=evaluateCandidate(scheme.ships.map(e=>ctx.byId.get(e.id)),proposal.scheme,true);
+        if(!trial)continue;
+        const next=option?pathScores(trial,option):trial.scoresByPreference[item.preference||preference];
+        const chance=option?strictChance(trial,option):routePlans.planningPath(trial.route,item.selectedPath||profile.examples?.[0]||[]).chance;
+        if(option&&(!validFor(trial,option)||planning(trial,option).losShortfall>oldPlan.losShortfall)||
+          Math.abs(chance.min-oldChance.min)>1e-9||Math.abs(chance.max-oldChance.max)>1e-9||
+          Math.abs((trial.route.probability??trial.route.chanceRange?.[0]??0)-(route.probability??route.chanceRange?.[0]??0))>1e-9||
+          next.airGoalTier<scores.airGoalTier||scores.routeAirEstimate?.margins?.supremacy?.min>=0&&!(next.routeAirEstimate?.margins?.supremacy?.min>=0)||
+          next.specialAttack.bonus<scores.specialAttack.bonus||(next.aswCombat?.readiness??1)<(scores.aswCombat?.readiness??1)||
+          base.guideSuitable&&!trial.guideSuitable||next.rank<=scores.rank||!executable(trial))continue;
+        scheme=trial.scheme;route=trial.route;profile=profileForRoute(area,route,option?routePlans.optionPaths(option):profile.routePaths?.map(p=>p.nodes));scores=next;
+        auxiliaryRefinement.improved++;perf.count('loadout.auxiliary.accepted');
+      }
+      for(const choice of fleetOrderChoices(store,scheme,profile,scheme.ships.map(e=>ctx.byId.get(e.id)),
         {locked:positionLocks,air:scores})){
         fleetOrdering.tried++;
         const trial=evaluateCandidate(choice.scheme.ships.map(e=>ctx.byId.get(e.id)),choice.scheme,true);
@@ -998,7 +1017,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       routeAfterEquipPending:item.routeAfterEquipPending,
       note:'舰娘与装备来自快照；可组合建议水上战、对潜、对地、制空与索敌换装，借装来源见 donorShipIds；Boss 前弹药按满补给估算，随机路线显示范围'};}),
     search:{kind:'boundedHeuristic',attempted:seen.size,evaluated:seeds.length,
-      equipmentVariantsTried:variantAttempts,poolSize:pool.length,combatRefinement:refinement,specialPositioning:positioning,lightening,fleetOrdering,
+      equipmentVariantsTried:variantAttempts,poolSize:pool.length,combatRefinement:refinement,specialPositioning:positioning,lightening,fleetOrdering,auxiliaryRefinement,
       ...(pathSeeds?{routeCompositionsTried:pathSeeds.attempted,routeCompositionSearchTruncated:pathSeeds.truncated}:{}),
       globalOptimal:false,reason:'按练度、作战角色、低耗与对潜能力保留不同候选，配装后复核路线并有界尝试局部战力升级；保留攻略、制空、索敌和手动条件，不保证全局最优'},
     ...(guided35?{guide:{source:'https://wikiwiki.jp/kancolle/北方海域/3-5',
@@ -1154,7 +1173,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   };
   candidates.sort((a,b)=>(selectedRoute?.arrivalMode==='boss'?
     (b.route.probability??b.route.chanceRange?.[0]??0)-(a.route.probability??a.route.chanceRange?.[0]??0):0)||rank(b)-rank(a));
-  const chosen=selectedRoute?candidates.find(row=>{
+  let chosen=selectedRoute?candidates.find(row=>{
     if(!routePlans.fleetRequirementAssessment(row.route,selectedRoute).eligible)return false;
     const strategy=routePlans.strategyAssessment(row.route,selectedRoute);
     return strategy?strategy.eligible:routePlans.optionPlanning(row.route,selectedRoute).chance.probability>0;
@@ -1164,6 +1183,20 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
       defaultRouteDiagnostics(candidates[0].route,candidates[0].profile,target);
     throw error('INVALID_QUERY',(selectedRoute?.strategy?strategyFailure(store,ctx,selectedRoute,inventory,heldSlots):'当前舰娘及保留装备未配出到达率可确认的方案。')+
       (diagnostics?.warnings.length?'\n'+diagnostics.warnings.join('\n'):''));
+  }
+  for(const proposal of auxiliaryVariants(store,chosen.scheme,inventory,{profile:chosen.profile,heldSlots})){
+    const trial=evaluate(proposal.scheme);if(!trial)continue;
+    if(selectedRoute&&(!routePlans.fleetRequirementAssessment(trial.route,selectedRoute).eligible||
+      routePlans.strategyAssessment(trial.route,selectedRoute)?.eligible===false))continue;
+    const before=selectedRoute?chosen.planning.chance:chosen.evidence?.pathChance,
+      after=selectedRoute?trial.planning.chance:trial.evidence?.pathChance;
+    if(!after||after.min<before.min||after.max<before.max||
+      (trial.route.probability??trial.route.chanceRange?.[0]??0)<(chosen.route.probability??chosen.route.chanceRange?.[0]??0)||
+      selectedRoute&&trial.planning.losShortfall>chosen.planning.losShortfall||
+      trial.scores.airGoalTier<chosen.scores.airGoalTier||chosen.scores.routeAirEstimate?.margins?.supremacy?.min>=0&&!(trial.scores.routeAirEstimate?.margins?.supremacy?.min>=0)||
+      trial.scores.specialAttack.bonus<chosen.scores.specialAttack.bonus||(trial.scores.aswCombat?.readiness??1)<(chosen.scores.aswCombat?.readiness??1)||
+      rank(trial)<=rank(chosen))continue;
+    chosen=trial;perf.count('loadout.auxiliary.accepted');
   }
   const ordered=orderEquipment(store,chosen.scheme,heldSlots);
   const checked=ordered===chosen.scheme?chosen:evaluate(ordered)||chosen;

@@ -136,4 +136,4 @@ function reading(target,flagship,modes,power,{zuiun=false,available=true,aviatio
   return {total,rows,fixed,basePower,fit,blue:power?.blue,powerSource:power?.source,detail};
 }
 
-module.exports={surfaceModes,zuiunModes,surfacePower,aviationPower,reading,hullStat,nightImprovement};
+module.exports={surfaceModes,zuiunModes,surfacePower,aviationPower,reading,fixedTerm,hullStat,nightImprovement};
