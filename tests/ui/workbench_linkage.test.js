@@ -169,7 +169,7 @@ test('selected routes separate the style name from the compact parenthesized pat
     assert(select.children.some(n=>n.type==='option'&&n.children.includes(option.label)));
     const caption=h.find(tree,n=>n.props.className==='paa-wb-route-caption');
     assert.equal(caption.props['aria-hidden'],true);
-    assert.deepEqual(caption.children.map(n=>n.children.join('')),[option.name,'（A/B→…→H/I/J→L）']);
+    assert.deepEqual(caption.children.map(n=>n.children.join('')),[option.name,'（A/B→…→H/J→L）']);
     assert.equal(h.find(tree,n=>n.props.className==='paa-wb-route-path').props['data-tooltip'],undefined);
   }
   h.set('mapRoute','');assert(!h.find(h.render(),n=>n.props.className==='paa-wb-route-caption'));

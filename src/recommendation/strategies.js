@@ -73,7 +73,7 @@ const GUIDE_POLICIES={
     [[6],[2],[2],[7],[3],[5,6]],
     [[6],[2],[2],[2],[2],[3,4]],
     [[16],[6],[2],[2],[7],[3]]]},
-  '1-4':{minLevel:30,minShips:4,templates:null},
+  '1-4':{minLevel:30,minShips:4,templates:null,allowedAuxiliaryStypes:[20]},
   '1-6:N':{minLevel:30,templates:[[[3],[2],[2],[2],[2],[2]]]},
   '2-1':{minLevel:35,templates:[
     [[16],[3],[2],[2],[2],[2]],
@@ -203,7 +203,8 @@ function guideHull(policy,rows){
   const minShips=policy.minShips||Math.min(...policy.templates.map(slots=>slots.length));
   if(rows.length<minShips||rows.some(row=>!guideShipAllowed(policy,policy.area,policy.phase,row)))return false;
   if(!policy.templates)return rows.every(row=>
-    !(policy.area==='1-1'?[19,20,22]:[13,14,19,20,22]).includes(row.stype));
+    !(policy.area==='1-1'?[19,20,22]:[13,14,19,20,22]).includes(row.stype)||
+    policy.allowedAuxiliaryStypes?.includes(row.stype));
   return policy.templates.some(slots=>rows.length===slots.length&&
     remainingSlots(rows,slots)?.length===0);
 }
