@@ -2,6 +2,7 @@
 const {selectShipByName}=require('./ship_selection');
 const {matchingNames,matchesName}=require('../../shared/name_matching');
 const R=require('./equipment_rules');
+const {planNormalChanges}=require('./equipment_changes');
 
 // Opt-in synchronous scope for immutable recommendation snapshots only.
 // Live preview/execution never retain indexes, even if poi mutates a store in
@@ -282,6 +283,7 @@ function createEquipmentPlanner(getStore) {
       const now=writable(d.shipId),before=copy(now);
       const op={kind,...(j==='ex'||j===undefined?{}:{j}),...(id===undefined?{}:{id}),before};
       if(kind==='clear')now.slots.fill(-1);
+      else if(kind==='remove'){now.slots.splice(j,1);now.slots.push(-1);}
       else {
         if(id>0) {
           if(!canEquip(d.shipId,id,j))throw new Error('目标槽装备无法重新安装: '+id);
@@ -312,12 +314,17 @@ function createEquipmentPlanner(getStore) {
     // ensure a later target never borrows from an already completed ship.
     for(const d of drafts) {
       const now=states.get(d.shipId);
-      const normalChanged=now.slots.some((id,j)=>id!==d.want.slots[j]);
-      const additive=now.slots.every((id,j)=>id<0||id===d.want.slots[j])&&
-        d.want.slots.every((id,j)=>id===now.slots[j]||id>0&&(free.has(id)||sources[id]?.shipId!==d.shipId));
-      if(normalChanged&&!additive&&now.slots.some(id=>id>0))push(d,'clear');
       if(now.ex!==d.want.ex&&now.ex>0)push(d,'ex','ex',-1);
-      d.want.slots.forEach((id,j)=>{if(id>0&&states.get(d.shipId).slots[j]!==id)push(d,'slot',j,id);});
+      const normalNow=states.get(d.shipId);
+      const installCosts=new Map();
+      const operations=planNormalChanges(normalNow.slots,d.want.slots,{ex:normalNow.ex,canInstall:(id,j)=>canEquip(d.shipId,id,j),installCost:id=>{
+        if(installCosts.has(id))return installCosts.get(id);
+        let cost=8;
+        for(const [sid,state] of ownerRows(id))if(sid!==d.shipId&&(state.slots.includes(id)||state.ex===id)){cost=10;break;}
+        installCosts.set(id,cost);return cost;
+      }});
+      if(!operations)throw new Error('无法安全规划局部换装: '+d.shipId);
+      for(const op of operations)push(d,op.kind,op.j,op.id);
       if(d.want.ex>0&&states.get(d.shipId).ex!==d.want.ex)push(d,'ex','ex',d.want.ex);
     }
     for(const d of drafts) {

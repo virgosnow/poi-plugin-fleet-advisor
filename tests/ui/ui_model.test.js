@@ -5,6 +5,10 @@ test('scheme parser rejects array/null and accepts a valid empty document',()=>{
   assert.deepEqual(M.parse(M.format({fleet:2,ships:[]})).value,{fleet:2,ships:[]});
 });
 
+test('tail-only organization removal reports its exact fleet position',()=>{
+  assert.equal(M.progressText({phase:'remove-escort',fleet:2,slot:6},{}),'第 2 舰队 · 正在移除第 6 位多余舰娘');
+});
+
 test('panel preview and execution finish without asynchronous log errors and record the final state',async()=>{
   const createPanel=require('../../src/ui/shell/panel');
   const React={createElement:(type,props,...children)=>({type,props:props||{},children}),

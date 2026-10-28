@@ -43,7 +43,7 @@ test('all legal normal categories are planned before the host starts',()=>{
   const state={info:{ships:{1:{api_ship_id:1,api_slot:[101],api_slot_ex:0}},fleets:[{api_ship:[1],api_mission:[0]}],equips:{101:{api_slotitem_id:1},102:{api_slotitem_id:1}}},const:{$ships:{1:{api_stype:2,api_slot_num:1}},$shipTypes:{2:{api_equip_type:{1:1}}},$equips:{1:{api_type:[0,0,1,1]}}}};
   let hosts=0;const controller=new Controller({getStore:()=>state,createHost(){hosts++;},createObserver(){throw Error('Must not start OCR');}});
   const plan=controller.preview('equipment',{fleet:1,ships:[{id:1,slots:[102]}]});
-  assert.deepEqual(plan.ships[0].ops.map(op=>op.kind),['clear','slot']);
+  assert.deepEqual(plan.ships[0].ops.map(op=>op.kind),['slot']);
   assert.equal(hosts,0);assert.deepEqual(state.info.ships[1].api_slot,[101]);
 });
 

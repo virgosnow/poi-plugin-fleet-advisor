@@ -34,6 +34,16 @@ test('bulk clear matches minus two at slot zero in the exact destination fleet',
     'api_id=1&api_ship_idx=1&api_ship_id=-2','api_id=1&api_ship_idx=0&api_ship_id=-1','api_id=1&api_ship_idx=0&api_ship_id=35',r.postData+'&api_ship_id=-2'])assert(!matches({...r,postData},p));
   const monitor=new RequestMonitor(()=>0);monitor.expect(p,1);monitor.observe(r);assert.equal(monitor.matchedAction,1);
 });
+
+test('single escort detach matches the exact minus-one slot and never accepts a replacement or bulk clear',()=>{
+  const p={path:'api_req_hensei/change',fleet:2,j:5,ship:-1};
+  const r={...request,postData:'api_id=2&api_ship_idx=5&api_ship_id=-1'};
+  assert(matches(r,p));
+  for(const postData of ['api_id=1&api_ship_idx=5&api_ship_id=-1','api_id=2&api_ship_idx=4&api_ship_id=-1',
+    'api_id=2&api_ship_idx=5&api_ship_id=35','api_id=2&api_ship_idx=0&api_ship_id=-2',r.postData+'&api_ship_id=-1'])assert(!matches({...r,postData},p));
+  const monitor=new RequestMonitor(()=>0);monitor.expect(p,1);monitor.observe(r);
+  assert.equal(monitor.matchedAction,1);assert.throws(()=>monitor.observe(r),/stopping automation only/);
+});
 test('request observations are one-shot and use a monotonic deadline',()=>{
   let now=0;const p=new RequestMonitor(()=>now);p.expect(policy,1);p.observe(request);assert.equal(p.matchedAction,1);assert.throws(()=>p.observe(request));
   const q=new RequestMonitor(()=>now);q.expect(policy,2);now=10001;assert.throws(()=>q.observe(request));assert.throws(()=>q.expect(policy,3));
@@ -138,6 +148,17 @@ test('high frequency checking does not consume time budget',()=>{
   let time=0;const session=new Session({check(){},cancel(){}},{},{now:()=>time,timeoutMs:100});
   for(let n=0;n<10000;n++)session.check();time=101;assert.throws(()=>session.check(),/deadline/);
 });
+test('modal opening can skip fixed settling while input completion and state checks are retained',async()=>{
+  const events=[];let changed=false;
+  const session=new Session({check(){},cancel(){},input:async()=>{events.push('input');}},{observe:async()=>({valid:true})});
+  session.wait=async ms=>{events.push(ms);};
+  session.validate=()=>{events.push('check');if(changed)throw Error('state drift');};
+  await session.input(1075,659,undefined,'click',{settleMs:0});
+  assert.deepEqual(events,['check','input','check']);events.length=0;
+  await session.input(470,480);assert.deepEqual(events,['check','input',100,'check']);events.length=0;
+  changed=true;await assert.rejects(session.input(1075,659,undefined,'click',{settleMs:0}),/state drift/);
+  assert(!events.includes('input'));
+});
 test('controller no-op requires no host, OCR or OS tooling',async()=>{
   const c=new Controller({getStore:()=>({info:{ships:{1:{api_ship_id:1,api_lv:1}},fleets:[{api_ship:[1],api_mission:[0]}]},const:{$ships:{1:{api_name:'x',api_stype:2}}}}),createHost(){throw Error('host');},createObserver(){throw Error('ocr');}});
   assert((await c.run('organization',{fleet:1,ships:[1]})).done);
@@ -163,6 +184,37 @@ test('fractional zoom captures the full viewport without the tiled CSS clip',asy
     return send(method,params);
   };
   await f.host.start();assert.equal((await f.host.capture()).length,29);await f.host.dispose();
+});
+test('lossless fast PNG capture keeps the full viewport and records component timings',async()=>{
+  const f=hostFixture(),send=f.dbg.sendCommand;
+  const png=Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,13,0x49,0x48,0x44,0x52,0,0,4,0xb0,0,0,2,0xd0,8,6,0,0,0]);
+  f.dbg.sendCommand=async(method,params)=>{
+    if(method==='Page.captureScreenshot'){
+      assert.deepEqual(params,{format:'png',fromSurface:true,captureBeyondViewport:false,optimizeForSpeed:true});
+      return {data:png.toString('base64')};
+    }
+    return send(method,params);
+  };
+  await f.host.start();assert.deepEqual(await f.host.capture(),png);
+  assert.equal(f.host.lastCaptureMetrics.fastPng,true);assert.equal(f.host.lastCaptureMetrics.width,1200);
+  assert.equal(f.host.lastCaptureMetrics.height,720);assert(f.host.lastCaptureMetrics.commandMs>=0);
+  assert(f.host.lastCaptureMetrics.eventLoopLagMs>=0);await f.host.dispose();
+});
+test('an old capture protocol falls back once on unsupported parameters and remembers that capability',async()=>{
+  const f=hostFixture(),send=f.dbg.sendCommand,calls=[];
+  const png=Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,13,0x49,0x48,0x44,0x52,0,0,4,0xb0,0,0,2,0xd0,8,6,0,0,0]);
+  f.dbg.sendCommand=async(method,params)=>{
+    if(method==='Page.captureScreenshot'){calls.push(params);if(params.optimizeForSpeed)throw Error('Invalid parameters: optimizeForSpeed');return {data:png.toString('base64')};}
+    return send(method,params);
+  };
+  await f.host.start();await f.host.capture();await f.host.capture();
+  assert.equal(calls.length,3);assert.equal(calls[0].optimizeForSpeed,true);assert(!calls[1].optimizeForSpeed);assert(!calls[2].optimizeForSpeed);
+  assert.equal(f.host.lastCaptureMetrics.fastPng,false);await f.host.dispose();
+});
+test('a stalled screenshot never triggers a second capture attempt',async()=>{
+  const f=hostFixture(),send=f.dbg.sendCommand;let captures=0;
+  f.dbg.sendCommand=async(method,params)=>{if(method==='Page.captureScreenshot'){captures++;throw Error('Debugger command timed out');}return send(method,params);};
+  await f.host.start();await assert.rejects(f.host.capture(),/timed out/);assert.equal(captures,1);await f.host.dispose();
 });
 test('stopping during observer startup prevents all game input',async()=>{
   let release,disposed=0;const state={info:{ships:{1:{api_ship_id:1,api_lv:1},2:{api_ship_id:2,api_lv:1}},fleets:[{api_ship:[1],api_mission:[0]}]},const:{$ships:{1:{api_name:'x',api_stype:2},2:{api_name:'y',api_stype:2}}}};

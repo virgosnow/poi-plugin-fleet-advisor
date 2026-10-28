@@ -95,7 +95,7 @@ test('concrete projection preserves full planner acceptance across inventory all
  await test('duplicate explicit ID rejected',()=>assert.throws(()=>fixture().plan([{id:1,slots:[104,104]}])));
  await test('duplicate explicit ID across ships rejected',()=>assert.throws(()=>fixture().plan([{id:1,slots:[104]},{id:2,slots:[104]}])));
  await test('base aircraft rejected by ID',()=>assert.throws(()=>fixture().plan([{id:1,slots:[301]}])));
- await test('other ship equipment records its exact source',()=>{const f=fixture(),p=f.plan([{id:1,slots:[201]}]);assert.equal(p.ships[0].ops.at(-1).source.shipId,2);assert.deepEqual(p.donors[0].state.slots,[-1,-1,-1]);});
+ await test('other ship equipment records its exact source',()=>{const f=fixture(),p=f.plan([{id:1,slots:[201]}]);assert.equal(p.ships[0].ops.find(op=>op.source).source.shipId,2);assert.deepEqual(p.donors[0].state.slots,[-1,-1,-1]);});
  await test('closed extra slot rejects installation',()=>assert.throws(()=>fixture().plan([{id:2,ex:104}])));
  await test('closed extra slot empty is no-op',()=>assert(fixture().plan([{id:2,ex:'empty'}]).done));
  await test('more than actual slots rejected',()=>assert.throws(()=>fixture().plan([{id:1,slots:['any','any','any',104]}])));
@@ -132,7 +132,7 @@ function runtime(options={}) {
       const total=lastTotal=Math.max(1,Math.ceil(list.length/10));activePage=Math.min(activePage,total);
       const start=Math.max(1,Math.min(activePage-2,total-4));
       const page=lastPage={valid:true,activePage,labels:Array.from({length:Math.min(5,total)},(_,i)=>start+i),centers:[739,793,847,901,955]};
-      const result=kind==='equipmode'?{valid:true,mode}:kind==='borrowconfirm'?{valid:!options.badConfirm,commit:{x:470,y:480}}:kind==='screen'?{valid:true,mode:'home'}:kind==='cells'?{valid:!options.menuCategories,primaries:[0,1,11],categories:options.menuCategories||[0,4,9],centers:[{x:811,y:197},{x:811,y:226},{x:811,y:255}]}:kind==='pageread'?page:kind==='equippicker'?{valid:true,primary,category:({0:0,1:4,11:9,20:10})[primary]??null,page}:kind==='equipclear'?{valid:!options.missingClear,tab:{valid:!options.wrongTab},commit:options.missingCommit?null:{x:485,y:245+50*arg.slots}}:{valid:true};
+      const result=kind==='equipmode'?{valid:true,mode}:kind==='borrowconfirm'?{valid:!options.badConfirm,commit:{x:470,y:480}}:kind==='screen'?{valid:true,mode:'home'}:kind==='cells'?{valid:!options.menuCategories,primaries:[0,1,11],categories:options.menuCategories||[0,4,9],centers:[{x:811,y:197},{x:811,y:226},{x:811,y:255}]}:kind==='pageread'?page:kind==='equippicker'?{valid:true,primary,category:({0:0,1:4,11:9,20:10})[primary]??null,page}:kind==='equipremove'?{valid:!options.badRemove,commit:options.badRemove?null:{x:1167,y:[271,321,366,412,457][arg.slot]}}:kind==='equipclear'?{valid:!options.missingClear,tab:{valid:!options.wrongTab},commit:options.missingCommit?null:{x:485,y:245+50*arg.slots}}:{valid:true};
       if(!predicate(result))throw new Error('Observation timed out');return result;
     },
     async wait(){now+=10000;this.check();},
@@ -166,7 +166,7 @@ function runtime(options={}) {
         else if(mutation.path==='api_req_kaisou/unsetslot_all')sh.api_slot.fill(-1);
         else if(mutation.path.endsWith('_ex'))sh.api_slot_ex=mutation.item;
         else if(mutation.item<0){sh.api_slot.splice(mutation.j,1);sh.api_slot.push(-1);}
-        else sh.api_slot[sh.api_slot.indexOf(-1)]=mutation.item;
+        else sh.api_slot[mutation.j]=mutation.item;
         if(options.collateral)f.data.info.ships[2].api_slot[0]=-1;
         if(options.afterMutation)options.afterMutation(f.data,mutation);
         snapshots.push(JSON.parse(JSON.stringify(f.data.info.ships)));
@@ -296,20 +296,20 @@ test('reusing a category recalculates the remaining list and navigates from the 
   assert(!f.inputs.some(i=>i.y===677),'removing the last item on page two clamps the remaining list to page one');
   assert.deepEqual(f.data.info.ships[1].api_slot,[114,113,-1]);
 });
-test('equipment bulk-clear then install enforces the complete slot target',async()=>{
+test('replacement and local removal enforce the complete target without bulk clearing',async()=>{
   const f=runtime();const r=await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104]}]});
   assert.equal(r.changed,2);assert.deepEqual(f.data.info.ships[1].api_slot,[104,-1,-1]);
   const mutations=f.inputs.filter(i=>i.mutation).map(i=>i.mutation);
-  assert.deepEqual(mutations,[{path:'api_req_kaisou/unsetslot_all',ship:1},{path:'api_req_kaisou/slotset',ship:1,j:0,item:104}]);
-  assert.deepEqual(f.snapshots[0][1].api_slot,[-1,-1,-1]);assert.equal(f.snapshots[0][1].api_slot_ex,103);
+  assert.deepEqual(mutations,[{path:'api_req_kaisou/slotset',ship:1,j:0,item:104},{path:'api_req_kaisou/slotset',ship:1,j:1,item:-1}]);
+  assert.deepEqual(f.snapshots[0][1].api_slot,[104,102,-1]);assert.equal(f.snapshots[0][1].api_slot_ex,103);
 });
 
-test('explicit any and null are restored to the original instances after bulk clearing',async()=>{
+test('explicit any and null preserve their original instances without removing them',async()=>{
   for(const preserve of ['any',null]) {
     const f=runtime();await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104,preserve]}]});
     assert.deepEqual(f.data.info.ships[1].api_slot,[104,102,-1]);
     assert.equal(f.data.info.ships[1].api_slot_ex,103);
-    assert.equal(f.inputs.filter(i=>i.mutation).length,3);
+    assert.equal(f.inputs.filter(i=>i.mutation).length,1);
   }
 });
 
@@ -361,12 +361,23 @@ test('partial clearing or unintended expansion removal never starts reinstallati
   }
 });
 
-test('retained items must be equipable before a bulk rebuild is planned',()=>{
+test('retained items do not need reinstallation when only removing an unwanted slot',()=>{
   const f=fixture();f.data.const.$shipTypes[2].api_equip_type[1]=0;
-  assert.throws(()=>f.plan([{id:1,slots:['any']}]),/无法重新安装/);
+  const plan=f.plan([{id:1,slots:['any']}]);
+  assert.deepEqual(plan.ships[0].ops.map(op=>[op.kind,op.j,op.id]),[['remove',1,-1]]);
 });
 test('equipment store timeout never repeats a removal',async()=>{
   const f=runtime({noStore:true});await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:['any','empty']}]}),/no repeat/);
+  assert.equal(f.inputs.filter(i=>i.mutation).length,1);
+});
+test('a missing normal-slot remove button prevents all mutations',async()=>{
+  const f=runtime({badRemove:true});
+  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[101]}]}));
+  assert.equal(f.inputs.filter(i=>i.mutation).length,0);assert.deepEqual(f.data.info.ships[1].api_slot,[101,102,-1]);
+});
+test('unexpected normal-slot compaction stops before any following installation',async()=>{
+  const f=runtime({afterMutation:(state,m)=>{if(m.item===-1)state.info.ships[1].api_slot=[102,101,-1];}});
+  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[102,101]}]}),/no repeat/);
   assert.equal(f.inputs.filter(i=>i.mutation).length,1);
 });
 test('equipment catches collateral changes to another ship',async()=>{
@@ -434,11 +445,11 @@ test('other picker order retains instance order despite improvement levels',()=>
 });
 test('per-ship installation leaves later ships equipped until their turn and reports confirmed completion',async()=>{
  const f=runtime();await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104]},{id:2,slots:[105]}]});
- assert.deepEqual(f.inputs.filter(i=>i.mutation).map(i=>i.mutation.ship),[1,1,2,2]);
+ assert.deepEqual(f.inputs.filter(i=>i.mutation).map(i=>i.mutation.ship),[1,1,2]);
  assert.deepEqual(f.snapshots[1][1].api_slot,[104,-1,-1]);
  assert.deepEqual(f.snapshots[1][2].api_slot,[201,-1,-1]);
  assert.deepEqual(f.progress.filter(p=>p.phase==='equipment-done').map(p=>p.ship),[1,2]);
- assert.deepEqual(f.progress.filter(p=>p.phase==='equipment-step').map(p=>[p.ship,p.completed,p.total]),[[1,1,2],[1,2,2],[2,1,2],[2,2,2]]);
+ assert.deepEqual(f.progress.filter(p=>p.phase==='equipment-step').map(p=>[p.ship,p.completed,p.total]),[[1,1,2],[1,2,2],[2,1,1]]);
  const failed=runtime({noStore:true});await assert.rejects(restoreEquipment(failed.session,{fleet:1,ships:[{id:1,slots:[104]}]}));
  assert(!failed.progress.some(p=>p.phase==='equipment-done'||p.phase==='equipment-step'));
 });
@@ -468,8 +479,8 @@ test('cross-ship swap completes one ship before rebuilding the next, borrowing e
  assert.deepEqual(f.data.info.ships[1].api_slot,[201,-1,-1]);assert.deepEqual(f.data.info.ships[2].api_slot,[101,-1,-1]);
  const mutations=f.inputs.filter(i=>i.mutation).map(i=>i.mutation);
  assert.deepEqual(mutations.map(m=>m.ship),[1,1,2]);
- assert.equal(mutations[0].path,'api_req_kaisou/unsetslot_all');
- assert.equal(mutations[1].path,'api_req_kaisou/slot_deprive');assert.equal(mutations[1].sourceShip,2);
+ assert.equal(mutations[0].path,'api_req_kaisou/slot_deprive');assert.equal(mutations[0].sourceShip,2);
+ assert.equal(mutations[1].path,'api_req_kaisou/slotset');assert.equal(mutations[1].item,-1);
 });
 for(const fromEx of [false,true])for(const toEx of [false,true])test(`borrow ${fromEx?'ex':'normal'} to ${toEx?'ex':'normal'} checks both ships and exact request`,async()=>{
  const f=runtime();f.data.info.ships[1].api_slot=[-1,-1,-1];f.data.info.ships[1].api_slot_ex=-1;
@@ -483,6 +494,13 @@ for(const fromEx of [false,true])for(const toEx of [false,true])test(`borrow ${f
 for(const failure of ['badConfirm','ignoreMode','noDonorUpdate'])test('borrow '+failure+' stops without repeated transfer',async()=>{
  const f=runtime({[failure]:true});f.data.info.ships[1].api_slot=[-1,-1,-1];
  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[201]}]}));assert.equal(f.inputs.filter(i=>i.mutation).length,failure==='noDonorUpdate'?1:0);
+});
+test('fast borrow confirmation still rejects a donor change immediately before submission',async()=>{
+ const f=runtime();f.data.info.ships[1].api_slot=[-1,-1,-1];
+ const until=f.session.until.bind(f.session);
+ f.session.until=async(...args)=>{const result=await until(...args);if(args[0]==='borrowconfirm')f.data.info.ships[2].api_slot[0]=-1;return result;};
+ await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[201]}]}));
+ assert.equal(f.inputs.filter(i=>i.mutation).length,0);
 });
 test('borrowing compacts the external donor and records its full final state',async()=>{
  const f=runtime();f.data.info.ships[2].api_slot=[201,104,105];f.data.info.ships[1].api_slot=[-1,-1,-1];
@@ -575,3 +593,5 @@ test('indexed planning preserves three-way borrows, cleared ownership and expans
  f.data.info.ships[3].api_slot=[105,104,106];
  for(const scheme of schemes){const live=f.api.resolvePlan(scheme);assert.deepEqual(withEquipmentIndexCache(f.data,()=>f.api.resolvePlan(scheme)),live);}
 });
+
+module.exports={runtime};

@@ -19,6 +19,7 @@ function progressText(p,state){
   if(p.phase==='equipment-done')return `${shipName(state,p.ship)} · 已换装完毕`;
   if(p.phase==='fleet-complete')return '舰队编成与换装已完成';
   if(p.phase==='clear-escorts')return `第 ${p.fleet} 舰队 · 正在解除随伴舰`;
+  if(p.phase==='remove-escort')return `第 ${p.fleet} 舰队 · 正在移除第 ${p.slot} 位多余舰娘`;
   if(p.phase==='picker')return `第 ${p.slot} 位 · 正在定位 ${shipName(state,p.target)}`;
   if(p.phase==='equipment')return p.detail||`${shipName(state,p.ship)} · ${p.slot==='all'?'解除普通槽装备':p.slot==='ex'?'调整补强增设':`调整普通槽 ${p.slot}`}`;
   if(p.phase==='return-home')return '正在返回母港';

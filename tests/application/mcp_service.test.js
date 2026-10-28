@@ -18,6 +18,22 @@ function state(){
 const temp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'paa-mcp-test-'));
 const clean=dir=>{if(!path.resolve(dir).startsWith(path.resolve(os.tmpdir())+path.sep))throw Error('unsafe test cleanup');fs.rmSync(dir,{recursive:true,force:true});};
 
+test('execution timeout diagnostics survive the service job record without changing the thrown error',async()=>{
+  const dir=temp(),{observationTimeout}=require('../../src/execution/observation_diagnostics');
+  const failure=observationTimeout('batch',{checks:[{kind:'equipmode'}]},
+    {elapsedMs:6000,attempts:4,stableFrames:1,captureMs:50,observeMs:100,last:{valid:false,results:[{valid:false,mode:null}]}});
+  const controller={preview(){return {pinned:{org:{ships:[{id:1}]}}};},run:async()=>{throw failure;},dispose(){},stop(){}};
+  const service=new FleetAdvisorService({controller,getStore:state,storageDir:dir});
+  try{
+    service.setExperimentalSettings({automaticOperations:true});
+    await assert.rejects(service.run('fleet',{fleet:1,ships:[1]}),e=>e===failure);
+    const job=[...service.jobs.values()].at(-1),saved=service.getJob({jobId:job.jobId});
+    assert.equal(saved.state,'failed');assert.equal(saved.verified,false);
+    assert.deepEqual(saved.error.diagnostics,failure.diagnostics);
+    assert.equal(service.activeJobId,null);
+  }finally{await service.dispose();clean(dir);}
+});
+
 test('immutable snapshots page all equipment without duplication and match simplified characters',()=>{
   const data=state(),snapshots=new Snapshots(()=>data),created=snapshots.create();
   assert.equal(created.equipmentCount,1202);

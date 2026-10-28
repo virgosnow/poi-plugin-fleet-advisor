@@ -18,6 +18,13 @@ function simulateChange(current, fleet, slot, target) {
     return result;
   }
   if (!Number.isInteger(slot) || slot < 0 || slot > 5) throw new Error('Invalid fleet slot');
+  if (target === -1) {
+    // The native picker detach button compacts the remaining escorts.
+    // Trimming never removes a flagship or creates an empty fleet.
+    if (slot === 0 || slot >= dest.length) throw new Error('Invalid escort removal');
+    dest.splice(slot, 1);
+    return result;
+  }
   target = P.instanceId(target);
   if (slot > dest.length) throw new Error('Cannot create a gap in fleet');
   const old = dest[slot];
@@ -47,7 +54,7 @@ async function restoreOrganization(session, scheme) {
     assertState();
     const after = simulateChange(expected, plan.fleet, slot, ship);
     changing = true;
-    await session.input(point.x,point.y,{path: 'api_req_hensei/change', fleet: plan.fleet, j: slot, ship});
+    await session.input(point.x,point.y,{path: 'api_req_hensei/change', fleet: plan.fleet, j: slot, ship},'click',{settleMs:0});
     const deadline = session.now()+30000;
     while (!same(fleets(host.getStore()), after)) {
       if (session.now() >= deadline) throw new Error('Store did not confirm change; submission will not be repeated');
@@ -59,16 +66,12 @@ async function restoreOrganization(session, scheme) {
   await enterScreen(session,'organization');
   let tab = await session.observe('orgtab', {fleet: plan.fleet});
   if (!tab.valid) {
-    await session.input(202 + (plan.fleet-1)*45,178);
+    await session.input(202 + (plan.fleet-1)*45,178,undefined,'click',{settleMs:0});
     await session.until('orgtab', {fleet: plan.fleet});
   }
-  if (expected[plan.fleet-1].ships.length > 1) {
-    session.onProgress({phase: 'clear-escorts', fleet: plan.fleet});
-    await session.input(625,178,undefined,'hover');
-    const button = await session.until('orgclear', {fleet: plan.fleet});
-    if (!button.tab || !button.tab.valid || !button.commit) throw new Error('Clear-escorts button or destination tab not confirmed');
-    await commit(0, -2, button.commit);
-  }
+  // Keep the existing fleet in place. A native change exchanges an occupied
+  // slot with the selected ship (including within this fleet), so settling
+  // targets from left to right never disturbs an already correct position.
   // All slots share the union of the scheme's ship groups, including an
   // unchanged flagship. Keep verifying the actual selection on every open.
   const desired = plan.filter;
@@ -87,7 +90,7 @@ async function restoreOrganization(session, scheme) {
     const pos = P.locate(plan.roster, target, desired.mask);
     const pickerArg = {fleet: plan.fleet, total: pos.total};
     session.onProgress({phase: 'picker', fleet:plan.fleet, slot: i+1, target});
-    await session.input(612+(i%2)*487,324+Math.floor(i/2)*172);
+    await session.input(612+(i%2)*487,324+Math.floor(i/2)*172,undefined,'click',{settleMs:0});
     let read = await session.until('picker', pickerArg, readyPicker);
     if (!read.tab || !read.tab.valid) throw new Error('Destination tab not confirmed in picker');
     const seenSorts=new Set();
@@ -96,7 +99,7 @@ async function restoreOrganization(session, scheme) {
       const previous = JSON.stringify(read.sort);
       if(seenSorts.has(previous))throw new Error('Ship sorting repeated a state; stopping without retry');
       seenSorts.add(previous);
-      await session.input(...G.sort);
+      await session.input(...G.sort,undefined,'click',{settleMs:0});
       read = await session.until('picker', pickerArg, r => readyPicker(r) && JSON.stringify(r.sort) !== previous);
     }
     for (let count = 0; ; count++) {
@@ -104,7 +107,7 @@ async function restoreOrganization(session, scheme) {
       const next = P.nextFilter(read.filter.states, desired.mask);
       if (next < 0) break;
       const previous = read.filter.states.slice(); previous[next] ^= 1;
-      await session.input(G.filters[next],G.filterY);
+      await session.input(G.filters[next],G.filterY,undefined,'click',{settleMs:0});
       read = await session.until('picker', pickerArg, r => readyPicker(r) && isNew(r) && same(r.filter.states, previous));
     }
     if (!validList(read)) throw new Error('Filtered NEW list not confirmed');
@@ -120,11 +123,28 @@ async function restoreOrganization(session, scheme) {
     // exact request/store checks after the row click.
     if(!Number.isInteger(pos.row)||pos.row<0||pos.row>9||!validList(read)||read.page.activePage!==pos.page)
       throw new Error('Filtered NEW list not confirmed');
-    await session.input(870,259+43*pos.row);
+    await session.input(870,259+43*pos.row,undefined,'click',{settleMs:0});
     const card = await session.until('cardidentity', arg);
     if (!card.commit) throw new Error('Confirmation button not confirmed');
     await commit(i, target, card.commit);
     session.onProgress({phase:'organized',fleet:plan.fleet,slot:i+1,ship:target});
+  }
+  // Desired ships may have started in the tail: settle all target positions
+  // before dropping extras. Removing the last escort cannot shift the prefix.
+  if(plan.targets.length===1&&expected[plan.fleet-1].ships.length>1){
+    session.onProgress({phase:'clear-escorts',fleet:plan.fleet});
+    await session.input(625,178,undefined,'hover',{settleMs:0});
+    const button=await session.until('orgclear',{fleet:plan.fleet});
+    if(!button.tab?.valid||!button.commit)throw new Error('Clear-escorts button or destination tab not confirmed');
+    await commit(0,-2,button.commit);
+  }else while(expected[plan.fleet-1].ships.length>plan.targets.length){
+    session.check();assertState();
+    const slot=expected[plan.fleet-1].ships.length-1;
+    session.onProgress({phase:'remove-escort',fleet:plan.fleet,slot:slot+1});
+    await session.input(612+(slot%2)*487,324+Math.floor(slot/2)*172,undefined,'click',{settleMs:0});
+    const button=await session.until('orgdetach',{fleet:plan.fleet});
+    if(!button.tab?.valid||!button.commit)throw new Error('Escort removal button or destination tab not confirmed');
+    await commit(slot,-1,button.commit);
   }
   assertState();
   if (!same(fleets(host.getStore())[plan.fleet-1].ships, plan.targets)) throw new Error('Final fleet mismatch');

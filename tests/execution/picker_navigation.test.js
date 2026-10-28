@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {navigatePages,chooseEquipmentCategory,pageCost}=require('../../src/execution/picker_navigation');
-function pageModel(total,initial,{fixedWindow=false,rightToEnd=false,swallow=false,wrongPage=false}={}){
-  let active=initial,windowPage=initial;
+function pageModel(total,initial,{fixedWindow=false,rightToEnd=false,swallow=false,wrongPage=false,skipClicks=[]}={}){
+  let active=initial,windowPage=initial,reads=0;
   const inputs=[],visits=[active],states=[],window=p=>{
     const count=Math.min(5,total),first=Math.max(1,Math.min(p-2,total-count+1));
     return Array.from({length:count},(_,i)=>first+i);
@@ -10,14 +10,15 @@ function pageModel(total,initial,{fixedWindow=false,rightToEnd=false,swallow=fal
   const view=()=>({valid:true,activePage:active,labels:window(windowPage),centers:[740,794,848,902,956],y:677});
   states.push(active+':'+view().labels.join(','));
   return {inputs,visits,states,view,session:{async input(x,y){
-    inputs.push([x,y]);if(swallow)return;
+    inputs.push([x,y]);if(swallow||skipClicks.includes(inputs.length))return;
     if(x===620){active=1;windowPage=1;}
     else if(x===1004){active=rightToEnd?total:Math.min(total,active+5);windowPage=active;}
     else {const index=view().centers.indexOf(x);assert(index>=0);active=view().labels[index];if(!fixedWindow)windowPage=active;}
     if(wrongPage)active=1;
     visits.push(active);
     states.push(active+':'+view().labels.join(','));
-  }},options:{total,first:[620,678],forward:[1004,678],read:async predicate=>{
+  }},stats:()=>({reads}),options:{total,first:[620,678],forward:[1004,678],read:async predicate=>{
+    reads++;
     const value=view();if(!predicate(value))throw Error('Observation timed out: page');return value;
   }}};
 }
@@ -37,6 +38,28 @@ test('nearby visible pages use a single number click instead of resetting to the
 });
 test('an already selected target produces no navigation input',async()=>{
   const f=pageModel(40,20);await navigatePages(f.session,f.view(),20,f.options);assert.equal(f.inputs.length,0);
+});
+test('long forward navigation batches four known arrow clicks between page observations',async()=>{
+  const f=pageModel(100,1);await navigatePages(f.session,f.view(),46,f.options);
+  assert.equal(f.inputs.length,9);assert.equal(f.stats().reads,3,'one calibration plus two four-click batches');
+  assert.equal(f.visits.at(-1),46);
+});
+test('a missed batch click corrects from the observed page without replaying the batch',async()=>{
+  const f=pageModel(100,1,{skipClicks:[2]});
+  const result=await navigatePages(f.session,f.view(),46,f.options);
+  assert.equal(result.activePage,46);assert.equal(f.inputs.length,10);assert.equal(f.stats().reads,7);
+  assert(f.inputs.every(p=>p[0]===1004),'never reset to first or replay an entire batch');
+});
+test('a wholly swallowed batch stops before another input batch',async()=>{
+  const f=pageModel(100,1,{skipClicks:[2,3,4,5]});
+  await assert.rejects(navigatePages(f.session,f.view(),46,f.options),/timed out/);
+  assert.equal(f.inputs.length,5);
+});
+test('cancellation between batch inputs prevents remaining clicks and later list selection',async()=>{
+  const f=pageModel(100,1),input=f.session.input.bind(f.session);
+  f.session.input=async(...args)=>{if(f.inputs.length===2)throw Error('Run stopped');await input(...args);};
+  await assert.rejects(navigatePages(f.session,f.view(),46,f.options),/Run stopped/);
+  assert.equal(f.inputs.length,2);assert.equal(f.stats().reads,1);
 });
 test('a legacy right-arrow endpoint is accepted only when it exposes the target',async()=>{
   const f=pageModel(40,1,{rightToEnd:true});await navigatePages(f.session,f.view(),39,f.options);

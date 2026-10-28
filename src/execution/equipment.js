@@ -3,8 +3,9 @@ const {createEquipmentPlanner}=require('../domain/fleet/equipment_planner');
 const {enterScreen}=require('./navigation');
 const {createEquipmentGuard}=require('./equipment_guard');
 const {navigatePages,chooseEquipmentCategory}=require('./picker_navigation');
+const {equipmentSelectionFailure}=require('./observation_diagnostics');
 const SLOT_Y=[271,321,366,412,457];
-const together=(session,checks,predicate=()=>true,stableFrames=2)=>session.until('batch',{checks},r=>r.valid&&predicate(r.results),6000,{stableFrames}).then(r=>r.results);
+const together=(session,checks,predicate=()=>true,stableFrames=2,reuseLastFrame=false)=>session.until('batch',{checks},r=>r.valid&&predicate(r.results),6000,{stableFrames,reuseLastFrame}).then(r=>r.results);
 
 async function restoreEquipment(session,scheme) {
   const planner=createEquipmentPlanner(()=>session.host.getStore()), plan=planner.resolvePlan(scheme);
@@ -22,7 +23,7 @@ async function restoreEquipment(session,scheme) {
   const currentTab=Number.isInteger(screen?.fleet)&&screen.fleet>=1&&screen.fleet<=4
     ?{selected:[screen.fleet]}:await session.until('equipTabs',{});
   if(currentTab.selected?.[0]!==plan.fleet){
-    await session.input(...tab);
+    await session.input(...tab,undefined,'click',{settleMs:0});
     await session.until('equipTabs',{fleet:plan.fleet});
   }
   const batches=[];
@@ -34,7 +35,7 @@ async function restoreEquipment(session,scheme) {
   for(const ship of batches) {
     const index=plan.fleetShips.indexOf(ship.shipId);
     session.onProgress({phase:'equipment-ship',fleet:plan.fleet,ship:ship.shipId,total:ship.ops.length});
-    await session.input(310,255+index*75);
+    await session.input(310,255+index*75,undefined,'click',{settleMs:0});
     // Confirm the tab before opening the slot. The passive request monitor
     // and complete store checks stop later actions on an unexpected change.
     // equipship already checks this fleet tab on the same image.
@@ -51,15 +52,20 @@ async function restoreEquipment(session,scheme) {
         operation:op.kind,completed:step,total:ship.ops.length});
       if(op.kind==='clear') {
         const slots=op.before.slots.length;
-        await session.input(485,245+50*slots,undefined,'hover');
+        await session.input(485,245+50*slots,undefined,'hover',{settleMs:0});
         const button=await session.until('equipclear',{fleet:plan.fleet,slots});
         if(!button.tab?.valid||!button.commit)throw new Error('All-equipment removal button or fleet tab not confirmed');
         changing=new Set([ship.shipId,...(op.source?[op.source.shipId]:[])]);
-        await session.input(button.commit.x,button.commit.y,mutation);
+        await session.input(button.commit.x,button.commit.y,mutation,'click',{settleMs:0});
       } else if(op.id<0) {
-        if(op.kind!=='ex')throw new Error('Unsupported equipment removal');
+        let commit={x:1167,y:480};
+        if(op.kind==='remove'){
+          const button=await session.until('equipremove',{fleet:plan.fleet,slot:op.j,slots:op.before.slots.length});
+          if(!button.commit)throw new Error('Normal-slot removal button not confirmed');
+          commit=button.commit;
+        }else if(op.kind!=='ex')throw new Error('Unsupported equipment removal');
         changing=new Set([ship.shipId,...(op.source?[op.source.shipId]:[])]);
-        await session.input(1167,480,mutation);
+        await session.input(commit.x,commit.y,mutation,'click',{settleMs:0});
       } else {
         const checkSource=()=>{
           const source=planner.sourceMap()[op.id];
@@ -69,7 +75,7 @@ async function restoreEquipment(session,scheme) {
           } else if(planner.occupiedMap()[op.id])throw new Error('Equipment is occupied');
         };
         checkSource();
-        await session.input(op.kind==='ex'?1133:750,op.kind==='ex'?481:SLOT_Y[op.j]);
+        await session.input(op.kind==='ex'?1133:750,op.kind==='ex'?481:SLOT_Y[op.j],undefined,'click',{settleMs:0});
         const arg={layout:'equip',total:Math.max(1,Math.ceil(Object.keys(data().info.equips).length/10))};
         const desiredMode=op.source?'others':'stock';
         const pickerKind=op.kind==='ex'?'pageread':'equippicker';
@@ -95,10 +101,9 @@ async function restoreEquipment(session,scheme) {
           session.onProgress({phase:'equipment',detail:'装备列表模式不可读，尝试自动复位分类筛选'});
           let cleared=false;
           try {
-            await session.input(824,168);
+            await session.input(824,168,undefined,'click',{settleMs:0});
             const cells=await session.until('cells',{},r=>r.categories&&r.categories[0]===0,2500);
-            await session.wait(450);
-            await session.input(Math.round(cells.centers[0].x),Math.round(cells.centers[0].y));
+            await session.input(Math.round(cells.centers[0].x),Math.round(cells.centers[0].y),undefined,'click',{settleMs:0});
             cleared=true;
           } catch(menuError) {
             if(!/timed out/.test(menuError.message))throw menuError;
@@ -111,7 +116,7 @@ async function restoreEquipment(session,scheme) {
           }
         }
         if(mode.mode!==desiredMode) {
-          await session.input(1135,168);
+          await session.input(1135,168,undefined,'click',{settleMs:0});
           [mode,pickerView]=await together(session,[{kind:'equipmode'},{kind:pickerKind,arg}],r=>r[0].mode===desiredMode);
         }
         const pickerList=op.source?planner.otherPickerList:planner.freePickerList;
@@ -136,14 +141,13 @@ async function restoreEquipment(session,scheme) {
             const allEquipment=planner.groupDefs.find(d=>d.id===0);
             const hasUsableRow=r=>Array.isArray(r.categories)
               &&(r.categories.includes(preferred.id)||r.categories[0]===allEquipment.id);
-            await session.input(824,168);
+            await session.input(824,168,undefined,'click',{settleMs:0});
             let cells;
             // A leftover dialog (or a rare filtered state) can swallow the
             // menu click. Dark rows the ship cannot use must not invalidate
             // the whole menu; require a readable target row or 全装備 instead.
-            // Keep the calibrated opening-animation allowance, but do not
-            // capture the same menu twice on either side of that allowance.
-            await session.wait(450);
+            // Recognize the menu as soon as its rows become readable and
+            // stable, rather than always paying a fixed animation delay.
             try {cells=await session.until('cells',{},hasUsableRow);}
             catch(error) {
               if(!/timed out/.test(error.message))throw error;
@@ -155,7 +159,7 @@ async function restoreEquipment(session,scheme) {
               if(found>=0){selected=def;index=found;break;}
             }
             if(!selected)throw new Error('Equipment category unavailable');
-            await session.input(cells.centers[index].x,cells.centers[index].y);
+            await session.input(cells.centers[index].x,cells.centers[index].y,undefined,'click',{settleMs:0});
             read=await readPicker();
           }
           list=choice.retained?choice.list:pickerList(selected.id,ship.shipId,op.j);
@@ -166,29 +170,36 @@ async function restoreEquipment(session,scheme) {
         const total=Math.max(1,Math.ceil(list.length/10));arg.total=total;
         read=await navigatePages(session,read,page,{total,first:[621,678],forward:[1003,678],read:readPicker});
         const cy=Math.round(218+44.75*row);
-        // A fresh frame verifies all selection preconditions together. The
-        // list was already stable across two frames; no input follows this
-        // final gate except selecting its verified row.
-        await together(session,[{kind:'equipmode'},{kind:pickerKind,arg},
+        // Recheck every selection precondition on the last stable list frame
+        // when it is <=500ms old and no input intervened. Expiry or any input
+        // requires a fresh capture; a failed reused frame is polled afresh.
+        try {await together(session,[{kind:'equipmode'},{kind:pickerKind,arg},
           {kind:'rowicon',arg:{box:[546,cy-22,599,cy+22],t3:planner.t3of(op.id)}}],r=>{
           const view=r[1],p=op.kind==='ex'?view:view.page;
           return r[0].mode===desiredMode&&p?.valid&&p.activePage===page&&(op.kind==='ex'||view.category===selected.id);
-        },1);
-        await session.input(750,cy);
+        },1,true);}catch(error){
+          throw equipmentSelectionFailure(error,{fleet:plan.fleet,shipId:ship.shipId,slot:op.kind==='ex'?'ex':op.j+1,
+            itemId:op.id,type:planner.t3of(op.id),mode:desiredMode,category:selected?.id??null,
+            page,row:row+1,listCount:list.length,totalPages:total,sourceShip:op.source?.shipId??null});
+        }
+        await session.input(750,cy,undefined,'click',{settleMs:0});
         await session.until('pix',{pts:[[1075,655],[1040,655]],exp:[[19,113,114],[18,124,124]],tol:45},undefined,6000,{stableFrames:1});
         session.check();
         checkSource();
         if(op.source) {
           // First button opens the native transfer confirmation without a
           // mutation. Only its verified '了解' button sends slot_deprive.
-          await session.input(1075,659);
-          const confirm=await session.until('borrowconfirm',{});
+          // Start checking the known modal immediately. One fresh frame
+          // verifies both buttons and the full border; no second identical
+          // capture or fixed post-opening wait is needed before clicking 了解.
+          await session.input(1075,659,undefined,'click',{settleMs:0});
+          const confirm=await session.until('borrowconfirm',{},undefined,6000,{stableFrames:1});
           session.check();checkSource();
           changing=new Set([ship.shipId,op.source.shipId]);
-          await session.input(confirm.commit.x,confirm.commit.y,mutation);
+          await session.input(confirm.commit.x,confirm.commit.y,mutation,'click',{settleMs:0});
         } else {
           changing=new Set([ship.shipId]);
-          await session.input(1075,659,mutation);
+          await session.input(1075,659,mutation,'click',{settleMs:0});
         }
       }
       const deadline=session.now()+30000;

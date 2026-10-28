@@ -111,7 +111,7 @@ test('bulk-clear simulation preserves the flagship and every other fleet',()=>{
   assert.deepEqual(f.map(f=>f.ships),[[1,2,3,4],[5,6]]);
   for(const slot of [1,4,-1,1.5,6])assert.throws(()=>simulateChange(f,1,slot,-2));
   for(const ships of [[],[1]])assert.throws(()=>simulateChange([{ships,mission:0}],1,0,-2));
-  assert.throws(()=>simulateChange(f,1,1,-1));
+  assert.throws(()=>simulateChange(f,1,1,-3));
 });
 function fakeSession(options={}) {
   const state=fixture(),inputs=[],snapshots=[],observations=[];let mask=options.mask||[1,1,1,1,1,1,1,1],page=options.page||1,clock=0,sortIndex=0;
@@ -127,6 +127,7 @@ function fakeSession(options={}) {
       if(kind==='rowidentity')result=options.wrongRow&&arg.checkLevel!==false?{valid:false,reason:'level mismatch',level:options.wrongRow}:{valid:true,level:arg.expectedLevel};
       if(kind==='cardidentity')result={valid:true,level:arg.expectedLevel,commit:{x:1032,y:669}};
       if(kind==='orgclear')result={valid:!options.missingClear,tab:{valid:!options.wrongClearTab},commit:options.missingCommit?null:{x:625,y:178}};
+      if(kind==='orgdetach')result={valid:!options.missingDetach,tab:{valid:!options.wrongDetachTab},commit:options.missingCommit?null:{x:1161,y:678}};
       if(options.observe)options.observe(result,kind,arg,{mask,page});
       if(!predicate(result))throw new Error('Observation timed out: '+kind);
       return result;
@@ -140,6 +141,7 @@ function fakeSession(options={}) {
         // Model the server independently of the executor's prediction.
         const {fleet,j,ship}=mutation,dest=state.info.fleets[fleet-1].api_ship;
         if(ship===-2)dest.splice(1);
+        else if(ship===-1)dest.splice(j,1);
         else {
           const source=state.info.fleets.find(f=>f.api_ship.includes(ship));
           if(source){const at=source.api_ship.indexOf(ship);if(dest[j]>0)source.api_ship[at]=dest[j];else source.api_ship.splice(at,1);}
@@ -288,30 +290,28 @@ test('no-op completes without screenshots or input',async()=>{
   assert((await restoreOrganization(f.session,{fleet:1,ships:[1,2,3,4]})).done);assert.equal(f.inputs.length,0);
 });
 
-test('six to four starts with one bulk clear even when the target prefix matches',async()=>{
+test('six to four preserves the correct prefix and removes only the last two escorts',async()=>{
   const f=fakeSession({fleets:[[1,2,3,4,7,8],[5,6]]});
   const result=await restoreOrganization(f.session,{fleet:1,ships:[1,2,3,4]});
-  assert.equal(result.changed,4);
+  assert.equal(result.changed,2);
   assert.deepEqual(f.state.info.fleets.map(f=>f.api_ship),[[1,2,3,4],[5,6]]);
   assert.deepEqual(f.inputs.filter(i=>i.mutation).map(i=>i.mutation),[
-    {path:'api_req_hensei/change',fleet:1,j:0,ship:-2},
-    {path:'api_req_hensei/change',fleet:1,j:1,ship:2},
-    {path:'api_req_hensei/change',fleet:1,j:2,ship:3},
-    {path:'api_req_hensei/change',fleet:1,j:3,ship:4}
+    {path:'api_req_hensei/change',fleet:1,j:5,ship:-1},
+    {path:'api_req_hensei/change',fleet:1,j:4,ship:-1}
   ]);
-  assert.deepEqual(f.snapshots.map(s=>s[0]),[[1],[1,2],[1,2,3],[1,2,3,4]]);
-  assert(f.inputs.some(i=>i.kind==='hover'&&i.x===625&&i.y===178));
+  assert.deepEqual(f.snapshots.map(s=>s[0]),[[1,2,3,4,7],[1,2,3,4]]);
+  assert(!f.inputs.some(i=>i.mutation?.ship>0||i.mutation?.ship===-2));
 });
 
-test('target ships initially in the tail are freed then added in JSON order',async()=>{
+test('target ships initially in the tail are swapped into place before trimming',async()=>{
   const f=fakeSession({fleets:[[1,2,3,4,7,8],[5,6]]});
   await restoreOrganization(f.session,{fleet:1,ships:[7,8,3,4]});
   assert.deepEqual(f.state.info.fleets.map(f=>f.api_ship),[[7,8,3,4],[5,6]]);
-  assert.deepEqual(f.inputs.filter(i=>i.mutation).map(i=>i.mutation.ship),[-2,7,8,3,4]);
-  assert.deepEqual(f.snapshots.map(s=>s[0]),[[1],[7],[7,8],[7,8,3],[7,8,3,4]]);
+  assert.deepEqual(f.inputs.filter(i=>i.mutation).map(i=>i.mutation.ship),[7,8,-1,-1]);
+  assert.deepEqual(f.snapshots.map(s=>s[0]),[[7,2,3,4,1,8],[7,8,3,4,1,2],[7,8,3,4,1],[7,8,3,4]]);
 });
 
-test('cross-fleet flagship exchange retains exact source fleet effects after clearing',async()=>{
+test('cross-fleet flagship exchange retains exact source fleet effects while keeping correct escorts',async()=>{
   const f=fakeSession({fleets:[[1,2,3,4,7,8],[5,6]]});
   await restoreOrganization(f.session,{fleet:1,ships:[5,8,3,4]});
   assert.deepEqual(f.state.info.fleets.map(f=>f.api_ship),[[5,8,3,4],[1,6]]);
@@ -336,7 +336,7 @@ test('short fleets grow to the full target without issuing removals',async()=>{
 test('unconfirmed bulk-clear button or fleet tab cannot submit',async()=>{
   for(const option of ['missingClear','wrongClearTab','missingCommit']) {
     const f=fakeSession({[option]:true});
-    await assert.rejects(restoreOrganization(f.session,{fleet:1,ships:[1,2]}));
+    await assert.rejects(restoreOrganization(f.session,{fleet:1,ships:[1]}));
     assert(!f.inputs.some(i=>i.mutation));
   }
 });
@@ -349,7 +349,7 @@ test('bulk-clear confirmation checks every fleet and never retries or starts add
     {afterMutation:s=>s.info.fleets[0].api_ship[0]=35}
   ]) {
     const f=fakeSession(options);
-    await assert.rejects(restoreOrganization(f.session,{fleet:1,ships:[1,2]}),/not be repeated/);
+    await assert.rejects(restoreOrganization(f.session,{fleet:1,ships:[1]}),/not be repeated/);
     assert.equal(f.inputs.filter(i=>i.mutation).length,1);
     assert.equal(f.inputs.find(i=>i.mutation).mutation.ship,-2);
     assert(!f.inputs.some(i=>i.x===870));
@@ -362,15 +362,104 @@ test('invalid plans fail before bulk clearing',async()=>{
   }
 });
 
-test('cross-fleet escort append compacts the source without replacing its members',async()=>{
+test('cross-fleet escort replacement verifies the native exchange in both fleets',async()=>{
   const f=fakeSession({fleets:[[1,2,3,4],[5,6,7,8]]});
   await restoreOrganization(f.session,{fleet:1,ships:[1,6,3]});
-  assert.deepEqual(f.state.info.fleets.map(f=>f.api_ship),[[1,6,3],[5,7,8]]);
+  assert.deepEqual(f.state.info.fleets.map(f=>f.api_ship),[[1,6,3],[5,2,7,8]]);
+});
+
+test('cross-fleet escort append compacts the source when the destination slot is empty',async()=>{
+  const f=fakeSession({fleets:[[1,2,3,4],[5,6,7,8]]});
+  await restoreOrganization(f.session,{fleet:1,ships:[1,2,3,4,6]});
+  assert.deepEqual(f.state.info.fleets.map(f=>f.api_ship),[[1,2,3,4,6],[5,7,8]]);
+  assert.equal(f.inputs.filter(i=>i.mutation).length,1);
 });
 
 test('the old flagship can return as an escort after selecting the new flagship',async()=>{
   const f=fakeSession();
   await restoreOrganization(f.session,{fleet:1,ships:[3,1,2]});
   assert.deepEqual(f.state.info.fleets.map(f=>f.api_ship),[[3,1,2],[5,6]]);
-  assert.deepEqual(f.inputs.filter(i=>i.mutation).map(i=>i.mutation.ship),[-2,3,1,2]);
+  assert.deepEqual(f.inputs.filter(i=>i.mutation).map(i=>i.mutation.ship),[3,1,-1]);
 });
+
+test('one replacement in a six-ship fleet leaves every other position untouched',async()=>{
+  const f=fakeSession({fleets:[[1,2,3,4,7,8],[5,6]]});
+  await restoreOrganization(f.session,{fleet:1,ships:[1,2,3,4,7,35]});
+  assert.deepEqual(f.inputs.filter(i=>i.mutation).map(i=>i.mutation),[
+    {path:'api_req_hensei/change',fleet:1,j:5,ship:35}]);
+  assert.deepEqual(f.state.info.fleets[0].api_ship,[1,2,3,4,7,35]);
+});
+
+test('one native intra-fleet swap fixes two positions without reselecting either correct slot',async()=>{
+  const f=fakeSession({fleets:[[1,2,3,4,7,8],[5,6]]});
+  await restoreOrganization(f.session,{fleet:1,ships:[1,3,2,4,7,8]});
+  assert.deepEqual(f.inputs.filter(i=>i.mutation).map(i=>[i.mutation.j,i.mutation.ship]),[[1,3]]);
+  assert.equal(f.observations.filter(o=>o.kind==='cardidentity').length,1);
+});
+
+test('escort removal simulation rejects flags, absent slots and preserves input',()=>{
+  const f=resolvePlan(fixture(),{fleet:1,ships:[1]}).current;
+  assert.deepEqual(simulateChange(f,1,2,-1).map(f=>f.ships),[[1,2,4],[5,6]]);
+  assert.deepEqual(f.map(f=>f.ships),[[1,2,3,4],[5,6]]);
+  for(const slot of [0,4,-1,1.5,6])assert.throws(()=>simulateChange(f,1,slot,-1));
+});
+
+test('unconfirmed detach button or fleet tab stops before any removal request',async()=>{
+  for(const option of ['missingDetach','wrongDetachTab','missingCommit']){
+    const f=fakeSession({[option]:true});
+    await assert.rejects(restoreOrganization(f.session,{fleet:1,ships:[1,2,3]}));
+    assert(!f.inputs.some(i=>i.mutation));
+  }
+});
+
+test('tail removal checks every fleet and the full compacted prefix with no repeated submission',async()=>{
+  for(const options of [{noStore:true},
+    {afterMutation:s=>s.info.fleets[1].api_ship.reverse()},
+    {afterMutation:s=>s.info.fleets[0].api_ship.splice(1,1)},
+    {afterMutation:s=>s.info.fleets[0].api_ship[0]=35}]){
+    const f=fakeSession(options);
+    await assert.rejects(restoreOrganization(f.session,{fleet:1,ships:[1,2,3]}),/not be repeated/);
+    assert.equal(f.inputs.filter(i=>i.mutation).length,1);
+    assert.equal(f.inputs.find(i=>i.mutation).mutation.ship,-1);
+  }
+});
+
+test('in-place replacement rejects cross-fleet drift and an unreadable confirmation card',async()=>{
+  const f=fakeSession({fleets:[[1,2,3,4,7,8],[5,6]],afterMutation:s=>s.info.fleets[1].api_ship.reverse()});
+  await assert.rejects(restoreOrganization(f.session,{fleet:1,ships:[1,2,3,4,7,5]}),/not be repeated/);
+  assert.equal(f.inputs.filter(i=>i.mutation).length,1);
+  const g=fakeSession({observe(r,kind){if(kind==='cardidentity')r.valid=false;}});
+  await assert.rejects(restoreOrganization(g.session,{fleet:1,ships:[1,2,3,35]}),/cardidentity/);
+  assert(!g.inputs.some(i=>i.mutation));
+});
+
+test('random differential restorations retain every initially correct position and exact ship multiplicity',async()=>{
+  let seed=29;
+  const random=n=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%n;};
+  const shuffle=values=>{const a=values.slice();for(let i=a.length-1;i>0;i--){const j=random(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;};
+  for(let run=0;run<600;run++){
+    const pool=shuffle(Array.from({length:18},(_,i)=>i+1)),count=1+random(6),dest=pool.slice(0,count);
+    const f=fakeSession({fleets:[dest,pool.slice(6,12)],mask:[0,0,0,0,1,0,0,0]});
+    const targets=shuffle(pool).slice(0,1+random(6));
+    const fixed=targets.flatMap((id,i)=>dest[i]===id?[[id,i]]:[]);
+    await restoreOrganization(f.session,{fleet:1,ships:targets});
+    assert.deepEqual(f.state.info.fleets[0].api_ship,targets);
+    for(const snapshot of f.snapshots){
+      for(const [id,i] of fixed)assert.equal(snapshot[0][i],id);
+      const ids=snapshot.flat();assert.equal(new Set(ids).size,ids.length);
+      assert(snapshot[0].length>=1&&snapshot[0].length<=6);
+    }
+    const mutations=f.inputs.filter(i=>i.mutation);
+    assert(mutations.length<=12,'bounded progress without clear-and-rebuild loops');
+    assert(!mutations.some(i=>i.mutation.ship===-2&&targets.length!==1));
+  }
+});
+
+test('an empty destination fleet is filled in target order without removing its cross-fleet source replacements',async()=>{
+  const f=fakeSession({fleets:[[1,2,3,4],[]]});
+  await restoreOrganization(f.session,{fleet:2,ships:[3,35,2]});
+  assert.deepEqual(f.state.info.fleets.map(f=>f.api_ship),[[1,4],[3,35,2]]);
+  assert(!f.inputs.some(i=>i.mutation?.ship<0));
+});
+
+module.exports={fakeSession};

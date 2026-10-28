@@ -10,6 +10,7 @@ const clearEquipment = require('../../data/equip_clear_all.json');
 const equipCategories = require('../../data/equip_categories.json');
 const borrowTemplates = require('../../data/equip_borrow.json');
 const {readNumber}=require('./numbers');
+const {inspectPortReturn}=require('./port_return');
 const CX=[760,813,867,920,973], FX=[632,697,761,825,889,953,1017,1081];
 const cyan=([r,g,b])=>g>150&&g-r>50&&b>120;
 // Page digits are grey/cyan in the organize layout but GREEN in the
@@ -146,6 +147,15 @@ class Observer {
       return {valid:results.every(r=>r.valid),results};
     }
     if(kind==='orgtab')return orgtab(im,arg.fleet);
+    if(kind==='orgdetach') {
+      if(!Number.isInteger(arg.fleet)||arg.fleet<1||arg.fleet>4)return {valid:false};
+      const tab=orgtab(im,arg.fleet),filter=filterstate(im),template=clearEscorts.detach;
+      if(!tab.valid||!filter.valid)return {valid:false,reason:'organization picker or destination tab missing'};
+      const tile=im.crop(template.box,...template.size),rgb=Array.from(tile.data).filter((_,i)=>i%4!==3);
+      const error=Math.min(...template.rgb.map(expected=>rgb.reduce((sum,v,i)=>sum+Math.abs(v-expected[i]),0)/rgb.length));
+      if(error>=12)return {valid:false,reason:'escort detach button missing or covered'};
+      return {valid:true,tab,commit:{x:1161,y:678}};
+    }
     if(kind==='pageread')return pageread(im,arg);
     if(kind==='equipmode'||kind==='borrowconfirm') {
       const error=name=>Math.min(...[borrowTemplates[name],...(variants.borrow[name]||[])].map(t=>{
@@ -154,9 +164,18 @@ class Observer {
         return rgb.reduce((n,v,i)=>n+Math.abs(v-t.rgb[i]),0)/rgb.length;
       }));
       if(kind==='equipmode') {
-        const stock=error('stock'),others=error('others'),sort=error('sort');
-        const mode=stock<12&&others-stock>5?'stock':others<12&&stock-others>5?'others':null;
-        return {valid:mode!==null&&sort<12,mode};
+        const stock=error('stock'),others=error('others'),sort=Math.min(error('sort'),error('sortFilteredStock'));
+        const heading=stock<12&&others-stock>5?'stock':others<12&&stock-others>5?'others':null;
+        // Current game layouts can cover the source heading with the cyan
+        // detail toggle. The intact right-hand ストック装備 button independently
+        // identifies the other-ship list; do not infer mode from the plan.
+        const stockToggle=error('sourceToggleStock'),othersToggle=error('sourceToggleOthers');
+        const toggle=stockToggle<12&&othersToggle-stockToggle>5?'stock':
+          othersToggle<12&&stockToggle-othersToggle>5?'others':null;
+        const conflict=heading&&toggle&&heading!==toggle;
+        const mode=conflict?null:heading||toggle;
+        const valid=mode!==null&&sort<12;
+        return {valid,mode,...(!valid?{reason:conflict?'equipment source indicators conflict':mode===null?'equipment source heading and toggle unreadable':'equipment sort heading unreadable'}:{})};
       }
       const border=[[229,194],[965,194],[229,531],[965,531]].every(([x,y])=>{
         const [r,g,b]=im.rgb(x,y);return g>70&&g-r>8&&b-r>5;
@@ -187,6 +206,25 @@ class Observer {
       if(!level.valid||Number(level.value)!==Number(arg.expectedLevel))
         return {valid:false,reason:'level mismatch',level:level.valid?level.value:null};
       return {valid:true,level:level.value};
+    }
+    if(kind==='equipremove') {
+      if(!Number.isInteger(arg.fleet)||arg.fleet<1||arg.fleet>4||!Number.isInteger(arg.slots)||arg.slots<1||arg.slots>5||!Number.isInteger(arg.slot)||arg.slot<0||arg.slot>=arg.slots)
+        return {valid:false,reason:'normal removal slot outside ship'};
+      const tab=await this.observe('equipTabs',im,{fleet:arg.fleet});
+      if(!tab.valid||(await this.observe('screen',im)).mode!=='equipment')return {valid:false,reason:'normal removal base screen missing'};
+      const template=clearEquipment.normalRemove,[w,h]=template.size,expected=template.mask.join('');
+      const cy=[271,321,366,412,457][arg.slot];let best=null;
+      for(let dy=-12;dy<=12;dy++)for(let dx=-3;dx<=3;dx++){
+        const left=1167-Math.floor(w/2)+dx,top=cy-Math.floor(h/2)+dy;let intersection=0,union=0;
+        for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+          const [r,g,b]=im.rgb(left+x,top+y),actual=g>110&&g-r>35&&b-r>35,wanted=expected[y*w+x]==='1';
+          if(actual&&wanted)intersection++;if(actual||wanted)union++;
+        }
+        const score=intersection/Math.max(1,union);
+        if(!best||score>best.score)best={score,x:left+Math.floor(w/2),y:top+Math.floor(h/2)};
+      }
+      if(!best||best.score<.75)return {valid:false,reason:'normal removal icon missing or covered'};
+      return {valid:true,tab,commit:{x:best.x,y:best.y}};
     }
     if(kind==='equipclear') {
       const tab=await this.observe('equipTabs',im,{fleet:arg.fleet});
@@ -220,7 +258,8 @@ class Observer {
     }
     if(kind==='rowicon') {
       const {classify}=require('./equipment_icons');
-      return {valid:classify(im,arg.box)===arg.t3};
+      const actualType=classify(im,arg.box);
+      return {valid:actualType===arg.t3,expectedType:arg.t3,actualType};
     }
     if(kind==='sortread')return sortread(im);
     if(kind==='picker') {
@@ -255,6 +294,11 @@ class Observer {
       if(remodelPts.every(([x,y],i)=>im.rgb(x,y).every((v,k)=>Math.abs(v-remodelRGB[i][k])<=25))){
         const tab=await this.observe('equipTabs',im);
         if(tab.valid)return {valid:true,mode:'equipment',...(arg.includeFleet?{fleet:tab.selected[0]}:{})};
+      }
+      if(arg.allowPortReturn){
+        const button=inspectPortReturn(im);
+        if(button.valid)return {valid:true,mode:'port-return',returnButton:button.returnButton};
+        return {valid:false,mode:'unknown',reason:button.reason,...(button.border?{border:button.border}:{})};
       }
       return {valid:false,mode:'unknown'};
     }

@@ -71,7 +71,7 @@ test('live remodel fleet 2 does not also select the gray fleet 3 label',async()=
 });
 
 test('remodel navigation requires base layout and rejects every stored picker or overlay',async()=>{
-  const observer=new V.Observer(),positive=new Set(['equip/fleet2','equip/clear-hover-3','equip/clear-hover-5','equip/remodel-fail-ushio',
+  const observer=new V.Observer(),positive=new Set(['equip/normal-remove','equip/fleet2','equip/clear-hover-3','equip/clear-hover-5','equip/remodel-fail-ushio',
     'native-tour/clear-3slots','native-tour/clear-5slots','native-tour/level-shoho','native-tour/level-ushio','native-tour/level-yura']);
   for(const file of fs.readdirSync(path.join(__dirname,'../fixtures'),{recursive:true}).filter(f=>f.endsWith('.png'))) {
     const name=file.replace(/\\/g,'/').slice(0,-4),result=await observer.observe('screen',fixture(name));

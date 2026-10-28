@@ -5,7 +5,7 @@ function state(){return {info:{ships:{1:{api_ship_id:1,api_lv:10,api_slot:[-1],a
 function harness(options={}){
  const data=state(),log=[],screens=[],entry=path.join(__dirname,'../../src/application/controller.js'),module={exports:{}};
  let mode='home',disposed=0,observerDisposals=0,observers=0;
- class FakeSession {constructor(host){this.host=host;this.metrics={started:performance.now()};}check(){if(this.stopped)throw Error('Run stopped');}stop(){this.stopped=true;log.push('stop');}async observe(kind){this.check();if(kind==='screen')screens.push(mode);return kind==='screen'?{valid:mode!=='unknown',mode}:{valid:mode==='equipment'};}async input(x){this.check();if(x===107){mode=options.homeFailure?'unknown':'home';log.push('home');}else if(x===477)mode='equipment';}async until(kind,arg,predicate=r=>r.valid){const result=await this.observe(kind);if(!predicate(result))throw Error('Observation timed out: '+kind);return result;}}
+ class FakeSession {constructor(host){this.host=host;this.metrics={started:performance.now()};}check(){if(this.stopped)throw Error('Run stopped');}stop(){this.stopped=true;log.push('stop');}async observe(kind){this.check();if(kind==='screen')screens.push(mode);return kind==='screen'?{valid:mode!=='unknown',mode}:{valid:mode==='equipment'};}async input(x){this.check();if(x===107){mode=options.homeFailure?'unknown':'home';log.push('home');}else if(x===477||x===30)mode=options.sideFailure?'unknown':'equipment';}async until(kind,arg,predicate=r=>r.valid){const result=await this.observe(kind);if(!predicate(result))throw Error('Observation timed out: '+kind);return result;}}
  vm.runInNewContext(fs.readFileSync(entry,'utf8'),{module,performance,require(name){
    if(name==='../execution/session')return {Session:FakeSession};
    if(name==='../execution/organize')return {...require('../../src/execution/organize'),restoreOrganization:async(s,scheme)=>{
@@ -32,17 +32,17 @@ test('unified preview resolves new fleet members and exact equipment IDs without
 test('invalid unified equipment is rejected before organization or host startup',async()=>{
  const f=harness();await assert.rejects(f.c.run('fleet',{fleet:1,ships:[{id:2,slots:[999]}]}));assert.deepEqual(f.log,[]);
 });
-test('equipment navigation owns the verified home transition, with one cleanup and no repeated home read',async()=>{
+test('equipment navigation uses the organization side shortcut and only returns home for cleanup',async()=>{
  const f=harness(),r=await f.c.run('fleet',{fleet:1,ships:[{id:2,slots:[101]}]});
- assert.equal(r.changed,2);assert.deepEqual(f.log,['host','organization','home','equipment','home','stop']);assert.deepEqual(f.stats(),{disposed:1,observerDisposals:0,observers:1});
- assert.deepEqual(f.screens,['organization','home','equipment','equipment','home']);
+ assert.equal(r.changed,2);assert.deepEqual(f.log,['host','organization','equipment','home','stop']);assert.deepEqual(f.stats(),{disposed:1,observerDisposals:0,observers:1});
+ assert.deepEqual(f.screens,['organization','equipment','equipment','home']);
  assert(Number.isFinite(r.metrics.totalMs)&&r.metrics.totalMs>=0);assert(Number.isFinite(r.metrics.startupMs)&&r.metrics.startupMs>=0);assert(r.metrics.totalMs>=r.metrics.startupMs);
  await f.c.run('fleet',{fleet:1,ships:[{id:2,slots:[101]}]});assert.equal(f.stats().observers,1);assert.equal(f.stats().disposed,2);
 });
 test('pure organization still completes and returns home without an equipment stage',async()=>{
  const f=harness();const r=await f.c.run('fleet',{fleet:1,ships:[2]});assert.equal(r.changed,1);assert(!f.log.includes('equipment'));assert.equal(f.stats().disposed,1);
 });
-for(const option of ['homeFailure','drift','stop'])test('unified '+option+' stops before equipment, with one cleanup',async()=>{
+for(const option of ['sideFailure','drift','stop'])test('unified '+option+' stops before equipment, with one cleanup',async()=>{
  const f=harness({[option]:true});await assert.rejects(f.c.run('fleet',{fleet:1,ships:[{id:2,slots:[101]}]}));assert(!f.log.includes('equipment'));assert.deepEqual(f.stats(),{disposed:1,observerDisposals:1,observers:1});
 });
 test('unknown screen never receives a blind home click',async()=>{

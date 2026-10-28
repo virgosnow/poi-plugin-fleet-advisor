@@ -23,22 +23,26 @@ function fleetFixture(){
 // Deterministic game model. It never loads Electron, screenshots a game, or
 // sends traffic. Production Session + executor run unchanged against it.
 function executionFixture(options={},SessionType=Session,execute=restoreEquipment){
-  const f=fleetFixture(),inputs=[];let time=0,selected=1,view='base',fleet=options.initialFleet||1,cancelled=false,filteredHeader=!!options.filteredHeader;
+  const f=fleetFixture(),inputs=[],waits=[];let time=0,readyAt=0,selected=1,view='base',fleet=options.initialFleet||1,cancelled=false,filteredHeader=!!options.filteredHeader;
   const page={valid:true,activePage:1,labels:[1],centers:[739]};
   const host={getStore:()=>f.data,check(){if(cancelled)throw Error('Run stopped');},cancel(){cancelled=true;},
-    async capture(){return {selected,view,fleet,filteredHeader};},
+    async capture(){const shown=time>=readyAt?view:'transition';time+=options.captureCostMs||0;return {selected,view:shown,fleet,filteredHeader};},
     async input(input){inputs.push(input);
+      if(time<readyAt)throw Error('Input before UI ready');
       if(input.x===222&&input.y===175)fleet=1;
       else if(input.x===824&&input.y===168)view='menu';
       else if(input.x===811&&input.y===197&&view==='menu'){filteredHeader=false;view='list';}
       else if(input.x===310)selected=1+(input.y-255)/75;
       else if(input.mutation){const m=input.mutation;assert.equal(m.ship,selected);assert.equal(m.path,'api_req_kaisou/slotset');f.data.info.ships[selected].api_slot[m.j]=m.item;view='base';}
       else if(input.x===750)view=view==='base'?'list':'confirm';
+      readyAt=time+(options.transitionMs||0);
     }};
   const observer={async observe(kind,frame,arg={}){
     if(kind==='batch'){
       const results=[];for(const c of arg.checks)results.push(await this.observe(c.kind,frame,c.arg));
       if(options.finalPageDrift&&arg.checks.some(c=>c.kind==='rowicon'))results[1].page.activePage=2;
+      if(options.finalModeUnreadable&&arg.checks.some(c=>c.kind==='rowicon'))results[0]={valid:false,mode:null,reason:'equipment source heading unreadable'};
+      if(options.finalCategoryDrift&&arg.checks.some(c=>c.kind==='rowicon'))results[1].category=9;
       return {valid:results.every(r=>r.valid),results};
     }
     if(kind==='screen')return {valid:frame.view==='base',mode:'equipment',...(!options.screenWithoutFleet?{fleet:frame.fleet}:{})};
@@ -52,16 +56,25 @@ function executionFixture(options={},SessionType=Session,execute=restoreEquipmen
     throw Error('Unexpected observation: '+kind);
   }};
   const session=new SessionType(host,observer,{now:()=>time});
-  session.wait=async ms=>{session.check(false);time+=ms;session.check(false);};
-  return {...f,session,inputs,clock:()=>time,run:()=>execute(session,f.scheme)};
+  session.wait=async ms=>{session.check(false);waits.push(ms);time+=ms;session.check(false);};
+  return {...f,session,inputs,waits,clock:()=>time,run:()=>execute(session,f.scheme)};
 }
 
-test('six-ship four-slot fitting preserves exact instances with at most 158 captures',async()=>{
+test('delayed UI transitions are recognized before the next input without changing ship order',async()=>{
+  const f=executionFixture({transitionMs:240,captureCostMs:150});await f.run();
+  const mutations=f.inputs.filter(i=>i.mutation).map(i=>i.mutation);
+  assert.equal(mutations.length,24);
+  assert.deepEqual(mutations.map(m=>m.ship),Array.from({length:24},(_,i)=>Math.floor(i/4)+1));
+  for(const ship of f.scheme.ships)assert.deepEqual(f.data.info.ships[ship.id].api_slot,ship.slots);
+});
+
+test('six-ship four-slot fitting preserves exact instances and all checks with 134 captures',async()=>{
   const f=executionFixture(),result=await f.run();
   assert.equal(result.changed,24);
   assert.equal(f.inputs.filter(i=>i.mutation).length,24);
   for(const ship of f.scheme.ships)assert.deepEqual(f.data.info.ships[ship.id].api_slot,ship.slots);
-  assert.equal(f.session.metrics.captures,158);
+  assert.equal(f.session.metrics.captures,134);
+  assert.equal(f.session.metrics.reusedFrames,24);
   assert.equal(f.session.metrics.observationsByKind.batch.calls,72);
   assert(f.session.metrics.checks<600,'full state scans must not run inside every timer/promise check');
 });
@@ -76,7 +89,7 @@ test('navigation fleet metadata still switches an incorrect fleet before fitting
 });
 test('missing navigation fleet metadata retains an independent tab check',async()=>{
   const f=executionFixture({screenWithoutFleet:true});await f.run();
-  assert.equal(f.session.metrics.captures,160);
+  assert.equal(f.session.metrics.captures,136);
   assert(!f.inputs.some(i=>i.x===222&&i.y===175));
 });
 test('a recognized list resets its unreadable mode without spending six seconds timing out',async()=>{
@@ -95,6 +108,22 @@ test('an unreadable reset menu stops after one opening and before all mutations'
 test('a page change at the final row gate stops without submitting equipment',async()=>{
   const f=executionFixture({finalPageDrift:true});await assert.rejects(f.run(),/timed out: batch/);
   assert(!f.inputs.some(i=>i.mutation));
+});
+
+for(const [option,issue] of [['badRow','装备图标不符或不可读'],['finalModeUnreadable','装备来源模式不可读'],
+  ['finalPageDrift','页码不符'],['finalCategoryDrift','分类不符']])test('final equipment gate reports '+option+' without retrying input',async()=>{
+  const f=executionFixture({[option]:true});
+  await assert.rejects(f.run(),error=>{
+    assert.equal(error.code,'OBSERVATION_TIMEOUT');
+    assert(error.diagnostics.issues.includes(issue));
+    assert.equal(error.diagnostics.phase,'equipment-row-selection');
+    assert.deepEqual(error.diagnostics.target,{fleet:1,shipId:1,slot:1,itemId:500,type:1,mode:'stock',category:0,
+      page:1,row:1,listCount:24,totalPages:3,sourceShip:null});
+    assert.match(error.stack,/Observation diagnostics:/);assert.match(error.message,/选装前核对超时/);
+    assert.equal(error.diagnostics.checks.length,3);return true;
+  });
+  assert(!f.inputs.some(i=>i.mutation));
+  assert.equal(f.inputs.filter(i=>i.x===750).length,1,'only open the slot; never select or retry the row');
 });
 test('waits use lightweight checks; a state change before input still prevents input',async()=>{
   let validations=0,inputs=0,changed=false;

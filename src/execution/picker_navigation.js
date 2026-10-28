@@ -24,19 +24,26 @@ function validPage(read,total){
 }
 async function navigatePages(session,initial,target,{total,read,first,forward}){
   if(!Number.isInteger(total)||total<1||!Number.isInteger(target)||target<1||target>total)throw new Error('Invalid picker target page');
-  let current=initial;
+  let current=initial,clicks=0,forwardVerified=false,batching=true;
   const seen=new Set(),budget=Math.ceil(total/5)+5;
   const key=(page,labels)=>page+':'+labels.join(',');
-  for(let clicks=0;;clicks++){
+  for(;;){
     if(!validPage(current,total))throw new Error('Picker page does not match the current filtered inventory');
     if(current.activePage===target)return current;
     if(clicks>=budget)throw new Error('Picker navigation exceeded its filtered-list budget');
     if(seen.has(key(current.activePage,current.labels)))throw new Error('Picker navigation repeated a page window; stopping without retry');
     seen.add(key(current.activePage,current.labels));
     const index=current.labels.indexOf(target),before=current.activePage;
-    let point,expected,kind='number';
+    let point,expected,kind='number',count=1;
     if(index>=0){point=[current.centers[index],current.y??677];expected=target;}
-    else if(target>before){point=forward;expected=Math.min(total,before+5);kind='forward';}
+    else if(target>before){
+      point=forward;kind='forward';
+      // Calibrate this list's right control once before batching: some game
+      // layouts use an endpoint instead of +5. Batch only fixed-position
+      // arrows, never speculative page-number coordinates.
+      if(forwardVerified&&batching)count=Math.min(4,budget-clicks,Math.max(1,Math.floor((target-before)/5)));
+      expected=Math.min(total,before+5*count);
+    }
     else {
       const edge=current.labels[0],edgeCost=edge<before?1+pageCost({activePage:edge,labels:windowAt(edge,total)},target,total):Infinity;
       const resetCost=1+pageCost({activePage:1,labels:windowAt(1,total)},target,total);
@@ -45,13 +52,21 @@ async function navigatePages(session,initial,target,{total,read,first,forward}){
     }
     const expectedLabels=kind==='number'?current.labels:windowAt(expected,total);
     if(!Array.isArray(point)||!point.every(Number.isFinite)||expected===before||seen.has(key(expected,expectedLabels)))throw new Error('No useful picker page move remains');
-    await session.input(...point);
+    for(let i=0;i<count;i++){
+      await session.input(...point);clicks++;
+    }
     const next=await read(r=>r.activePage!==before);
     if(!validPage(next,total))throw new Error('Picker page became inconsistent after navigation');
     // Accept a right-arrow endpoint only when it exposes the target. Never
     // turn an unexpected first/last jump into a long alternating loop.
     const visible=next.labels.includes(target);
-    if(next.activePage!==expected&&!(kind==='forward'&&next.activePage===total&&visible))throw new Error('Unexpected picker page movement; stopping without retry');
+    const shortBatch=kind==='forward'&&count>1&&next.activePage>before&&next.activePage<expected&&
+      (next.activePage-before)%5===0;
+    if(next.activePage!==expected&&!shortBatch&&!(kind==='forward'&&next.activePage===total&&visible))throw new Error('Unexpected picker page movement; stopping without retry');
+    if(kind==='forward'&&next.activePage===before+5)forwardVerified=true;
+    // Correct missed clicks from the observed page, using individually
+    // verified moves for the remainder. Never replay the whole batch.
+    if(shortBatch)batching=false;
     if(seen.has(key(next.activePage,next.labels)))throw new Error('Picker navigation repeated a page window; stopping without retry');
     if(kind!=='first'&&!visible&&Math.abs(target-next.activePage)>=Math.abs(target-before))throw new Error('Picker navigation made no progress toward the target');
     current=next;

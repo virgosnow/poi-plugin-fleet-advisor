@@ -73,14 +73,30 @@ class PoiHost {
     } catch(error) {await this.dispose();throw error;}
   }
   async capture() {
+    const started=this.now();
     this.check();
+    const checkMs=this.now()-started;
     // Capture the visible viewport. An explicit CSS clip is scaled differently
     // by Electron at fractional zoom and can produce tiled captures. Observers
     // normalize the full viewport pixels to the validated 1200×720 CSS area.
-    const result=await this.command('Page.captureScreenshot',{format:'png',fromSurface:true,captureBeyondViewport:false});
+    const commandStarted=this.now();let eventLoopLagMs=0,tickAt=commandStarted;
+    const tick=setInterval(()=>{const now=this.now();eventLoopLagMs=Math.max(eventLoopLagMs,now-tickAt-50);tickAt=now;},50);
+    tick.unref?.();let result;
+    try{
+      const params={format:'png',fromSurface:true,captureBeyondViewport:false};
+      try{result=await this.command('Page.captureScreenshot',{...params,...(this.fastPngUnsupported?{}:{optimizeForSpeed:true})});}
+      catch(error){
+        // Only a protocol parameter rejection permits retrying this read-only
+        // capture. Timeouts/connection failures must not trigger another call.
+        if(this.fastPngUnsupported||!(/invalid parameters|unknown parameter|unrecognized parameter/i.test(error.message)))throw error;
+        this.fastPngUnsupported=true;result=await this.command('Page.captureScreenshot',params);
+      }
+    }finally{eventLoopLagMs=Math.max(eventLoopLagMs,this.now()-tickAt-50);clearInterval(tick);}
+    const commandMs=this.now()-commandStarted;
     this.check(false);
     if(!result||typeof result.data!=='string')throw new Error('Screenshot unavailable');
-    const buffer=Buffer.from(result.data,'base64');
+    const decodeStarted=this.now(),buffer=Buffer.from(result.data,'base64');
+    const base64Ms=this.now()-decodeStarted;
     // The physical capture size is fixed per run (device scale factor); a
     // mid-run change means the environment moved (different-DPI display,
     // system zoom change) and every template coordinate is now suspect.
@@ -90,6 +106,8 @@ class PoiHost {
       this.fail(`Capture size changed mid-run (${this.captureSize.join('x')} -> ${w}x${h})`);
       throw new Error(this.error);
     }
+    this.lastCaptureMetrics={checkMs,commandMs,base64Ms,eventLoopLagMs:Math.max(0,eventLoopLagMs),
+      totalMs:this.now()-started,bytes:buffer.length,width:w,height:h,fastPng:!this.fastPngUnsupported};
     return buffer;
   }
   async input({x,y,kind='click',mutation,actionId}) {

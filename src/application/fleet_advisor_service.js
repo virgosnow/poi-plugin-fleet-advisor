@@ -461,6 +461,7 @@ class FleetAdvisorService {
     }catch(e){
       job.state=job.state==='stopping'?'cancelled':'failed';
       job.error={code:job.state==='cancelled'?'CANCELLED':e.code||'EXECUTION_FAILED',message:e.message};
+      if(e.code==='OBSERVATION_TIMEOUT'&&e.diagnostics)job.error.diagnostics=e.diagnostics;
       job.verified=false;
       try{job.partialApplied=fingerprint(this.getStore())!==beforeFingerprint?true:'unknown';}
       catch(_){job.partialApplied='unknown';}
