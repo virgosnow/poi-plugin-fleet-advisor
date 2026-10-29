@@ -50,7 +50,7 @@ module.exports=(React,{getController})=>{
           h('span',{className:'paa-settings-value'},h('select',{id:'paa-expedition-threads','aria-label':'远征线程',value:value.expeditionThreads,disabled:locked,onChange:e=>change({expeditionThreads:Number(e.target.value)})},
             h('option',{value:2},'2 线程（默认）'),h('option',{value:1},'1 线程')),feedback(React,feedbacks.expeditionThreads)))),
       h('section',{className:'paa-settings-card paa-cache-card','aria-label':'缓存文件'},
-        h('div',{className:'paa-settings-section-head'},h('div',{className:'paa-settings-label'},h('h3',null,'缓存文件'),feedback(React,undefined,{label:'缓存文件',text:'各类缓存共用一个磁盘容量上限，空间不足时自动清理较旧的缓存，不按类别分配容量。\n关闭编成方案缓存后，AI 工具不能保存方案；已有方案仍可查询、清理，并继续计入占用。\n日志由实验功能中的性能调试开关控制，最多保留64份、7天。\n清理全部会删除全部缓存和调试日志，不影响游戏舰队、游戏编成预设和插件设置。'}))),
+        h('div',{className:'paa-settings-section-head'},h('div',{className:'paa-settings-label'},h('h3',null,'缓存文件'),feedback(React,undefined,{label:'缓存文件',text:'各类缓存共用一个磁盘容量上限，完整推荐、底层计算和编成方案缓存保持启用。\n日志由性能调试开关控制，关闭后保留已有日志。\n清理只移除本地缓存与日志，不影响游戏舰队、游戏编成预设或设置。'}))),
         h('div',{className:'paa-cache-list'},
         h('div',{className:'paa-cache-row paa-cache-capacity'},
           h('div',{className:'paa-settings-row paa-resource-control paa-cache-capacity-controls'},h('span',{className:'paa-settings-label'},h('label',{htmlFor:'paa-cache-limit'},'磁盘缓存上限')),
@@ -59,16 +59,14 @@ module.exports=(React,{getController})=>{
           h('div',{className:'paa-cache-usage-cell'},h('span',{className:'paa-cache-usage'},`已用 ${formatBytes(total)}`),feedback(React,feedbacks.read)),
           h('div',{className:'paa-settings-value paa-cache-actions'},h('button',{type:'button','aria-label':'清理全部缓存',disabled:locked||status?.busy||!hasFiles,onClick:()=>clear('all')},'清理全部'),feedback(React,feedbacks['clear:all']))),
         ...[
-          ['results','resultCache','完整推荐'],
-          ['calculations','calculationCache','底层计算'],
-          ['schemes','schemeCache','编成方案'],
-          ['logs',null,'日志']
-        ].map(([kind,key,label])=>{
+          ['results','完整推荐'],
+          ['calculations','底层计算'],
+          ['schemes','编成方案'],
+          ['logs','日志']
+        ].map(([kind,label])=>{
           const row=status?.cache?.[kind];
-          return h('div',{className:'paa-cache-row',key:kind},
-            h('div',{className:'paa-settings-label'},key?h('label',{className:'paa-selection-option'},h('input',{type:'checkbox',checked:value[key],disabled:locked,
-              'aria-label':'启用'+label+'缓存',onChange:e=>change({[key]:e.target.checked})}),h('span',null,label+'缓存')):
-              h('span',{className:'paa-selection-option'},'日志缓存'),feedback(React,row?.writeError?{kind:'error',text:row.writeError}:feedbacks[key])),
+          return h('div',{className:'paa-cache-row paa-cache-entry',key:kind},
+            h('div',{className:'paa-settings-label'},h('span',{className:'paa-cache-name'},label+'缓存'),feedback(React,row?.writeError?{kind:'error',text:row.writeError}:undefined)),
             h('span',{className:'paa-cache-usage','data-tooltip':row?.error||undefined},row?.error?'读取失败':row?`${formatBytes(row.bytes)} · ${kind==='schemes'?row.count+' 个方案':row.files+' 个文件'}`:'—'),
             h('div',{className:'paa-settings-value paa-cache-actions'},h('button',{type:'button',disabled:locked||status?.busy||!row?.files&&!row?.writeError,'aria-label':'清理'+label+'缓存',onClick:()=>clear(kind)},'清理'),feedback(React,feedbacks['clear:'+kind])));
         }))));

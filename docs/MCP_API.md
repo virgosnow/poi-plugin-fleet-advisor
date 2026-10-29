@@ -36,7 +36,7 @@ Call `initialize`, send `notifications/initialized`, then use `tools/list` and `
 - `scheme` / `schemeName`: mutually exclusive. Required-source tools need exactly one. Optional-source evaluations use the observed fleet when both are absent. The candidate scheme's `fleet` is its destination; do not pass a conflicting `fleet` argument.
 - Game presets and the temporary scheme cache are different. Presets contain hull membership, not historical equipment. Unsynchronized/missing presets remain explicitly unknown; the tool never assumes they are empty saved loadouts.
 - Saved schemes are disposable calculation cache (up to 200 records), not permanent configurations. Settings shows their actual disk usage, including recognized staging/corrupt files. Clearing schemes or all caches deletes records on disk and in memory. On `SCHEME_NOT_FOUND`, query names, recreate the scheme or supply inline JSON. Game presets, game state and execution/idempotency records are unaffected.
-- The three categories share one `cacheLimitMiB` pool, without per-category byte quotas. Scheme writes first reclaim older computation files. `CACHE_CAPACITY_EXCEEDED` means the write did not fit (or files could not be reclaimed); the previous scheme remains committed. Reducing the shared limit can also evict schemes that cannot fit. `get_status.schemes.enabled=false` blocks `save_scheme` with `SCHEME_CACHE_DISABLED`; it does not block queries/deletions, inline schemes, recommendation or execution preview. Ask the player to enable the switch or use inline JSON; do not retry a disabled save automatically.
+- The three categories share one `cacheLimitMiB` pool, without per-category byte quotas. Scheme writes first reclaim older computation files. `CACHE_CAPACITY_EXCEEDED` means the write did not fit (or files could not be reclaimed); the previous scheme remains committed. Reducing the shared limit can also evict schemes that cannot fit. Result, calculation and scheme caches are always enabled; legacy disabled preferences migrate to enabled. The player can adjust the shared capacity or clear individual categories. `get_status.schemes.enabled` remains true.
 - Queries/recommendations/evaluations are read-only. The service has no tool to launch a sortie, dispatch an expedition, fight or buy resources.
 
 #### Complete fleet scheme
@@ -282,7 +282,7 @@ Effect: **read-only**.
 
 #### `fleet_advisor_save_scheme`
 
-Cache a full temporary scheme locally, without game changes. Requires settings schemeCache=true (see get_status.schemes.enabled); otherwise SCHEME_CACHE_DISABLED. Shares the disk limit with result/calculation caches; CACHE_CAPACITY_EXCEEDED means no scheme was saved. Cache cleanup may delete it; not permanent storage. Collision requires overwrite=true. Optional snapshot validation adds warnings.
+Cache a full temporary scheme locally, without game changes. Scheme cache is always enabled (get_status.schemes.enabled=true). Shares the disk limit with result/calculation caches; CACHE_CAPACITY_EXCEEDED means no scheme was saved. Cache cleanup may delete it; not permanent storage. Collision requires overwrite=true. Optional snapshot validation adds warnings.
 
 Effect: **temporary local scheme cache write**.
 

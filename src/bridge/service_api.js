@@ -38,7 +38,6 @@ const NEXT_ACTION={PLUGIN_OFFLINE:'启动 poi 并启用舰队参谋',STORE_NOT_R
   SCHEME_NAME_EXISTS:'换名保存或确认后带 overwrite 重新保存',SCHEME_NOT_FOUND:'先用 fleet_advisor_query_schemes 核对名称',
   INVALID_SCHEME:'按合同 schemeSchema 修正方案结构',SCHEME_LIMIT_REACHED:'删除不用的方案后再保存',
   SCHEME_STORE_UNAVAILABLE:'检查插件存储目录是否可写',
-  SCHEME_CACHE_DISABLED:'Ask the user to enable scheme cache in settings, or pass inline scheme JSON without saving.',
   CACHE_CAPACITY_EXCEEDED:'Clear cache or increase the shared disk cache limit, then retry saving. The previous scheme was not changed.',
   SCHEME_STORE_WRITE_FAILED:'稍后重试保存；持续失败时检查配置文件占用与目录权限'};
 const publicError=reason=>{

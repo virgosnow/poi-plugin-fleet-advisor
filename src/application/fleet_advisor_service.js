@@ -37,7 +37,7 @@ class FleetAdvisorService {
     this.controller=controller;this.getStore=getStore;this.now=now;this.storageDir=storageDir;
     this.snapshots=new Snapshots(getStore,now);this.schemes=new Schemes(storageDir,now,
       {getCacheLimit:()=>this.computationSettings.cacheLimitMiB*1024**2});
-    this.computationSettings=computationSettings.normalize();
+    this.computationSettings=computationSettings.normalizePreferences();
     this.performanceLogs=new PerformanceLogs(path.join(storageDir,'recommendation-cache'),
       {getLimitBytes:()=>this.computationSettings.cacheLimitMiB*1024**2});
     this.recommendations=new RecommendationWorker({createWorker:createRecommendationWorker,cacheDir:path.join(storageDir,'recommendation-cache'),
@@ -62,7 +62,7 @@ class FleetAdvisorService {
     try{
       const saved=JSON.parse(fs.readFileSync(this.stateFile,'utf8'));
       this.recommendationFilters=selectionFilters.normalize(saved.recommendationFilters);
-      this.computationSettings=computationSettings.normalize(saved.computationSettings);
+      this.computationSettings=computationSettings.normalizePreferences(saved.computationSettings);
       this.experimentalSettings=experimentalSettings.normalize(saved.experimentalSettings);
       this.mcpEnabled=saved.mcpEnabled===true;
       if(Number.isInteger(saved.httpPort)&&saved.httpPort>=1&&saved.httpPort<=65535)this.httpPort=saved.httpPort;
@@ -115,7 +115,7 @@ class FleetAdvisorService {
     });
   }
   getRecommendationFilters(){return selectionFilters.normalize(this.recommendationFilters);}
-  getComputationSettings(){return computationSettings.normalize(this.computationSettings);}
+  getComputationSettings(){return computationSettings.normalizePreferences(this.computationSettings);}
   getExperimentalSettings(){return experimentalSettings.normalize(this.experimentalSettings);}
   setExperimentalSettings(value){
     if(!this.persistenceReady)throw error('PERSISTENCE_UNAVAILABLE','设置不可写');
@@ -151,14 +151,14 @@ class FleetAdvisorService {
   }
   async setComputationSettings(value){
     if(!this.persistenceReady)throw error('PERSISTENCE_UNAVAILABLE','设置不可写');
-    try{computationSettings.validate(value);}catch(e){throw error('INVALID_QUERY',e.message);}
+    try{computationSettings.validatePreferences(value);}catch(e){throw error('INVALID_QUERY',e.message);}
     const previous=this.computationSettings;
-    this.computationSettings=computationSettings.normalize({...previous,...value});
+    this.computationSettings=computationSettings.normalizePreferences({...previous,...value});
     try{this.persist();}catch(e){this.computationSettings=previous;throw error('PERSISTENCE_UNAVAILABLE','计算资源设置保存失败：'+e.message);}
     this.emit({type:'computationSettings'});
     // Changing concurrency never changes candidate limits or invalidates drafts.
     let maintenance={removed:0,failed:0};
-    if(previous.cacheLimitMiB!==this.computationSettings.cacheLimitMiB||previous.schemeCache!==this.computationSettings.schemeCache)try{
+    if(previous.cacheLimitMiB!==this.computationSettings.cacheLimitMiB)try{
       maintenance=await this.recommendations.maintain(()=>this.maintainDiskCache());
     }catch(e){maintenance={error:e.message};}
     return {...await this.getComputationStatus(),maintenance};
@@ -167,7 +167,7 @@ class FleetAdvisorService {
     if(!this.persistenceReady)throw error('PERSISTENCE_UNAVAILABLE','设置不可写');
     const filters=this.recommendationFilters,computation=this.computationSettings;
     this.recommendationFilters=selectionFilters.normalize();
-    this.computationSettings=computationSettings.normalize();
+    this.computationSettings=computationSettings.normalizePreferences();
     try{this.persist();}catch(e){
       this.recommendationFilters=filters;this.computationSettings=computation;
       throw error('PERSISTENCE_UNAVAILABLE','默认设置保存失败：'+e.message);
@@ -366,7 +366,6 @@ class FleetAdvisorService {
   // Scheme tools use disposable local cache data, so none of these
   // check the execute permission or the busy lock.
   async saveScheme({name,scheme,overwrite,validateWithSnapshotId}) {
-    if(!this.computationSettings.schemeCache)throw error('SCHEME_CACHE_DISABLED','编成方案缓存已关闭，无法保存方案；请在设置中开启，或直接传入 scheme');
     validateSchemeShape(scheme);
     scheme=JSON.parse(JSON.stringify(scheme));
     const warnings=[];
@@ -376,7 +375,6 @@ class FleetAdvisorService {
       catch(e){warnings.push(e.message);}
     }
     return this.recommendations.maintain(async()=>{
-      if(!this.computationSettings.schemeCache)throw error('SCHEME_CACHE_DISABLED','编成方案缓存已关闭，无法保存方案；请在设置中开启，或直接传入 scheme');
       return {...await this.schemes.set({name,scheme,overwrite:overwrite===true}),warnings};
     });
   }

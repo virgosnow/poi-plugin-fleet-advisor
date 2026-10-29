@@ -14,6 +14,8 @@ test('resource defaults migrate old settings and validate explicit budgets',()=>
   for(const cacheLimitMiB of S.LIMITS){S.validate({cacheLimitMiB});assert.equal(S.normalize({cacheLimitMiB}).cacheLimitMiB,cacheLimitMiB);}
   for(const cacheLimitMiB of [32,64])assert.equal(S.normalize({cacheLimitMiB}).cacheLimitMiB,128,'legacy small budgets migrate to the smallest offered size');
   assert.equal(S.normalize({}).schemeCache,true);assert.equal(S.normalize({schemeCache:false}).schemeCache,false);
+  assert.deepEqual(S.normalizePreferences({resultCache:false,calculationCache:false,schemeCache:false}),S.DEFAULTS);
+  for(const key of ['resultCache','calculationCache','schemeCache'])for(const value of [false,true])assert.throws(()=>S.validatePreferences({[key]:value}),/固定启用/);
   assert.throws(()=>S.validate({schemeCache:0}));
   assert.equal(new C.RecommendationCache('unused').maxBytes,256*1024*1024,'each cache may use the full shared budget');
   for(const value of [{threads:9},{threads:-1},{threads:1.2},{expeditionThreads:0},{expeditionThreads:3},{expeditionThreads:1.5},{resultCache:1},{cacheLimitMiB:32},{cacheLimitMiB:64},{cacheLimitMiB:99},{cacheLimitMiB:1024},{unknown:true},null,[]])assert.throws(()=>S.validate(value));
@@ -85,7 +87,7 @@ test('resource preferences persist, roll back failed saves and leave selection s
   const {FleetAdvisorService}=require('../../src/application/fleet_advisor_service'),storageDir=directory(t),store=require('../helpers/workbench_fixture')();
   const options={storageDir,getStore:()=>store,controller:{dispose(){}}},service=new FleetAdvisorService(options);
   try{
-    const filters=service.getRecommendationFilters();await service.setComputationSettings({threads:2,expeditionThreads:1,resultCache:false,cacheLimitMiB:512});
+    const filters=service.getRecommendationFilters();await service.setComputationSettings({threads:2,expeditionThreads:1,cacheLimitMiB:512});
     assert.deepEqual(service.getRecommendationFilters(),filters);
     const reopened=new FleetAdvisorService(options);try{assert.deepEqual(reopened.getComputationSettings(),service.getComputationSettings());}finally{await reopened.dispose();}
     const previous=service.getComputationSettings();service.persist=()=>{throw Error('read only');};
@@ -99,7 +101,7 @@ test('global recommendation reset persists four sections together and preserves 
   try{
     service.mcpEnabled=true;service.httpPort=49999;
     service.setRecommendationFilters({normal:{minLevel:70,maxRoutes:9},expedition:{defaultGoal:'success',minLevel:50,excludeUnremodeled:true}});
-    await service.setComputationSettings({threads:8,expeditionThreads:1,resultCache:false,calculationCache:false,cacheLimitMiB:128});
+    await service.setComputationSettings({threads:8,expeditionThreads:1,cacheLimitMiB:128});
     const beforeFilters=service.getRecommendationFilters(),beforeCompute=service.getComputationSettings(),persist=service.persist.bind(service);
     service.persist=()=>{throw Error('只读');};
     await assert.rejects(service.resetRecommendationSettings(),/默认设置保存失败/);
@@ -152,25 +154,31 @@ test('all-cache cleanup still clears schemes when another cache directory cannot
   }finally{await service.dispose();}
 });
 
-test('scheme cache switch persists and rejects new and queued MCP saves, while reads and deletion remain available',async t=>{
-  const {FleetAdvisorService}=require('../../src/application/fleet_advisor_service'),{invokeTool,publicError}=require('../../src/bridge/service_api');
-  const options={storageDir:directory(t),getStore:require('../helpers/workbench_fixture'),controller:{dispose(){}}},service=new FleetAdvisorService(options);
+test('legacy disabled preferences migrate to enabled and queued scheme writes remain available',async t=>{
+  const {FleetAdvisorService}=require('../../src/application/fleet_advisor_service'),{invokeTool}=require('../../src/bridge/service_api');
+  const storageDir=directory(t),options={storageDir,getStore:require('../helpers/workbench_fixture'),controller:{dispose(){}}};
+  fs.writeFileSync(path.join(storageDir,'mcp-state.json'),JSON.stringify({computationSettings:{threads:2,cacheLimitMiB:128,resultCache:false,calculationCache:false,schemeCache:false}}));
+  const service=new FleetAdvisorService(options);
   try{
+    const settings=service.getComputationSettings();
+    assert.equal(settings.threads,2);assert.equal(settings.cacheLimitMiB,128);
+    for(const key of ['resultCache','calculationCache','schemeCache']){
+      assert.equal(settings[key],true);assert.equal(JSON.parse(fs.readFileSync(service.stateFile)).computationSettings[key],true);
+      for(const value of [false,true])await assert.rejects(service.setComputationSettings({[key]:value}),e=>e.code==='INVALID_QUERY');
+    }
     const args={name:'temporary',scheme:{fleet:1,ships:[1]}};
     await invokeTool(service,'fleet_advisor_save_scheme',args);
     let release,started;const running=new Promise(r=>{started=r;});
     const compute=service.recommendations.maintain(()=>{started();return new Promise(r=>{release=r;});});await running;
     const queued=invokeTool(service,'fleet_advisor_save_scheme',{...args,name:'queued'});
-    const rejected=assert.rejects(queued,e=>e.code==='SCHEME_CACHE_DISABLED'&&publicError(e).nextAction.includes('inline'));
-    const disabling=service.setComputationSettings({schemeCache:false});release();await compute;await rejected;await disabling;
-    assert.equal(service.getStatus().schemes.enabled,false);assert.equal(service.querySchemes().total,1);
-    await assert.rejects(invokeTool(service,'fleet_advisor_save_scheme',{...args,name:'new'}),e=>e.code==='SCHEME_CACHE_DISABLED');
+    const capacity=service.setComputationSettings({cacheLimitMiB:256});release();await compute;await queued;await capacity;
+    assert.equal(service.getStatus().schemes.enabled,true);assert.equal(service.querySchemes().total,2);
     const reopened=new FleetAdvisorService(options);
-    try{assert.equal(reopened.getComputationSettings().schemeCache,false);assert.equal(reopened.querySchemes().total,1);}
+    try{assert.equal(reopened.getComputationSettings().schemeCache,true);assert.equal(reopened.querySchemes().total,2);}
     finally{await reopened.dispose();}
-    await invokeTool(service,'fleet_advisor_delete_scheme',{name:'temporary'});assert.equal(service.querySchemes().total,0);
-    await service.setComputationSettings({schemeCache:true});await invokeTool(service,'fleet_advisor_save_scheme',args);
-    assert.equal(service.querySchemes().total,1);
+    await invokeTool(service,'fleet_advisor_delete_scheme',{name:'temporary'});assert.equal(service.querySchemes().total,1);
+    await service.clearRecommendationCache('schemes');assert.equal(service.querySchemes().total,0);
+    await invokeTool(service,'fleet_advisor_save_scheme',args);assert.equal(service.querySchemes().total,1);
   }finally{await service.dispose();}
 });
 
@@ -228,14 +236,15 @@ test('resource panel saves independent controls, reports failures and clears the
   }
   assert(!find(tree,n=>n.props.className?.includes('paa-resource-control')&&find(n,c=>c.props.className==='paa-settings-help')),'resource controls have no question marks');
   assert(!find(control('计算'),n=>n.props['aria-label']==='启用底层计算缓存'));
-  assert(find(control('缓存文件'),n=>n.props['aria-label']==='启用底层计算缓存'));
+  assert(!find(control('缓存文件'),n=>n.props['aria-label']==='启用底层计算缓存'));
+  assert.equal(control('缓存文件').children[1].children.filter(n=>n.props?.className==='paa-cache-row paa-cache-entry').length,4);
   const capacity=find(tree,n=>n.props.className?.includes('paa-cache-capacity')&&find(n,c=>c.props['aria-label']==='磁盘缓存上限'));
   assert(find(capacity,n=>n.props['aria-label']==='清理全部缓存'));
   assert(find(capacity,n=>n.props.className==='paa-cache-usage'&&n.children.some(c=>typeof c==='string'&&c.startsWith('已用 '))));
   assert(!find(find(control('缓存文件'),n=>n.props.className==='paa-settings-section-head'),n=>n.props['aria-label']==='清理全部缓存'),'cache heading has no detached cleanup action');
   assert(find(capacity,n=>n.children.includes('已用 700 B')));
   assert(find(tree,n=>n.children.includes('400 B · 2 个方案')));
-  assert(control('启用编成方案缓存').props.checked);
+  assert(!control('启用编成方案缓存'));
   assert.equal(control('磁盘缓存上限').props.value,256);
   assert.deepEqual(control('磁盘缓存上限').children.map(n=>[n.props.value,n.children[0]]),[[128,'128 MiB'],[256,'256 MiB（默认）'],[384,'384 MiB'],[512,'512 MiB']]);
   assert(!/逻辑处理器|GiB 内存|最多使用/.test(JSON.stringify(tree)));
@@ -247,9 +256,9 @@ test('resource panel saves independent controls, reports failures and clears the
   assert.deepEqual(patches[1],{expeditionThreads:1});
   await control('磁盘缓存上限').props.onChange({target:{value:'512'}});tree=render(false);
   assert.equal(control('磁盘缓存上限').props.value,512);assert.deepEqual(patches[2],{cacheLimitMiB:512});
-  await control('启用完整推荐缓存').props.onChange({target:{checked:false}});tree=render(false);assert(!control('启用完整推荐缓存').props.checked);assert(control('启用底层计算缓存').props.checked);
-  await control('启用编成方案缓存').props.onChange({target:{checked:false}});tree=render(false);assert(!control('启用编成方案缓存').props.checked);assert.deepEqual(patches.at(-1),{schemeCache:false});
-  assert(!control('清理编成方案缓存').props.disabled,'disabled storage can still be cleared');
+  for(const label of ['完整推荐','底层计算','编成方案','日志'])assert(!control('启用'+label+'缓存'),'cache rows have no switches');
+  assert(!find(control('缓存文件'),n=>n.props.type==='checkbox'));
+  assert(!control('清理编成方案缓存').props.disabled);
   await control('清理完整推荐缓存').props.onClick();tree=render(false);assert.deepEqual(clears,['results']);assert(control('清理完整推荐缓存').props.disabled);assert(!control('清理底层计算缓存').props.disabled);
   await control('清理底层计算缓存').props.onClick();tree=render(false);assert(!control('清理全部缓存').props.disabled,'scheme-only cache is still clearable');
   await control('清理编成方案缓存').props.onClick();tree=render(false);assert(control('清理编成方案缓存').props.disabled);
@@ -263,7 +272,7 @@ test('resource panel saves independent controls, reports failures and clears the
   assert.equal(control('常规图线程').props.value,2);const field=find(tree,n=>n.props.className==='paa-settings-value'&&find(n,c=>c.props['aria-label']==='常规图线程'));
   assert(find(field,n=>n.props.role==='alert'&&n.props['data-tooltip']==='磁盘不可写'));
   assert(!find(control('缓存文件'),n=>n.props.role==='alert'));
-  tree=render(true);assert(control('常规图线程').props.disabled);assert(control('远征线程').props.disabled);assert(control('清理底层计算缓存').props.disabled);assert(control('启用编成方案缓存').props.disabled);
+  tree=render(true);assert(control('常规图线程').props.disabled);assert(control('远征线程').props.disabled);assert(control('清理底层计算缓存').props.disabled);assert(!control('启用编成方案缓存'));
 });
 
 test('expedition worker uses one child by default, no child in serial mode or on paired cache hits',async t=>{

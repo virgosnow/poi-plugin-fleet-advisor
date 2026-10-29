@@ -214,12 +214,8 @@ test('two independent HTTP clients query/recommend/refit and share one mock exec
   const expeditionScheme=exped.recommendations[0].scheme;
   assert((await b.tool('recommend_expedition_equipment',{...args,missionId:1,scheme:expeditionScheme})).income);
   assert((await b.tool('evaluate_expedition',{...args,missionId:1,scheme:expeditionScheme})).greatSuccess);
-  await s.setComputationSettings({schemeCache:false});
-  assert.equal((await a.tool('get_status')).schemes.enabled,false);
-  const disabled=await b.rpc('tools/call',{name:'fleet_advisor_save_scheme',arguments:{name:'协议回归',scheme:fitted.scheme}});
-  assert.equal(disabled.isError,true);assert.equal(disabled.structuredContent.error.code,'SCHEME_CACHE_DISABLED');
-  assert.equal(disabled.structuredContent.error.retryable,false);assert(disabled.structuredContent.error.nextAction.includes('inline'));
-  await s.setComputationSettings({schemeCache:true});
+  await assert.rejects(s.setComputationSettings({schemeCache:false}),e=>e.code==='INVALID_QUERY');
+  assert.equal((await a.tool('get_status')).schemes.enabled,true);
   await a.tool('save_scheme',{name:'协议回归',scheme:fitted.scheme});
   assert.equal((await b.tool('query_schemes',{name:'协议回归'})).total,1);
   assert((await b.tool('evaluate_fleet',{...args,schemeName:'协议回归'})).valid);
