@@ -298,13 +298,17 @@ module.exports=`
 
 .paa-route-trigger .paa-wb-route-name{font-weight:400}.paa-route-trigger .paa-wb-route-path{flex:1}
 .paa-route-list{gap:8px}.paa-route-group{display:flex;flex-direction:column;gap:4px}
-.paa-wb-left .paa-route-group h4{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--paa-muted);margin:2px 0 4px}
-.paa-route-group h4 small{color:var(--paa-accent);font-size:11px}
+.paa .paa-route-phase-toggle{display:flex;align-items:center;gap:7px;min-height:30px;padding:4px 8px;border:0;border-radius:5px;background:transparent;color:var(--paa-muted);font-size:12px;font-weight:500;text-align:left}
+.paa .paa-route-phase-toggle:hover{background:var(--paa-soft);color:var(--paa-text)}
+.paa-route-phase-toggle small{color:var(--paa-accent);font-size:11px;font-weight:400}
+.paa-route-phase-toggle .paa-route-phase-count{margin-left:auto;color:var(--paa-muted)}
+.paa-route-phase-toggle .paa-fleet-chevron{display:inline-block;font-size:17px;line-height:16px}.paa-route-phase-toggle .paa-fleet-chevron[data-open=true]{transform:rotate(90deg)}
+.paa-route-options{display:flex;flex-direction:column;gap:4px}
 .paa .paa-route-option,.paa .paa-route-clear{display:flex;flex-direction:column;gap:3px;text-align:left;padding:7px 10px;min-height:44px;line-height:20px;white-space:normal}
 .paa-route-option-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px}
 .paa-route-option-head small,.paa-route-option-path,.paa-route-clear small{font-size:11px;color:var(--paa-muted);font-weight:400}
 .paa-route-option-path{line-height:17px;overflow-wrap:anywhere}
 .paa-route-panel [aria-selected=true]{border-color:var(--paa-accent);background:var(--paa-soft);color:var(--paa-accent)}
-.paa-route-panel [role=option]:focus-visible{outline:2px solid var(--paa-accent);outline-offset:1px}
+.paa-route-panel [role=option]:focus-visible,.paa-route-phase-toggle:focus-visible{outline:2px solid var(--paa-accent);outline-offset:1px}
 .paa-route-panel .paa-route-clear{flex-direction:row;justify-content:space-between;align-items:center;min-height:32px}
 `;

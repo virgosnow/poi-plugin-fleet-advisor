@@ -99,7 +99,7 @@ test('service injects global preferences into workers and future planning never 
   }finally{await service.dispose();clean(dir);}
 });
 
- test('all curated routes reach the UI and actual search despite legacy route budgets',()=>{
+ test('all curated routes reach the UI and the active-stage search despite legacy route budgets',()=>{
   const P=require('../../src/domain/routes/route_plans'),W=require('../../src/ui/workbench/workbench_model'),R=require('../../src/recommendation/index');
   const store=fixture(),full=P.routeOptions('2-3');assert.equal(full.filter(r=>r.recommend!==false).length,4);
   assert.equal(new Set(full.flatMap(P.optionPaths).map(p=>p.join('>'))).size,16,'all physical journeys remain queryable');
@@ -109,7 +109,7 @@ test('service injects global preferences into workers and future planning never 
   assert.equal(W.mapOverview('2-3').profile.routePaths.length,16);
   for(const [area,maxRoutes]of [['1-4',2],['7-2',2]]){
     const result=R.recommendNormalFleet(store,{area,automaticFilters:{maxRoutes}});
-    assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),P.recommendedOptions(area,'boss',undefined,{maxRoutes}).map(r=>[r.phase,r.key]));
+    assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),P.recommendedOptions(area,'boss',P.currentPhase(area,store),{maxRoutes}).map(r=>[r.phase,r.key]));
     assert(result.routeResults.length>maxRoutes);
   }
   assert.equal(P.recommendedOptions('2-3','boss',undefined,{maxRoutes:20}).length,4);
@@ -139,7 +139,7 @@ test('all stages retain every curated route regardless of progress or old route 
   assert.deepEqual(W.mapOverview('7-3','boss',undefined,{maxRoutes:3},store).options,
     P.recommendedOptions('7-3','boss',undefined,{maxRoutes:3},store));
 });
-test('snapshot worker and UI use the same observed phase allocation',async()=>{
+test('snapshot worker searches only the observed phase while the UI retains the full catalog',async()=>{
   const store=fixture(),P=require('../../src/domain/routes/route_plans');
   store.info.maps={72:{api_gauge_num:2}};
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'paa-filter-'));
@@ -148,9 +148,10 @@ test('snapshot worker and UI use the same observed phase allocation',async()=>{
     const {snapshotId}=service.createSnapshot();
     const result=await service.recommendNormalFleet({snapshotId,area:'7-2',});
     assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),
-      P.recommendedOptions('7-2','boss',undefined,undefined,store).map(r=>[r.phase,r.key]));
+      P.recommendedOptions('7-2','boss','gauge2').map(r=>[r.phase,r.key]));
     assert.equal(result.routeResults.filter(r=>r.phase==='gauge2').length,4);
-    assert.equal(result.routeResults.filter(r=>r.phase==='gauge1').length,3);
+    assert.equal(result.routeResults.filter(r=>r.phase==='gauge1').length,0);
+    assert.deepEqual(require('../../src/ui/workbench/workbench_model').mapOverview('7-2','boss',undefined,undefined,store).profile.targetNodes,['M']);
   }finally{await service.dispose();clean(dir);}
 });
  test('settings align equipment borrowing with the independent expedition goal control',()=>{

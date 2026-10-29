@@ -94,7 +94,10 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       if(dialog&&!dialog.open){dialog.showModal();dialog.querySelector('button')?.focus();}
       return ()=>{if(dialog?.open)dialog.close();if(opener?.isConnected)opener.focus({preventScroll:true});};
     },[mapExpanded,disabled,hidden]);
-    const effectivePhase=phase||retain(routeSelection,paused,[kind,area,target,mapRoute],()=>kind==='normal'?require('../../domain/routes/route_plans').routeOptions(area,target).find(r=>r.key===mapRoute)?.phase:'')||'';
+    const phaseForRoute=(value,current=store)=>phase||(kind==='normal'?
+      require('../../domain/routes/route_plans').routeOptions(area,target).find(row=>row.key===value)?.phase||
+      (target==='boss'?require('../../domain/routes/route_plans').currentPhase(area,current):''):'')||'';
+    const effectivePhase=retain(routeSelection,paused,[kind,area,target,phase,mapRoute,store.info?.maps],()=>phaseForRoute(mapRoute));
     const settings={kind,fleet,area,target,phase:effectivePhase,missionId,revision};
     const filterKey=selectionSettings?JSON.stringify(selectionSettings):null;
     const conditionKey=JSON.stringify([kind,area,target,phase,'clear',style,missionId,goal,filterKey]);
@@ -109,8 +112,6 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       if(!next.some(Boolean))setDraftContext(null);else if(!slots.some(Boolean))setDraftContext(conditionKey);
       setNotice('');setSlots(next);setError('');setReport(inspection||(unchanged?report:{valid:false}));
     };
-    const phaseForRoute=value=>phase||(kind==='normal'?
-      require('../../domain/routes/route_plans').routeOptions(area,target).find(row=>row.key===value)?.phase:'')||'';
     const inspectSelection=value=>{
       if(kind!=='normal'||!prepared.current||!slots.some(Boolean))return;
       const current=getStore(),nextSettings={...settings,phase:phaseForRoute(value)};
@@ -214,30 +215,35 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       observed.current=current;commit(next,inspection);prepared.current=true;setDraftContext(key);setPathIndex(0);setNodeId(null);setNotice('路线与编成已同步');
       setMapRoute(nextRoute);
     };
-    const cacheKey=(requestedGoal=goal)=>JSON.stringify([kind,area,target,phase,purpose,missionId,requestedGoal,fleet,excluded,filterKey,
+    const cacheKey=(requestedGoal=goal,requestedPhase=phase)=>JSON.stringify([kind,area,target,requestedPhase,purpose,missionId,requestedGoal,fleet,excluded,filterKey,
       slots.map((s,i)=>s&&(s.pin||Object.keys(s.keep).length)?[i,s.id,s.pin,Object.keys(s.keep).map(k=>[k,k==='ex'?s.ex:s.slots[k]])]:null)]);
     const complete=async(requestedStyle=style,automatic=false,requestedRoute=mapRoute,requestedGoal=goal)=>{
       if(disabled)return;
       const token=++operation.current,key=JSON.stringify([kind,area,target,phase,'clear',requestedStyle,missionId,requestedGoal,filterKey]);
-      const origin=conditionKey,signature=kind==='expedition'?JSON.stringify([cacheKey('both'),revision]):cacheKey(requestedGoal),initialStore=getStore();
+      const origin=conditionKey,initialStore=getStore(),requestedPhase=phaseForRoute(requestedRoute,initialStore);
+      const signature=kind==='expedition'?JSON.stringify([cacheKey('both'),revision]):cacheKey(requestedGoal,requestedPhase);
       setWorking(true);setActivity(automatic?'route':'complete');setNotice('');setError('');setPopup(null);
       await new Promise(resolve=>setTimeout(resolve,20));
       try{
         const stamp=kind==='expedition'?require('../../application/snapshots').fingerprint(initialStore):null;
-        const cached=routeCache.current;
+        const cached=routeCache.current?.get(signature);
         let found;
         if((automatic||kind==='expedition')&&cached?.key===signature&&cached.info===initialStore.info&&cached.master===initialStore.const&&
           (kind!=='expedition'||cached.stamp===stamp&&cached.found.goals?.[requestedGoal]))found=kind==='expedition'?{...cached.found,...cached.found.goals[requestedGoal]}:cached.found;
         else{
           const service=getController(),{snapshotId}=service.createSnapshot();
           const query={snapshotId,fleet,fixedShipIds:slots.filter(s=>s&&(s.pin||Object.keys(s.keep).length)).map(s=>s.id),excludedShipIds:excluded};
-          found=await (kind==='normal'?service.recommendNormalFleet({...query,area,target,phase:phase||undefined,
+          found=await (kind==='normal'?service.recommendNormalFleet({...query,area,target,phase:requestedPhase||undefined,
             airGoal:'superiority',heldSlots:W.recommendationHolds(slots,{preservePositions:false})}):service.recommendExpeditionFleet({...query,limit:3,missionId,goal:requestedGoal,heldSlots:W.recommendationHolds(slots),
               ...(slots[0]&&(slots[0].pin||Object.keys(slots[0].keep).length)?{fixedFlagshipId:slots[0].id}:{})}));
         }
         if(!alive.current||token!==operation.current||![origin,key].includes(latest.current))return;
         if(getStore().info!==initialStore.info||getStore().const!==initialStore.const||kind==='expedition'&&require('../../application/snapshots').fingerprint(getStore())!==stamp)throw Error('舰队资料已变化，请重新补全');
-        routeCache.current={key:signature,info:initialStore.info,master:initialStore.const,stamp,found};
+        if(!routeCache.current)routeCache.current=new Map();
+        routeCache.current.set(signature,{key:signature,info:initialStore.info,master:initialStore.const,stamp,found});
+        // Keep recent gauges available when switching back, with the same
+        // snapshot, filters and manual constraints. Bound retained full fleets.
+        while(routeCache.current.size>8)routeCache.current.delete(routeCache.current.keys().next().value);
         const options=W.routeChoices(found);setChoices(options);
         const selectedKey=requestedRoute||found.routeResults?.[0]?.key;
         const routeResult=found.routeResults?.find(r=>r.key===selectedKey);
@@ -402,8 +408,9 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         // Clearing the preview is not a request to assemble a default route.
         if(!value){setMapRoute('');setPathIndex(0);setNodeId(null);setNotice('');setError('');return;}
 
+        const changedPhase=phaseForRoute(value)!==effectivePhase;
         inspectSelection(value);setMapRoute(value);setNodeId(null);
-        if(prepared.current&&(draftContext===conditionKey||!slots.some(Boolean)))return complete(style,true,value);
+        if(changedPhase||prepared.current&&(draftContext===conditionKey||!slots.some(Boolean)))return complete(style,true,value);
       }}):null;
     const contextControls=h('div',{className:'paa-wb-context-controls'},
         kind==='normal'?h(AreaPicker,{maps:catalog,mapMasters:store.const.$maps,value:area,onChange:changeArea,disabled,hidden}):

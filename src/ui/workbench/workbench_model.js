@@ -166,7 +166,8 @@ function badges(report){
   return {air:airText,airBad:assessment?.status==='belowAtStart',los:los?.confirmedMeets?'索敌达标':'索敌待确认'};
 }
 function mapOverview(area,target='boss',phase,settings,store){
-  const profile=require('../../domain/routes/sortie_profile').previewForMap(area,{target,phase:phase||undefined});
+  const activePhase=phase||(target==='boss'?require('../../domain/routes/route_plans').currentPhase(area,store):undefined);
+  const profile=require('../../domain/routes/sortie_profile').previewForMap(area,{target,phase:activePhase});
   const options=require('../../domain/routes/route_plans').recommendedOptions(area,target,phase,settings,store);
   return {profile,options};
 }

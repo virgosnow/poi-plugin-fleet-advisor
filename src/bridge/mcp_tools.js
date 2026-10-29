@@ -22,7 +22,7 @@ const heldSlots={type:'array',maxItems:6,description:'Position-indexed draft wit
 },['id'])]}};
 const mapArgs={area:str('Normal map ID, e.g. 5-2.',{pattern:'^[1-7]-[1-6]$'}),
   target:str('Destination node or boss (default). 1-6 requires target=N.',{pattern:'^(boss|[A-Z][0-9]?)$'}),
-  phase:enumOf(['gauge1','gauge2','gauge3','gimmick'],'Optional gauge phase. Route recommendations otherwise include stage quotas; single-map evaluation uses observed stage, or phase 1 planning if unknown.'),
+    phase:enumOf(['gauge1','gauge2','gauge3','gimmick'],'Optional gauge phase. Evaluation and fleet recommendations default to the observed stage, or phase 1 planning if unknown. Set phase to plan another stage; fleet recommendations search only that stage. An explicit routeKey can identify its own stage.'),
   routeKey:str('Exact query_normal_map.routes[].key, including merged branches and speed strategies.')};
 const constraints={fleet,fixedShipIds:ids,excludedShipIds:{type:'array',uniqueItems:true,items:int(1)},heldSlots};
 const airGoal=enumOf(['ignore','superiority','supremacy'],'MCP default superiority. Conservative aircraft-loss estimates are not combat guarantees.');

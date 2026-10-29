@@ -416,7 +416,7 @@ Effect: **read-only**.
 | `snapshotId` | uuid | yes | Immutable snapshot ID from create_snapshot. Sliding TTL: 15 minutes. |
 | `area` | string | yes | Normal map ID, e.g. 5-2. pattern=^[1-7]-[1-6]$ |
 | `target` | string | no | Destination node or boss (default). 1-6 requires target=N. pattern=^(boss\|[A-Z][0-9]?)$ |
-| `phase` | `gauge1` / `gauge2` / `gauge3` / `gimmick` | no | Optional gauge phase. Route recommendations otherwise include stage quotas; single-map evaluation uses observed stage, or phase 1 planning if unknown. |
+| `phase` | `gauge1` / `gauge2` / `gauge3` / `gimmick` | no | Optional gauge phase. Evaluation and fleet recommendations default to the observed stage, or phase 1 planning if unknown. Set phase to plan another stage; fleet recommendations search only that stage. An explicit routeKey can identify its own stage. |
 | `routeKey` | string | no | Exact query_normal_map.routes[].key, including merged branches and speed strategies. |
 | `nodeId` | string | no | profile.mapPreview.nodes[].id. |
 
@@ -431,7 +431,7 @@ Effect: **read-only**.
 | `snapshotId` | uuid | yes | Immutable snapshot ID from create_snapshot. Sliding TTL: 15 minutes. |
 | `area` | string | yes | Normal map ID, e.g. 5-2. pattern=^[1-7]-[1-6]$ |
 | `target` | string | no | Destination node or boss (default). 1-6 requires target=N. pattern=^(boss\|[A-Z][0-9]?)$ |
-| `phase` | `gauge1` / `gauge2` / `gauge3` / `gimmick` | no | Optional gauge phase. Route recommendations otherwise include stage quotas; single-map evaluation uses observed stage, or phase 1 planning if unknown. |
+| `phase` | `gauge1` / `gauge2` / `gauge3` / `gimmick` | no | Optional gauge phase. Evaluation and fleet recommendations default to the observed stage, or phase 1 planning if unknown. Set phase to plan another stage; fleet recommendations search only that stage. An explicit routeKey can identify its own stage. |
 | `routeKey` | string | no | Exact query_normal_map.routes[].key, including merged branches and speed strategies. |
 | `fleet` | integer | no | Observed/destination fleet number, 1-based. minimum=1; maximum=4 |
 | `scheme` | object | no | — |
@@ -448,7 +448,7 @@ Effect: **read-only**.
 | `snapshotId` | uuid | yes | Immutable snapshot ID from create_snapshot. Sliding TTL: 15 minutes. |
 | `area` | string | yes | Normal map ID, e.g. 5-2. pattern=^[1-7]-[1-6]$ |
 | `target` | string | no | Destination node or boss (default). 1-6 requires target=N. pattern=^(boss\|[A-Z][0-9]?)$ |
-| `phase` | `gauge1` / `gauge2` / `gauge3` / `gimmick` | no | Optional gauge phase. Route recommendations otherwise include stage quotas; single-map evaluation uses observed stage, or phase 1 planning if unknown. |
+| `phase` | `gauge1` / `gauge2` / `gauge3` / `gimmick` | no | Optional gauge phase. Evaluation and fleet recommendations default to the observed stage, or phase 1 planning if unknown. Set phase to plan another stage; fleet recommendations search only that stage. An explicit routeKey can identify its own stage. |
 | `routeKey` | string | no | Exact query_normal_map.routes[].key, including merged branches and speed strategies. |
 | `fleet` | integer | no | Observed/destination fleet number, 1-based. minimum=1; maximum=4 |
 | `fixedShipIds` | array<integer> | no | Owned ship INSTANCE IDs, not catalog IDs. maxItems=6 |
@@ -471,7 +471,7 @@ Exactly one of `scheme` / `schemeName` is required.
 | `schemeName` | string | no | Exact local scheme name. minLength=1; maxLength=64 |
 | `area` | string | yes | Normal map ID, e.g. 5-2. pattern=^[1-7]-[1-6]$ |
 | `target` | string | no | Destination node or boss (default). 1-6 requires target=N. pattern=^(boss\|[A-Z][0-9]?)$ |
-| `phase` | `gauge1` / `gauge2` / `gauge3` / `gimmick` | no | Optional gauge phase. Route recommendations otherwise include stage quotas; single-map evaluation uses observed stage, or phase 1 planning if unknown. |
+| `phase` | `gauge1` / `gauge2` / `gauge3` / `gimmick` | no | Optional gauge phase. Evaluation and fleet recommendations default to the observed stage, or phase 1 planning if unknown. Set phase to plan another stage; fleet recommendations search only that stage. An explicit routeKey can identify its own stage. |
 | `routeKey` | string | no | Exact query_normal_map.routes[].key, including merged branches and speed strategies. |
 | `heldSlots` | array<null or object> | no | Position-indexed draft with null holes. pin or keep retains the hull and, by default, its position. Set holdPosition=false to allow fleet sorting. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty. maxItems=6 |
 

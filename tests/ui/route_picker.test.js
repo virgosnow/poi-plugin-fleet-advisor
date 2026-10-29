@@ -28,3 +28,21 @@ test('route popup stays anchored and Escape never changes the fleet or selected 
   assert.equal(ui.all(n=>n.props.role==='group').length,1);assert.equal(ui.all(n=>n.type==='h4').length,0);
   anchor.props.onKeyDown({key:'Escape',preventDefault(){},stopPropagation(){}});ui.render();assert.deepEqual(calls,[]);assert(!ui.find(n=>n.props.role==='dialog'));
 });
+
+test('other gauges stay folded and cannot be selected until explicitly expanded; expansion does not search',()=>{
+  const options=require('../../src/domain/routes/route_plans').recommendedOptions('5-6'),calls=[];
+  const props={area:'5-6',options,value:'',currentPhase:'gauge3',onChange:key=>calls.push(key)},ui=harness(props);
+  const toggles=()=>ui.all(n=>n.props.className==='paa-route-phase-toggle');
+  const bodies=()=>ui.all(n=>n.props.className==='paa-collapse');
+  ui.open();assert.equal(toggles().length,3);
+  assert.deepEqual(toggles().map(n=>n.props['aria-expanded']),[true,false,false]);
+  assert.deepEqual(bodies().map(n=>n.props['aria-hidden']),[false,true,true]);
+  const first=options.find(o=>o.phase==='gauge1');
+  const option=()=>ui.find(n=>n.props.key===first.key);
+  assert.equal(option().props.tabIndex,-1);option().props.onClick();assert.deepEqual(calls,[]);
+  toggles()[1].props.onClick();ui.render();assert.deepEqual(calls,[]);
+  assert.equal(option().props.tabIndex,0);option().props.onClick();ui.render();assert.deepEqual(calls,[first.key]);
+  props.value=first.key;ui.open();assert.equal(bodies()[1].props['aria-hidden'],false,'selected phase stays visible when reopening');
+  props.area='7-3';props.options=require('../../src/domain/routes/route_plans').recommendedOptions('7-3');props.value='';props.currentPhase='gauge2';ui.render();
+  assert.deepEqual(toggles().map(n=>n.props['aria-expanded']),[true,false],'expansion from another map cannot leak');
+});

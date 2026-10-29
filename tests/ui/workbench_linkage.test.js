@@ -179,6 +179,43 @@ test('route selection uses a grouped anchored component and keeps names separate
   assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
 });
 
+test('multi-stage completion searches only the selected gauge and caches each gauge independently',async()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans'),queries=[];
+  h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};
+  h.set('slots',[{...W.entry(h.store,2),pin:true},null,null,null,null,null]);
+  h.service.recommendNormalFleet=args=>{
+    queries.push(args);const options=plans.recommendedOptions(args.area,'boss',args.phase);
+    return {phase:args.phase,routeResults:options.map((o,i)=>({...o,status:'available',chance:{probability:1},recommendationIndex:i})),
+      recommendations:options.map(o=>({routeKey:o.key,scheme:W.scheme([W.entry(h.store,2)],1)}))};
+  };
+  const select=async key=>{await h.control(h.render(),'参考路线').props.onChange({target:{value:key}});h.render();assert.equal(h.get('error'),'');};
+  const first=plans.recommendedOptions('5-6','boss','gauge1'),third=plans.recommendedOptions('5-6','boss','gauge3');
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert.deepEqual(queries.map(q=>q.phase),['gauge3']);
+  assert.equal(h.get('choices').length,third.length);
+  assert.equal(h.control(h.render(),'参考路线').props.options.length,plans.recommendedOptions('5-6').length,'all phase catalogs remain browseable');
+  await select(first[0].key);assert.equal(h.get('choices').length,first.length);
+  await select(first[1].key);await select(third[0].key);
+  assert.deepEqual(queries.map(q=>q.phase),['gauge3','gauge1'],'switching back reuses that gauge only');
+  assert(queries.every(q=>q.routeKey===undefined),'selection calculates all routes in the chosen gauge');
+  assert(queries.every(q=>q.fixedShipIds.includes(2)));assert(h.get('slots')[0].pin);
+  await select('');assert.equal(queries.length,2,'clearing a route does not calculate');
+  h.store.info={...h.store.info};await select(third[1].key);
+  assert.deepEqual(queries.map(q=>q.phase),['gauge3','gauge1','gauge3'],'new snapshots invalidate phase results');
+});
+
+test('selecting another gauge before completion calculates it, while late results cannot refill a changed map',async()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans');
+  h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};
+  const first=plans.recommendedOptions('5-6','boss','gauge1')[0];let finish,query;
+  h.service.recommendNormalFleet=args=>{query=args;return new Promise(resolve=>{finish=resolve;});};
+  const pending=h.control(h.render(),'参考路线').props.onChange({target:{value:first.key}});
+  h.render();await new Promise(resolve=>setTimeout(resolve,30));assert.equal(query.phase,'gauge1');
+  h.find(h.render(),n=>n.type?.name==='AreaPicker').props.onChange('1-1');h.render();
+  finish({recommendations:[{routeKey:first.key,scheme:W.scheme([W.entry(h.store,2)],1)}]});await pending;
+  assert.equal(h.get('area'),'1-1');assert(h.get('slots').every(s=>!s));assert.equal(h.get('mapRoute'),'');
+});
+
 test('adding ships before normal-map completion retains worn gear and skips fitting and route inspection',async()=>{
   const h=harness();let previews=0;
   const preview=h.service.preview;h.service.preview=(...args)=>{previews++;return preview(...args);};
@@ -1294,16 +1331,18 @@ test('pending or stale fleet inspections do not preview full styles until the fl
   assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
 });
 
-test('phase changes refresh immediately while cleared or genuinely stale contexts never reuse old probabilities',()=>{
+test('phase changes refresh immediately while cleared or genuinely stale contexts never reuse old probabilities',async()=>{
   const h=harness(),slots=[W.entry(h.store,2)],base={kind:'normal',fleet:1,area:'7-3',target:'boss',phase:'gauge1',missionId:1,revision:0};
   const options=require('../../src/domain/routes/route_plans').routeOptions('7-3','boss'),first=options.find(o=>o.phase==='gauge1'),second=options.find(o=>o.phase==='gauge2');
   assert(first&&second);h.set('area','7-3');h.set('slots',slots);h.set('mapRoute',first.key);
   h.set('choices',[{key:first.key}]);
   const original=W.inspect(h.service,h.store,slots,base);assert(original.valid);h.set('report',original);
-  h.control(h.render(),'参考路线').props.onChange({target:{value:second.key}});
+  h.service.recommendNormalFleet=args=>{h.calls.fleet++;assert.equal(args.phase,'gauge2');return {
+    recommendations:[{routeKey:second.key,scheme:W.scheme(slots,1)}]};};
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:second.key}});
   const report=h.get('report');assert(report.valid);assert.notEqual(report,original);
   assert.equal(JSON.parse(report.settingsKey).phase,'gauge2');assert.equal(report.route.phase,'gauge2');
-  assert.equal(h.calls.fleet,0,'manual phase selection inspects the existing draft without searching new hulls');
+  assert.equal(h.calls.fleet,1,'selecting another phase requests that phase before committing the inspected draft');
 
   h.set('area','1-1');h.set('mapRoute',W.mapOverview('1-1').options[0].key);
   const settings={...base,area:'1-1',phase:''},fresh=W.inspect(h.service,h.store,slots,settings);

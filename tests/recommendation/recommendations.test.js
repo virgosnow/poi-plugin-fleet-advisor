@@ -37,6 +37,28 @@ function armSurfaceDestroyers(store){
   }
 }
 
+test('normal search defaults to the observed gauge in serial and parallel drivers without dropping its routes',async()=>{
+  const plans=require('../../src/domain/routes/route_plans');
+  const {recommendNormalFleetParallel}=require('../../src/recommendation/normal');
+  for(const [area,gauge] of [['5-6',3],['7-2',2],['7-3',2],['7-5',3]]){
+    const store=fixture();store.info.maps={[Number(area.replace('-',''))]:{api_gauge_num:gauge}};
+    const args={area,fixedShipIds:[1,2,3,4,5,6]},phase=`gauge${gauge}`,before=JSON.stringify(store),batches=[];
+    const result=await recommendNormalFleetParallel(store,args,(batch,fallback)=>{batches.push(batch.args?.phase);return fallback();});
+    const explicit=recommendNormalFleet(store,{...args,phase});
+    assert.deepEqual(result,explicit,area+' must retain the explicit-stage search quality');
+    assert.equal(result.phase,phase);assert(result.routeResults.length>0);
+    assert.deepEqual(result.routeResults.map(r=>r.key).sort(),plans.recommendedOptions(area,'boss',phase).map(o=>o.key).sort());
+    assert(batches.length>0);assert(batches.every(p=>p===phase),area+' must not dispatch work for other gauges');
+    assert.equal(JSON.stringify(store),before);
+  }
+  const store=fixture(),args={area:'7-3',fixedShipIds:[1,2,3,4,5,6]};
+  assert.equal(recommendNormalFleet(store,args).phase,'gauge1','unknown progress plans phase 1');
+  store.info.maps={73:{api_gauge_num:2}};
+  const first=plans.recommendedOptions('7-3','boss','gauge1')[0];
+  const selected=recommendNormalFleet(store,{...args,routeKey:first.key});
+  assert.equal(selected.phase,'gauge1');assert.deepEqual(selected.routeResults.map(r=>r.key),[first.key]);
+});
+
 test('1-1 constrains automatic seed sizes while retaining manual ships, positions and equipment',()=>{
   const {PerformanceTrace}=require('../../src/shared/performance_trace'),store=fixture();armSurfaceDestroyers(store);
   const trace=new PerformanceTrace({level:'stages'});

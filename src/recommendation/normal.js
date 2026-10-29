@@ -335,20 +335,10 @@ function* normalFleetSteps(store,args){
     if(!selected)throw error('INVALID_QUERY','Unknown routeKey for this area, target and phase');
     return yield* searchNormalFleet(store,{...args,phase:selected.phase||args.phase},[selected]);
   }
-  const options=!args.phase?routePlans.recommendedOptions(args.area,args.target||'boss',undefined,args.automaticFilters,store):[];
-  const phases=[...new Set(options.map(o=>o.phase).filter(Boolean))];
-  if(!phases.length)return yield* searchNormalFleet(store,args);
-  const results=[],recommendations=[],routeResults=[];
-  for(const phase of phases)results.push(yield* searchNormalFleet(store,{...args,phase},options.filter(o=>o.phase===phase)));
-  for(const option of options){
-    const result=results.find(r=>r.phase===option.phase),found=result.routeResults.find(r=>r.key===option.key);
-    const row=found.recommendationIndex===null?null:result.recommendations[found.recommendationIndex];
-    routeResults.push({...found,...option,recommendationIndex:row?recommendations.length:null});
-    if(row)recommendations.push({...row,rank:recommendations.length+1});
-  }
-  return {...results[0],phase:null,routeResults,recommendations,
-    airGoalSummary:{...results[0].airGoalSummary,confirmedCount:recommendations.filter(r=>r.scores.airGoalTier===3).length,returnedCount:recommendations.length},
-    search:{kind:'boundedHeuristic',phases:results.map(r=>({phase:r.phase,...r.search}))}};
+  // The complete catalog is cheap to browse; fleet/equipment search is scoped
+  // to one gauge. Explicit phases and route keys still allow planning ahead.
+  const phase=args.phase||((args.target||'boss')==='boss'?routePlans.currentPhase(args.area,store):undefined);
+  return yield* searchNormalFleet(store,{...args,phase});
 }
 // Both drivers consume the same ordered search steps. Only independent batches
 // cross threads; shortlist selection and dependent refinements stay together.
