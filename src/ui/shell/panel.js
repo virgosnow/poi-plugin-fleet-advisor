@@ -204,7 +204,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
       }}),
       h(ComputationSettings,{key:resourceEpoch,active:mode==='settings',disabled:running||resettingSettings,onBusyChange:setResourceBusy}),
       experimentalControls({value:experimentalSettings,disabled:running||resettingSettings,
-        statuses:{automaticOperations:settingsFeedbacks['experimental.automaticOperations'],operationWaitMs:settingsFeedbacks['experimental.operationWaitMs'],recognitionMode:settingsFeedbacks['experimental.recognitionMode']},onChange:value=>{
+        statuses:{automaticOperations:settingsFeedbacks['experimental.automaticOperations'],operationWaitMs:settingsFeedbacks['experimental.operationWaitMs']},onChange:value=>{
         const target='experimental.'+Object.keys(value)[0];
         try{setExperimentalSettings(getController().setExperimentalSettings(value));reportSetting(target,'success','已保存');}
         catch(e){reportSetting(target,'error',e.message);}

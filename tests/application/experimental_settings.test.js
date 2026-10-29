@@ -188,15 +188,14 @@ test('recognition mode persists independently and both panel and MCP executions 
   assert.equal(settings.normalize({recognitionMode:'unknown'}).recognitionMode,'controls');
 });
 
-test('recognition selector offers image and controls, with guarded edits and feedback beside the selector',()=>{
+test('developer recognition override is hidden while automatic operation and extra wait controls remain visible',()=>{
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})};
   const Controls=require('../../src/ui/settings/experimental_settings')(React),find=(n,p)=>n&&typeof n==='object'&&(p(n)?n:n.children?.map(c=>find(c,p)).find(Boolean));
-  for(const automaticOperations of [true,false])for(const disabled of [true,false]){
-    const patches=[],tree=Controls({value:settings.normalize({automaticOperations,recognitionMode:'controls'}),disabled,onChange:p=>patches.push(p),statuses:{recognitionMode:{kind:'success',text:'已保存'}}});
-    const row=find(tree,n=>n.props.className==='paa-settings-row paa-automatic-mode'),select=find(row,n=>n.props.id==='paa-operation-recognition');
-    assert.equal(select.props.value,'controls');assert.equal(select.props.disabled,disabled||!automaticOperations);
-    assert.deepEqual(select.children.map(c=>c.props.value),['controls','image']);assert(select.children.every(c=>!c.props.disabled));
-    select.props.onChange({target:{value:'image'}});assert.deepEqual(patches,disabled||!automaticOperations?[]:[{recognitionMode:'image'}]);
-    assert(find(row,n=>n.props['data-state']==='success'));assert(!find(row,n=>n.props.className==='paa-settings-help'));
+  for(const recognitionMode of ['controls','image'])for(const automaticOperations of [true,false])for(const disabled of [true,false]){
+    const patches=[],tree=Controls({value:settings.normalize({automaticOperations,recognitionMode}),disabled,onChange:p=>patches.push(p),statuses:{recognitionMode:{kind:'success',text:'已保存'}}});
+    assert(!find(tree,n=>n.props.id==='paa-operation-recognition'||n.props.className==='paa-settings-row paa-automatic-mode'));
+    assert(!JSON.stringify(tree).includes('识别方式'));assert(!find(tree,n=>n.type==='select'));
+    assert(find(tree,n=>n.props['aria-label']==='自动操作开关'));assert(find(tree,n=>n.props.id==='paa-operation-wait'));
+    assert.deepEqual(patches,[],'rendering must not reset the developer override');
   }
 });
