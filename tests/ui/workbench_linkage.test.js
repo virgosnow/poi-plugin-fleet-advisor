@@ -179,6 +179,19 @@ test('route selection uses a grouped anchored component and keeps names separate
   assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
 });
 
+test('route choices retain each recommended fleet name and clear it with the fleet',()=>{
+  const h=harness(),P=require('../../src/domain/routes/route_plans'),types=[16,3,6,2,2,2];
+  for(let i=0;i<types.length;i++)h.store.const.$ships[i+1].api_stype=types[i];
+  const slots=types.map((_,i)=>W.entry(h.store,i+1)),settings={kind:'normal',fleet:1,area:'2-2',target:'boss',phase:'',revision:0};
+  const report=W.inspect(h.service,h.store,slots,settings),base=P.recommendedOptions('2-2').find(o=>o.id==='2-2-04');
+  const saved=P.fleetPathOption(report.route,base);assert.equal(saved.name,'下路水母流');
+  h.set('area','2-2');h.set('slots',slots);h.set('report',report);h.set('choices',[saved]);h.set('mapRoute','');
+  const choice=()=>h.find(h.render(),n=>n.type?.name==='RoutePicker').props.options.find(o=>o.key===base.key);
+  assert.equal(choice().name,'下路水母流','an unselected saved recommendation must keep its fixed-path name');
+  h.set('mapRoute',base.key);assert.equal(choice().name,'下路水母流');
+  h.set('slots',[]);h.set('mapRoute','');assert.equal(choice().name,base.name,'empty drafts do not retain a previous fleet verdict');
+});
+
 test('multi-stage completion searches only the selected gauge and caches each gauge independently',async()=>{
   const h=harness(),plans=require('../../src/domain/routes/route_plans'),queries=[];
   h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};

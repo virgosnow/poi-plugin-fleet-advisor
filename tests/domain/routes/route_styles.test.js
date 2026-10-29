@@ -175,7 +175,7 @@ test('merged routes across the catalog share exact visible branches, captions an
       assert.deepEqual(caption.displayPaths,expected,`${area} ${option.key}`);
       assert.deepEqual(profile.highlightPaths,expected,`${area}: map and caption share the same branch set`);
       assert.equal(caption.displayPathLabel,caption.pathLabel);
-      assert.equal(caption.label,option.name+`（${caption.pathLabel}）`);
+      assert.equal(caption.label,caption.name+`（${caption.pathLabel}）`);
       if(expected.length)assert.deepEqual(expandRouteCaption(caption.pathLabel),expected.map(nodes=>nodes.join('>')).sort());
       else{blocked++;assert.equal(caption.pathLabel,'无可达分支');}
       if(expected.length<all.length)pruned++;

@@ -5,6 +5,8 @@
 // Source notes do not depend on a candidate fleet. Bound by text, not rule
 // identity, so source edits and live reloads cannot reuse a stale description.
 const noteCache=new Map();
+const isPlayerChoice=a=>a?.status==='unknown'&&!a.tentative&&
+  /能動分岐|能动分岐/.test(a.reason||a.rule||'');
 function referenceNote(note=''){
   if(noteCache.has(note))return noteCache.get(note);
   let cleaned=note;
@@ -35,4 +37,4 @@ function referenceWeights(choices,shipCount){
   else return {weights,referencePathProbability:.5};
   return {weights};
 }
-module.exports={effectiveRule,referenceWeights};
+module.exports={effectiveRule,referenceWeights,isPlayerChoice};

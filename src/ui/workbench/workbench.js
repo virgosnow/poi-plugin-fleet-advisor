@@ -298,7 +298,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const routeOptions=kind==='normal'?overview.options.map(o=>{
         const saved=choices.find(c=>c.key===o.key);
         const option={...saved,...o,displayPaths:undefined,displayPathLabel:undefined,
-          ...(rows.length&&saved?.displayPaths?{label:saved.label,pathLabel:saved.pathLabel,displayPaths:saved.displayPaths,displayPathLabel:saved.displayPathLabel||saved.pathLabel}:{})};
+          ...(rows.length&&saved?.displayPaths?{name:saved.name||o.name,presetName:o.name,label:saved.label,pathLabel:saved.pathLabel,displayPaths:saved.displayPaths,displayPathLabel:saved.displayPathLabel||saved.pathLabel}:{})};
         return o.key===mapRoute&&!dirty&&report.valid&&report.route?.area===area?
           require('../../domain/routes/route_plans').fleetPathOption(report.route,option):option;
       }):[];

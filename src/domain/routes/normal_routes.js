@@ -8,7 +8,7 @@ const {projectFleet,evaluateProjectedCandidate}=require('../fleet/fleet_metrics'
 const {createFleetPlanner}=require('../fleet/fleet_plan');
 const {losPredicate}=require('../fleet/line_of_sight');
 const {snapshotMemo}=require('../fleet/equipment_planner');
-const {effectiveRule,referenceWeights}=require('./route_policy');
+const {effectiveRule,referenceWeights,isPlayerChoice}=require('./route_policy');
 const ROOT=path.join(__dirname,'../../../data/normal_routes');
 const maps=new Map(fs.readdirSync(ROOT).filter(name=>/^\d-\d\.json$/.test(name))
   .map(name=>{const map=require(path.join(ROOT,name));return [map.area,map];}));
@@ -354,6 +354,43 @@ function graphChance(map,node,targets,ships,metrics,seen=new Set(),phase=null,as
   }
   return [Math.min(...children.map(child=>child[0])),Math.max(...children.map(child=>child[1])),tentativePoints];
 }
+// Boss odds include random detours outside the selected paths, but a manual
+// branch follows the selected exit. Never treat that choice as a random roll,
+// pick the best unspecified exit, or sum alternative manual choices.
+function bossArrivalChance(route,paths){
+  const fallback={min:route.chanceRange?.[0]??route.probability??0,
+    max:route.chanceRange?.[1]??route.probability??1,probability:route.probability??null,playerChoices:[]};
+  const map=maps.get(route.area);
+  if(!map?.graphComplete||!route.ships?.length||!route.targetNodes?.length)return fallback;
+  const choices=new Map();
+  for(const nodes of paths){let from='start';for(const to of nodes){
+    const rules=rulesFor(map,from,route.phase);
+    if(rules?.some(rule=>/能動分岐|能动分岐/.test(rule.note||''))){
+      if(!choices.has(rules))choices.set(rules,{from,exits:new Set()});
+      choices.get(rules).exits.add(to);
+    }
+    from=to;
+  }}
+  if(!choices.size)return fallback;
+  // Match planningPath: known propulsion rules on a draft are deterministic;
+  // missing propulsion data and LoS bounds still pass through their predicates.
+  const metrics={lineOfSight:route.lineOfSight||{},speed:{...route.speed,
+    status:route.speed?.status==='estimated'?'observed':route.speed?.status,
+    ships:route.speed?.ships?.map(s=>({...s,status:s.status==='estimated'?'observed':s.status}))}};
+  const base=createRouteAssessor(route.ships,metrics),used=new Map();
+  const assess=(rules,visited)=>{
+    const result=base(rules,visited),choice=choices.get(rules);
+    if(!isPlayerChoice(result)||choice?.exits.size!==1)return result;
+    const [to]=choice.exits;
+    if(!result.destinations.includes(to))return result;
+    used.set(choice.from,{from:choice.from,to});
+    return {...result,status:'fixed',destinations:[to]};
+  };
+  const assumed=graphChance(map,'start',route.targetNodes,route.ships,metrics,new Set(),route.phase,true,assess);
+  const [min,max]=graphChance(map,'start',route.targetNodes,route.ships,metrics,new Set(),route.phase,false,assess);
+  return {min,max,probability:Math.abs(min-max)<1e-9&&!(assumed[0]===1&&assumed[2].length)?min:null,
+    playerChoices:[...used.values()]};
+}
 // Count graph edges on paths that can reach the requested point. This is a
 // route-length proxy (the source tables do not classify every node as battle).
 function reachableHops(map,node,targets,ships,metrics,seen=new Set(),phase=null,assess){
@@ -492,5 +529,5 @@ function fixedArrivalCondition(route){
   }
   return null;
 }
-module.exports={listNormalMaps,evaluateNormalRoute,evaluateSearchRoute,predicate,preparePredicate,preparePoint,evaluatePoint,fixedArrivalCondition,
+module.exports={listNormalMaps,evaluateNormalRoute,evaluateSearchRoute,bossArrivalChance,predicate,preparePredicate,preparePoint,evaluatePoint,fixedArrivalCondition,
   LANDING_CRAFT_IDS,LANDING_CRAFT_EXCLUDED};

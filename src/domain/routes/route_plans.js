@@ -1,7 +1,7 @@
 'use strict';
 const {previewForMap}=require('./sortie_profile');
-const {evaluatePoint,predicate,preparePredicate,preparePoint}=require('./normal_routes');
-const {effectiveRule}=require('./route_policy');
+const {evaluatePoint,predicate,preparePredicate,preparePoint,bossArrivalChance:bossChance}=require('./normal_routes');
+const {effectiveRule,isPlayerChoice}=require('./route_policy');
 const {calculationTable}=require('../../shared/calculation_cache');
 const maps=new Map();
 const mapFor=area=>{if(!maps.has(area))maps.set(area,require(`../../../data/normal_routes/${area}.json`));return maps.get(area);};
@@ -22,6 +22,7 @@ const GROUPS={carrier:'空母系',fleetCarrier:'正规/装甲空母',battleship:
 function optionPaths(option){
   return [...new Map((option?.strategy?.paths||option?.paths||(option?[option.nodes]:[])).map(nodes=>[nodes.join('>'),nodes])).values()];
 }
+const bossArrivalChance=(route,option)=>bossChance(route,optionPaths(option));
 // Merge only paths differing at one position. Combining unrelated branch
 // letters would imply journeys the fleet cannot take (a false cross product).
 function pathLabel(paths){
@@ -58,8 +59,13 @@ function fleetPathOption(route,option){
   if(optionPaths(option).length<=1||!route?.area||!route.ships?.length||option.phase&&option.phase!==route.phase)return option;
   const displayPaths=fleetPaths(route,option);
   const display=displayPaths.length?pathLabel(displayPaths):'无可达分支';
+  const presetName=option.presetName||option.name;
+  const fixedName=displayPaths.length===1?option.fixedPathNames?.[displayPaths[0].join('>')]:null;
+  // One highlighted Boss path may still have random off-route exits. Rename
+  // it only when this complete journey is confirmed fixed for the same fleet.
+  const name=fixedName&&planningPath(route,displayPaths[0],{allowTentative:false}).chance.probability===1?fixedName:presetName;
   // Keep the complete option paths for re-evaluation after manual edits.
-  return {...option,pathLabel:display,displayPathLabel:display,label:`${option.name}（${display}）`,displayPaths};
+  return {...option,name,...(option.fixedPathNames?{presetName}:{}),pathLabel:display,displayPathLabel:display,label:`${name}（${display}）`,displayPaths};
 }
 function orderedPathNodes(paths){
   const edges=new Map(),incoming=new Map();
@@ -104,6 +110,7 @@ function routeOptions(area,target='boss',phase){
   return choices.map(p=>({key:p.key||p.nodes.join('>'),id:p.id,
     name:p.name,label:`${p.name}（${p.strategy?.pathLabel||p.pathLabel||p.nodes.join('→')}）`,nodes:p.nodes,
     ...(p.paths?{paths:p.paths,pathLabel:p.pathLabel}:{}),
+    ...(p.fixedPathNames?{fixedPathNames:p.fixedPathNames}:{}),
     ...(guide?.arrivalMode==='boss'?{arrivalMode:'boss'}:{}),
     ...(p.strategy?{strategy:p.strategy}:{}),
     ...(p.fleetRequirement?{fleetRequirement:p.fleetRequirement}:{}),
@@ -126,8 +133,6 @@ function recommendedOptions(area,target='boss',phase,settings,store){
 }
 // Probability of this exact path, not the sum of all paths to the same boss.
 // Missing conditions remain intervals; missing random odds use the selected-exit reference policy.
-const isPlayerChoice=a=>a?.status==='unknown'&&!a.tentative&&
-  /能動分岐|能动分岐/.test(a.reason||a.rule||'');
 function pathChance(route,nodes,assessmentAt){
   const map=mapFor(route.area),phase=route.phase;
   const sequence='>start>'+nodes.join('>')+'>';
@@ -743,4 +748,4 @@ function hullSeeds(ctx,options,family){
   const unique=lists=>[...new Map(lists.flatMap(([,rows])=>rows).map(s=>[s.rows.map(r=>r.id).join(','),s.rows])).values()];
   return {rows:unique(beams),baselineRows:unique(beams.filter(([key])=>!key.endsWith(':combat'))),attempted,truncated};
 }
-module.exports={optionPaths,pathLabel,fleetPaths,fleetPathOption,orderedPathNodes,optionPlanning,fleetRequirementAssessment,routeOptions,recommendedOptions,currentPhase,pathChance,isPlayerChoice,requirements,requirementDetails,hullSeeds,hullCache,mergeHullParts,possiblePoint,routeFleetSizes,planningPath,hullPath,strategyAssessment,routeDiagnostics,routingNeeds,losGates,losWindows,createLoSWindowReader,withPlanningCache,namedShipRequirements};
+module.exports={optionPaths,bossArrivalChance,pathLabel,fleetPaths,fleetPathOption,orderedPathNodes,optionPlanning,fleetRequirementAssessment,routeOptions,recommendedOptions,currentPhase,pathChance,isPlayerChoice,requirements,requirementDetails,hullSeeds,hullCache,mergeHullParts,possiblePoint,routeFleetSizes,planningPath,hullPath,strategyAssessment,routeDiagnostics,routingNeeds,losGates,losWindows,createLoSWindowReader,withPlanningCache,namedShipRequirements};

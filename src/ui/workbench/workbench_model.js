@@ -294,7 +294,8 @@ function routeArrivalResult(report,selected,ready,target='boss'){
   }
   if(selected.paths){
     const grouped=plans.optionPlanning(route,selected),probability=grouped.chance.probability;
-    const total=selected.arrivalMode==='boss'?route.probability:probability;
+    const arrival=selected.arrivalMode==='boss'?plans.bossArrivalChance(route,selected):null;
+    const total=arrival?arrival.probability:probability;
     const percent=n=>`${Math.round(n*1000)/10}%`;
     return withArrivalNotes({label:selected.arrivalMode==='boss'?'最终抵达 Boss（含其他分支）':'沿所选流派抵达 Boss',
       value:total===1?'固定到达':total===0?'无法抵达 Boss':Number.isFinite(total)?`到达概率 ${percent(total)}`:'到达率待确认',
@@ -302,6 +303,7 @@ function routeArrivalResult(report,selected,ready,target='boss'){
       [{text:probability===0?'当前编成无法走所选路线':selected.arrivalMode==='boss'?`所选合流路线 ${probability===null?'概率待确认':percent(probability)}`:'分支在后续节点汇合'},
         ...grouped.branches.filter(b=>b.chance.max>0).sort((a,b)=>(b.chance.probability??-1)-(a.chance.probability??-1))
           .map(b=>({nodes:b.nodes,value:b.chance.probability===null?'待确认':percent(b.chance.probability)})),
+        ...(arrival?.playerChoices.length?[{text:`能动分歧：${arrival.playerChoices.map(p=>`${p.from} 点选 ${p.to}`).join('，')}`}]:[]),
         {text:'不含战斗撤退',muted:true}]);
   }
   const observed=plans.pathChance(route,nodes);
@@ -320,12 +322,13 @@ function routeArrivalResult(report,selected,ready,target='boss'){
   // verdict includes the other Boss-bound branches, including hidden/dead exits.
   // Never sum independently optimized recommendations (their fleets differ).
   if(selected.arrivalMode==='boss'){
-    const total=route.probability;
+    const arrival=plans.bossArrivalChance(route,selected),total=arrival.probability;
     const pathNote=chance.probability===null?'所选路线概率待确认':chance.probability===0?
       '当前编成无法走所选路线':`所选路线 ${percent(chance.probability)}`;
     return {label:'最终抵达 Boss（含其他分支）',value:total===1?'固定到达':Number.isFinite(total)?
       total===0?'无法抵达 Boss':`到达概率 ${percent(total)}`:'到达率待确认',
-      note:`${pathNote}；不含战斗撤退`,tone:total===1?'good':'warning',unreachable:total===0,warnings};
+      note:[pathNote,...(arrival.playerChoices.length?[`能动分歧：${arrival.playerChoices.map(p=>`${p.from} 点选 ${p.to}`).join('，')}`]:[]),'不含战斗撤退'].join('；'),
+      tone:total===1?'good':'warning',unreachable:total===0,warnings};
   }
   if(chance.probability===1)return {label,value:'固定到达',note:playerChoice?'能动分岐请按所选路线选择出口':'',tone:'good',warnings};
   if(chance.probability!==null)return {label,unreachable:chance.probability===0,value:chance.probability===0?'无法沿此路线到达':`到达概率 ${percent(chance.probability)}`,
