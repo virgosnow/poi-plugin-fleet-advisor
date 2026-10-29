@@ -299,3 +299,37 @@ test('actual-map preview can be switched, enlarged and reports line-shape fallba
   }
   assert.doesNotThrow(()=>render(h,{profile:null}));
 });
+
+test('5-6 phased route sprites stay beside both endpoints, including the two approaches to X and Q2',()=>{
+  const map=data.maps['5-6'];
+  for(const [edge,line] of Object.entries(map.lines)){
+    const [from,to]=edge.split('>');
+    if(map.starts.includes(from))continue;
+    const {w,h}=line.sprite.sourceSize;
+    for(const node of [from,to]){
+      const [x,y]=map.spots[node];
+      // Native dashes stop before each node circle, but cannot start at a different node.
+      const gap=Math.hypot(Math.max(line.x-x,0,x-line.x-w),Math.max(line.y-y,0,y-line.y-h));
+      assert(gap<=40,`${edge}: sprite is ${gap.toFixed(1)}px from ${node}`);
+    }
+  }
+  for(const [edge,origin] of [['U>X',[862,317]],['W>X',[855,384]],['Q>Q2',[802,225]],['Q1>Q2',[832,155]]])
+    assert.deepEqual([map.lines[edge].x,map.lines[edge].y],origin,edge);
+});
+
+test('5-6 third-stage U-X highlight uses the same diagonal sprite as its physical background',()=>{
+  const profile=require('../../src/domain/routes/sortie_profile').previewForMap('5-6',{phase:'gauge3'});
+  profile.routePaths=[{nodes:['I','O','Q','U','X','Z']}];
+  const h=(type,props,...children)=>({type,props:props||{},children});
+  const collect=(n,p)=>!n||typeof n!=='object'?[]:[...(p(n)?[n]:[]),...(n.children||[]).flatMap(c=>collect(c,p))];
+  const tree=require('../../src/ui/maps/route_preview')(h,{profile,compact:true,onNode:()=>{}});
+  const active=collect(tree,n=>n.props.className==='paa-real-route');
+  const highlight=active.find(n=>n.props.key==='U>X');
+  const background=collect(tree,n=>n.props.key==='muted-U>X')[0];
+  assert(highlight);assert(background);assert(!active.some(n=>n.props.key==='W>X'));
+  for(const line of [highlight,background]){
+    assert.equal(line.children[0].props.transform,'translate(862 317)');
+    const clip=collect(line,n=>n.type==='clipPath')[0].children[0].props;
+    assert.deepEqual([clip.width,clip.height],[81,75]);
+  }
+});

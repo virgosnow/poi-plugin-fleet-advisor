@@ -148,8 +148,10 @@ def assets():
     # map. Their geometry never supplies branching rules to the route engine.
     ids=['1','A1','A2','A','B','C1','C2','C','D','E','F','G','A2','B','C2','C2','C','C','H','R',
          'I','J','K1','K','K2','L','M','N','O','P','Q','Q1','Q2','K','L','2','S','T','U','V','W','X','Y','Z','X','X','Q2','T','W']
+    # Repeated destinations use the incoming sprite's origin, not their spot order:
+    # 32/46 = Q/Q1 -> Q2; 41/44/45 = U/V/W -> X.
     origins=[None,'1','1','1','A2','B','A','A2','C2','D','E','E','A1','A','B','C1','B','C1','C','H',
-             '2','I','J','J','K','K','L','L','I','O','O','P','Q1','K1','K2',None,'Q1','Q1','Q','Q2','V','W','X','X','V','U','Q','Q2','Q']
+             '2','I','J','J','K','K','L','L','I','O','O','P','Q','K1','K2',None,'Q1','Q1','Q','Q2','V','U','X','X','V','W','Q1','Q2','Q']
     parts=[]; hashes=[];resources=[];height=0;frames={};spots={};lines={}
     for suffix in ['', '18','20','36']:
         info=read(STAGED/f'06_info{suffix}.json');atlas=read(STAGED/f'06_image{suffix}.json')
