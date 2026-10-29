@@ -61,12 +61,13 @@ async function restoreOrganization(session, scheme) {
       await session.wait(50);
     }
     expected = after; changing = false; changes++;
+    session.confirmMutation?.();
     await session.until('screen', {}, r => r.valid && r.mode === 'organization');
   };
   await enterScreen(session,'organization');
   let tab = await session.observe('orgtab', {fleet: plan.fleet});
   if (!tab.valid) {
-    await session.input(202 + (plan.fleet-1)*45,178,undefined,'click',{settleMs:0});
+    await session.input(202 + (plan.fleet-1)*45,178,undefined,'click',{settleMs:0,controlId:'organization.tab.'+plan.fleet});
     await session.until('orgtab', {fleet: plan.fleet});
   }
   // Keep the existing fleet in place. A native change exchanges an occupied
@@ -88,9 +89,9 @@ async function restoreOrganization(session, scheme) {
       continue;
     }
     const pos = P.locate(plan.roster, target, desired.mask);
-    const pickerArg = {fleet: plan.fleet, total: pos.total};
+    const pickerArg = {fleet: plan.fleet, total: pos.total,targetShip:target,targetSlot:i,mask:desired.mask};
     session.onProgress({phase: 'picker', fleet:plan.fleet, slot: i+1, target});
-    await session.input(612+(i%2)*487,324+Math.floor(i/2)*172,undefined,'click',{settleMs:0});
+    await session.input(612+(i%2)*487,324+Math.floor(i/2)*172,undefined,'click',{settleMs:0,controlId:'organization.slot.'+i});
     let read = await session.until('picker', pickerArg, readyPicker);
     if (!read.tab || !read.tab.valid) throw new Error('Destination tab not confirmed in picker');
     const seenSorts=new Set();
@@ -99,7 +100,7 @@ async function restoreOrganization(session, scheme) {
       const previous = JSON.stringify(read.sort);
       if(seenSorts.has(previous))throw new Error('Ship sorting repeated a state; stopping without retry');
       seenSorts.add(previous);
-      await session.input(...G.sort,undefined,'click',{settleMs:0});
+      await session.input(...G.sort,undefined,'click',{settleMs:0,controlId:'organization.sort'});
       read = await session.until('picker', pickerArg, r => readyPicker(r) && JSON.stringify(r.sort) !== previous);
     }
     for (let count = 0; ; count++) {
@@ -107,7 +108,7 @@ async function restoreOrganization(session, scheme) {
       const next = P.nextFilter(read.filter.states, desired.mask);
       if (next < 0) break;
       const previous = read.filter.states.slice(); previous[next] ^= 1;
-      await session.input(G.filters[next],G.filterY,undefined,'click',{settleMs:0});
+      await session.input(G.filters[next],G.filterY,undefined,'click',{settleMs:0,controlId:'organization.filter.'+next});
       read = await session.until('picker', pickerArg, r => readyPicker(r) && isNew(r) && same(r.filter.states, previous));
     }
     if (!validList(read)) throw new Error('Filtered NEW list not confirmed');
@@ -116,14 +117,14 @@ async function restoreOrganization(session, scheme) {
         read=await session.until('picker',pickerArg,r=>validList(r)&&predicate(r.page));
         return read.page;
       }});
-    const arg = {row: pos.row, checkLevel:false, ...pickerArg, mask: desired.mask, page: pos.page};
+    const arg = {row: pos.row, checkLevel:false, ...pickerArg, shipId:target,slot:i,mask: desired.mask, page: pos.page};
     // No input occurred since this stable picker read. The former level-free
     // rowidentity only repeated its sort/filter/page checks on another image.
     // Validate that proof directly; keep the fresh confirmation-card gate and
     // exact request/store checks after the row click.
     if(!Number.isInteger(pos.row)||pos.row<0||pos.row>9||!validList(read)||read.page.activePage!==pos.page)
       throw new Error('Filtered NEW list not confirmed');
-    await session.input(870,259+43*pos.row,undefined,'click',{settleMs:0});
+    await session.input(870,259+43*pos.row,undefined,'click',{settleMs:0,controlId:'organization.row.'+pos.row});
     const card = await session.until('cardidentity', arg);
     if (!card.commit) throw new Error('Confirmation button not confirmed');
     await commit(i, target, card.commit);
@@ -133,7 +134,7 @@ async function restoreOrganization(session, scheme) {
   // before dropping extras. Removing the last escort cannot shift the prefix.
   if(plan.targets.length===1&&expected[plan.fleet-1].ships.length>1){
     session.onProgress({phase:'clear-escorts',fleet:plan.fleet});
-    await session.input(625,178,undefined,'hover',{settleMs:0});
+    await session.input(625,178,undefined,'hover',{settleMs:0,controlId:'organization.clear'});
     const button=await session.until('orgclear',{fleet:plan.fleet});
     if(!button.tab?.valid||!button.commit)throw new Error('Clear-escorts button or destination tab not confirmed');
     await commit(0,-2,button.commit);
@@ -141,8 +142,8 @@ async function restoreOrganization(session, scheme) {
     session.check();assertState();
     const slot=expected[plan.fleet-1].ships.length-1;
     session.onProgress({phase:'remove-escort',fleet:plan.fleet,slot:slot+1});
-    await session.input(612+(slot%2)*487,324+Math.floor(slot/2)*172,undefined,'click',{settleMs:0});
-    const button=await session.until('orgdetach',{fleet:plan.fleet});
+    await session.input(612+(slot%2)*487,324+Math.floor(slot/2)*172,undefined,'click',{settleMs:0,controlId:'organization.slot.'+slot});
+    const button=await session.until('orgdetach',{fleet:plan.fleet,slot});
     if(!button.tab?.valid||!button.commit)throw new Error('Escort removal button or destination tab not confirmed');
     await commit(slot,-1,button.commit);
   }

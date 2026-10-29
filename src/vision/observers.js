@@ -284,6 +284,16 @@ class Observer {
       if(intersection/Math.max(1,union)<.80||button.filter(cyan).length/button.length<.04)return {valid:false,reason:'clear-escorts tooltip or button missing'};
       return {valid:true,tab,commit:{x:625,y:178}};
     }
+    if(kind==='recognitionRecovery') {
+      const screen=await this.observe('screen',im,{allowPortReturn:true});
+      if(screen.valid&&['home','organization','equipment','port-return'].includes(screen.mode))return screen;
+      const borrow=await this.observe('borrowconfirm',im,{});
+      if(borrow.valid){
+        const box=borrowTemplates.borrowNo.box;
+        return {valid:true,mode:'borrow-cancel',cancel:{x:Math.round((box[0]+box[2])/2),y:Math.round((box[1]+box[3])/2)}};
+      }
+      return {valid:false,mode:'unknown',reason:'No verified non-mutating recovery control'};
+    }
     if(kind==='screen') {
       const b=im.rgb(59,62), warm=[[40,690],[90,695],[35,708],[130,690],[60,700]].filter(([x,y])=>{const p=im.rgb(x,y);return p[0]>105&&p[0]-p[2]>25;}).length;
       if(b[1]>140&&b[1]-b[0]>40&&warm>=3)return {valid:true,mode:'home'};

@@ -155,7 +155,7 @@ test('modal opening can skip fixed settling while input completion and state che
   session.validate=()=>{events.push('check');if(changed)throw Error('state drift');};
   await session.input(1075,659,undefined,'click',{settleMs:0});
   assert.deepEqual(events,['check','input','check']);events.length=0;
-  await session.input(470,480);assert.deepEqual(events,['check','input',100,'check']);events.length=0;
+  await session.input(470,480);assert.deepEqual(events,['check','input',40,'check']);events.length=0;
   changed=true;await assert.rejects(session.input(1075,659,undefined,'click',{settleMs:0}),/state drift/);
   assert(!events.includes('input'));
 });

@@ -119,12 +119,14 @@ test('cancellation, state drift and a different input during scheduling stop bef
 
 test('full validation time is deducted again before scheduling and cannot add a wait beyond the phase budget',async()=>{
   for(const spent of [100,300]){
-    const f=fixture();await f.step();await f.step();await f.s.input(750,271,undefined,'click',{settleMs:0});
+    const f=fixture();await f.step();await f.step();
+    const learned=Math.max(...f.s.transitionTiming.profiles.values().next().value.samples);
+    await f.s.input(750,271,undefined,'click',{settleMs:0});
     const before=f.waits.length;let checks=0;
     f.s.validate=()=>{if(checks++===0)f.advance(spent);};
     await f.s.until('picker',{});
     const first=f.waits.slice(before)[0];
-    if(spent===100)assert.equal(first,150);
+    if(spent===100)assert.equal(first,learned-spent);
     else assert.equal(f.s.metrics.delayedProbes,0);
   }
   const g=fixture();await g.step();await g.step();await g.s.input(750,271,undefined,'click',{settleMs:0});
@@ -141,3 +143,26 @@ test('a successful two-frame check still needs matching fresh images after a sch
 });
 
 module.exports={fixture};
+
+function imageCadence({captureMs=5,observeMs=5,values=[true,true],extra=0}={}){
+  let time=0,captures=0,inputs=0;const waits=[],frames=[];
+  const s=new Session({check(){},cancel(){},capture:async()=>{time+=captureMs;return {serial:++captures};},input:async()=>{inputs++;}},
+    {observe:async(kind,frame)=>{frames.push(frame);time+=observeMs;return {valid:values.shift()??true,page:1};}},{now:()=>time,operationWaitMs:extra});
+  s.wait=async ms=>{s.check(false);waits.push(ms);time+=ms;s.check(false);};
+  return {s,waits,frames,stats:()=>({time,captures,inputs})};
+}
+test('slow screenshot retries keep their backoff while successful expensive images need no extra stable delay',async()=>{
+  const f=imageCadence({captureMs:180,observeMs:20,values:[false,false,true,true]});
+  await f.s.until('picker',{});assert.deepEqual(f.waits,[100,140]);assert.equal(f.stats().captures,4);assert.equal(f.stats().time,1040);
+});
+test('fast image polling remains bounded and matching confirmation still captures independent images',async()=>{
+  const f=imageCadence({values:[false,false,true,true]});
+  await f.s.until('picker',{},undefined,6000,{stableFrames:2,reuseLastFrame:true});
+  assert.deepEqual(f.waits,[100,140,30]);assert.equal(f.stats().captures,4);assert.equal(new Set(f.frames).size,4);assert.equal(f.s.metrics.reusedFrames,0);
+});
+test('image input uses the shared short buffer while player extra wait and stop guards remain active',async()=>{
+  const f=imageCadence({extra:800});await f.s.input(10,20);await f.s.input(10,20,undefined,'click',{settleMs:0});
+  assert.deepEqual(f.waits,[840,800]);assert.equal(f.stats().inputs,2);
+  const g=imageCadence({values:[false,true,true]});g.s.wait=async()=>{g.s.stop();g.s.check(false);};
+  await assert.rejects(g.s.until('picker',{}),/stopped/);assert.equal(g.stats().captures,1);assert.equal(g.stats().inputs,0);
+});

@@ -6,6 +6,7 @@ const known=r=>r.valid&&MODES.has(r.mode);
 const returnable=r=>r.valid&&r.mode==='port-return'&&r.returnButton?.x===62&&r.returnButton?.y===58;
 const timedOut=error=>error.message==='Observation timed out: screen';
 const readStable=(session,arg,predicate)=>session.until('screen',arg,predicate,6000,{captureAllowanceMs:12000});
+const navigationReady=(session,destination)=>session.controlMode?session.until('navigation',{destination}):Promise.resolve();
 
 // Stable base screens or a verified non-home return button authorize navigation. Capture failures,
 // cancellation and store drift must never trigger a recovery click.
@@ -13,6 +14,7 @@ async function readScreen(session,arg={}) {
   try {return await readStable(session,arg,r=>known(r)||(arg.allowPortReturn&&returnable(r)));}
   catch(error) {
     session.check();
+    if(session.controlMode&&error.code==='OBSERVATION_TIMEOUT')throw error;
       if(!timedOut(error))throw error;
       // A covered button or the home hide-UI toggle cannot authorize a click.
       const failure=new Error('无法识别当前画面或可用的返回母港按钮；请关闭遮挡弹窗，或恢复被隐藏的母港界面后重试');
@@ -27,10 +29,12 @@ async function enterScreen(session,target) {
   let screen=await readScreen(session,arg);
   if(returnable(screen)){
     session.onProgress?.({phase:'return-home'});
-    await session.input(screen.returnButton.x,screen.returnButton.y,undefined,'click',{settleMs:0});
+    await navigationReady(session,'home');
+    await session.input(screen.returnButton.x,screen.returnButton.y,undefined,'click',{settleMs:0,controlId:'navigate.home'});
     // This coordinate becomes hide-UI after arriving. Never click twice.
     try {screen=await readStable(session,arg,r=>known(r)&&r.mode==='home');}
     catch(error){
+      if(session.controlMode&&error.code==='OBSERVATION_TIMEOUT')throw error;
       if(!timedOut(error))throw error;
       const failure=new Error('已点击返回母港，但未确认母港画面；已停止，未重复点击');
       failure.diagnostics=error.diagnostics;failure.stack+='\n'+error.stack;throw failure;
@@ -40,12 +44,14 @@ async function enterScreen(session,target) {
   const move=async(destination,point=ENTRY[destination])=>{
     const origin=screen.mode;
     for(let attempt=0;attempt<3;attempt++) {
-      await session.input(...point,undefined,'click',{settleMs:0});
+      await navigationReady(session,destination);
+      await session.input(...point,undefined,'click',{settleMs:0,controlId:'navigate.'+destination});
       try {
         screen=await readStable(session,arg,r=>known(r)&&r.mode===destination);
         return;
       } catch(error) {
         session.check();
+        if(session.controlMode&&error.code==='OBSERVATION_TIMEOUT')throw error;
         if(!timedOut(error))throw error;
       }
       screen=await readScreen(session,arg);

@@ -140,7 +140,15 @@ module.exports+=`
 .paa-settings-page .paa-cache-actions button{width:76px;flex:none}
 .paa-agent-connection{display:flex;flex-direction:column;gap:var(--paa-setting-subgap)}
 .paa-experimental-mcp{margin-top:var(--paa-setting-gap);min-width:0}
-.paa-experimental-settings>.paa-settings-row+.paa-settings-row{margin-top:var(--paa-setting-gap)}
+.paa-experimental-settings>.paa-settings-row+.paa-settings-row,.paa-experimental-settings>.paa-automatic-settings+.paa-settings-row{margin-top:var(--paa-setting-gap)}
+.paa-automatic-mode,.paa-automatic-wait{margin-top:var(--paa-setting-subgap);margin-inline-start:var(--paa-setting-indent)}
+.paa-automatic-mode select{width:220px;max-width:100%;min-width:0}
+.paa-operation-wait-control{width:220px;max-width:100%;min-width:0}
+.paa-settings-page input[type=range]{display:block;appearance:auto;-webkit-appearance:auto;width:100%;height:18px;min-height:18px;margin:0;padding:0;border:0;background:transparent;box-shadow:none;accent-color:var(--paa-accent);cursor:pointer}
+.paa-settings-page input[type=range]:focus-visible{outline:2px solid var(--paa-accent);outline-offset:3px}
+.paa-automatic-mode[data-disabled=true],.paa-automatic-wait[data-disabled=true]{opacity:.45}.paa-settings-page input[type=range]:disabled{cursor:default}
+.paa-operation-wait-ticks{display:flex;justify-content:space-between;margin-top:3px;font-size:12px;line-height:18px;color:var(--paa-muted);font-variant-numeric:tabular-nums}
+.paa-operation-wait-ticks [data-selected=true]{color:var(--paa-accent)}
 .paa-experimental-mcp .paa-agent-connection{margin-top:var(--paa-setting-subgap);margin-inline-start:var(--paa-setting-indent)}
 @container(max-width:600px){.paa-experimental-mcp .paa-agent-connection>.paa-settings-row{grid-template-columns:minmax(0,1fr);gap:4px}}
 .paa-agent-label{font-size:14px;line-height:22px;margin:0}

@@ -110,6 +110,21 @@ class PoiHost {
       totalMs:this.now()-started,bytes:buffer.length,width:w,height:h,fastPng:!this.fastPngUnsupported};
     return buffer;
   }
+  async readControls(){
+    this.check();
+    const frames=this.wc.mainFrame.framesInSubtree.filter(f=>String(f.url).includes('/kcs2/index.php'));
+    if(frames.length!==1)throw Error('Unique game frame unavailable for control recognition');
+    const frame=frames[0],identity=frame.processId+':'+frame.routingId;
+    if(this.controlFrame&&this.controlFrame!==identity)throw Error('Game frame changed during control recognition');
+    this.controlFrame=identity;
+    const read=require('./control_reader').readControlSnapshot;
+    const result=await frame.executeJavaScript('('+read.toString()+')()');
+    this.check();
+    if(!result||!Number.isFinite(result.documentId))throw Error('Game control document unavailable');
+    if(this.controlDocument!==undefined&&this.controlDocument!==result.documentId)throw Error('Game document changed during control recognition');
+    this.controlDocument=result.documentId;
+    return result;
+  }
   async input({x,y,kind='click',mutation,actionId}) {
     this.check();
     if(this.inputBusy||!Number.isFinite(x)||!Number.isFinite(y)||x<0||x>=1200||y<0||y>=720)throw new Error('Invalid or overlapping input');

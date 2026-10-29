@@ -1,4 +1,5 @@
 'use strict';
+const imageCategoryIds=new Set(require('../../data/equip_categories.json').templates.map(c=>c.id));
 
 const windowAt=(page,total)=>{
   const count=Math.min(5,total),first=Math.max(1,Math.min(page-2,total-count+1));
@@ -74,21 +75,33 @@ async function navigatePages(session,initial,target,{total,read,first,forward}){
 }
 
 // A category switch costs two clicks. Keep an immediately usable category;
-// at equal navigation cost prefer the shorter list, then retained selection.
+// At equal cost retain the current category to avoid unnecessary menu work.
 // Rank exact instances in the live list; no name-based substitution or cache.
 function chooseEquipmentCategory(planner,{category,read,item,ship,slot,borrow=false}){
   const build=borrow?planner.otherPickerList:planner.freePickerList;
-  const preferred=planner.categoryFor(item),candidates=[];
-  for(const id of new Set([category,preferred.id])){
-    if(!Number.isInteger(id)||!planner.categoryAccepts(id,item))continue;
-    const list=build(id,ship,slot),rank=list.findIndex(e=>e.id===item);
+  const preferred=planner.categoryFor(item),candidates=[],native=Object.hasOwn(read,'itemIds');
+  let current;
+  if(native){
+    const ids=read.itemIds,total=Math.max(1,Math.ceil(ids?.length/10));
+    if(!Array.isArray(ids)||ids.some(id=>!Number.isSafeInteger(id)||id<=0)||new Set(ids).size!==ids.length||!validPage(read,total))
+      throw Error('Invalid native equipment list');
+    current=ids.map(id=>({id}));
+  }
+  // Only control mode has a verified native order, including subcategories.
+  // Use it for the retained category, and compare other compatible categories
+  // by estimated switch cost. The destination list is read again after input.
+  const ids=[category,preferred.id,0,...(planner.groupDefs||[]).map(d=>d.id)];
+  for(const id of new Set(ids)){
+    if(!Number.isInteger(id)||!native&&!imageCategoryIds.has(id)||!planner.categoryAccepts(id,item))continue;
+    const list=native&&id===category?current:build(id,ship,slot),rank=list.findIndex(e=>e.id===item);
     if(rank<0)continue;
     const total=Math.max(1,Math.ceil(list.length/10)),page=Math.floor(rank/10)+1,retained=id===category;
     const start=retained?read:{activePage:1,labels:windowAt(1,total)};
     const clicks=retained&&read.activePage>total?Infinity:(retained?0:2)+pageCost(start,page,total);
     candidates.push({id,list,page,total,clicks,retained});
   }
-  candidates.sort((a,b)=>a.clicks-b.clicks||a.total-b.total||Number(b.retained)-Number(a.retained)||a.id-b.id);
+  candidates.sort((a,b)=>a.clicks-b.clicks||Number(b.retained)-Number(a.retained)||a.total-b.total
+    ||(!native?Number(a.id===0)-Number(b.id===0):0)||a.id-b.id);
   if(!candidates.length||!Number.isFinite(candidates[0].clicks))throw new Error('Equipment missing from current picker categories');
   return candidates[0];
 }

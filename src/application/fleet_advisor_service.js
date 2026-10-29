@@ -39,7 +39,7 @@ class FleetAdvisorService {
       {getCacheLimit:()=>this.computationSettings.cacheLimitMiB*1024**2});
     this.computationSettings=computationSettings.normalizePreferences();
     this.performanceLogs=new PerformanceLogs(path.join(storageDir,'recommendation-cache'),
-      {getLimitBytes:()=>this.computationSettings.cacheLimitMiB*1024**2});
+      {getLimitBytes:()=>this.computationSettings.cacheLimitMiB*1024**2,isEnabled:()=>this.experimentalSettings?.performanceDebug===true});
     this.recommendations=new RecommendationWorker({createWorker:createRecommendationWorker,cacheDir:path.join(storageDir,'recommendation-cache'),
       prepareWorker:prepareRecommendationWorker,releaseWorker:releaseRecommendationWorker,
       getSettings:()=>this.computationSettings,
@@ -452,7 +452,7 @@ class FleetAdvisorService {
       job.state='running';job.updatedAt=nowIso();
       if(!this.saveJobState(job)&&job.source==='mcp')
         throw error('PERSISTENCE_UNAVAILABLE','任务记录不可写，Agent 执行未启动');
-      const result=await this.controller.run('fleet',scheme);
+      const result=await this.controller.run('fleet',scheme,{operationWaitMs:this.experimentalSettings.operationWaitMs,recognitionMode:this.experimentalSettings.recognitionMode});
       job.state='succeeded';job.result=result;job.verified=result.ok===true&&result.done===true;
       job.partialApplied=result.changed>0;
       return result;

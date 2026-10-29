@@ -128,10 +128,12 @@ function runtime(options={}) {
       }
       if(kind==='cells'&&options.ignoreMenu)throw new Error('Observation timed out: cells');
       const category=selectedSlot==='ex'?0:({0:0,1:4,11:9,20:10})[primary]??0;
-      const list=(mode==='others'?f.api.otherPickerList:f.api.freePickerList)(category,selectedShip,selectedSlot);
+      const projected=(mode==='others'?f.api.otherPickerList:f.api.freePickerList)(category,selectedShip,selectedSlot);
+      const list=options.nativeList?options.nativeList(projected):projected;
       const total=lastTotal=Math.max(1,Math.ceil(list.length/10));activePage=Math.min(activePage,total);
       const start=Math.max(1,Math.min(activePage-2,total-4));
       const page=lastPage={valid:true,activePage,labels:Array.from({length:Math.min(5,total)},(_,i)=>start+i),centers:[739,793,847,901,955]};
+      if(options.nativeList)page.itemIds=list.map(item=>item.id);
       const result=kind==='equipmode'?{valid:true,mode}:kind==='borrowconfirm'?{valid:!options.badConfirm,commit:{x:470,y:480}}:kind==='screen'?{valid:true,mode:'home'}:kind==='cells'?{valid:!options.menuCategories,primaries:[0,1,11],categories:options.menuCategories||[0,4,9],centers:[{x:811,y:197},{x:811,y:226},{x:811,y:255}]}:kind==='pageread'?page:kind==='equippicker'?{valid:true,primary,category:({0:0,1:4,11:9,20:10})[primary]??null,page}:kind==='equipremove'?{valid:!options.badRemove,commit:options.badRemove?null:{x:824,y:271+47*arg.slot}}:kind==='equipclear'?{valid:!options.missingClear,tab:{valid:!options.wrongTab},commit:options.missingCommit?null:{x:485,y:245+50*arg.slots}}:{valid:true};
       if(!predicate(result))throw new Error('Observation timed out');return result;
     },
@@ -272,6 +274,16 @@ test('a distant inventory position already on screen does not force a category c
   const f=crowdedPicker({initialPage:46});await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[105]}]});
   assert.deepEqual(f.data.info.ships[1].api_slot,[105,-1,-1]);
   assert(!f.inputs.some(i=>i.x===824&&i.y===168));assert(!f.inputs.some(i=>i.y===677||i.y===678));
+});
+
+test('native filtered lists avoid unnecessary category/page input while preserving ship and slot execution order',async()=>{
+  const f=crowdedPicker({nativeList:items=>items.filter(item=>[104,105,106,107,201].includes(item.id))});
+  await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[105,104]},{id:2,slots:[106,107]}]});
+  assert.deepEqual(f.data.info.ships[1].api_slot,[105,104,-1]);
+  assert.deepEqual(f.data.info.ships[2].api_slot,[106,107,-1]);
+  assert(!f.inputs.some(i=>i.x===824&&i.y===168||i.y===677||i.y===678));
+  assert.deepEqual(f.inputs.filter(i=>i.mutation?.item>0).map(i=>[i.mutation.ship,i.mutation.j,i.mutation.item]),
+    [[1,0,105],[1,1,104],[2,0,106],[2,1,107]]);
 });
 test('an unreadable reset menu is opened once and never toggled repeatedly',async()=>{
   const f=runtime({filterStuck:true,ignoreMenu:true});

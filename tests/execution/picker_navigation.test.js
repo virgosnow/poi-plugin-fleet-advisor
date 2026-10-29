@@ -105,3 +105,40 @@ test('borrow selection uses its own exact live inventory and never substitutes a
 test('the cost estimate treats current and visible target pages as zero and one click',()=>{
   const f=pageModel(40,20);assert.equal(pageCost(f.view(),20,40),0);assert.equal(pageCost(f.view(),18,40),1);
 });
+
+test('native retained subcategory order wins over a misleading reconstructed long list',()=>{
+  const {planner}=categoryFixture(),read={...pageModel(2,1).view(),itemIds:[847,...Array.from({length:10},(_,i)=>i+1)]};
+  const choice=chooseEquipmentCategory(planner,{category:0,read,item:847,ship:1,slot:0});
+  assert.equal(choice.id,0);assert.equal(choice.page,1);assert.equal(choice.clicks,0);assert.equal(choice.list[0].id,847);
+});
+
+test('native lists hiding a target do not borrow its rank from the unfiltered projection',()=>{
+  const {planner}=categoryFixture(),read={...pageModel(1,1).view(),itemIds:[1,2,3]};
+  const choice=chooseEquipmentCategory(planner,{category:0,read,item:847,ship:1,slot:0,borrow:true});
+  assert.equal(choice.id,4);assert.equal(choice.retained,false);
+  for(const itemIds of [[847,847],[0],[1.5],null])assert.throws(()=>chooseEquipmentCategory(planner,
+    {category:0,read:{...read,itemIds},item:847,ship:1,slot:0}),/Invalid native/);
+});
+
+test('control selection considers overlapping categories and prefers retaining a category on equal cost',()=>{
+  const lists={0:Array.from({length:900},(_,i)=>({id:i+1})),4:Array.from({length:40},(_,i)=>({id:820+i})),9:[{id:847}]};
+  const planner={groupDefs:[{id:0},{id:4},{id:9}],categoryFor:()=>({id:4}),categoryAccepts:()=>true,
+    freePickerList:id=>lists[id]};
+  let read={...pageModel(90,1).view(),itemIds:lists[0].map(x=>x.id)};
+  const choice=chooseEquipmentCategory(planner,{category:0,read,item:847,ship:1,slot:0});
+  assert.equal(choice.id,9);assert.equal(choice.clicks,2);
+  read={...pageModel(90,1).view(),itemIds:[...Array.from({length:70},(_,i)=>i+1),847,...Array.from({length:829},(_,i)=>1000+i)]};
+  const tied=chooseEquipmentCategory(planner,{category:0,read,item:847,ship:1,slot:0});
+  assert.equal(tied.clicks,2);assert.equal(tied.id,0);assert(tied.retained);
+});
+
+test('image routing compares compatible calibrated categories but never probes uncalibrated headers',()=>{
+  const lists={0:Array.from({length:900},(_,i)=>({id:i+1})),4:Array.from({length:40},(_,i)=>({id:820+i})),9:[{id:847}]},calls=[];
+  const planner={groupDefs:[{id:0},{id:4},{id:9},{id:16}],categoryFor:()=>({id:4}),categoryAccepts:()=>true,
+    freePickerList:id=>{calls.push(id);if(id===16)assert.fail('uncalibrated image category');return lists[id];}};
+  const choice=chooseEquipmentCategory(planner,{category:0,read:pageModel(90,1).view(),item:847,ship:1,slot:0});
+  assert.equal(choice.id,9);assert.equal(choice.clicks,2);assert(!calls.includes(16));
+  lists[0]=[...Array.from({length:70},(_,i)=>({id:i+1})),{id:847},...Array.from({length:829},(_,i)=>({id:1000+i}))];
+  const tied=chooseEquipmentCategory(planner,{category:0,read:pageModel(90,1).view(),item:847,ship:1,slot:0});
+  assert.equal(tied.id,0);assert.equal(tied.clicks,2);assert(tied.retained);
+});

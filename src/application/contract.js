@@ -59,6 +59,7 @@ function contract(){return {
     enabled:'Result, calculation and temporary scheme caches are always enabled. The player can adjust the shared capacity and clear categories; old disabled preferences migrate to enabled.',
     validate:'Optional snapshot validation returns warnings without blocking save. Execute still requires fresh preview.'},
   execution:{planTtlMinutes:5,idempotency:'Persisted per operation key; do not generate a new key after uncertain response.',
+    recognition:'The player selects image (default) or controls in Experimental settings. get_status.experimentalSettings.recognitionMode reports it; MCP cannot change it. Both use native game UI input, exact request matching and final state verification. Controls reads the rendered game tree without screenshots and stops on unknown layouts.',
     permission:'Automatic operations default OFF, including settings migrated from older versions. The player must enable Settings > Experimental features > Automatic operations. get_status.experimentalSettings.automaticOperations and capabilities.execute expose this permission. MCP cannot enable it. Queries, recommendations, evaluation and preview remain available while OFF.',
     concurrency:'All HTTP clients share the same execution lock. Queries/recommendations do not authorize execution.',
     stopping:'cancel_job stops future steps only; completed game changes cannot roll back.'},
