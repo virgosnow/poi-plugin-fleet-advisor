@@ -1,6 +1,7 @@
 'use strict';
 const {EventEmitter}=require('events');
 const path=require('path');
+const {ReapingTrace,errorInfo}=require('../shared/reaping_diagnostics');
 const processes=new Set();
 
 // Created in Electron MAIN, not the renderer: ownership survives renderer
@@ -18,6 +19,9 @@ function createRecommendationProcess(options,ownerId,{electron=require('electron
   Object.defineProperty(handle,'pid',{enumerable:true,get:()=>child.pid});
   processes.add(handle);
   let exited=false,stopping=false,sent=false,ready=false,requested=!deferred,job=options.workerData,exitCode,startTimer,stopTimer,retryTimer;
+  let reaping=job?.diagnostics?new ReapingTrace():null;
+  // One value crosses @electron/remote, avoiding per-property synchronous RPC.
+  handle.getReapingDiagnostics=()=>reaping?JSON.stringify(reaping.snapshot()):undefined;
   let resolveExit,rejectExit,termination,resolveReady,rejectReady;
   handle.ready=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
   handle.ready.catch(()=>{});
@@ -25,6 +29,8 @@ function createRecommendationProcess(options,ownerId,{electron=require('electron
   handle.setJob=data=>{
     if(sent||job)throw Error('计算进程只能接收一次任务');
     job={...data,prewarmed:ready};
+    if(data.diagnostics&&!reaping)reaping=new ReapingTrace();
+    if(reaping)reaping.pid=child.pid;
   };
   const send=()=>{
     if(!ready||!requested||sent||stopping||exited)return;
@@ -43,12 +49,16 @@ function createRecommendationProcess(options,ownerId,{electron=require('electron
   };
   // Plain objects retain useful error fields across @electron/remote.
   const fail=(message,code='RECOMMENDATION_PROCESS_FAILED')=>handle.emit('error',{message,code});
+  function observedKill(){const at=reaping?performance.now():0;reaping?.mark('killCalled');
+    try{const ok=child.kill();reaping?.mark('killReturned',{ok,durationMs:performance.now()-at});return ok;}
+    catch(error){reaping?.mark('killThrew',{error:errorInfo(error),durationMs:performance.now()-at});throw error;}}
   handle.terminate=()=>{
     if(exited)return Promise.resolve(exitCode);
     if(termination)return termination;
+    reaping?.mark('terminateCalled');
     stopping=true;clearTimeout(startTimer);
     termination=exit;
-    const kill=()=>{try{child.kill();}catch(_){};};
+    const kill=()=>{try{observedKill();}catch(_){};};
     kill();
     if(!exited){
       retryTimer=setTimeout(kill,Math.min(1000,stopMs/2));
@@ -57,21 +67,23 @@ function createRecommendationProcess(options,ownerId,{electron=require('electron
         rejectExit({message:'计算进程未能退出，请重新启动 poi',code:'RECOMMENDATION_PROCESS_STOP_TIMEOUT'});
       },stopMs);
     }
+    if(reaping)termination.then(()=>reaping.mark('terminationResolved'),error=>reaping.mark('terminationRejected',{error:errorInfo(error)}));
     return termination;
   };
   function ownerGone(){handle.removeAllListeners();handle.on('error',()=>{});void handle.terminate().catch(()=>{});}
   function navigate(_event,_url,isInPlace,isMainFrame){if(isMainFrame&&!isInPlace)ownerGone();}
   owner.once('destroyed',ownerGone);owner.once('render-process-gone',ownerGone);
   owner.on('did-start-navigation',navigate);app.once('before-quit',ownerGone);
-  child.once('spawn',()=>{if(stopping)child.kill();});
+  child.once('spawn',()=>{if(reaping)reaping.pid=child.pid;if(stopping)observedKill();});
   child.on('message',message=>{
     if(stopping||exited)return;
     if(message?.ready){
       if(ready)return;ready=true;clearTimeout(startTimer);resolveReady(message);send();
-    }else handle.emit('message',message);
+    }else {reaping?.mark('resultReceived');handle.emit('message',message);}
   });
   child.once('error',type=>fail(`推荐计算进程异常（${typeof type==='string'?type:'启动失败'}）`));
   child.once('exit',code=>{
+    reaping?.mark('exitNotified',{exitCode:code});
     exited=true;exitCode=code;clearTimers();unbind();processes.delete(handle);resolveExit(code);
     if(!ready)rejectReady({message:`预热计算进程已退出（${code}）`,code:'RECOMMENDATION_PREWARM_EXIT'});
     handle.emit('exit',code);

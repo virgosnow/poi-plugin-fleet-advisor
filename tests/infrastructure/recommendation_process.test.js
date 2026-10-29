@@ -126,3 +126,32 @@ test('deferred transport startup errors still reap before rejecting',async()=>{
     start(){throw Error('cannot send snapshot');},terminate:async()=>{stopped=true;}})});
   await assert.rejects(runner.run('recommendNormalFleet',{},{}),/cannot send snapshot/);assert(stopped);await runner.dispose();
 });
+
+test('main reaping observations preserve kill failures, exceptions and exit while leaving strategy unchanged',async()=>{
+  for(const failure of ['false','throw']){
+    const f=fixture({autoExit:false}),handle=f.createWorker('',{workerData:{diagnostics:{level:'stages'}}}),child=f.children[0];
+    child.kill=()=>{child.kills++;if(failure==='throw')throw Object.assign(Error('PRIVATE_TEST'),{code:'EPERM'});return false;};
+    child.emit('message',{ok:true,result:1});const stopping=handle.terminate();
+    assert.equal(child.kills,1);child.emit('exit',0);assert.equal(await stopping,0);
+    const d=JSON.parse(handle.getReapingDiagnostics());assert(d.events.some(x=>x.event==='exitNotified'));
+    assert(d.events.some(x=>x.event===(failure==='throw'?'killThrew':'killReturned')));
+    assert(!JSON.stringify(d).includes('PRIVATE_TEST'));
+  }
+  const f=fixture(),handle=f.createWorker('',{workerData:{}});await handle.terminate();assert.equal(handle.getReapingDiagnostics(),undefined);
+});
+
+test('renderer reports detail only for abnormal reaping and captures failures without a worker profile',async()=>{
+  for(const abnormal of [false,true]){
+    const runner=new RecommendationWorker({getDiagnostics:()=>({level:'stages'}),createWorker:()=>Object.assign(new EventEmitter(),{
+      start(){this.emit('message',{ok:true,result:42,profile:{workerMs:1,status:'success'}});},terminate:async()=>0,
+      getReapingDiagnostics:()=>({events:[{event:'killReturned',at:Date.now(),ok:!abnormal}]})})});
+    assert.equal(await runner.run('recommendNormalFleet',{},{}),42);assert.equal(!!runner.lastProfile.reaping,abnormal);await runner.dispose();
+  }
+  let failed=true;
+  const runner=new RecommendationWorker({getDiagnostics:()=>({level:'stages'}),createWorker:()=>Object.assign(new EventEmitter(),{
+    start(){this.emit('error',Error('failed'));},terminate:async()=>{if(failed)throw Object.assign(Error('PRIVATE_TEST'),{code:'RECOMMENDATION_PROCESS_STOP_TIMEOUT'});},
+    getReapingDiagnostics:()=>undefined})});
+  await assert.rejects(runner.run('recommendNormalFleet',{},{}),{code:'RECOMMENDATION_PROCESS_STOP_TIMEOUT'});
+  assert(runner.lastProfile.reaping.reasons.includes('termination-error'));assert.equal(runner.lastProfile.status,'error');
+  assert(!JSON.stringify(runner.lastProfile).includes('PRIVATE_TEST'));failed=false;await runner.dispose();
+});

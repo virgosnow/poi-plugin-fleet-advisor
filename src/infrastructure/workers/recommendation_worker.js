@@ -1,6 +1,7 @@
 'use strict';
 const workerStarted=performance.now();
 const perf=require('../../shared/performance_trace');
+const reapingDiagnostics=require('../../shared/reaping_diagnostics');
 const {Worker,isMainThread,parentPort,workerData}=require('worker_threads');
 const METHODS=new Set(['recommendNormalFleet','recommendNormalEquipment','recommendExpeditionFleet','recommendExpeditionEquipment']);
 const cancelled=()=>Object.assign(Error('推荐计算已取消'),{code:'RECOMMENDATION_CANCELLED'});
@@ -130,19 +131,31 @@ class RecommendationWorker {
           if(finishing)return completion;finishing=true;
           completion=(async()=>{
             const receivedAt=performance.now();
+            const reap=diagnostics?{...(message?{resultReceivedAt:Date.now()}:{}),terminateRequestedAt:Date.now()}:null;
+            const lag=diagnostics?reapingDiagnostics.lagMonitor():null;
             try{
               // Reap before the next request or maintenance: no orphan workers,
               // late writes after clear, or accumulating per-search heaps.
               await worker.terminate();
             }catch(error){
+              if(reap)reap.error=error;
               this.closed=true;reason=Object.assign(Error(error?.message||'计算进程回收失败'),error);
               this.cleanupFailure={worker,error:reason};
             }
-            if(diagnostics&&message?.profile){
+            const teardownMs=performance.now()-receivedAt;
+            let reaping;
+            if(reap){
+              Object.assign(reap,{terminateFinishedAt:Date.now(),waitMs:teardownMs,maxLagMs:lag.stop()});
+              let main;try{const value=worker.getReapingDiagnostics?.();main=typeof value==='string'?JSON.parse(value):value;}catch(_){reap.diagnosticsError=true;}
+              reaping=reapingDiagnostics.combine(main,reap);
+            }
+            if(diagnostics&&(message?.profile||reaping)){
               const elapsedMs=receivedAt-started;
-              this.lastProfile={...message.profile,elapsedMs,queueMs:started-queuedAt,
-                startupAndTransferMs:Math.max(0,elapsedMs-message.profile.workerMs),
-                teardownMs:performance.now()-receivedAt};
+              this.lastProfile={...message?.profile||{status:'error',level:diagnostics.level,method,area:args?.area,phase:args?.phase,stages:[]},
+                ...(reason?{status:'error'}:{}),
+                elapsedMs,queueMs:started-queuedAt,
+                ...(message?.profile?{startupAndTransferMs:Math.max(0,elapsedMs-message.profile.workerMs)}:{}),
+                teardownMs,...reaping?{reaping}:{}};
               perf.publish(this.lastProfile);
               try{await this.onProfile?.(this.lastProfile);}catch(_){/* Diagnostics never fail a recommendation. */}
             }

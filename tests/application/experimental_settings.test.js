@@ -102,6 +102,9 @@ test('performance debug persists independently, writes safe local logs and can b
   let status=await s.getComputationStatus();assert.equal(status.cache.logs.files,1);assert(status.cache.logs.bytes>0);
   const file=fs.readdirSync(s.performanceLogs.directory).find(n=>n.endsWith('.json'));
   const log=JSON.parse(fs.readFileSync(path.join(s.performanceLogs.directory,file)));assert.equal(log.profile.level,'modules');assert(log.profile.spans.length);
+  s.setExperimentalSettings({performanceDebug:false});await s.recommendations.run('recommendNormalFleet',data,args);
+  assert.equal((await s.getComputationStatus()).cache.logs.files,1,'disabling logging preserves old reports');
+  s.setExperimentalSettings({performanceDebug:true});
   await s.clearRecommendationCache('logs');assert.equal((await s.getComputationStatus()).cache.logs.files,0);
   assert(s.getExperimentalSettings().performanceDebug,'clearing files does not change the switch');
   s.setExperimentalSettings({performanceDebug:false});await s.recommendations.run('recommendNormalFleet',data,args);

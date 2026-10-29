@@ -57,11 +57,12 @@ function* evictions(files,{limitBytes=DEFAULTS.cacheLimitMiB*1024**2,replace,byt
   const remaining=files.filter(f=>f.file!==replace),expired=new Set();
   let total=remaining.reduce((sum,f)=>sum+f.size,bytes),removed=0,failed=0;
   if(bytes>limitBytes)return {removed,failed,fits:false,bytes:total};
-  for(const kind of ['results','calculations','logs']){
+  for(const kind of ['results','calculations']){
     const group=remaining.filter(f=>f.kind===kind).sort((a,b)=>b.time-a.time);
     group.forEach((file,i)=>{if(now-file.time>TTL||i>=maxEntries)expired.add(file);});
   }
-  const candidates=remaining.filter(f=>!f.primary).sort((a,b)=>Number(expired.has(b))-Number(expired.has(a))||a.time-b.time||a.file.localeCompare(b.file));
+  // Logs remain charged to the budget, but only an explicit clear removes them.
+  const candidates=remaining.filter(f=>!f.primary&&f.kind!=='logs').sort((a,b)=>Number(expired.has(b))-Number(expired.has(a))||a.time-b.time||a.file.localeCompare(b.file));
   for(const file of candidates){
     if(total<=limitBytes&&!expired.has(file))continue;
     if(yield file){total-=file.size;removed++;}else failed++;
