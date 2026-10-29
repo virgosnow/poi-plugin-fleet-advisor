@@ -120,6 +120,8 @@ function resolveFleetUncached(store,fleet,scheme,search){
   };
   return {ships:projected.map(row=>({instanceId:row.id,name:row.master.api_name,
     stype:Number(row.master.api_stype),
+    openingTorpedo:[13,14].includes(Number(row.master.api_stype))&&Number(store.info.ships[row.id]?.api_lv)>=10||
+      carriesType(carried(row),[22]),
     radarEquipped:carriesType(carried(row),[12,13,93]),
     drumEquipped:carriesType(carried(row),[30]),
     landingCraftEquipped:landingCraftOf(row)})),metrics};
@@ -214,6 +216,11 @@ function predicate(value,ships,metrics){
     if(ships.some(ship=>ship.radarEquipped===null))return null;
     const {exact,min,max}=value.radarCarriers;
     const n=ships.filter(ship=>ship.radarEquipped).length;
+    return (exact===undefined||n===exact)&&(min===undefined||n>=min)&&(max===undefined||n<=max);
+  }
+  if(value.openingTorpedoCarriers){
+    if(ships.some(ship=>typeof ship.openingTorpedo!=='boolean'))return null;
+    const {exact,min,max}=value.openingTorpedoCarriers,n=ships.filter(ship=>ship.openingTorpedo).length;
     return (exact===undefined||n===exact)&&(min===undefined||n>=min)&&(max===undefined||n<=max);
   }
   if(value.drumCarriers){

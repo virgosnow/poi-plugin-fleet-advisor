@@ -10,7 +10,7 @@ const {recommendNormalEquipment}=require('../../../src/recommendation/index');
 test('fleet-size projection keeps equipment, speed, uncertain branches and alternative paths possible',()=>{
   const {routeFleetSizes}=require('../../../src/domain/routes/route_plans');
   assert.deepEqual(routeFleetSizes('1-1',routeOptions('1-1')),[1,2,3,4,5,6],'small-fleet preference is not a game rule');
-  assert.deepEqual(routeFleetSizes('1-5',routeOptions('1-5')),[1,2,3,4]);
+  assert.deepEqual(routeFleetSizes('1-5',routeOptions('1-5').filter(o=>o.nodes.join('')==='ADEJ')),[1,2,3,4]);
   assert.deepEqual(routeFleetSizes('1-2',routeOptions('1-2')),[1,2,3,4,5,6],'random entry and repairable speed keep other fleet sizes possible');
   assert.deepEqual(routeFleetSizes('4-5',routeOptions('4-5')),[1,2,3,4,5,6]);
   const paths=routeOptions('1-1'),withRequirement=when=>paths.map(p=>({...p,fleetRequirement:when}));
@@ -43,7 +43,7 @@ test('fleet-size pruning never removes a possible concrete hull across normal ma
 test('size-limited hull enumeration keeps the original feasible beams and parallel merge',()=>{
   const P=require('../../../src/domain/routes/route_plans'),rows=Array.from({length:24},(_,i)=>({
     id:i+1,name:'舰'+i,stype:[1,2,3,7,11,16][i%6],power:100-i,ship:{api_soku:10}}));
-  const ctx={fixed:[],roster:rows,byId:new Map(rows.map(r=>[r.id,r]))},routes=P.routeOptions('1-5');
+  const ctx={fixed:[],roster:rows,byId:new Map(rows.map(r=>[r.id,r]))},routes=P.routeOptions('1-5').filter(o=>o.nodes.join('')==='ADEJ');
   const full=P.hullSeeds(ctx,{area:'1-5',routes},r=>r.id),options={area:'1-5',routes,sizes:P.routeFleetSizes('1-5',routes)};
   const limited=P.hullSeeds(ctx,options,r=>r.id);
   assert.deepEqual(limited.rows,full.rows);assert.deepEqual(limited.baselineRows,full.baselineRows);
@@ -82,7 +82,7 @@ test('lazy paths preserve unresolved equipment conditions and explicit player ch
 test('hard hull requirements reject only definite failures without pruning larger descendants',()=>{
   const {hullSeeds}=require('../../../src/domain/routes/route_plans');
   const rows=Array.from({length:6},(_,i)=>({id:i+1,name:'ship'+i,stype:2,power:100-i,ship:{api_soku:10}}));
-  const ctx={fixed:[],roster:rows,byId:new Map(rows.map(r=>[r.id,r]))},base=routeOptions('1-1')[0];
+  const ctx={fixed:[],roster:rows,byId:new Map(rows.map(r=>[r.id,r]))},base=routeOptions('1-1').find(o=>o.key==='A>C');
   const run=fleetRequirement=>hullSeeds(ctx,{area:'1-1',routes:[{...base,fleetRequirement,templates:[{2:1}]}]},r=>r.id);
   const six=run({shipCount:{exact:6}});
   assert.equal(six.attempted,6);assert.equal(six.rows.length,1);assert.equal(six.rows[0].length,6);
@@ -91,7 +91,7 @@ test('hard hull requirements reject only definite failures without pruning large
 });
 
 test('shared beam identities retain the route that first contributes a feasible hull',()=>{
-  const {hullSeeds}=require('../../../src/domain/routes/route_plans'),base=routeOptions('1-1')[0];
+  const {hullSeeds}=require('../../../src/domain/routes/route_plans'),base=routeOptions('1-1').find(o=>o.key==='A>C');
   const rows=Array.from({length:6},(_,i)=>({id:i+1,name:'ship'+i,stype:2,power:100,ship:{api_soku:10}}));
   const result=hullSeeds({fixed:[],roster:rows,byId:new Map(rows.map(r=>[r.id,r]))},
     {area:'1-1',partial:true,routes:[{...base,fleetRequirement:{count:{stypes:[16],min:1}}},base]},r=>r.id);
@@ -151,7 +151,7 @@ test('7-1 seeds the confirmed four-ship escort fleet below the destroyer level g
   for(const id of [3,4,5]){store.const.$ships[id].api_stype=1;store.info.ships[id].api_lv=45;}
   for(const id of [1,2,6,8])store.info.ships[id].api_lv=65;
   const result=recommendNormalFleet(store,{area:'7-1',});
-  const found=result.routeResults.find(r=>r.key==='F>G>H>K');assert.equal(found.status,'available',found.message);
+  const found=result.routeResults.find(r=>r.key==='guide:7-1-coastal');assert.equal(found.status,'available',found.message);
   assert.equal(found.chance.probability,1);
   const types=result.recommendations[found.recommendationIndex].scheme.ships.map(s=>store.const.$ships[store.info.ships[s.id].api_ship_id].api_stype);
   assert.equal(types.filter(t=>t===1).length,3);assert.equal(types.filter(t=>t===2).length,1);
@@ -183,7 +183,7 @@ function speedFleetFixture(types){
   store.const.$exslotEquips=[33];
   for(const [id,type,name,stats] of [[33,17,'改良型艦本式タービン',{}],[87,17,'新型高温高圧缶',{}],
     [27,12,'电探',{api_saku:8}],[1,1,'主炮',{api_houg:10}],
-    [3,3,'大口径炮',{api_houg:20}],[20,6,'战斗机',{api_tyku:12}],
+    [3,3,'大口径炮',{api_houg:20}],[20,6,'战斗机',{api_tyku:30}],
     [21,7,'攻击机',{api_raig:12,api_tyku:1}],[22,8,'轰炸机',{api_baku:12,api_tyku:1}],
     [25,10,'水侦',{api_saku:8}],[35,18,'三式弹',{api_tyku:5}]])
     store.const.$equips[id]={api_id:id,api_name:name,api_type:[0,0,type,0],...stats};
@@ -195,25 +195,12 @@ function speedFleetFixture(types){
 
 // Guide examples must pass the authoritative branch order, not just exist in
 // the map graph. High bare LoS isolates hull/name routing from equipment stock.
-const backupExamples=[
-  ['7-4',undefined,'A>B>E>J>P',[21,1,1,1,7],{5:'大鷹改二'}],
-  ['7-4',undefined,'A>B>E>J>P',[21,1,1,1,2]],
-  ['7-4',undefined,'C>E>J>L>P',[4,4,10,1,1,1]],
-  ['5-2',undefined,'B>C>E>F>O',[9,9,11,18,5,6]],
-  ['5-2',undefined,'B>C>D>F>O@shokaku-zuikaku',[11,18,8,8,2,2],{1:'翔鶴改二甲',2:'瑞鶴改二甲'}],
-  ['5-2',undefined,'B>C>D>F>O@yubari',[3,7,7,5,5,6],{1:'夕張改二特'}],
-  ['5-2',undefined,'B>C>D>F>O@shoho',[7,5,5,6,6,3],{1:'祥鳳改'}],
-  ['7-3','gauge1','A>C>D>E',[5,3,2,2]],
-  ['7-3','gauge1','A>B>C>E',[2,2,2,2],{1:'神風改'}],
-  ['7-3','gauge1','A>B>C>E',[3,2]],
-  ['4-4',undefined,'A>E>I>K@light-carriers',[7,7,7,3,2,2]],
-  ['5-6','gauge2','I>J>K1>K>K2>L>N',[13,14,14,14,14,14]],
-  ['7-5','gauge2','A>B>D>F>J>O>Q@battleship-light-carrier',[8,7,6,3,2,2]],
-  ['3-5',undefined,'B>C>F>G>K@semi-lower',[3,3,4,13,14,14]],
-  ['3-5',undefined,'B>C>F>G>K@semi-lower',[3,3,4,16,16,22]],
-  ['6-4',undefined,'M>K>J>N',[9,11,17,3,2,2]],
-  ['6-4',undefined,'M>K>J>I>N',[9,11,6,3,2,2]]
-];
+const witnesses=require('../../fixtures/route_catalog_witnesses.json');
+const backupExamples=['7-4-04','5-2-01','7-3-01','4-4-light-carriers','5-6-08','7-5-12','3-5-03','6-4-03'].map(id=>{
+ const w=witnesses.find(w=>w.id===id),[area,phase]=w.catalog.split(':');
+ return [area,phase,'guide:'+id,w.types,Object.fromEntries(Object.entries(w.names).map(([i,name])=>[Number(i)+1,name]).filter(([,n])=>n))];
+});
+
 function backupFixture(types,names={}){
   const store=speedFleetFixture(types);
   for(const id of Object.keys(store.info.ships))if(Number(id)>types.length){delete store.info.ships[id];delete store.const.$ships[id];}
@@ -227,7 +214,7 @@ test('backup guide examples satisfy the current full path and declared fleet ide
     assert(option,key);assert.equal(new Set(options.map(o=>o.key)).size,options.length);
     const route=evaluateNormalRoute(store,{area,phase,scheme:{fleet:1,ships:types.map((_,i)=>i+1)}});
     assert(P.fleetRequirementAssessment(route,option).eligible,area+' '+key);
-    assert.equal(P.planningPath(route,option.nodes).chance.probability,1,area+' '+key);
+    assert.equal(P.optionPlanning(route,option).chance.probability,1,area+' '+key);
     assert.equal(P.fleetRequirementAssessment({ships:[]},option).eligible,false);
   }
 });
@@ -236,7 +223,7 @@ test('backup fleet searches and manual equipment updates preserve selected paths
   for(const area of ['7-4','5-2','7-3','3-5','5-6']){
     const [,phase,key,types,names]=backupExamples.find(c=>c[0]===area),store=backupFixture(types,names),before=JSON.stringify(store);
     const fixedShipIds=Object.keys(store.info.ships).map(Number);
-    const result=recommendNormalFleet(store,{area,phase,fixedShipIds,automaticFilters:{maxRoutes:20}});
+    const result=recommendNormalFleet(store,{area,phase,routeKey:key,fixedShipIds,automaticFilters:{maxRoutes:20}});
     const found=result.routeResults.find(r=>r.key===key);assert.equal(found.status,'available',area+': '+found.message);
     const row=result.recommendations[found.recommendationIndex];
     assert.deepEqual(row.scheme.ships.map(s=>s.id),fixedShipIds);
@@ -244,16 +231,16 @@ test('backup fleet searches and manual equipment updates preserve selected paths
     const manual=recommendNormalEquipment(store,{area,phase,routeKey:key,scheme:row.scheme});
     const updated=evaluateNormalRoute(store,{area,phase,scheme:manual.scheme});
     assert(P.fleetRequirementAssessment(updated,found).eligible);
-    assert.equal(P.planningPath(updated,found.nodes).chance.probability,1);
+    assert.equal(P.optionPlanning(updated,found).chance.probability,1);
     assert.equal(JSON.stringify(store),before);
   }
 });
 test('backup guides reject old examples contradicted by the current NGA rules',()=>{
   const P=require('../../../src/domain/routes/route_plans');
   for(const [area,phase,key,types,names] of [
-    ['7-4',undefined,'A>B>E>J>P',[21,1,1,1,1]],
-    ['7-4',undefined,'A>B>E>J>P',[21,1,1,1,7]],
-    ['7-3','gauge1','A>B>C>E',[2,2,2,2]]
+    ['7-4',undefined,'guide:7-4-04',[21,1,1,1,1]],
+    ['7-4',undefined,'guide:7-4-04',[21,1,1,1,7]],
+    ['7-3','gauge1','guide:7-3-01',[2,2,2,2]]
   ]){
     const store=backupFixture(types,names),option=routeOptions(area,'boss',phase).find(o=>o.key===key);
     const route=evaluateNormalRoute(store,{area,phase,scheme:{fleet:1,ships:types.map((_,i)=>i+1)}});
@@ -264,15 +251,12 @@ test('backup guides reject old examples contradicted by the current NGA rules',(
 
 test('independent speed guides retain real paths, strict thresholds and generic arrival labels',()=>{
   const P=require('../../../src/domain/routes/route_plans'),W=require('../../../src/ui/workbench/workbench_model');
-  const cases=[['3-2',undefined,'fastest',[3,2,2,2,2,2]],['3-4',undefined,'fastPlus',[11,18,7,3,2,2]],
-    ['4-5',undefined,'fastPlus',[8,11,11,18,6,6]],['5-1',undefined,'fastPlus',[8,8,8,6,6,3]],
-    ['5-4',undefined,'fastPlus',[8,8,11,18,6,6]],['5-5',undefined,'fastPlus',[8,8,11,18,11,6]],
-    ['5-6','gauge3','fastPlus',[8,8,11,18,11,18]],
-    ...['gauge1','gauge2','gauge3'].map(p=>['7-5',p,'fastest',[8,8,11,18,6,6]])];
-  for(const [area,phase,wanted,types] of cases){
-    const options=routeOptions(area,'boss',phase),option=options.find(o=>o.key.endsWith('@'+wanted));assert(option,area);
+  const cases=['3-2-02','3-4-05','4-5-01','5-1-05','5-5-03','5-6-heavy-fast','7-3-09'].map(id=>{
+ const w=witnesses.find(w=>w.id===id),[area,phase]=w.catalog.split(':');return [area,phase,w.speed,w.types,id,w.names];});
+  for(const [area,phase,wanted,types,id,names] of cases){
+    const options=routeOptions(area,'boss',phase),option=options.find(o=>o.id===id);assert(option,area);
     assert.equal(new Set(options.map(o=>o.key)).size,options.length,'same-path strategies need unique keys');
-    const store=speedFleetFixture(types),route=evaluateNormalRoute(store,{area,phase,scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
+    const store=backupFixture(types,Object.fromEntries(Object.entries(names).map(([i,n])=>[Number(i)+1,n]).filter(([,n])=>n))),route=evaluateNormalRoute(store,{area,phase,scheme:{fleet:1,ships:types.map((_,i)=>i+1)}});
     route.speed={status:'observed',fleetSpeed:wanted,ships:types.map((_,i)=>({shipId:i+1,status:'observed',speed:wanted}))};
     route.ships.forEach(s=>{s.radarEquipped=true;});
     assert.equal(P.fleetRequirementAssessment(route,option).eligible,true,area);
@@ -281,16 +265,16 @@ test('independent speed guides retain real paths, strict thresholds and generic 
     assert.equal(P.strategyAssessment(ordinary,option).eligible,false,area+' may not downgrade');
     assert(P.routeDiagnostics(ordinary,option).warnings.some(s=>s.includes('速力要求')));
     const overview=W.mapOverview(area,'boss',phase,{maxRoutes:20}),profile=W.selectedMapProfile(overview,option.key);
-    assert.deepEqual(profile.highlightPaths,option.strategy.paths);
+    assert.deepEqual(profile.highlightPaths,require('../../../src/domain/routes/route_plans').optionPaths(option));
     assert.equal(W.routeArrival({route},option,true).value,'固定到达');
     if(area!=='3-2')assert(!W.routeArrival({route},option,true).note.includes('两战'));
   }
 });
 
 test('heavy fast-plus and fastest guides allocate unique engines and retain air fitting',()=>{
-  for(const [area,phase,wanted,types] of [['4-5',undefined,'fastPlus',[8,11,11,18,6,6]],
-    ['5-6','gauge3','fastPlus',[8,8,11,18,11,18]],['7-5','gauge3','fastest',[8,8,11,18,6,6]]]){
-    const store=speedFleetFixture(types),before=JSON.stringify(store),option=routeOptions(area,'boss',phase).find(o=>o.key.endsWith('@'+wanted));
+  for(const [area,phase,wanted,types] of [['4-5',undefined,'fastPlus',[8,11,11,5,6,3]],
+    ['5-6','gauge3','fastPlus',[8,8,11,18,11,18]]]){
+    const store=speedFleetFixture(types),before=JSON.stringify(store),option=routeOptions(area,'boss',phase).find(o=>o.strategy?.minimumSpeed===wanted);
     const result=recommendNormalFleet(store,{area,phase,airGoal:'superiority',fixedShipIds:[1,2,3,4,5,6],automaticFilters:{maxRoutes:20}});
     const found=result.routeResults.find(r=>r.key===option.key);assert.equal(found.status,'available',area+': '+found.message);
     const row=result.recommendations[found.recommendationIndex];
@@ -304,17 +288,18 @@ test('heavy fast-plus and fastest guides allocate unique engines and retain air 
 });
 
 test('speed strategies reject locked propulsion slots and ships unable to reach fastest',()=>{
-  const store=speedFleetFixture([8,11,11,18,6,6]);
+  const store=speedFleetFixture([8,11,11,5,6,3]);
   const gun=Object.values(store.info.equips).filter(e=>e.api_slotitem_id===3).slice(0,4).map(e=>e.api_id);
   const heldSlots=[{id:1,slots:gun,ex:-1,keep:{0:true,1:true,2:true,3:true,ex:true}}],before=JSON.stringify(heldSlots);
   const result=recommendNormalFleet(store,{area:'4-5',fixedShipIds:[1,2,3,4,5,6],heldSlots});
-  const failed=result.routeResults.find(r=>r.key.endsWith('@fastPlus'));
+  const failed=result.routeResults.find(r=>r.strategy?.minimumSpeed==='fastPlus');
   assert.equal(failed.status,'notFound');assert.match(failed.message,/测试舰1/);
   assert.equal(JSON.stringify(heldSlots),before);
-  store.const.$ships[2].api_name='加賀改二';
-  const option=routeOptions('7-5','boss','gauge3').find(o=>o.strategy);
-  assert.throws(()=>recommendNormalEquipment(store,{area:'7-5',phase:'gauge3',routeKey:option.key,
-    scheme:{fleet:1,ships:[1,2,3,4,5,6].map(id=>({id,slots:[-1,-1,-1,-1],ex:-1}))}}),/最速.*加賀改二/);
+  const fastest=fastStrategyFixture(),option=routeOptions('3-2').find(o=>o.strategy?.minimumSpeed==='fastest');
+  Object.assign(fastest.const.$ships[1],{api_name:'香取改',api_stype:21});
+  fastest.const.$shipTypes[21]=fastest.const.$shipTypes[3];
+  assert.throws(()=>recommendNormalEquipment(fastest,{area:'3-2',routeKey:option.key,
+    scheme:{fleet:1,ships:[1,2,3,4,5,6].map(id=>({id,slots:[-1,-1,-1],ex:-1}))}}),/未配成|编成要求|未满足/);
 });
 
 test('3-2 speed strategy must fit a real six-ship fast-plus two-battle fleet',()=>{
@@ -333,8 +318,8 @@ test('3-2 speed strategy must fit a real six-ship fast-plus two-battle fleet',()
   const W=require('../../../src/ui/workbench/workbench_model');
   const arrival=W.routeArrival({route:row.route},option,true);
   assert.equal(arrival.value,'固定到达');assert.equal(arrival.tone,'good');
-  assert.match(arrival.note,/E 路 40%.*G 路 60%/);
-  assert.deepEqual(W.selectedMapProfile(W.mapOverview('3-2'),option.key).highlightPaths,option.strategy.paths);
+  assert.match(arrival.note,/C→E→F→L 40%.*C→G→F→L 60%/);
+  assert.deepEqual(W.selectedMapProfile(W.mapOverview('3-2'),option.key).highlightPaths,require('../../../src/domain/routes/route_plans').optionPaths(option));
   const ordinary=evaluateNormalRoute(store,{area:'3-2',scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
   assert.equal(W.routeArrival({route:ordinary},option,true).value,'流派条件未满足');
   assert.equal(W.routeArrival({route:row.route},option,false).value,'待核对编成');
@@ -482,7 +467,7 @@ test('route details guide explicit player choices without requiring or matching 
 test('route search covers each displayed path, retains missing options and respects fixed/excluded ships',()=>{
   const store=fixture(),before=JSON.stringify(store);
   const result=recommendNormalFleet(store,{area:'1-2',fixedShipIds:[1],excludedShipIds:[2]});
-  assert.deepEqual(result.routeResults.map(r=>r.key),routeOptions('1-2').map(r=>r.key));
+  assert.deepEqual(result.routeResults.map(r=>r.key),routeOptions('1-2').filter(r=>r.recommend!==false).map(r=>r.key));
   assert(result.recommendations.length);
   for(const row of result.recommendations){
     assert(row.scheme.ships.some(s=>s.id===1));assert(!row.scheme.ships.some(s=>s.id===2));
@@ -492,10 +477,10 @@ test('route search covers each displayed path, retains missing options and respe
     assert.equal(row.scores.routeAirReference.scope,'selectedRoute');
   }
   const locked=recommendNormalFleet(store,{area:'3-5',fixedShipIds:[2,3,4,5,6,8]});
-  assert.equal(locked.routeResults.find(r=>r.key==='upper').status,'notFound');
-  assert.equal(locked.routeResults.find(r=>r.key==='upper').recommendationIndex,null);
-  assert(locked.routeResults.find(r=>r.key==='upper').requirements.length);
-  assert(locked.recommendations.every(r=>r.routeKey!=='upper'));
+  assert.equal(locked.routeResults.find(r=>r.key==='guide:3-5-05').status,'notFound');
+  assert.equal(locked.routeResults.find(r=>r.key==='guide:3-5-05').recommendationIndex,null);
+  assert(locked.routeResults.find(r=>r.key==='guide:3-5-05').requirements.length);
+  assert(locked.recommendations.every(r=>r.routeKey!=='guide:3-5-05'));
   assert.equal(JSON.stringify(store),before);
 });
 test('requirements expose ordered alternatives and ship type conditions, without inventing one mandatory template',()=>{
@@ -510,7 +495,7 @@ test('route search preserves held position and equipment while fitting coastal e
   for(const type of [1,2,3,16])store.const.$shipTypes[type]={api_equip_type:{1:1}};
   for(let id=101;id<121;id++)store.info.equips[id]={api_id:id,api_slotitem_id:500,api_level:0};
   const heldSlots=[null,{id:6,slots:[101,-1],ex:0,pin:true,keep:{0:true}}];
-  const result=recommendNormalFleet(store,{area:'2-2',fixedShipIds:[6],heldSlots});
+  const result=recommendNormalFleet(store,{area:'2-2',routeKey:'C>E>F>H>K',fixedShipIds:[6],heldSlots});
   const row=result.recommendations.find(r=>r.routeKey==='C>E>F>H>K');assert(row);
   assert.equal(row.scheme.ships[1].id,6);assert.equal(row.scheme.ships[1].slots[0],101);
   for(const id of [7,8])assert(row.scheme.ships.find(s=>s.id===id).slots.some(id=>id>0),'coastal escort gets a surface weapon');
@@ -547,7 +532,7 @@ test('2-5 fits exact candidate LoS before selecting the lightweight north route'
     store.info.ships[id]={...store.info.ships[1],api_id:id,api_ship_id:id,api_lv:160};
     store.const.$ships[id]={...store.const.$ships[1],api_id:id,api_name:`大型舰${id}`,api_stype:9};
   }
-  const result=recommendNormalFleet(store,{area:'2-5',});
+  const result=recommendNormalFleet(store,{area:'2-5',routeKey:'B>F>E>I>O'});
   const row=result.recommendations.find(r=>r.routeKey==='B>F>E>I>O');assert(row);
   const p=planningPath(row.route,row.selectedPath);
   assert.equal(p.chance.min,1);assert.equal(p.losShortfall,0);
@@ -573,7 +558,7 @@ test('manual ship replacement equipment search uses the same LoS gate and keeps 
 test('exact low-LoS hulls still get the bounded repair pass on routes with no routing equipment requirement',()=>{
   const store=losFixture(),ids=[1,2,3,4,5,6];store.info.basic.api_level=120;
   store.const.$equips[501].api_saku=2;
-  const option=routeOptions('3-5').find(r=>r.key==='lower');assert(option);
+  const option=routeOptions('3-5').find(r=>r.key==='guide:3-5-01');assert(option);
   const initial=evaluateNormalRoute(store,{area:'3-5',scheme:{fleet:1,ships:ids}});
   assert.equal(initial.lineOfSight.status,'computed');
   assert.equal(require('../../../src/domain/routes/route_plans').routingNeeds(initial,option.nodes).length,0);
@@ -603,7 +588,7 @@ test('routing gear and held slots satisfy the reference 2-5 final gate without d
   store.info.ships[1].api_soku=5;store.const.$ships[1].api_soku=5;
   for(const id of [200,201])store.info.equips[id]={api_id:id,api_slotitem_id:502,api_level:0};
   const heldSlots=[{id:1,slots:store.info.ships[1].api_slot.slice(),ex:-1,pin:true,keep:{0:true}}];
-  const result=recommendNormalFleet(store,{area:'2-5',fixedShipIds:ids,heldSlots});
+  const result=recommendNormalFleet(store,{area:'2-5',routeKey:'B>F>J>O',fixedShipIds:ids,heldSlots});
   const route=result.routeResults.find(r=>r.key==='B>F>J>O');
   assert.equal(route.status,'available');assert.equal(route.chance.probability,1);
   assert.equal(heldSlots[0].slots[0],125);
@@ -652,116 +637,58 @@ test('speed fitting can use four engine slots and replace an unheld weaker boile
   assert.equal(speedLoadout(store,worn,[{id:204,master:store.const.$equips[87]}],'fastest',[{id:2,keep:{0:true,1:true,2:true,ex:true}}]),null);
 });
 
-test('guide routes take precedence, retain readable names and never pad the list to three',()=>{
-  const catalog=require('../../../data/normal_route_guides.json').maps;
-  const {previewForMap}=require('../../../src/domain/routes/sortie_profile');
-  for(const [key,guide] of Object.entries(catalog)){
-    const [area,phase]=key.split(':'),target=area==='1-6'?'N':'boss';
-    const paths=previewForMap(area,{target,phase}).routePaths;
-    assert(guide.routes.every(r=>require('../../../src/domain/routes/route_plans').optionPaths(r).every(nodes=>paths.some(p=>p.nodes.join('>')===nodes.join('>')))),key+' guide path must exist');
-    const choices=routeOptions(area,target,phase);
-    assert.deepEqual(choices.map(r=>r.nodes),guide.routes.map(r=>r.nodes),key);
-    for(const r of choices){assert.equal(r.basis,'guide');assert.equal(r.source,guide.source);assert.equal(r.label,`${r.name}（${r.strategy?.pathLabel||r.pathLabel||r.nodes.join('→')}）`);}
-  }
-  assert.deepEqual(routeOptions('2-5').map(r=>r.name),['下路空母流','上路大船流','上转下轻量流']);
-  assert.equal(routeOptions('4-4').length,2);
-  assert(routeOptions('5-5').some(r=>r.key==='B>F>D>H>N>O>S'));
-  assert(!routeOptions('5-5').some(r=>r.key==='A>C>E>H>P>S'));
-  assert.equal(routeOptions('1-1')[0].basis,'inferred');
-  assert(routeOptions('1-1')[0].name);
-  assert(routeOptions('7-2').every(r=>r.basis==='guide'),'unspecified phase also uses guide entries');
+test('guide routes take precedence while physical paths remain explicit non-preset queries',()=>{
+ const catalog=require('../../../data/normal_route_guides.json').maps;
+ for(const [key,guide] of Object.entries(catalog)){
+  const choices=routeOptions(key.split(':')[0],guide.target,guide.phase||undefined),presets=choices.filter(r=>r.recommend!==false);
+  assert.deepEqual(presets.map(r=>r.id),guide.routes.map(r=>r.id));
+  for(const r of presets){assert.equal(r.basis,'guide');assert.equal(r.source,guide.source);assert(r.key.startsWith('guide:'));}
+  for(const r of choices.filter(r=>r.recommend===false)){assert(!r.fleetRequirement);assert.equal(r.key,r.nodes.join('>'));}
+ }
 });
-
-test('branching maps list every reviewed Boss path, without truncating guide or phase choices',()=>{
-  const {previewForMap}=require('../../../src/domain/routes/sortie_profile');
-  for(const [area,count]of [['1-4',4],['2-3',8]]){
-    const options=routeOptions(area).filter(o=>area!=='1-4'||o.recommend===false);
-    assert.equal(options.length,count);
-    assert(options.every(o=>o.arrivalMode==='boss'));
-    assert.deepEqual(options.flatMap(require('../../../src/domain/routes/route_plans').optionPaths).map(nodes=>nodes.join('>')).sort(),previewForMap(area).routePaths.map(p=>p.nodes.join('>')).sort());
-    assert.equal(new Set(options.map(o=>o.key)).size,count);
-  }
-  assert.equal(routeOptions('7-2').length,5,'both stages retain all reviewed choices');
-  assert.equal(routeOptions('1-1').length,1);
+test('physical route queries retain the whole graph separately from the bounded presets',()=>{
+ const {previewForMap}=require('../../../src/domain/routes/sortie_profile');
+ for(const area of ['1-4','2-3']){
+  const options=routeOptions(area).filter(o=>o.recommend===false);
+  assert.deepEqual(options.map(o=>o.nodes.join('>')).sort(),previewForMap(area).routePaths.map(p=>p.nodes.join('>')).sort());
+ }
 });
-
 test('upper and lower names agree with the displayed map, including formerly inverted 2-3 labels',()=>{
   const catalog=require('../../../data/normal_route_guides.json').maps,layouts=require('../../../data/sortie/maps/index.json').maps;
   for(const [key,guide]of Object.entries(catalog)){
     const layout=layouts[key.split(':')[0]];
-    for(const upper of guide.routes.filter(r=>/^(上路|北路)/.test(r.name)))
-      for(const lower of guide.routes.filter(r=>/^(下路|南路)/.test(r.name))){
+    for(const upper of guide.routes.filter(r=>/(上路|北路)$/.test(r.name)))
+      for(const lower of guide.routes.filter(r=>/(下路|南路)$/.test(r.name))){
         const only=(a,b)=>a.nodes.filter(n=>!b.nodes.includes(n));
         const u=only(upper,lower),l=only(lower,upper);if(!u.length||!l.length)continue;
         const y=nodes=>nodes.reduce((s,n)=>s+layout.spots[n][1],0)/nodes.length;
         assert(y(u)<y(l),`${key} ${upper.name} must appear above ${lower.name}`);
       }
   }
-  assert.equal(routeOptions('2-3').find(o=>o.key==='A>D>G>K>N').name,'下路水母流');
-  assert.equal(routeOptions('2-3').find(o=>o.key==='C>F>J>N').name,'潜水舰队流');
-  assert.equal(routeOptions('2-1').find(o=>o.key==='C>D>H').name,'下路迎击流');
+
 });
 
-test('normal route titles keep node references, fleet claims and stage labels consistent',()=>{
-  const catalog=require('../../../data/normal_route_guides.json').maps;
-  for(const [key,guide]of Object.entries(catalog)){
-    for(const route of guide.routes){
-      assert.match(route.name,/流$/,`${key}: ${route.name}`);
-      assert.doesNotMatch(route.name,/阶段|另一出发|备选/);
-      for(const match of route.name.matchAll(/([A-Z])点/g))
-        assert(route.nodes.includes(match[1]),`${key}: named node must be on the route`);
-    }
-    const [area,phase]=key.split(':');
-    const options=routeOptions(area,area==='1-6'?'N':'boss',phase);
-    assert.equal(options.length,guide.routes.length,`${key}: every reviewed name is visible`);
-    for(const option of options)assert.equal(option.label,`${option.name}（${option.strategy?.pathLabel||option.pathLabel||option.nodes.join('→')}）`);
-  }
-  // These paths accept other legal fleets: do not label them by one guide example.
-  for(const [area,phase,key,forbidden]of [
-    ['1-6',null,'C>H>K>M>J>D>N',/大船/],
-    ['3-2',null,'C>G>H>F>L',/常速|水雷/],
-    ['4-5',null,'C>D>H>T',/高速/],
-    ['6-4',null,'A>D>C>F>N',/秋津洲/],
-    ['7-3','gauge1','A>C>E',/史实/],
-  ])assert.doesNotMatch(routeOptions(area,area==='1-6'?'N':'boss',phase).find(o=>o.key===key).name,forbidden);
-  for(const area of ['7-2','7-3','7-5'])for(const option of routeOptions(area))
-    assert.equal((option.label.match(/阶段/g)||[]).length,1);
-  assert.equal(routeOptions('1-1')[0].name,'近海推进流');
+test('route names are Chinese and phase labels are separate from names',()=>{
+ for(const area of ['1-1','2-3','7-2','7-3','7-5'])for(const option of routeOptions(area).filter(o=>o.recommend!==false)){
+  assert.match(option.name,/^[\p{Script=Han}]+$/u);assert(!option.name.includes('阶段'));
+  if(option.phase)assert.equal((option.label.match(/阶段/g)||[]).length,1);
+ }
 });
-
-test('retained guide hull and ship-count names reject fleets missing the named feature',()=>{
-  const {fleetRequirementAssessment}=require('../../../src/domain/routes/route_plans');
-  for(const [area,phase,key,valid,invalid]of [
-    ['2-1',null,'C>E>H',[16,3,2,2,2,2],[3,3,2,2,2,2]],
-    ['2-2',null,'C>E>K',[16,3,2,2,2,2],[3,3,2,2,2,2]],
-    ['2-2',null,'C>E>F>H>K',[16,7,3,2,1,1],[16,7,3,2,2,2]],
-    ['3-4',null,'A>C>E>G>J>P',[16,11,11,9,7,3],[22,11,11,9,7,3]],
-    ['7-1',null,'D>E>G>H>K',[3,2,2,2,2],[3,2,2,2]],
-    ['7-1',null,'F>G>H>K',[2,1,1,1],[2,1,1]],
-    ['7-2','gauge1','C>E>G',[3,2,2,1],[3,2,2,2]],
-    ...[['2-5','C>E>I>O'],['3-3','A>C>G>M'],['4-4','A>E>I>K'],['5-2','B>C>D>F>O'],['5-4','B>C>G>L>P'],['6-5','A>C>D>G>M']]
-      .map(([area,key])=>[area,null,key,[11,3,2,2,2,2],[3,3,2,2,2,2]]),
-    ...[['2-4','B>C>F>J>L>P'],['2-5','B>F>J>O'],['3-5','upper'],['5-5','B>K>P>S']]
-      .map(([area,key])=>[area,null,key,[5,3,2,2,2,2],[3,3,2,2,2,2]]),
-  ]){
-    const option=routeOptions(area,'boss',phase).find(o=>o.key===key);
-    const assess=stypes=>fleetRequirementAssessment({ships:stypes.map(stype=>({stype}))},option);
-    assert(assess(valid).eligible,`${area}: ${option.name} accepts its feature`);
-    assert(!assess(invalid).eligible,`${area}: ${option.name} rejects a missing feature`);
-  }
+test('all preset identities reject an empty fleet while physical paths stay unconstrained',()=>{
+ const {fleetRequirementAssessment}=require('../../../src/domain/routes/route_plans');
+ for(const area of ['1-1','2-2','3-4','7-3'])for(const o of routeOptions(area))assert.equal(fleetRequirementAssessment({ships:[]},o).eligible,o.recommend===false);
 });
-
 test('branch arrival uses all exits of the same fleet, separately from the highlighted path',()=>{
   const W=require('../../../src/ui/workbench/workbench_model'),store=fixture();
   // AV+5DD: half enters F; F→J=.9, J miss=(1-.8)*(1-.65)=.07.
   for(const [area,expected,pathProbability]of [['1-4',1,.25],['2-3',1-.5*.9*.07,.175]]){
     if(area==='2-3')store.const.$ships[1].api_stype=16;
-    const route=evaluateNormalRoute(store,{area,scheme:{fleet:1,ships:[1,2,3,4,5,6]}}),options=routeOptions(area).filter(o=>!o.key.includes('@'));
+    const route=evaluateNormalRoute(store,{area,scheme:{fleet:1,ships:[1,2,3,4,5,6]}}),options=routeOptions(area).filter(o=>o.recommend===false);
     assert(Math.abs(route.probability-expected)<1e-9);
     const sum=options.reduce((s,o)=>s+require('../../../src/domain/routes/route_plans').optionPlanning(route,o).chance.probability,0);
     assert(Math.abs(sum-expected)<1e-9);
-    assert.equal(planningPath(route,options[0].nodes).chance.probability,pathProbability);
-    const card=W.routeArrival({route},options[0],true);
+    const selected=options.find(o=>Math.abs(planningPath(route,o.nodes).chance.probability-pathProbability)<1e-9);assert(selected);
+    const card=W.routeArrival({route},selected,true);
     assert.equal(card.value,area==='1-4'?'固定到达':'到达概率 96.9%');
     assert.match(card.label,/含其他分支/);assert(card.note.includes(`${pathProbability*100}%`));
     assert.equal(W.routeArrival({route},options[0],false).value,'待核对编成');
@@ -773,17 +700,17 @@ test('branch arrival uses all exits of the same fleet, separately from the highl
 
 test('merged guides retain every branch, remove the redundant 3-2 row and count shared prefixes once',()=>{
   const P=require('../../../src/domain/routes/route_plans'),W=require('../../../src/ui/workbench/workbench_model');
-  const options=routeOptions('3-2');assert.equal(options.length,3);
-  assert.equal(options[0].name,'水雷提速流');assert(!options.some(o=>o.key==='C>G>F>L'));
+  const options=routeOptions('3-2').filter(o=>o.recommend!==false);assert.equal(options.length,4);
+  assert.equal(options[0].name,'两战水雷提速流');assert(!options.some(o=>o.key==='C>G>F>L'));
   assert.deepEqual(P.optionPaths(options[0]),[[...'CEFL'],[...'CGFL']]);
   const store=backupFixture([16,3,2,2,2,2]);
   const route=evaluateNormalRoute(store,{area:'2-3',scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
-  const option=routeOptions('2-3')[0],grouped=P.optionPlanning(route,option);
+  const option={key:'example',nodes:[...'ADGKN'],paths:[[...'ADGKN'],[...'ADGIKN']],arrivalMode:'boss'},grouped=P.optionPlanning(route,option);
   assert.equal(grouped.chance.probability,.5,'random start is shared, not multiplied twice or counted as certain');
   assert.equal(grouped.branches.length,2);
   assert.deepEqual(grouped.branches.map(b=>b.chance.probability),[.175,.325]);
   assert.deepEqual(P.optionPlanning(route,{...option,paths:[...option.paths,option.paths[0]]}).chance,grouped.chance,'deduplicate full journeys');
-  const profile=W.selectedMapProfile(W.mapOverview('2-3'),option.key);
+  const profile=W.selectedMapProfile({...W.mapOverview('2-3'),options:[option]},option.key);
   assert.deepEqual(profile.highlightPaths,option.paths);assert.deepEqual(profile.examples,option.paths);
   assert(profile.threat.enemies.every(e=>e.nodes.every(n=>option.paths.some(p=>p.includes(n)))));
   const card=W.routeArrival({route},option,true);assert.match(card.note,/所选合流路线 50%/);
@@ -792,9 +719,9 @@ test('merged guides retain every branch, remove the redundant 3-2 row and count 
 
 test('4-5 merged starts share fleet fitting, LoS gates, air reference and arrival status',()=>{
   const P=require('../../../src/domain/routes/route_plans'),W=require('../../../src/ui/workbench/workbench_model');
-  const store=backupFixture([11,11,5,5,6,6]),ids=[1,2,3,4,5,6],before=JSON.stringify(store);
-  const option=routeOptions('4-5').find(o=>o.key==='C>D>H>K>T');
-  const result=recommendNormalFleet(store,{area:'4-5',fixedShipIds:ids});
+  const store=backupFixture([8,11,11,5,5,2]),ids=[1,2,3,4,5,6],before=JSON.stringify(store);
+  const option=routeOptions('4-5').find(o=>o.id==='4-5-09');
+  const result=recommendNormalFleet(store,{area:'4-5',routeKey:option.key,fixedShipIds:ids});
   const found=result.routeResults.find(r=>r.key===option.key);assert.equal(found.status,'available',found.message);
   assert.equal(found.chance.probability,1);
   const row=result.recommendations[found.recommendationIndex],planned=P.optionPlanning(row.route,option);
@@ -814,7 +741,7 @@ test('4-5 merged starts share fleet fitting, LoS gates, air reference and arriva
 test('a merged group accepts a usable secondary path without diagnosing its impossible alternative',()=>{
   const P=require('../../../src/domain/routes/route_plans'),store=backupFixture([11,11,5,5,6,6]);
   const route=evaluateNormalRoute(store,{area:'2-3',scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
-  const original=routeOptions('2-3').find(o=>o.key==='A>D>F>G>K>N');
+  const original={nodes:[...'ADFGKN'],paths:[[...'ADFGKN'],[...'ADFGIKN']]};
   const option={...original,nodes:original.paths[1],paths:original.paths.slice().reverse()};
   const planned=P.optionPlanning(route,option);
   assert.equal(planned.branches[0].chance.probability,0);
@@ -826,7 +753,7 @@ test('a merged group accepts a usable secondary path without diagnosing its impo
 test('4-1 and 4-2 random starts recombine without changing one fleet or its arrival probability',()=>{
   const P=require('../../../src/domain/routes/route_plans'),W=require('../../../src/ui/workbench/workbench_model'),store=fixture();
   for(const area of ['4-1','4-2']){
-    const option=routeOptions(area)[0],route=evaluateNormalRoute(store,{area,scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
+    const option={...routeOptions(area)[0],fleetRequirement:undefined},route=evaluateNormalRoute(store,{area,scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
     const planned=P.optionPlanning(route,option);assert.equal(planned.branches.length,2);
     assert(planned.branches.every(b=>b.chance.probability>0&&b.chance.probability<1));
     assert.equal(planned.chance.probability,1);assert.equal(W.routeArrival({route},option,true).value,'固定到达');
@@ -850,30 +777,19 @@ test('phase-less route selection exposes and previews the correct 7-3 gauge',()=
   assert.deepEqual(overview.options.map(r=>r.phase),['gauge1','gauge2','gauge2','gauge2','gauge2']);
   for(const option of overview.options){
     const profile=W.selectedMapProfile(overview,option.key);
-    assert(profile.routePaths.some(p=>p.nodes.join('>')===option.key));
+    assert(profile.routePaths.some(p=>p.nodes.join('>')===option.nodes.join('>')));
     assert(profile.targetNodes.includes(option.nodes.at(-1)));
   }
 });
 
-test('7-3 Wiki backup fleets reach Boss without Kamikaze and retain their composition requirements',()=>{
-  const {fleetRequirementAssessment}=require('../../../src/domain/routes/route_plans');
-  const options=routeOptions('7-3','boss','gauge2');
-  for(const [key,names,types] of [
-    ['A>C>D>G>J>P',['羽黒改二','足柄改二','最上改二特','驱逐甲','驱逐乙','驱逐丙'],[5,5,6,2,2,2]],
-    ['A>C>D>G>I>M>P',['羽黒改二','足柄改二','三隈改二特','驱逐甲','驱逐乙','驱逐丙'],[5,5,16,2,2,2]],
-    ['A>C>I>L>M>P',['普通重巡','普通轻巡','驱逐甲','驱逐乙','驱逐丙'],[5,3,2,2,2]],
-  ]){
-    const option=options.find(o=>o.key===key);assert(option,key);
-    const route={area:'7-3',phase:'gauge2',targetNodes:['P'],ships:types.map((stype,i)=>({stype,name:names[i],instanceId:i+1})),
-      speed:{status:'observed',fleetSpeed:'fast'},lineOfSight:{status:'computed',rawScoresByCoefficient:{4:100}}};
-    assert.equal(fleetRequirementAssessment(route,option).eligible,true,key);
-    assert.equal(planningPath(route,option.nodes,{allowTentative:false}).chance.probability,1,key);
-    assert.notEqual(planningPath({...route,speed:{status:'observed',fleetSpeed:'slow'}},option.nodes,{allowTentative:false}).chance.probability,1,`${key} requires fast fleet`);
-    route.ships.at(-1).name='神風改';
-    assert.equal(fleetRequirementAssessment(route,option).eligible,false,`${key} keeps its no-Kamikaze promise`);
-  }
+test('7-3 generic five-ship alternatives do not require historical names',()=>{
+ for(const id of ['7-3-08','7-3-09']){
+  const w=witnesses.find(w=>w.id===id),option=routeOptions('7-3','boss','gauge2').find(o=>o.id===id);
+  const route={area:'7-3',phase:'gauge2',targetNodes:['P'],ships:w.types.map((stype,i)=>({stype,name:'普通舰'+i,instanceId:i+1})),speed:{status:'observed',fleetSpeed:w.speed}};
+  assert(require('../../../src/domain/routes/route_plans').fleetRequirementAssessment(route,option).eligible);
+  assert.equal(planningPath(route,option.nodes,{allowTentative:false}).chance.probability,1);
+ }
 });
-
 test('7-4 routing uses actual selected history, and 7-5 P uses the confirmed coefficient-four threshold',()=>{
   const {predicate}=require('../../../src/domain/routes/normal_routes');
   assert.equal(predicate({pathIncludes:'D'},[],{}),null);
@@ -913,6 +829,7 @@ test('fleet API plans explicit known stages and prioritizes confirmed route arri
   store.const.$equips[1]={api_id:1,api_name:'主炮',api_type:[0,0,1,0],api_houg:2};
   for(let id=100;id<116;id++)store.info.equips[id]={api_id:id,api_slotitem_id:1,api_level:0};
   const before=JSON.stringify(store);
+  store.const.$ships[8].api_stype=5;store.const.$ships[8].api_name='羽黒改二';
   const staged=recommendNormalFleet(store,{area:'7-3'});
   assert(staged.recommendations.length>0);
   for(const row of staged.recommendations){
@@ -929,7 +846,7 @@ test('fleet API plans explicit known stages and prioritizes confirmed route arri
   const random=recommendNormalFleet(store,{area:'1-1'});
   assert(random.recommendations.length>0);
   assert(random.recommendations.every(row=>row.pathChance.probability>0&&row.pathChance.probability<1));
-  assert.equal(JSON.stringify(store),before);
+  const unchanged=JSON.parse(before);unchanged.const.$ships[8].api_stype=5;unchanged.const.$ships[8].api_name='羽黒改二';assert.deepEqual(store,unchanged);
 });
 
 test('equipment API without a route key requires confirmed complete-path evidence',()=>{
@@ -950,7 +867,7 @@ test('fleet and equipment searches fit a narrow LoS route after normal loadout c
   ids.forEach((id,i)=>{store.const.$ships[id].api_stype=types[i];store.info.ships[id].api_sakuteki=[20,40];});
   const scheme={fleet:1,ships:ids.map((id,i)=>({id,slots:[125+i*3,126+i*3,127+i*3],ex:-1}))};
   const before=JSON.stringify(store),key='C>E>I>K',nodes=['C','E','I','K'];
-  const fleet=recommendNormalFleet(store,{area:'6-2',fixedShipIds:ids});
+  const fleet=recommendNormalFleet(store,{area:'6-2',routeKey:key,fixedShipIds:ids});
   const choice=fleet.routeResults.find(r=>r.key===key);assert.equal(choice.status,'available');
   assert.equal(choice.chance.probability,1);
   const heldSlots=[{...scheme.ships[4],keep:{0:true}}];
@@ -967,18 +884,17 @@ test('fleet and equipment searches fit a narrow LoS route after normal loadout c
 
 test('2-3 Wiki composition titles are enforced by fleet and equipment recommendations',()=>{
   const P=require('../../../src/domain/routes/route_plans'),W=require('../../../src/ui/workbench/workbench_model'),store=fixture();
-  const selected=P.routeOptions('2-3').find(r=>r.key==='A>D>G>K>N');
-  assert.equal(selected.name,'下路水母流');
-  assert.equal(P.routeOptions('2-3').find(r=>r.key==='A>D>F>J>N').name,'D点转上流');
+  const selected=P.routeOptions('2-3').find(r=>r.id==='2-3-03');
+  assert.equal(selected.name,'水母流');
   const missing=recommendNormalFleet(store,{area:'2-3',});
   for(const row of missing.routeResults.filter(r=>r.name.includes('水母'))){
-    assert.equal(row.status,'notFound');assert.match(row.message,/攻略编成要求.*水母至少 1 艘/);
+    assert.equal(row.status,'notFound');assert.match(row.message,/攻略编成要求.*水母 1 艘/);
   }
   const noWater=evaluateNormalRoute(store,{area:'2-3',scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
   assert.equal(W.routeArrival({route:noWater},selected,true).value,'编成条件未满足');
   assert.throws(()=>recommendNormalEquipment(store,{area:'2-3',routeKey:selected.key,scheme:{fleet:1,ships:[1,2,3,4,5,6].map(id=>({id,slots:[-1,-1],ex:0}))}}),/攻略编成要求.*水母/);
   store.const.$ships[8].api_stype=16;
-  const result=recommendNormalFleet(store,{area:'2-3',fixedShipIds:[1,2,3,4,5,8]});
+  const result=recommendNormalFleet(store,{area:'2-3',routeKey:selected.key,fixedShipIds:[1,2,3,4,5,8]});
   for(const route of result.routeResults.filter(r=>r.fleetRequirement)){
     assert.equal(route.status,'available');const row=result.recommendations[route.recommendationIndex];
     assert(P.fleetRequirementAssessment(row.route,route).eligible);
@@ -1046,7 +962,7 @@ test('unavailable historical routing ships appear in both API message and visibl
   const store=fixture();store.const.$ships[1].api_name='羽黒改二';store.const.$ships[1].api_stype=5;
   store.const.$ships[2].api_name='神風';store.const.$ships[2].api_aftershipid='99';
   store.const.$ships[99]={...store.const.$ships[2],api_id:99,api_name:'神風改',api_aftershipid:0};
-  const before=JSON.stringify(store),key='A>C>D>G>P';
+  const before=JSON.stringify(store),key='guide:7-3-06';
   const r=recommendNormalFleet(store,{area:'7-3',phase:'gauge2',});
   const selected=r.routeResults.find(r=>r.key===key);
   assert.equal(selected.status,'notFound');

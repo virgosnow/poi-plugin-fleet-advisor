@@ -219,7 +219,7 @@ test('conventional completion and later air fitting never buy jets by losing the
 test('jet scoring separates attack stages and charges whole-sortie steel; no jets retain the fast path',()=>{
   const {scoreRoute,carrierStrike}=require('../../src/recommendation/scoring');
   const {projectFleet}=require('../../src/domain/fleet/fleet_metrics');
-  const store=jetCarrierFixture(),profile={area:'1-1',examples:[['A','C']],counts:{surface:{maximum:2},air:{maximum:0},asw:{maximum:0},night:{maximum:0}}};
+  const store=jetCarrierFixture(),profile={area:'1-1',routeKey:'A>C',examples:[['A','C']],counts:{surface:{maximum:2},air:{maximum:0},asw:{maximum:0},night:{maximum:0}}};
   // Keep this numeric scoring fixture inside the recorded blue-bonus range.
   store.const.$ships[1]={...store.const.$ships[6001],api_id:1,api_ctype:0,api_aftershipid:0};store.info.ships[1].api_ship_id=1;
   for(const [old,id] of [[9001,8],[9002,7],[9003,6],[9004,9],[9005,35],[9006,2]]){
@@ -410,7 +410,7 @@ test('equipment search favors healthy supremacy when two carriers can afford it'
 
 test('fleet recommendation applies small-slot protection and can retain healthy supremacy',()=>{
   const {store}=twoCarrierFixture(),before=JSON.stringify(store);
-  const result=recommendNormalFleet(store,{area:'2-1',airGoal:'superiority',fixedShipIds:[1,2],limit:3});
+  const result=recommendNormalFleet(store,{area:'2-1',routeKey:'C>D>H',airGoal:'superiority',fixedShipIds:[1,2],limit:3});
   assert(result.recommendations.length>0);
   for(const row of result.recommendations)for(const id of [1,2]){
     const entry=row.scheme.ships.find(s=>s.id===id);assert(entry);

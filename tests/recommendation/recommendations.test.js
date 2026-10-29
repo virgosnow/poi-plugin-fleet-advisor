@@ -40,12 +40,12 @@ function armSurfaceDestroyers(store){
 test('1-1 constrains automatic seed sizes while retaining manual ships, positions and equipment',()=>{
   const {PerformanceTrace}=require('../../src/shared/performance_trace'),store=fixture();armSurfaceDestroyers(store);
   const trace=new PerformanceTrace({level:'stages'});
-  const automatic=trace.run(()=>recommendNormalFleet(store,{area:'1-1',airGoal:'superiority'}));
+  const automatic=trace.run(()=>recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',airGoal:'superiority'}));
   assert(automatic.recommendations.length>0);assert(automatic.recommendations.every(r=>r.scheme.ships.length<=2));
   assert(!trace.counters['search.size.allowed.3']);assert(trace.counters['search.size.allowed.1']);
   const held={id:2,slots:store.info.ships[2].api_slot.slice(),ex:-1,keep:{0:true},holdPosition:true};
   for(const fixed of [[2],[2,3],[2,3,4],[1,2,3,4,5,6]]){
-    const result=recommendNormalFleet(store,{area:'1-1',airGoal:'ignore',fixedShipIds:fixed,heldSlots:[held]});
+    const result=recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',airGoal:'ignore',fixedShipIds:fixed,heldSlots:[held]});
     assert(result.recommendations.length>0,`manual size ${fixed.length}`);
     for(const row of result.recommendations){
       assert(fixed.every(id=>row.scheme.ships.some(e=>e.id===id)));
@@ -59,7 +59,7 @@ test('1-1 retains the broad fallback when no small fleet satisfies the guide equ
   const {PerformanceTrace}=require('../../src/shared/performance_trace'),store=fixture();
   for(const master of Object.values(store.const.$ships))master.api_stype=9;
   const trace=new PerformanceTrace({level:'stages'}),before=JSON.stringify(store);
-  const result=trace.run(()=>recommendNormalFleet(store,{area:'1-1',}));
+  const result=trace.run(()=>recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',}));
   assert.equal(trace.counters['search.compactFallback'],1);assert(trace.counters['search.size.allowed.6']);
   assert(result.recommendations.length>0);assert.equal(JSON.stringify(store),before);
 });
@@ -72,7 +72,7 @@ test('1-1 retries the broad search if compact candidates fail final operation-pl
     return preview.call(this,kind,scheme);
   };
   try{
-    const result=trace.run(()=>recommendNormalFleet(store,{area:'1-1',}));
+    const result=trace.run(()=>recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',}));
     assert.equal(trace.counters['search.compactFallback'],1);
     assert(result.recommendations.length>0);assert(result.recommendations.every(r=>r.scheme.ships.length>2));
   }finally{FleetPlanner.prototype.preview=preview;}
@@ -95,8 +95,8 @@ function mixedAswFixture(){
 
 test('4-2 reserves two-gun surface builds and limits automatic ASW to escorts',()=>{
   const store=mixedAswFixture(),before=JSON.stringify(store);
-  const result=recommendNormalFleet(store,{area:'4-2',airGoal:'ignore',fixedShipIds:[1,2,3,4,5,6]});
-  const row=result.recommendations.find(row=>row.routeKey==='A>C>L');assert(row);
+  const result=recommendNormalFleet(store,{area:'4-2',routeKey:'B>D>C>L',airGoal:'ignore',fixedShipIds:[1,2,3,4,5,6]});
+  const row=result.recommendations.find(row=>row.routeKey==='B>D>C>L');assert(row);
   const types=entry=>entry.slots.map(id=>store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_type[2]);
   assert(row.profile.counts.asw.maximum>0,'the random B branch still needs an escort');
   assert(row.scheme.ships.filter(entry=>types(entry).some(type=>[14,15,40,44].includes(type))).length<=2);
@@ -108,7 +108,7 @@ test('4-2 reserves two-gun surface builds and limits automatic ASW to escorts',(
 
 test('selected submarine-free 4-2 lane removes off-route ASW gear but preserves manual slots',()=>{
   const store=mixedAswFixture();store.const.$ships[1].api_stype=5;
-  const args={area:'4-2',airGoal:'ignore',fixedShipIds:[1,2,3,4,5,6]};
+  const args={area:'4-2',routeKey:'A>E>G>L',airGoal:'ignore',fixedShipIds:[1,2,3,4,5,6]};
   const result=recommendNormalFleet(store,args),row=result.recommendations.find(row=>row.routeKey==='A>E>G>L');assert(row);
   assert.equal(row.profile.counts.asw.maximum,0);assert.equal(row.scores.aswStrengthProxy,0);
   assert(row.scheme.ships.every(entry=>entry.slots.every(id=>![14,15,40,44].includes(store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_type[2]))));
@@ -122,7 +122,7 @@ test('selected submarine-free 4-2 lane removes off-route ASW gear but preserves 
 
 test('submarine objectives retain full-fleet ASW kits instead of a two-escort limit',()=>{
   const store=mixedAswFixture();
-  const row=recommendNormalFleet(store,{area:'1-5',fixedShipIds:[2,3,4,7],airGoal:'ignore'}).recommendations[0];assert(row);
+  const row=recommendNormalFleet(store,{area:'1-5',routeKey:'A>D>F>G>J',fixedShipIds:[2,3,4,7],airGoal:'ignore'}).recommendations[0];assert(row);
   assert.equal(row.scores.openingAswCount,4);
   for(const entry of row.scheme.ships)assert(entry.slots.every(id=>[14,15,40,44].includes(store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_type[2])));
 });
@@ -162,7 +162,7 @@ test('a submarine-free night lane retains stronger destroyers instead of followi
     store.info.ships[id]={...store.info.ships[2],api_id:id,api_ship_id:id,api_lv:40,
       api_taisen:[30,30],api_karyoku:[90,90],api_raisou:[100,100]};
   }
-  const row=recommendNormalFleet(store,{area:'5-5',airGoal:'ignore'}).recommendations.find(row=>row.routeKey==='A>C>E>G>I>M>O>S');
+  const row=recommendNormalFleet(store,{area:'5-5',routeKey:'A>C>E>G>I>M>O>S',airGoal:'ignore'}).recommendations.find(row=>row.routeKey==='A>C>E>G>I>M>O>S');
   assert(row);
   for(const id of [9,10])assert(row.scheme.ships.some(entry=>entry.id===id),'keep the strong hull and try its route-specific gear');
   assert.equal(row.profile.counts.asw.maximum,0);
@@ -211,16 +211,16 @@ test('1-1 completes Yubari cargo slots with legal combat equipment and explains 
   const {emptyLoadout,completeCombatLoadout,explainLoadout}=require('../../src/recommendation/loadout/loadout_policy');
   const {canEquip}=require('../../src/domain/fleet/equipment_rules');
   const {store,inventory}=yubariCargoFixture(),before=JSON.stringify(store);
-  const result=completeCombatLoadout(store,emptyLoadout(store,{fleet:1,ships:[{id:1}]}),inventory,{area:'1-1'}),ship=result.ships[0];
+  const result=completeCombatLoadout(store,emptyLoadout(store,{fleet:1,ships:[{id:1}]}),inventory,{area:'1-1',routeKey:'A>C'}),ship=result.ships[0];
   assert.equal(ship.slots[0],101);assert.equal(ship.slots.filter(id=>[105,106].includes(id)).length,2);
   assert(ship.slots.slice(3).every(id=>[107,108].includes(id)));assert.equal(ship.ex,109);
   assert.equal(new Set(ship.slots.concat(ship.ex)).size,6);
   ship.slots.forEach((id,k)=>assert(canEquip(store,1,id,k)));
   assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',result));
-  const reason=explainLoadout(store,ship,{area:'1-1'});
+  const reason=explainLoadout(store,ship,{area:'1-1',routeKey:'A>C'});
   assert.equal(reason.rows.length,6);assert(reason.rows.every(r=>r.reason&&!r.warning));
   assert(reason.role.includes('开幕雷击'));assert(reason.rows[1].reason.includes('夜战连击'));
-  const old=explainLoadout(store,{id:1,slots:[101,102,103,104,-1],ex:-1},{area:'1-1'});
+  const old=explainLoadout(store,{id:1,slots:[101,102,103,104,-1],ex:-1},{area:'1-1',routeKey:'A>C'});
   assert(old.rows.slice(1,4).every(r=>r.warning));assert(old.rows[4].reason.includes('第五槽仅允许'));
   assert.equal(JSON.stringify(store),before);
 });
@@ -229,18 +229,18 @@ test('1-1 cleanup preserves manual cargo and empty slots and does not invent una
   const {emptyLoadout,completeCombatLoadout,explainLoadout}=require('../../src/recommendation/loadout/loadout_policy');
   const {store,inventory}=yubariCargoFixture();
   const held={id:1,slots:[101,102,103,104,-1],ex:-1,keep:{1:true,4:true,ex:true}};
-  const result=completeCombatLoadout(store,emptyLoadout(store,{fleet:1,ships:[held]},[held]),inventory,{area:'1-1',heldSlots:[held]}).ships[0];
+  const result=completeCombatLoadout(store,emptyLoadout(store,{fleet:1,ships:[held]},[held]),inventory,{area:'1-1',routeKey:'A>C',heldSlots:[held]}).ships[0];
   assert.equal(result.slots[1],102);assert.equal(result.slots[4],-1);assert.equal(result.ex,-1);
-  const reasons=explainLoadout(store,{...result,keep:held.keep},{area:'1-1'}).rows;
+  const reasons=explainLoadout(store,{...result,keep:held.keep},{area:'1-1',routeKey:'A>C'}).rows;
   assert(reasons[1].reason.startsWith('手动保留'));assert(reasons[4].reason.includes('手动指定留空'));
-  const empty=completeCombatLoadout(store,emptyLoadout(store,{fleet:1,ships:[{id:1}]}),[],{area:'1-1'}).ships[0];
+  const empty=completeCombatLoadout(store,emptyLoadout(store,{fleet:1,ships:[{id:1}]}),[],{area:'1-1',routeKey:'A>C'}).ships[0];
   assert.deepEqual(empty.slots,[-1,-1,-1,-1,-1]);
-  assert(explainLoadout(store,empty,{area:'1-1'}).rows[1].reason.includes('未配置'));
+  assert(explainLoadout(store,empty,{area:'1-1',routeKey:'A>C'}).rows[1].reason.includes('未配置'));
 });
 
 test('normal equipment is built from empty slots regardless of currently installed cargo or weapons',()=>{
   const {store}=yubariCargoFixture(),{recommendNormalEquipment}=require('../../src/recommendation/index');
-  const args={area:'2-1',scheme:{fleet:1,ships:[{id:1,slots:[101,102,103,104,-1],ex:-1}]}};
+  const args={area:'2-1',routeKey:'C>D>H',scheme:{fleet:1,ships:[{id:1,slots:[101,102,103,104,-1],ex:-1}]}};
   const before=JSON.stringify(store),first=recommendNormalEquipment(store,args).scheme;
   assert(first.ships[0].slots.every(id=>id>0));assert(!first.ships[0].slots.some(id=>[102,103,104].includes(id)));
   assert.equal(JSON.stringify(store),before,'search never empties actual game equipment');
@@ -267,7 +267,7 @@ test('ranked loadouts that fail the final pure plan preview are never returned',
   const store=fixture(),original=FleetPlanner.prototype.preview;let calls=0;
   FleetPlanner.prototype.preview=function(){calls++;throw new Error('final preview refused');};
   try{
-    const result=recommendNormalFleet(store,{area:'1-1',fixedShipIds:[2],excludedShipIds:[1,3,4,5,6,7,8]});
+    const result=recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',fixedShipIds:[2],excludedShipIds:[1,3,4,5,6,7,8]});
     assert(calls>0);assert.equal(result.recommendations.length,0);
     assert(result.routeResults.every(r=>r.recommendationIndex===null));
   }finally{FleetPlanner.prototype.preview=original;}
@@ -295,7 +295,7 @@ function airMapFixture(){
 
 test('normal recommendation respects fixed and excluded instances and remains previewable',()=>{
   const store=fixture();
-  const result=recommendNormalFleet(store,{area:'1-1',fleet:1,
+  const result=recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',fleet:1,
     fixedShipIds:[2],excludedShipIds:[7],limit:3});
   assert(result.recommendations.length>0);
   assert.equal(result.search.globalOptimal,false);
@@ -305,7 +305,7 @@ test('normal recommendation respects fixed and excluded instances and remains pr
     assert(row.route.chanceRange[1]>0);
     assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',row.scheme));
   }
-  assert.throws(()=>recommendNormalFleet(store,{area:'1-1',fixedShipIds:[2],excludedShipIds:[2]}),/重叠/);
+  assert.throws(()=>recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',fixedShipIds:[2],excludedShipIds:[2]}),/重叠/);
   assert.throws(()=>recommendNormalFleet(store,{area:'1-6'}),/目标点位/);
 });
 
@@ -338,7 +338,7 @@ test('1-1 favors modest opening torpedo and carrier strike fleets over a battles
   store.info.equips[1523]={api_id:1523,api_slotitem_id:523,api_level:0};
   store.info.ships[2].api_slot=[1522,-1];
   store.info.ships[3].api_slot=[1523,-1];
-  const result=recommendNormalFleet(store,{area:'1-1'});
+  const result=recommendNormalFleet(store,{area:'1-1',routeKey:'A>C'});
   assert(result.recommendations.length>0);
   for(const row of result.recommendations){
     assert(row.scheme.ships.length<=2);
@@ -362,7 +362,7 @@ test('opening torpedo strength on other maps requires actual equipment',()=>{
   store.const.$equips[522]={api_id:522,api_name:'甲標的 甲型',
     api_type:[2,4,22,5],api_raig:12};
   store.info.equips[1522]={api_id:1522,api_slotitem_id:522,api_level:0};
-  const args={area:'1-4',fixedShipIds:[2,3,4,5],
+  const args={area:'1-4',routeKey:'A>D>E>H>L',fixedShipIds:[2,3,4,5],
     excludedShipIds:[1,6,7,8]};
   const bare=recommendNormalFleet(store,args).recommendations[0];
   assert(bare);
@@ -392,7 +392,7 @@ test('1-1 can outfit a fixed torpedo cruiser and light carrier for opening attac
   store.info.equips[1523]={api_id:1523,api_slotitem_id:523,api_level:0};
   assert.equal(require('../../src/domain/fleet/equipment_rules').canEquip(store,2,1522,0),true);
   assert.equal(require('../../src/domain/fleet/equipment_rules').canEquip(store,3,1523,0),true);
-  const result=recommendNormalFleet(store,{area:'1-1',
+  const result=recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',
     fixedShipIds:[2,3]});
   const row=result.recommendations[0];
   assert(row,JSON.stringify(result.guideWarnings));
@@ -417,7 +417,7 @@ test('1-1 combines a light cruiser opening torpedo with an equipped seaplane bom
     api_type:[5,43,11,10],api_baku:7};
   store.info.equips[1522]={api_id:1522,api_slotitem_id:522,api_level:0};
   store.info.ships[2].api_slot=[1522,-1];
-  const args={area:'1-1',fixedShipIds:[2],
+  const args={area:'1-1',routeKey:'A>C',fixedShipIds:[2],
     excludedShipIds:[1,3,4,5,6,7,8]};
   const bare=recommendNormalFleet(store,args).recommendations[0];
   assert(bare);
@@ -457,7 +457,7 @@ test('1-1 replaces smoke with a seaplane bomber on a fixed opening-torpedo aviat
     store.const.$equips[id]={api_id:id,api_name:name,api_type:[0,0,type,type],api_baku:baku};
   for(const [id,masterId] of [[1522,522],[1524,524],[1525,525],[1526,525],[1527,527]])
     store.info.equips[id]={api_id:id,api_slotitem_id:masterId,api_level:0};
-  const row=recommendNormalFleet(store,{area:'1-1',fixedShipIds:[2],
+  const row=recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',fixedShipIds:[2],
     excludedShipIds:[1,3,4,5,6,7,8]}).recommendations[0];
   assert(row);
   assert.deepEqual(row.scheme.ships[0].slots,[1525,1526,1524,1522],'seven-plane bomber slot takes priority over category-only weapon ordering');
@@ -486,7 +486,7 @@ test('1-1 replaces an unneeded boiler with a bomber on a fixed opening-torpedo s
     store.const.$equips[id]={api_id:id,api_name:name,api_type:[0,0,type,type],api_baku:baku};
   for(const [id,masterId] of [[1522,522],[1524,524],[1525,525],[1527,527],[1528,528]])
     store.info.equips[id]={api_id:id,api_slotitem_id:masterId,api_level:0};
-  const row=recommendNormalFleet(store,{area:'1-1',fixedShipIds:[2],
+  const row=recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',fixedShipIds:[2],
     excludedShipIds:[1,3,4,5,6,7,8]}).recommendations[0];
   assert(row);
   assert.deepEqual(row.scheme.ships[0].slots,[1525,1522,1524,-1],'move the bomber to six planes and retain a compact equipment list');
@@ -517,7 +517,7 @@ test('1-1 accepts one-gun Ise-class remodels and counts their opening aircraft',
   store.info.ships[3].api_slot=[2003,2524,-1,-1,-1];
   assert.equal(require('../../src/domain/fleet/equipment_rules').canEquip(store,2,2523,2),true);
   for(const [id,kind] of [[2,'aviationBattleshipStrikeProxy'],[3,'seaplaneStrikeProxy']]){
-    const result=recommendNormalFleet(store,{area:'1-1',
+    const result=recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',
       fixedShipIds:[id],excludedShipIds:[1,4,5,6,7,8]});
     const row=result.recommendations[0];
     assert(row,`one-gun aviation battleship ${id} should remain eligible`);
@@ -571,7 +571,7 @@ test('expedition skips duplicate copies and remodels of the same ship',()=>{
 
 test('normal-map recommendations also avoid two copies of the same ship',()=>{
   const store=fixture();store.info.ships[3].api_ship_id=2;
-  const result=recommendNormalFleet(store,{area:'1-1',fixedShipIds:[2]});
+  const result=recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',fixedShipIds:[2]});
   assert(result.recommendations.length>0);
   for(const row of result.recommendations)
     assert(!row.scheme.ships.some(ship=>ship.id===3));
@@ -581,7 +581,7 @@ test('busy destination and unavailable fixed ship fail closed',()=>{
   const store=fixture();store.info.fleets[1].api_mission=[1,1];
   assert.throws(()=>recommendExpeditionFleet(store,{missionId:1,fleet:2}),/远征/);
   store.info.fleets[1].api_mission=[0,0];store.info.ships[2].api_situation=2;
-  assert.throws(()=>recommendNormalFleet(store,{area:'1-1',fixedShipIds:[2]}),/不能编入/);
+  assert.throws(()=>recommendNormalFleet(store,{area:'1-1',routeKey:'A>C',fixedShipIds:[2]}),/不能编入/);
   assert.throws(()=>recommendExpeditionFleet(store,{missionId:1,fleet:1}),/第 2–4 舰队/);
 });
 
@@ -964,7 +964,7 @@ test('normal route recommendation can equip an owned free fighter',()=>{
   store.const.$shipTypes[7]={api_equip_type:{6:1}};
   store.const.$equips[201]={api_id:201,api_name:'戦闘機',api_type:[0,0,6,6],api_tyku:10};
   store.info.equips[201]={api_id:201,api_slotitem_id:201,api_level:0,api_alv:7};
-  const result=recommendNormalFleet(store,{area:'2-1',airGoal:'superiority',
+  const result=recommendNormalFleet(store,{area:'2-1',routeKey:'C>D>H',airGoal:'superiority',
     fixedShipIds:[7],limit:5});
   assert(result.recommendations.some(row=>row.scheme.ships.some(ship=>ship.slots?.includes(201))));
   assert.equal(store.info.ships[7].api_slot[0],-1);
@@ -979,7 +979,7 @@ test('borrowed equipment is reported with its donor ship',()=>{
   store.const.$equips[201]={api_id:201,api_name:'戦闘機',api_type:[0,0,6,6],api_tyku:10};
   store.info.equips[201]={api_id:201,api_slotitem_id:201,api_level:0,api_alv:7};
   store.info.ships[8].api_slot=[201,-1];
-  const result=recommendNormalFleet(store,{area:'2-1',airGoal:'superiority',
+  const result=recommendNormalFleet(store,{area:'2-1',routeKey:'C>D>H',airGoal:'superiority',
     fixedShipIds:[7],excludedShipIds:[8],limit:5});
   assert(result.recommendations.some(row=>row.donorShipIds.includes(8)&&
     row.scheme.ships.some(ship=>ship.slots?.includes(201))));
@@ -993,22 +993,22 @@ test('air goal ranks confirmed air superiority first and reports unmet air supre
   store.const.$equips[201]={api_id:201,api_name:'戦闘機',api_type:[0,0,6,6],api_tyku:10};
   store.const.$equips[202]={api_id:202,api_name:'戦闘機',api_type:[0,0,6,6],api_tyku:10};
   for(const id of [201,202])store.info.equips[id]={api_id:id,api_slotitem_id:id,api_level:0,api_alv:7};
-  const superior=recommendNormalFleet(store,{area:'2-1',airGoal:'superiority',fixedShipIds:[7]});
+  const superior=recommendNormalFleet(store,{area:'2-1',routeKey:'C>D>H',airGoal:'superiority',fixedShipIds:[7]});
   assert.equal(superior.airGoalSummary.status,'confirmedOptions',JSON.stringify(superior.airGoalSummary));
   assert.equal(superior.recommendations[0].scores.airGoalStatus,'meetsAlongRoute');
   assert.equal(superior.recommendations[0].scores.airGoalBaseRequired,81);
   assert.equal(superior.recommendations[0].scores.airGoalRequired,81);
   assert(superior.recommendations[0].scheme.ships.some(ship=>ship.slots?.includes(201)));
-  const freeChoice=recommendNormalFleet(store,{area:'2-1',airGoal:'superiority'});
+  const freeChoice=recommendNormalFleet(store,{area:'2-1',routeKey:'C>D>H',airGoal:'superiority'});
   const freeAir=freeChoice.recommendations.find(r=>r.scores.airGoalStatus==='meetsAlongRoute');
   assert(freeAir);assert(freeAir.scheme.ships.some(ship=>ship.id===7));
-  const supreme=recommendNormalFleet(store,{area:'2-1',airGoal:'supremacy',fixedShipIds:[7]});
+  const supreme=recommendNormalFleet(store,{area:'2-1',routeKey:'C>D>H',airGoal:'supremacy',fixedShipIds:[7]});
   assert.equal(supreme.airGoalSummary.status,'noConfirmedOption');
   assert(supreme.recommendations.every(row=>row.scores.airGoalTier<3));
-  const ignored=recommendNormalFleet(store,{area:'2-1',airGoal:'ignore',fixedShipIds:[7]});
+  const ignored=recommendNormalFleet(store,{area:'2-1',routeKey:'C>D>H',airGoal:'ignore',fixedShipIds:[7]});
   assert.equal(ignored.airGoalSummary.status,'notRequested');
   assert(ignored.recommendations.every(row=>row.scores.airGoalRequired===null),'ignore adds no mandatory air threshold');
-  assert.throws(()=>recommendNormalFleet(store,{area:'2-1',airGoal:'invalid'}),/airGoal/);
+  assert.throws(()=>recommendNormalFleet(store,{area:'2-1',routeKey:'C>D>H',airGoal:'invalid'}),/airGoal/);
 });
 
 test('air planning replaces a full carrier slot and retains its strike plane',()=>{
@@ -1022,7 +1022,7 @@ test('air planning replaces a full carrier slot and retains its strike plane',()
   for(const id of [201,202,203])store.info.equips[id]={api_id:id,
     api_slotitem_id:id,api_level:0,api_alv:7};
   store.info.ships[7].api_slot=[201,202];
-  const result=recommendNormalFleet(store,{area:'2-1',
+  const result=recommendNormalFleet(store,{area:'2-1',routeKey:'C>D>H',
     airGoal:'superiority',fixedShipIds:[7]});
   const row=result.recommendations[0],carrier=row.scheme.ships.find(ship=>ship.id===7);
   assert(carrier.slots?.includes(203),JSON.stringify(result.airGoalSummary));
@@ -1049,7 +1049,7 @@ test('a cruiser water fighter restores a carrier attack slot when air stays suff
     api_slotitem_id:id,api_level:0,api_alv:7};
   store.info.ships[7].api_slot=[201,202];
   store.info.ships[8].api_slot=[204,-1];
-  const result=recommendNormalFleet(store,{area:'2-1',
+  const result=recommendNormalFleet(store,{area:'2-1',routeKey:'C>D>H',
     airGoal:'superiority',fixedShipIds:[7,8]});
   const row=result.recommendations[0];
   assert(row.scheme.ships.find(ship=>ship.id===7).slots?.includes(205));
@@ -1141,14 +1141,14 @@ test('fixed equipment survives grouped automatic loadouts and expansion items ar
   assert(!result.ships.flatMap(s=>s.slots).includes(606));
   const held=f.scheme.ships.map(s=>({...s,keep:s.id===7?{0:true,ex:true}:{}}));
   const fitted=require('../../src/recommendation/index').recommendNormalEquipment(f.store,
-    {area:'2-1',scheme:f.scheme,heldSlots:held}).scheme;
+    {area:'2-1',routeKey:'C>D>H',scheme:f.scheme,heldSlots:held}).scheme;
   assert.equal(fitted.ships[0].slots[0],601);assert.equal(fitted.ships[0].ex,606);
   const ids=fitted.ships.flatMap(s=>s.slots.concat(s.ex)).filter(id=>id>0);
   assert.equal(ids.length,new Set(ids).size);
 });
 
 test('normal search returns one complete winner per route with no parallel goal score sets',()=>{
-  const store=fixture(),result=recommendNormalFleet(store,{area:'1-1'});
+  const store=fixture(),result=recommendNormalFleet(store,{area:'1-1',routeKey:'A>C'});
   assert.equal(result.recommendations.length,1);assert.equal(result.airGoalSummary.returnedCount,1);
   for(const row of result.recommendations){assert(row.routeKey);assert(row.scores);assert.equal(row.selectedPath.at(-1),'C');
     assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',row.scheme));}
@@ -1161,7 +1161,7 @@ test('sequential aircraft loss identifies a fleet that meets departure air but c
   store.const.$shipTypes[7]={api_equip_type:{6:1}};
   store.const.$equips[203]={api_id:203,api_name:'戦闘機',api_type:[0,0,6,6],api_tyku:14};
   store.info.equips[203]={api_id:203,api_slotitem_id:203,api_level:0,api_alv:7};
-  const result=recommendNormalFleet(store,{area:'2-1',
+  const result=recommendNormalFleet(store,{area:'2-1',routeKey:'C>D>H',
     airGoal:'superiority',fixedShipIds:[7]});
   assert.equal(result.airGoalSummary.status,'noConfirmedOption');
   const fighter=result.recommendations.find(row=>row.scheme.ships.some(ship=>
@@ -1176,7 +1176,7 @@ test('sequential aircraft loss identifies a fleet that meets departure air but c
 });
 
 test('a fully constrained fleet is returned once for its selected route',()=>{
-  const result=recommendNormalFleet(fixture(),{area:'1-1',fixedShipIds:[2],
+  const result=recommendNormalFleet(fixture(),{area:'1-1',routeKey:'A>C',fixedShipIds:[2],
     excludedShipIds:[1,3,4,5,6,7,8]});
   assert.equal(result.recommendations.length,1);
   assert(result.recommendations[0].routeKey);
@@ -1187,7 +1187,7 @@ test('a fully constrained fleet is returned once for its selected route',()=>{
 
 test('1-5 route counts submarine fights and reports full ammo on boss entry',()=>{
   const store=fixture();
-  const result=recommendNormalFleet(store,{area:'1-5',
+  const result=recommendNormalFleet(store,{area:'1-5',routeKey:'A>D>F>G>J',
     fixedShipIds:[2,3,4,5]});
   assert.equal(result.recommendations.length,1);
   const row=result.recommendations[0];
@@ -1217,7 +1217,7 @@ test('1-5 recommendation outfits small ships with available ASW equipment',()=>{
   store.info.ships[2].api_slot[0]=400;
   for(let id=301;id<=308;id++)store.info.equips[id]={api_id:id,
     api_slotitem_id:id%2?301:302,api_level:0};
-  const row=recommendNormalFleet(store,{area:'1-5',
+  const row=recommendNormalFleet(store,{area:'1-5',routeKey:'A>D>F>G>J',
     fixedShipIds:[2,3,4,5]}).recommendations[0];
   assert(row.scheme.ships.every(ship=>ship.slots?.every(id=>id>=301&&id<=308)),
     JSON.stringify(row.scheme));
@@ -1270,7 +1270,7 @@ test('1-5 light-fleet route prefers four viable opening-ASW ships over high-leve
       api_lv:priority?80:150,api_fuel:priority?20:5,api_bull:priority?20:5,
       api_taisen:priority?[85,85]:[20,20],api_slot:[-1,-1,-1]};
   }
-  const result=recommendNormalFleet(store,{area:'1-5',});
+  const result=recommendNormalFleet(store,{area:'1-5',routeKey:'A>D>F>G>J',});
   const best=result.recommendations.find(r=>r.routeKey==='A>D>F>G>J');
   assert(best,JSON.stringify(result.search));
   assert.equal(best.scores.openingAswCount,4,
@@ -1318,7 +1318,7 @@ test('1-4 surface battles favor heavy firepower, while mixed routes retain both 
     store.info.ships[id].api_soukou=[80,100];
   }
   armCapitalShips(store,[1,7]);
-  const strong=recommendNormalFleet(store,{area:'1-4',}).recommendations[0];
+  const strong=recommendNormalFleet(store,{area:'1-4',routeKey:'A>D>E>H>L',}).recommendations[0];
   assert(strong, '1-4 must have a reachable fleet');
   assert(strong.scheme.ships.some(ship=>[1,7].includes(ship.id)),JSON.stringify(strong.scheme));
   assert.equal(strong.profile.counts.asw.maximum,0);
@@ -1466,7 +1466,7 @@ test('3-5 exposes trained lower and upper攻略 fleets instead of low-level chea
   store.const.$equips[403]={api_id:403,api_name:'小口径主砲',api_type:[0,0,1,1]};
   store.const.$equips[404]={api_id:404,api_name:'大発動艇',api_type:[0,0,24,24]};
   for(let id=9;id<=27;id++){
-    const type=id<=13?2:id===14?3:id<=17?11:id<=20?5:id===21?8:id>=26?2:22;
+    const type=id<=13?2:id===14?3:id<=17?11:id===20?4:id<=19?5:id===21?8:id>=26?2:22;
     const cost=id===27?3:type===2?15:type===3?25:type===11?70:type===5?40:type===8?100:1;
     const level=type===22?5:90;
     store.const.$ships[id]={...store.const.$ships[2],api_id:id,
@@ -1490,21 +1490,21 @@ test('3-5 exposes trained lower and upper攻略 fleets instead of low-level chea
     }
   }
   const result=recommendNormalFleet(store,{area:'3-5'});
-  const lower=result.recommendations.find(r=>r.routeKey==='lower'),upper=result.recommendations.find(r=>r.routeKey==='upper');
+  const lower=result.recommendations.find(r=>r.routeKey==='guide:3-5-01'),upper=result.recommendations.find(r=>r.routeKey==='guide:3-5-05');
   assert(lower&&upper,JSON.stringify(result.guideWarnings));
   assert.deepEqual(lower.selectedPath,['F','G','K']);assert.deepEqual(upper.selectedPath,['B','D','H','K']);
   assert(result.recommendations.every(row=>row.scheme.ships.length===6));
   assert(upper.route.airControl.fleetAirPower.min>=170);
   assert(!lower.scheme.ships.some(ship=>ship.id===27),'unarmed landing-craft destroyer is not a useful escort');
   const airGoal=recommendNormalFleet(store,{area:'3-5',airGoal:'superiority'});
-  const lowerAir=airGoal.recommendations.find(row=>row.routeKey==='lower'),upperAir=airGoal.recommendations.find(row=>row.routeKey==='upper');
+  const lowerAir=airGoal.recommendations.find(row=>row.routeKey==='guide:3-5-01'),upperAir=airGoal.recommendations.find(row=>row.routeKey==='guide:3-5-05');
   assert.equal(lowerAir.scores.routeAirReference.scope,'selectedRoute');
   assert.deepEqual(lowerAir.scores.routeAirReference.nodes.map(n=>n.id),['F','G','K']);
   assert.equal(lowerAir.scores.airGoalRequired,35);
   assert.equal(upperAir.scores.routeAirReference.scope,'selectedRoute');
   assert.deepEqual(upperAir.scores.routeAirReference.nodes.map(n=>n.id),['B','D','H','K']);
   assert.equal(upperAir.scores.airGoalRequired,381);
-  const unsafeFixed=recommendNormalFleet(store,{area:'3-5',
+  const unsafeFixed=recommendNormalFleet(store,{area:'3-5',routeKey:'B>D>H>K',
     fixedShipIds:[22]});
   assert(unsafeFixed.recommendations.length>0);
   assert(unsafeFixed.recommendations.every(r=>r.scheme.ships.some(ship=>ship.id===22)));
@@ -1522,9 +1522,9 @@ test('surface combat score does not confuse ship level with hull firepower',()=>
   }
   armCapitalShips(store,[1,7]);
   for(const id of [2,3,4,5])store.info.ships[id].api_lv=150;
-  const destroyers=recommendNormalFleet(store,{area:'1-4',
+  const destroyers=recommendNormalFleet(store,{area:'1-4',routeKey:'A>D>E>H>L',
     fixedShipIds:[2,3,4,5],excludedShipIds:[1,7]}).recommendations[0];
-  const heavy=recommendNormalFleet(store,{area:'1-4',
+  const heavy=recommendNormalFleet(store,{area:'1-4',routeKey:'A>D>E>H>L',
     fixedShipIds:[1,7,2,3],excludedShipIds:[4,5,6,8]}).recommendations[0];
   assert(heavy.scores.surfaceStrengthProxy>destroyers.scores.surfaceStrengthProxy);
 });
@@ -1538,7 +1538,7 @@ test('service recommendation methods use a snapshot and return reusable schemes'
     }});
   try{
     const {snapshotId}=service.createSnapshot();
-    const normal=await service.recommendNormalFleet({snapshotId,area:'1-1',limit:1});
+    const normal=await service.recommendNormalFleet({snapshotId,area:'1-1',routeKey:'A>C',limit:1});
     const expedition=await service.recommendExpeditionFleet({snapshotId,missionId:1,fleet:2,limit:1});
     assert.equal(normal.snapshotId,snapshotId);
     assert.equal(expedition.snapshotId,snapshotId);

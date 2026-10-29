@@ -1,194 +1,24 @@
 'use strict';
 // Reviewed guide policies, fleet templates and special-attack seed positions.
-const {doubleAttack}=require('./loadout/night_equipment');
 const {specialAttackCores,arrangeSpecialAttack}=require('../domain/combat/special_attacks');
-const {aswEscortLimit,aswEscortIds}=require('./loadout/loadout_policy');
+const {aswEscortLimit,aswEscortIds,availableEquipment}=require('./loadout/loadout_policy');
+const {canEquip,acceptsOtherSlot}=require('../domain/fleet/equipment_rules');
 const aswCombat=require('../domain/combat/asw_combat');
 const {aswPotential,hasDuplicateShipFamily,idsKey,num,schemeOf,shipCost,usableSlots}=require('./context');
 const {antiGroundShips,requiredDestroyerGuns,surfaceWeaponCount}=require('./fitting');
+const {routeGroundTargets}=require('../domain/combat/installation_attack');
 const {carrierStrike,openingAirStrike,openingTorpedo}=require('./scoring');
 
-const THREE_FIVE_MIN_LEVEL=70;
-const THREE_FIVE_UPPER_MIN_AIR=170;
-const THREE_FIVE_TEMPLATES=[
-  {style:'lower',slots:[[3],[2],[2],[2],[2],[2]]},
-  {style:'lower',slots:[[2],[2],[2],[2],[2],[2]]},
-  {style:'upper',slots:[[11,18],[11,18],[11,18],[5,6],[5,6],[5,6]]},
-  {style:'upper',slots:[[8,9],[11,18],[11,18],[5,6],[5,6],[5,6]]}
-];
-function threeFiveEquipmentTypes(store,row,scheme){
-  const assigned=scheme?.ships.find(ship=>ship.id===row.id);
-  return (assigned?.slots||row.ship.api_slot||[]).filter(id=>id>0).map(id=>
-    Number(store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_type?.[2]));
-}
-function threeFiveArmed(store,row,scheme){
-  const types=threeFiveEquipmentTypes(store,row,scheme);
-  if(row.stype===2)return types.filter(type=>type===1||type===5).length>=2;
-  if([11,18].includes(row.stype))return types.some(type=>type===7||type===8);
-  return true;
-}
-function threeFiveSeeds(ctx){
-  const score=row=>num(row.ship.api_karyoku)+num(row.ship.api_raisou)*0.6+
-    num(row.ship.api_soukou)*0.35+row.level*0.5;
-  const sorters=[
-    (a,b)=>b.power-a.power||a.id-b.id,
-    (a,b)=>score(b)-score(a)||a.id-b.id,
-    (a,b)=>(b.master.api_maxeq||[]).reduce((n,v)=>n+Math.sqrt(v||0),0)-
-      (a.master.api_maxeq||[]).reduce((n,v)=>n+Math.sqrt(v||0),0)||score(b)-score(a)||a.id-b.id,
-    (a,b)=>num(b.ship.api_sakuteki)-num(a.ship.api_sakuteki)||score(b)-score(a)
-  ];
-  const results=[];
-  for(const template of THREE_FIVE_TEMPLATES)for(const compare of sorters){
-    const rows=ctx.fixed.map(id=>ctx.byId.get(id)),slots=template.slots.slice();
-    if(rows.some(row=>row.level<THREE_FIVE_MIN_LEVEL||
-      !threeFiveArmed(ctx.store,row)))continue;
-    let compatible=true;
-    for(const row of rows){
-      const index=slots.findIndex(types=>types.includes(row.stype));
-      if(index<0){compatible=false;break;}
-      slots.splice(index,1);
-    }
-    if(!compatible)continue;
-    const used=new Set(rows.map(row=>row.id));
-    for(const types of slots){
-      const next=ctx.roster.filter(row=>types.includes(row.stype)&&
-        row.level>=THREE_FIVE_MIN_LEVEL&&threeFiveArmed(ctx.store,row)&&
-        !used.has(row.id)&&
-        !hasDuplicateShipFamily([...rows,row])).sort(compare)[0];
-      if(!next){compatible=false;break;}
-      rows.push(next);used.add(next.id);
-    }
-    if(compatible)results.push(rows);
-  }
-  return results;
-}
-// These are攻略 suitability checks, not additional route rules. In particular,
-// a route to an installation boss is not useful without an installation hitter.
-// Keep the thresholds deliberately modest and label them as recommendation
-// heuristics rather than wiki branching conditions.
-const GUIDE_POLICIES={
-  '1-1':{minLevel:1,minShips:1,templates:null},
-  '1-2':{minLevel:10,templates:[[[3],[2],[2],[2],[2]]]},
-  '1-3':{minLevel:25,templates:[
-    [[6],[2],[2],[7],[3],[5,6]],
-    [[6],[2],[2],[2],[2],[3,4]],
-    [[16],[6],[2],[2],[7],[3]]]},
-  '1-4':{minLevel:30,minShips:4,templates:null,allowedAuxiliaryStypes:[20]},
-  '1-6:N':{minLevel:30,templates:[[[3],[2],[2],[2],[2],[2]]]},
-  '2-1':{minLevel:35,templates:[
-    [[16],[3],[2],[2],[2],[2]],
-    [[7],[11,18],[5,6],[3,4],[2],[2]],
-    [[16],[7],[5,6],[3],[2],[2]],
-    [[16],[7],[3],[2],[2],[2]]]},
-  '2-2':{minLevel:35,templates:[
-    [[16],[7],[7],[5,6],[1],[1]],
-    [[16],[8,9],[7],[5,6],[1],[1]],
-    [[16],[7],[7],[5,6],[2],[2]],
-    [[16],[5,6],[3],[2],[2],[2]]]},
-  '2-3':{minLevel:40,templates:[
-    [[16],[2],[2],[8,9,10],[11,18],[3,4]],
-    [[16],[2],[2],[11,18],[7],[5,6]],
-    [[3],[2],[2],[2],[2],[7,11,18]]]},
-  '2-4':{minLevel:50,templates:[
-    [[5,6],[3],[2],[2],[2],[2]],
-    [[7],[3],[2],[2],[8,9],[5,6]]]},
-  '2-5':{minLevel:50,templates:[
-    [[7],[3],[2],[2],[2],[11,18,5,6]],
-    [[6],[6],[9,10],[5,6,8,9,10],[5,6,8,9,10],[5,6,8,9,10]]]},
-  '3-1':{minLevel:50,templates:[
-    [[2],[2],[8,9,11,18],[7,8,9,11,18],[5,6,3,4],[5,6,3,4]]]},
-  '3-2':{minLevel:55,templates:[[[3],[2],[2],[2],[2],[2]]]},
-  '3-3':{minLevel:55,templates:[
-    [[11,18],[7,8,9,10],[2],[2],[3,4,5,6],[3,4,5,6]]]},
-  '3-4':{minLevel:65,templates:[
-    [[6],[3],[3],[2],[2],[2]],
-    [[16],[11,18],[11,18],[7],[7],[3]],
-    [[16],[11,18],[11,18],[8,9],[7],[3]]]},
-  '4-1':{minLevel:55,templates:[
-    [[3],[2],[2],[2],[2],[6,16]],
-    [[7],[8,9],[5,6],[3,4],[2],[2]]]},
-  '4-2':{minLevel:55,templates:[
-    [[11,18],[8,9,10],[7],[5,6,16],[2],[2]],
-    [[11,18],[7],[5,6,16],[2],[2],[2]]]},
-  '4-3':{minLevel:50,templates:[
-    [[7],[7],[3],[2],[2],[2]],
-    [[11,18],[7,11,18],[3],[2],[2],[5,6,4]]]},
-  '4-4':{minLevel:65,templates:[
-    [[11,18],[11,18],[2],[2],[5,6],[8,9,10]],
-    [[11,18],[11,18],[7],[2],[2],[5,6]]]},
-  '4-5':{minLevel:75,templates:[
-    [[8,9,10],[11,18],[11,18],[7],[5,6],[5,6]],
-    [[8,9,10],[8,9,10],[11,18],[11,18],[5,6],[2]]]},
-  '5-1':{minLevel:65,templates:[
-    [[8,9,10],[7],[5,6,4],[3],[2],[2]]]},
-  '5-2':{minLevel:60,templates:[
-    [[11,18],[11,18],[2],[2],[8,9,10],[8,9,10]],
-    [[11,18],[11,18],[2],[2],[5,6],[5,6]],
-    [[11,18],[11,18],[8,9,10],[8,9,10],[5,6],[5,6]]]},
-  '5-3':{minLevel:75,templates:[
-    [[5,6],[5,6],[5,6],[5,6],[5,6],[3]],
-    [[8,9],[6],[6],[3],[2],[2]],
-    [[8],[8,9],[6],[3],[2],[2]]]},
-  '5-4':{minLevel:75,templates:[
-    [[11,18],[8,9,10],[7],[5,6],[2],[2]],
-    [[10],[6],[3],[2],[2],[2]]]},
-  '5-5':{minLevel:85,templates:[
-    [[8,9,10],[8,9,10],[11,18],[11,18],[6],[6]],
-    [[8,9,10],[8,9,10],[11,18],[7],[6],[3,4]]]},
-  '6-1':{minLevel:60,templates:[
-    [[13,14],[13,14],[13,14],[11,18],[4],[3]],
-    [[13,14],[13,14],[13,14],[20],[3],[11,18]],
-    [[13,14],[13,14],[13,14],[13,14],[13,14],[20]]]},
-  '6-2':{minLevel:75,templates:[
-    [[8,9],[11,18],[2],[2],[5,6,4],[5,6,4]]]},
-  '6-3':{minLevel:70,templates:[
-    [[16],[3],[3],[2],[2],[2]],
-    [[16],[3],[2],[2],[2],[2]]]},
-  '6-4':{minLevel:70,templates:[
-    [[3],[8],[2],[2],[2],[5,6,4,3,16]]]},
-  '6-5':{minLevel:80,templates:[
-    [[8,9],[11,18],[11,18],[4],[5,6],[2]],
-    [[10],[10],[6],[3],[2],[2]]]},
-  '7-1':{minLevel:60,coastalMinLevel:40,templates:[[[3],[2],[2],[2],[2]],[[2],[1],[1],[1]]]},
-  '7-2:gauge1':{minLevel:40,templates:[
-    [[1],[1],[1],[7,3,4],[2,3,4,5,6,7]]]},
-  '7-2:gauge2':{minLevel:70,templates:[
-    [[8],[11,18],[7],[6],[2],[2]],
-    [[11,18],[7],[7],[6],[2],[2]]]},
-  '7-3:gauge1':{minLevel:40,templates:[
-    [[5],[2],[2],[2]],
-    [[5],[2],[2]],
-    [[5],[2],[6,3],[2]]]},
-  '7-3:gauge2':{minLevel:60,templates:[
-    [[5],[5],[3,4,16],[2],[2],[2]],
-    [[5],[2],[6,3],[6,3]]]},
-  '7-4':{minLevel:70,coastalMinLevel:40,templates:[
-    [[10],[7],[2,1],[2,1],[5,6,3,4,21],[2,1]],
-    [[10],[7],[1],[1],[3,4],[5,6]]]},
-  '7-5:gauge1':{minLevel:70,templates:[
-    [[10],[6],[3],[2],[2],[2]],
-    [[8,9,10],[4],[4],[3],[2],[2]]]},
-  '7-5:gauge2':{minLevel:75,templates:[
-    [[10],[6],[3],[2],[2],[2]]]},
-  '7-5:gauge3':{minLevel:80,templates:[
-    [[10],[6],[3],[2],[2],[2]],
-    [[8],[4],[4],[3],[2],[2]],
-    [[7],[6],[6],[3],[2],[2]]]}
+// Fleet shapes live in the reviewed catalog; routing remains in normal_routes.
+const catalog=require('../../data/normal_route_guides.json').maps;
+const guideSource=area=>catalog[area]?.source||Object.entries(catalog).find(([key])=>key.startsWith(area+':'))?.[1].source;
+const guidePolicy=(area,target='boss',phase)=>{
+  const entry=catalog[area+':'+(phase||target)]||catalog[area+':'+target]||catalog[area];
+  if(!entry||entry.target!==target)return null;
+  const templates=[...new Map(entry.routes.flatMap(r=>(r.templates||[]).map(t=>[JSON.stringify(t),t]))).values()];
+  return {...entry,area,phase,templates,minShips:Math.min(...templates.map(t=>t.length))};
 };
-const GUIDE_WORLD={1:'鎮守府海域',2:'南西諸島海域',3:'北方海域',
-  4:'西方海域',5:'南方海域',6:'中部海域',7:'南西海域'};
-const guideSource=area=>`https://wikiwiki.jp/kancolle/${GUIDE_WORLD[area[0]]}/${area}`;
-const guidePolicy=(area,target,phase)=>{
-  if(target!=='boss'&&!(area==='1-6'&&target==='N'))return null;
-  const policy=GUIDE_POLICIES[`${area}:${phase}`]||
-    GUIDE_POLICIES[`${area}:${target}`]||
-    (area!=='7-2'?GUIDE_POLICIES[area]:null);
-  return policy?{...policy,area,phase}:null;
-};
-const guideShipAllowed=(policy,area,phase,row)=>
-  row.level>=(row.stype===1&&policy.coastalMinLevel||policy.minLevel)&&
-  (!['6-4'].includes(area)&&!(area==='7-2'&&phase==='gauge2')||
-    Number(row.ship.api_soku)>=10);
+const guideShipAllowed=(policy,area,phase,row)=>row.level>=(row.stype===1&&policy.coastalMinLevel||policy.minLevel||1);
 function remainingSlots(rows,slots){
   if(!rows.length)return slots;
   const row=rows[0];
@@ -204,12 +34,33 @@ function guideHull(policy,rows){
   if(rows.length<minShips||rows.some(row=>!guideShipAllowed(policy,policy.area,policy.phase,row)))return false;
   if(!policy.templates)return rows.every(row=>
     !(policy.area==='1-1'?[19,20,22]:[13,14,19,20,22]).includes(row.stype)||
-    policy.allowedAuxiliaryStypes?.includes(row.stype));
+    policy.allowedAuxiliaryStypes?.includes(row.stype)||
+    policy.area==='1-4'&&[13,14].includes(row.stype)&&rows.filter(r=>[7,11,18].includes(r.stype)).length===3&&rows.some(r=>r.stype===20));
   return policy.templates.some(slots=>rows.length===slots.length&&
     remainingSlots(rows,slots)?.length===0);
 }
 function guideSeeds(ctx,policy,sorterLimit=6){
   if(!policy?.templates)return [];
+  // Opening escorts are an equipment role, not a synonym for light cruisers.
+  // Match the pair to distinct available midget submarines; level-10 SS/SSV
+  // need none. Final fitted route facts still validate the actual equipment.
+  const openingEscorts=policy.fleetRequirement?.all?.some(rule=>rule.openingTorpedoCarriers);
+  const openingItems=openingEscorts?availableEquipment(ctx.store).filter(item=>
+    Number(item.master.api_type?.[2])===22&&/甲標的/.test(item.master.api_name||'')):[];
+  const openingChoices=new Map();
+  const choices=row=>{
+    if(!openingChoices.has(row.id))openingChoices.set(row.id,openingItems.filter(item=>
+      usableSlots(ctx.store,row.id).some((_,slot)=>{
+        try{return canEquip(ctx.store,row.id,item.id,slot)&&(!item.sourceShipId||item.sourceShipId===row.id||acceptsOtherSlot(ctx.store,row.id,item.id,slot));}catch(_){return false;}
+      })).map(item=>item.id));
+    return openingChoices.get(row.id);
+  };
+  const openingPairPossible=rows=>{
+    const needs=rows.filter(row=>![7,11,18,20].includes(row.stype)&&!([13,14].includes(row.stype)&&row.level>=10));
+    const match=(index,used)=>index===needs.length||choices(needs[index]).some(id=>
+      !used.has(id)&&match(index+1,new Set([...used,id])));
+    return match(0,new Set());
+  };
   const battle=row=>num(row.ship.api_karyoku)+num(row.ship.api_raisou)*0.6+
     num(row.ship.api_soukou)*0.4+row.level*0.5;
   const aviation=row=>(row.master.api_maxeq||[]).reduce((n,v)=>n+Math.sqrt(v||0),0);
@@ -228,16 +79,14 @@ function guideSeeds(ctx,policy,sorterLimit=6){
   ];
   const results=[];
   for(const slots of policy.templates)for(const compare of sorters.slice(0,sorterLimit)){
-    const needsFastSouth=policy.area==='2-5'&&slots[0][0]===7;
     const rows=ctx.fixed.map(id=>ctx.byId.get(id));
     const remaining=remainingSlots(rows,slots);
-    if(!remaining||rows.some(row=>!guideShipAllowed(policy,policy.area,policy.phase,row)||
-      needsFastSouth&&Number(row.ship.api_soku)<10))continue;
+    if(!remaining||openingEscorts&&!openingPairPossible(rows)||rows.some(row=>!guideShipAllowed(policy,policy.area,policy.phase,row)))continue;
     const used=new Set(rows.map(row=>row.id));let complete=true;
     for(const types of remaining){
       const next=ctx.roster.filter(row=>types.includes(row.stype)&&
         guideShipAllowed(policy,policy.area,policy.phase,row)&&!used.has(row.id)&&
-        (!needsFastSouth||Number(row.ship.api_soku)>=10)&&
+        (!openingEscorts||openingPairPossible([...rows,row]))&&
         !hasDuplicateShipFamily([...rows,row])).sort(compare)[0];
       if(!next){complete=false;break;}
       rows.push(next);used.add(next.id);
@@ -294,8 +143,10 @@ function oneOneSeeds(ctx){
 }
 function guideReady(policy,area,phase,store,scheme,rows,route,profile){
   if(!policy)return true;
-  if(!guideHull(policy,rows)||!['known','possible'].includes(profile?.status))return false;
-  const paths=(profile.examples||[]).map(nodes=>nodes.join(''));
+  // Preset identity is checked per selected option, not against the union of
+  // every preset. Explicit physical-path queries must still compare strong
+  // legal fleets outside those examples on the same combat-readiness basis.
+  if(rows.some(row=>!guideShipAllowed(policy,area,phase,row))||!['known','possible'].includes(profile?.status))return false;
   const counts=type=>rows.filter(row=>type.includes(row.stype)).length;
   const destroyers=scheme.ships.filter(entry=>Number(store.const.$ships[
     store.info.ships[entry.id].api_ship_id]?.api_stype)===2);
@@ -313,107 +164,13 @@ function guideReady(policy,area,phase,store,scheme,rows,route,profile){
       [2,3,4].includes(Number(store.const.$equips[
         store.info.equips[id]?.api_slotitem_id]?.api_type?.[2]))).length);
   if(capitalGuns.some(count=>count<(area==='1-1'?1:2)))return false;
-  const aswCount=(route.openingASW?.ships||[]).filter(ship=>ship.predictedEligible).length;
-  const safeLos=coefficient=>Number(route.lineOfSight?.scoresByCoefficient?.[coefficient])-
-    Number(route.lineOfSight?.thresholdMargin||0);
   const strike=()=>carrierStrike(store,rows,scheme)>0;
   const ground=()=>antiGroundShips(store,scheme);
-  const hasPath=path=>paths.includes(path);
-  if(area==='1-1')return rows.length<=2&&rows.every(row=>![1,19,20,22].includes(row.stype));
-  if(area==='1-2')return rows.every(row=>Number(row.ship.api_soku)>=10)&&hasPath('AE');
-  if(area==='1-3')return counts([2])>=2&&counts([6,16])>=1&&
-    paths.some(path=>path.endsWith('J'));
-  if(area==='1-4')return rows.length>=4&&counts([1])===0&&
-    guns.every(count=>count>=2);
-  if(area==='1-6')return counts([2])===5&&hasPath('AEGFBN');
-  if(area==='2-1')return counts([11,18,7])<=2&&counts([10,22])===0&&
-    paths.some(path=>path.endsWith('H'));
-  if(area==='2-2')return counts([16])===1&&counts([11,18,7,8,9])>=1&&
-    paths.some(path=>path.endsWith('K'));
-  if(area==='2-3')return (counts([16])>=1||counts([3])>=1&&counts([2])>=4)&&
-    paths.some(path=>path.endsWith('N'));
-  if(area==='2-4')return (hasPath('BGHLP')||counts([7])>=1&&counts([3])>=1&&
-    counts([2])>=2&&paths.some(path=>path.endsWith('P')))&&
-    (counts([7,11,18])===0||strike());
-  if(area==='2-5'){
-    const south=counts([7])>=1&&counts([3])===1&&counts([2])===3&&
-      rows.every(row=>Number(row.ship.api_soku)>=10)&&
-      safeLos(1)>=34&&paths.includes('CEIO');
-    const drums=scheme.ships.filter(entry=>(entry.slots||usableSlots(store,entry.id))
-      .some(id=>Number(store.const.$equips[store.info.equips[id]?.api_slotitem_id]
-        ?.api_type?.[3])===30)).length;
-    const north=counts([6])>=2&&drums>=2&&
-      rows.some(row=>Number(row.ship.api_soku)<10)&&safeLos(1)>=49&&paths.includes('BFJO');
-    return (south||north)&&guns.every(count=>count>=2);
-  }
-  if(area==='3-1')return counts([2])===2&&counts([8,9,10,11,18,7])<=2&&
-    paths.some(path=>path.endsWith('G'));
-  if(area==='3-2')return counts([2])===5&&counts([3])===1&&
-    paths.some(path=>path.endsWith('L'));
-  if(area==='3-3')return counts([11,18])===1&&counts([2])>=2&&
-    paths.some(path=>path.endsWith('M'))&&strike();
-  if(area==='3-4')return paths.some(path=>path.endsWith('P'))&&
-    (counts([11,18,7])===0||strike());
-  if(area==='4-1')return paths.some(path=>path.endsWith('J'))&&
-    (counts([7])===0||strike());
-  if(area==='4-2')return counts([2])>=2&&paths.some(path=>path.endsWith('L'))&&strike();
-  if(area==='4-3')return guns.every(count=>count>=1)&&
-    antiGroundShips(store,scheme).length>=1&&
-    paths.some(path=>path.endsWith('N'));
-  if(area==='4-4')return counts([2])===2&&aswCount>=1&&strike()&&
-    paths.some(path=>path.endsWith('K'));
-  if(area==='4-5')return ground().length>=2&&strike()&&
-    paths.some(path=>path.endsWith('T'));
-  if(area==='5-1')return counts([7])===1&&counts([2])===2&&strike()&&hasPath('BCFJ');
-  if(area==='5-2')return armed(2)&&
-    carrierStrike(store,rows,scheme)>0&&
-    paths.some(path=>path.endsWith('O'));
-  if(area==='5-3'){
-    return scheme.ships.every(entry=>doubleAttack(store,entry))&&
-      paths.some(path=>path==='DGIOKEQ');
-  }
-  if(area==='5-4')return paths.some(path=>path.endsWith('P')&&
-      (path.includes('L')?safeLos(2)>=60:safeLos(2)>=45))&&
-    (counts([7,11,18])===0||strike());
-  if(area==='5-5')return safeLos(2)>=80&&counts([8,9,10])>=2&&
-    counts([7,11,18])>=1&&strike()&&aswCount>=1&&hasPath('BKPS');
-  if(area==='6-1')return counts([13,14])>=3&&
-    safeLos(4)>=(counts([20])?25:36)&&paths.some(path=>path.endsWith('K'));
-  if(area==='6-2')return counts([2])===2&&strike()&&
-    paths.some(path=>path.endsWith('K')&&
-      (path.includes('J')?safeLos(3)>=50:safeLos(3)>=40));
-  if(area==='6-3')return counts([16])===1&&counts([3,21])>=1&&counts([2])>=2&&
-    safeLos(3)>=38&&paths.some(path=>path.endsWith('J'));
-  if(area==='6-4')return rows[0]?.stype===3&&guns.every(count=>count>=1)&&
-    antiGroundShips(store,scheme).filter(value=>value>=2).length>=2&&
-    paths.some(path=>path.startsWith('B')&&path.endsWith('N'));
-  if(area==='6-5')return paths.some(path=>path.endsWith('M')&&
-      (path.includes('G')?safeLos(3)>=50:safeLos(3)>=35))&&
-    (counts([7,11,18])===0||strike());
-  if(area==='7-1')return aswCount>=2&&counts([3])===1&&counts([2])===4&&
-    hasPath('DEGHK');
-  if(area==='7-2'&&phase==='gauge1')return counts([1])>=3&&counts([7,3,4,5,6])>=1&&
-    (route.openingASW?.ships||[]).filter(ship=>ship.predictedEligible).length>=3&&
-    paths.includes('CEG');
-  if(area==='7-2'&&phase==='gauge2')return guns.every(count=>count>=1)&&
-    (route.openingASW?.ships||[]).some(ship=>ship.predictedEligible)&&
-    paths.includes('BCDIM');
-  if(area==='7-3'&&phase==='gauge1')return rows.length<=4&&
-    counts([5])>=1&&paths.some(path=>path.endsWith('E'));
-  if(area==='7-3'&&phase==='gauge2')return counts([5])>=1&&
-    paths.some(path=>path.endsWith('P'));
-  if(area==='7-4')return Number(route.lineOfSight?.scoresByCoefficient?.[4])-
-      Number(route.lineOfSight?.thresholdMargin||0)>=37&&
-    (route.openingASW?.ships||[]).filter(ship=>ship.predictedEligible).length>=2&&
-    carrierStrike(store,rows,scheme)>0&&
-    paths.includes('ABEJLP');
-  if(area==='7-5'&&phase==='gauge1')return aswCount>=2&&
-    paths.some(path=>path.endsWith('K'));
-  if(area==='7-5'&&phase==='gauge2')return aswCount>=2&&
-    ground().filter(value=>value>=2).length>=2&&
-    paths.some(path=>path.endsWith('Q'));
-  if(area==='7-5'&&phase==='gauge3')return aswCount>=2&&safeLos(4)>=63&&
-    paths.some(path=>path.endsWith('T'));
+  // Route predicates and the selected preset already validate hulls, speed,
+  // LoS and target. Do not reapply older map-specific compositions here.
+  if(counts([7,11,18])&&!strike())return false;
+  if(routeGroundTargets(profile).length&&ground().length===0)return false;
+
   return true;
 }
 function specialPositionLocks(ctx,heldSlots){
@@ -431,6 +188,11 @@ function specialFleetSeeds(ctx,policies,heldSlots,night){
   const power=row=>num(row.ship.api_karyoku)+(night?num(row.ship.api_raisou):0);
   const templates=[...new Map(policies.filter(Boolean).filter(p=>p.templates)
     .flatMap(p=>p.templates.map(t=>[JSON.stringify(t),{...p,templates:[t]}]))).values()];
+  // A physical-path request may use either cruiser variant beside a special
+  // attack core. Keep exact preset seeds first; final route identity still
+  // rejects variants outside a selected preset's explicit composition.
+  templates.push(...templates.filter(p=>p.templates[0].some(slot=>slot.includes(5)&&!slot.includes(6)))
+    .map(p=>({...p,templates:[p.templates[0].map(slot=>slot.includes(5)?[...new Set([...slot,6])]:slot)]})));
   const choices=[];
   for(const core of cores){
     if(core.some((r,i)=>locked.has(i)&&locked.get(i)!==r.id||[...locked].some(([p,id])=>id===r.id&&p!==i)))continue;
@@ -456,4 +218,4 @@ function specialFleetSeeds(ctx,policies,heldSlots,night){
 }
 
 
-module.exports={THREE_FIVE_MIN_LEVEL,THREE_FIVE_UPPER_MIN_AIR,guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,remainingSlots,specialFleetSeeds,specialPositionLocks,threeFiveSeeds};
+module.exports={guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,remainingSlots,specialFleetSeeds,specialPositionLocks};

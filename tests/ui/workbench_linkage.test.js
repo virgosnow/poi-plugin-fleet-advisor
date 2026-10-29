@@ -145,7 +145,7 @@ function harness(kind='normal',automaticFilters){
   const store=fixture(),controller=new Controller({getStore:()=>store}),calls={fleet:0,equipment:0};
   const plan=(id,routeKey)=>({routeKey,scheme:W.scheme([W.entry(store,id)],1)});
   const service={createSnapshot:()=>({snapshotId:'test'}),preview:(...args)=>controller.preview(...args),
-    recommendNormalFleet:()=>{calls.fleet++;return {recommendations:[plan(2,'lower'),plan(1,'upper')]};},
+    recommendNormalFleet:()=>{calls.fleet++;return {recommendations:[plan(2,'guide:3-5-01'),plan(1,'guide:3-5-05')]};},
     recommendNormalEquipment:args=>{calls.equipment++;return {scheme:args.scheme};}};
   const Workbench=require('../../src/ui/workbench/workbench')(React,{getController:()=>service,getStore:()=>store});
   const names=[...String(Workbench).split('React.useRef')[0].matchAll(/\[\s*(\w+)\s*,\s*\w+\s*\]\s*=\s*React\.useState\(/g)].map(m=>m[1]);
@@ -153,26 +153,29 @@ function harness(kind='normal',automaticFilters){
   const get=name=>state[stateIndex(name)],set=(name,value)=>{state[stateIndex(name)]=value;};
   const render=(props={})=>{index=0;refIndex=0;return Workbench({kind,busy:false,automaticFilters,automaticOperations:true,...props});};
   const find=(node,predicate)=>{if(!node||typeof node!=='object')return;return predicate(node)?node:node.children?.map(n=>find(n,predicate)).find(Boolean);};
-  const control=(tree,label)=>find(tree,n=>n.props['aria-label']===label);
+  const control=(tree,label)=>{
+    if(['参考路线','攻略流派'].includes(label)){
+      const picker=find(tree,n=>n.type?.name==='RoutePicker');
+      return picker?{...picker,props:{...picker.props,onChange:e=>picker.props.onChange(e.target.value)},
+        children:[['','选择路线'],...picker.props.options.map(o=>[o.key,o.label])].map(([value,label])=>({type:'option',props:{value},children:[label]}))}:null;
+    }
+    return find(tree,n=>n.props['aria-label']===label);
+  };
   const chooseGoal=(tree,goal)=>find(tree,n=>n.type==='button'&&n.children.includes(goal==='great'?'优先大成功':'成功即可')).props.onClick();
   render();set('area','3-5');set('catalog',[{area:'3-5',bossNodes:['K']},{area:'1-1',bossNodes:['B']}]);
   return {render,find,control,chooseGoal,get,set,service,calls,store,effects};
 }
 
-test('selected routes separate the style name from the compact parenthesized path without replacing native selection',()=>{
-  const h=harness(),options=W.mapOverview('1-4').options.filter(o=>o.key.includes('@'));
+test('route selection uses a grouped anchored component and keeps names separate from path letters',()=>{
+  const h=harness(),options=W.mapOverview('1-4').options;
   h.set('area','1-4');
   for(const option of options){
-    h.set('mapRoute',option.key);const tree=h.render();
-    const select=h.control(tree,'参考路线');
-    assert.equal(select.type,'select');assert.equal(select.props.value,option.key);
-    assert(select.children.some(n=>n.type==='option'&&n.children.includes(option.label)));
-    const caption=h.find(tree,n=>n.props.className==='paa-wb-route-caption');
-    assert.equal(caption.props['aria-hidden'],true);
-    assert.deepEqual(caption.children.map(n=>n.children.join('')),[option.name,'（A/B→…→H/J→L）']);
-    assert.equal(h.find(tree,n=>n.props.className==='paa-wb-route-path').props['data-tooltip'],undefined);
+    h.set('mapRoute',option.key);
+    const picker=h.find(h.render(),n=>n.type?.name==='RoutePicker');
+    assert.equal(picker.props.value,option.key);
+    assert(picker.props.options.some(o=>o.key===option.key&&o.name===option.name));
   }
-  h.set('mapRoute','');assert(!h.find(h.render(),n=>n.props.className==='paa-wb-route-caption'));
+  h.set('mapRoute','');assert.equal(h.find(h.render(),n=>n.type?.name==='RoutePicker').props.value,'');
   assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
 });
 
@@ -194,7 +197,7 @@ test('adding ships before normal-map completion retains worn gear and skips fitt
   };
   await pick(0,2);await pick(1,3);
   assert.equal(h.calls.equipment+h.calls.fleet,0);assert.equal(previews,0);
-  await h.control(h.render(),'攻略流派').props.onChange({target:{value:'upper'}});
+  await h.control(h.render(),'攻略流派').props.onChange({target:{value:'guide:3-5-05'}});
   assert.equal(previews,0,'selecting a route before completion does not inspect the partial fleet');
   h.render();
   const inspectEffect=h.effects.filter(e=>String(e.fn).includes('resumePending.current=false;setReport(next)')).at(-1);
@@ -205,7 +208,7 @@ test('adding ships before normal-map completion retains worn gear and skips fitt
     h.calls.fleet++;
     assert.deepEqual(args.fixedShipIds,[2,3]);
     assert(args.heldSlots.filter(Boolean).every(s=>s.holdPosition===false));
-    return {recommendations:[{routeKey:'upper',scheme:W.scheme([3,1,2,4,5,6].map(id=>W.entry(h.store,id)),1)}]};
+    return {recommendations:[{routeKey:'guide:3-5-05',scheme:W.scheme([3,1,2,4,5,6].map(id=>W.entry(h.store,id)),1)}]};
   };
   await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
   assert.equal(h.get('error'),'');assert.deepEqual(h.get('slots').map(s=>s.id),[3,1,2,4,5,6]);
@@ -337,7 +340,7 @@ test('workbench unmount discards pending recommendations and places errors besid
   h.service.recommendNormalFleet=()=>new Promise(resolve=>{finish=resolve;});
   const tree=h.render(),pending=h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
   await new Promise(resolve=>setTimeout(resolve,30));assert(finish);
-  cleanup();finish({recommendations:[{routeKey:'lower',scheme:W.scheme([W.entry(h.store,2)],1)}]});
+  cleanup();finish({recommendations:[{routeKey:'guide:3-5-01',scheme:W.scheme([W.entry(h.store,2)],1)}]});
   await pending;assert(h.get('slots').every(s=>s===null));assert.deepEqual(h.get('choices'),[]);
   h.set('error','装备资料已变化');
   const failed=h.render(),right=h.find(failed,n=>n.props.className==='paa-wb-right');
@@ -366,7 +369,7 @@ test('second explicit completion reuses the disk result after automatic ships po
 });
 
 test('ground power and AA bonus values appear in anchored tooltips',()=>{
-  const h=harness();h.set('area','3-5');h.set('mapRoute','upper');h.store.const.$ships[2].api_name='秋月改';
+  const h=harness();h.set('area','3-5');h.set('mapRoute','guide:3-5-05');h.store.const.$ships[2].api_name='秋月改';
   h.store.const.$ships[2].api_slot_num=4;h.store.info.ships[2].api_slot=[-1,-1,-1,-1];
   const gear=[['三式弾',18,0,0],['高角炮',1,10,16],['高角炮',1,10,16],['电探',12,4,11]];
   gear.forEach(([name,type,aa,icon],i)=>{h.store.const.$equips[600+i]={api_id:600+i,api_name:name,api_type:[0,0,type,icon],api_tyku:aa};
@@ -396,7 +399,7 @@ test('ground power and AA bonus values appear in anchored tooltips',()=>{
   assert.equal(groundTags.length,1);assert(groundTags[0].children.includes('对地·火箭弹'));
   assert(!/集积地|炮台|离岛/.test(groundTags[0].props['data-tooltip']));assert(!groundTags[0].props['data-tooltip'].includes('配装：'));
   h.set('mapRoute','');assert.match(h.find(h.render(),n=>n.props['data-mechanism']==='ground').props['data-tooltip'],/选择路线/);
-  h.set('mapRoute','lower');assert(!h.find(h.render(),n=>n.props['data-mechanism']==='ground'),'switching away from the installation removes irrelevant ground tags');
+  h.set('mapRoute','guide:3-5-01');assert(!h.find(h.render(),n=>n.props['data-mechanism']==='ground'),'switching away from the installation removes irrelevant ground tags');
 });
 
 test('ship mechanism tags follow the edited draft immediately without a fresh report',()=>{
@@ -816,7 +819,7 @@ test('aircraft rows show full destination capacity alongside pins and update aft
 });
 
 test('manual branch directions appear before filling a fleet and never claim a matched rule',()=>{
-  const h=harness();h.set('area','5-3');h.set('mapRoute','D>G>I>O>K>E>Q');
+  const h=harness();h.set('area','5-3');h.set('mapRoute','guide:5-3-01');
   const tree=h.render(),choice=h.find(tree,n=>n.props.className==='paa-wb-player-choice');
   const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
   assert(choice);assert.match(text(choice),/能动分歧.*请在游戏中选择 K 点/);
@@ -824,7 +827,7 @@ test('manual branch directions appear before filling a fleet and never claim a m
 });
 
 test('expanded map keeps the selected route and node without changing the fleet draft',()=>{
-  const h=harness();h.set('mapRoute','lower');h.set('slots',[1,2,3,4,5,6].map(id=>W.entry(h.store,id)));
+  const h=harness();h.set('mapRoute','guide:3-5-01');h.set('slots',[1,2,3,4,5,6].map(id=>W.entry(h.store,id)));
   for(const id of [1,2,3,4,5,6])h.store.info.ships[id].api_sakuteki=[200,200];
   h.set('report',W.inspect(h.service,h.store,h.get('slots'),{kind:'normal',fleet:1,area:'3-5',target:'boss',phase:'',missionId:1,revision:0}));
   const before=JSON.stringify(h.get('slots'));let tree=h.render();
@@ -851,7 +854,7 @@ test('expanded map keeps the selected route and node without changing the fleet 
   assert.equal(h.get('nodeId'),null);assert(!h.find(tree,n=>n.props.className==='paa-map-node-popover'));
   dialog=h.find(tree,n=>n.type==='dialog');assert(dialog,'closing node info keeps the enlarged map open');
   dialog.props.onCancel({preventDefault(){}});tree=h.render();
-  assert(!h.find(tree,n=>n.type==='dialog'));assert.equal(h.get('mapRoute'),'lower');
+  assert(!h.find(tree,n=>n.type==='dialog'));assert.equal(h.get('mapRoute'),'guide:3-5-01');
   assert.equal(JSON.stringify(h.get('slots')),before);assert.equal(h.calls.fleet,0);
 });
 
@@ -981,7 +984,7 @@ test('equipment popup groups and filters categories without hiding equipment bey
 
 test('route details render separate combinations and clear current-rule highlights when the draft changes',()=>{
   const h=harness(),slots=[1,2,3,4,5,6].map(id=>W.entry(h.store,id));
-  h.set('area','5-2');h.set('mapRoute','B>C>D>F>O');h.set('slots',slots);
+  h.set('area','5-2');h.set('mapRoute','guide:5-2-02');h.set('slots',slots);
   h.set('report',W.inspect(h.service,h.store,slots,{kind:'normal',fleet:1,area:'5-2',target:'boss',phase:'',missionId:1,revision:0}));
   let tree=h.render();
   const detail=h.find(tree,n=>n.props.className==='paa-wb-route-requirements');
@@ -1002,7 +1005,7 @@ test('route details render separate combinations and clear current-rule highligh
 
 test('numeric route references keep normal condition highlights without sample-count warnings',()=>{
   const h=harness(),slots=[1,2,3,4,5,6].map(id=>W.entry(h.store,id));
-  h.set('area','2-5');h.set('mapRoute','B>F>J>O');h.set('slots',slots);
+  h.set('area','2-5');h.set('mapRoute','guide:2-5-07');h.set('slots',slots);
   const report=W.inspect(h.service,h.store,slots,{kind:'normal',fleet:1,area:'2-5',target:'boss',phase:'',missionId:1,revision:0});
   report.route.lineOfSight={status:'estimate',rawScoresByCoefficient:{1:100},scoresByCoefficient:{1:100}};
   h.set('report',report);
@@ -1018,7 +1021,7 @@ test('numeric route references keep normal condition highlights without sample-c
 
 test('pending calculations keep result subtrees mounted under an inert loading overlay until rechecked',()=>{
   const h=harness(),slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
-  h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
+  h.store.const.$ships[2].api_stype=4;h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
   h.set('report',W.inspect(h.service,h.store,slots,settings));
   const region=(tree,key)=>h.find(tree,n=>n.props['data-result-region']===key);
   const settled=h.render(),routeContent=region(settled,'route').children[0].children,metricContent=region(settled,'metrics').children[0].children;
@@ -1049,11 +1052,11 @@ test('map stays manual, prepared styles switch immediately, and ship replacement
   assert(h.find(tree,n=>n.props.className==='paa-wb-left').children.includes(h.find(tree,n=>n.props.className==='paa-wb-context-controls')));
   assert(h.find(tree,n=>n.props.className==='paa-wb-right').children.includes(h.find(tree,n=>n.props.className==='paa-wb-command-area')));
   assert(h.find(tree,n=>n.type==='svg'&&n.props.role==='group'),'map exists before full search');
-  await h.control(tree,'攻略流派').props.onChange({target:{value:'upper'}});
+  await h.control(tree,'攻略流派').props.onChange({target:{value:'guide:3-5-05'}});
   assert.equal(h.calls.fleet,0,'no automatic full search before first completion');
   tree=h.render();await h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
   assert.equal(h.get('slots')[0].id,1);assert.equal(h.calls.fleet,1);
-  tree=h.render();await h.control(tree,'攻略流派').props.onChange({target:{value:'lower'}});
+  tree=h.render();await h.control(tree,'攻略流派').props.onChange({target:{value:'guide:3-5-01'}});
   assert.equal(h.get('slots')[0].id,2);assert.equal(h.calls.fleet,1,'prepared route reused');
   tree=h.render();h.find(tree,n=>n.props.className==='paa-wb-replace').props.onClick();
   tree=h.render();await h.find(tree,n=>n.type==='button'&&n.children.some(c=>c?.children?.some(v=>v?.children?.includes('测试舰3')))).props.onClick();
@@ -1100,13 +1103,13 @@ test('failed recommendations keep the draft, but obsolete results cannot refill 
   await h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
   h.set('slots',h.get('slots').map(s=>s?{...s,pin:true}:null)); // invalidate cached fixed context
   h.service.recommendNormalFleet=()=>({recommendations:[]});
-  tree=h.render();await h.control(tree,'攻略流派').props.onChange({target:{value:'upper'}});
+  tree=h.render();await h.control(tree,'攻略流派').props.onChange({target:{value:'guide:3-5-05'}});
   assert.equal(h.get('slots')[0].id,2);assert(h.get('error'));assert.equal(h.get('working'),false);
   let finish;h.service.recommendNormalFleet=()=>new Promise(resolve=>{finish=resolve;});
   tree=h.render();const pending=h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
   await new Promise(resolve=>setTimeout(resolve,30));
   tree=h.render();h.find(tree,n=>n.type?.name==='AreaPicker').props.onChange('1-1');h.render();
-  finish({recommendations:[{routeKey:'upper',scheme:W.scheme([W.entry(h.store,1)],1)}]});await pending;
+  finish({recommendations:[{routeKey:'guide:3-5-05',scheme:W.scheme([W.entry(h.store,1)],1)}]});await pending;
   assert.deepEqual(h.get('slots'),Array(6).fill(null));assert.equal(h.get('working'),false);assert.equal(h.get('error'),'');
 });
 
@@ -1115,7 +1118,7 @@ test('global exclusions invalidate cached and in-flight recommendations while pr
   let filters={...F.DEFAULTS.normal};const render=()=>h.render({automaticFilters:filters});
   let tree=render();await h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
   const before=JSON.stringify(h.get('slots'));assert.equal(h.calls.fleet,1);
-  tree=render();await h.control(tree,'攻略流派').props.onChange({target:{value:'upper'}});
+  tree=render();await h.control(tree,'攻略流派').props.onChange({target:{value:'guide:3-5-05'}});
   assert.equal(h.calls.fleet,1,'same settings reuse prepared alternatives');
   filters={...filters,minLevel:60};tree=render();
   await h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
@@ -1124,7 +1127,7 @@ test('global exclusions invalidate cached and in-flight recommendations while pr
   tree=render();const pending=h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
   await new Promise(resolve=>setTimeout(resolve,30));
   const current=JSON.stringify(h.get('slots'));filters={...filters,minLevel:80};render();
-  finish({recommendations:[{routeKey:'upper',scheme:W.scheme([W.entry(h.store,8)],1)}]});await pending;
+  finish({recommendations:[{routeKey:'guide:3-5-05',scheme:W.scheme([W.entry(h.store,8)],1)}]});await pending;
   assert.equal(JSON.stringify(h.get('slots')),current);assert.equal(h.get('working'),false);assert(before);
 });
 
@@ -1140,13 +1143,13 @@ test('obsolete recommendation errors cannot restore old-map feedback',async()=>{
 });
 
 test('fleet air thresholds follow the selected map path while fleet power keeps the current loadout',()=>{
-  const h=harness(),slots=[W.entry(h.store,2)];h.set('slots',slots);h.set('mapRoute','lower');
+  const h=harness(),slots=[W.entry(h.store,2)];h.set('slots',slots);h.set('mapRoute','guide:3-5-01');
   h.set('report',{valid:true,scheme:W.scheme(slots,1),
     settingsKey:JSON.stringify({kind:'normal',fleet:1,area:'3-5',target:'boss',phase:'',missionId:1,revision:0}),
-    profile:W.selectedMapProfile(W.mapOverview('3-5'),'upper'),metrics:{airPower:{status:'range',min:500,max:501,
+    profile:W.selectedMapProfile(W.mapOverview('3-5'),'guide:3-5-05'),metrics:{airPower:{status:'range',min:500,max:501,
       slots:[{aircraftType:45,planes:[25,25],effectiveAntiAir:[100,100.2],proficiencyBonus:[0,0]}]}},
     route:{verdict:'guaranteed',airControl:{assessment:{superiority:{required:381}},profiles:[
-      {route:'upper',superiority:381,supremacy:762},{route:'lower',superiority:35,supremacy:69}]}}});
+      {route:'guide:3-5-05',superiority:381,supremacy:762},{route:'guide:3-5-01',superiority:35,supremacy:69}]}}});
   const tree=h.render(),metric=h.find(tree,n=>n.props.className==='paa-wb-metric air');
   assert(h.find(metric,n=>n.type==='small').children[0].includes('空优 35 · 空确 69'));
   assert(h.find(metric,n=>n.type==='strong').children[0].includes('500'));
@@ -1174,7 +1177,7 @@ test('complete follows the selected non-first route and cached switches retain u
   tree=h.render();await h.control(tree,'参考路线').props.onChange({target:{value:options[1].key}});
   assert.equal(h.get('error'),'');assert.equal(h.get('slots')[0].id,2);
   h.set('report',W.inspect(h.service,h.store,h.get('slots'),{kind:'normal',fleet:1,area:'2-2',target:'boss',phase:'',missionId:1,revision:0}));
-  tree=h.render();assert.equal(h.control(tree,'参考路线').children.length,4,'unavailable route remains visible');
+  tree=h.render();assert.equal(h.control(tree,'参考路线').children.length,options.length+1,'unavailable route remains visible');
   const warning=h.find(tree,n=>n.props['aria-label']==='推荐路线受阻条件');
   assert.deepEqual(warning.children.map(n=>n.children.join('')),['C → E：带路条件未满足']);
   assert(!h.find(tree,n=>n.props['aria-label']==='路线条件'),'failed search has one concise warning region');
@@ -1211,7 +1214,7 @@ test('same-scheme route switches and pin or keep changes retain inspected probab
     recommendations:options.map(o=>({routeKey:o.key,scheme:W.scheme(slots,1)}))});
   const pending=h.control(h.render(),'参考路线').props.onChange({target:{value:options[1].key}});
   assert.equal(h.get('report'),report,'the current draft remains inspected while the alternative is loading');
-  assert(!marker(h.render(),'G>I'),'changing selection must remove probabilities belonging only to the old route');
+  assert.equal(marker(h.render(),'G>I').props['data-probability'],.65,'a shared branch keeps the same conditional odds after changing presets');
   await pending;
   assert.equal(h.get('error'),'');assert(h.get('report').valid);
   assert.deepEqual(h.get('report').scheme,W.scheme(h.get('slots'),1));
@@ -1241,12 +1244,12 @@ test('a route recommendation inspects the final changed hulls before the first c
       n.props['data-edge'].replace(/^start#\d+>/,'start>')===`${edge.from}>${edge.to}`);
     assert(marker,`first render must include ${edge.from}>${edge.to}`);assert.equal(marker.props['data-probability'],edge.probability);
   }
-  assert(!h.find(tree,n=>n.props.className==='paa-map-probability'&&n.props['data-edge']==='G>I'));
+  assert.equal(h.find(tree,n=>n.props.className==='paa-map-probability'&&n.props['data-edge']==='G>I').props['data-probability'],.45,'replacing AV changes the shared exit odds immediately');
 });
 
 test('merged 1-4 map highlights follow the actual fleet while keeping genuine random alternatives',()=>{
   const store=fixture(),overview=W.mapOverview('1-4');
-  const option=require('../../src/domain/routes/route_plans').routeOptions('1-4').find(o=>o.name==='上路护航流');overview.options.push(option);
+  const option={key:'test:upper',name:'上路测试',nodes:[...'BCFEHL'],paths:[[...'BCFEHL'],[...'BCFHL']]};overview.options.push(option);
   const {evaluateNormalRoute}=require('../../src/domain/routes/normal_routes');
   const {profileForRoute}=require('../../src/domain/routes/sortie_profile');
   const draw=require('../../src/ui/maps/route_preview');
@@ -1273,20 +1276,21 @@ test('merged 1-4 map highlights follow the actual fleet while keeping genuine ra
 });
 
 test('pending or stale fleet inspections do not preview full styles until the fleet is cleared',()=>{
-  const h=harness(),option=W.mapOverview('1-4').options.find(o=>o.key.endsWith('@carriers'));
-  h.store.const.$ships[1].api_stype=16;h.store.const.$ships[4].api_stype=7;
-  h.set('area','1-4');h.set('mapRoute',option.key);h.set('slots',[1,2,3,4].map(id=>W.entry(h.store,id)));
+  const h=harness(),option=W.mapOverview('1-4').options.find(o=>o.id==='1-4-05');
+  [20,11,11,11,13,14].forEach((type,i)=>{h.store.const.$ships[i+1].api_stype=type;});
+  h.set('area','1-4');h.set('mapRoute',option.key);h.set('slots',[1,2,3,4,5,6].map(id=>W.entry(h.store,id)));
   const settings={kind:'normal',fleet:1,area:'1-4',target:'boss',phase:'',missionId:1,revision:0};
   const report=W.inspect(h.service,h.store,h.get('slots'),settings);assert(report.valid);h.set('report',report);
   const highlighted=(tree,key)=>h.find(tree,n=>n.props.className==='paa-real-route'&&n.props.key===key);
-  let tree=h.render();assert(highlighted(tree,'F>E'));assert(!highlighted(tree,'F>H'));
+  let tree=h.render();assert(highlighted(tree,'D>E'));assert(!highlighted(tree,'D>G'));
   h.set('report',{valid:false});tree=h.render();
   assert(!h.find(tree,n=>n.props.className==='paa-real-route'),'pending inspection cannot restore blocked alternatives');
   h.set('report',report);h.set('area','2-3');h.set('mapRoute',W.mapOverview('2-3').options[0].key);
   assert(!h.find(h.render(),n=>n.props.className==='paa-real-route'),'old map results cannot highlight the new map');
   h.set('area','1-4');h.set('mapRoute',option.key);h.set('report',{valid:false});
   h.find(h.render(),n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();
-  tree=h.render();assert(highlighted(tree,'F>E'));assert(highlighted(tree,'F>H'),'empty fleet previews the whole merged style again');
+  tree=h.render();assert(highlighted(tree,'A>D'));assert(highlighted(tree,'B>D'),'empty fleet previews both starts merging at D');
+  assert(!highlighted(tree,'B>C'));assert(!highlighted(tree,'D>G'));
   assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
 });
 
@@ -1319,7 +1323,7 @@ test('phase changes refresh immediately while cleared or genuinely stale context
 
 test('route warnings stay on the left and no stale chance or duplicate LoS badge survives',()=>{
   const h=harness(),slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
-  h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
+  h.store.const.$ships[2].api_stype=4;h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
   h.set('report',W.inspect(h.service,h.store,slots,settings));
   const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
   let tree=h.render(),left=h.find(tree,n=>n.props.className==='paa-wb-left'),right=h.find(tree,n=>n.props.className==='paa-wb-right');
@@ -1334,7 +1338,7 @@ test('route warnings stay on the left and no stale chance or duplicate LoS badge
 
 test('arrival status expands route requirements while notes and route warnings remain visible',()=>{
   const h=harness(),slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
-  h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
+  h.store.const.$ships[2].api_stype=4;h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
   h.set('report',W.inspect(h.service,h.store,slots,settings));
   const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
   let tree=h.render(),card=h.find(tree,n=>n.props.className==='paa-wb-route-status');
@@ -1361,7 +1365,7 @@ test('arrival status expands route requirements while notes and route warnings r
 
 test('route card whitespace expands rules without toggling reading, selection or disabled controls',()=>{
   const h=harness(),slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
-  h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
+  h.store.const.$ships[2].api_stype=4;h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
   h.set('report',W.inspect(h.service,h.store,slots,settings));
   const card=props=>h.find(h.render(props),node=>node.props.className==='paa-wb-route-status');
   const click=(target={},selection=null,extra={})=>({button:0,target,currentTarget:{ownerDocument:{getSelection:()=>selection},contains:()=>true},...extra});
@@ -1413,7 +1417,7 @@ test('progress renders one compact boss row per stage, including completed and u
   assert(h.find(mapSection,n=>n.props.className==='paa-route-preview'));
   assert(!h.find(tree,n=>n.props.className==='paa-wb-map-divider'),'map section border replaces the loose divider');
   const controls=h.find(tree,n=>n.props.className==='paa-wb-context-controls');
-  assert(h.find(controls,n=>n.props.className==='paa-wb-section-head paa-wb-route-picker'),'map and route selectors share the selection section');
+  assert(h.find(controls,n=>n.type?.name==='RoutePicker'),'map and route selectors share the selection section');
 });
 
 
@@ -1457,4 +1461,56 @@ test('fleet cards share activity-specific overlays without replacing ship slots'
     h.set('working',false);h.set('activity','');assert(!overlay(h.render()));
     h.set('working',true);h.set('activity','');assert(!overlay(h.render()),'unknown activity must not get an incorrect status');
   }
+});
+
+test('1-4 route selector letters follow the inspected draft and reset to the catalog when cleared',()=>{
+  const h=harness(),option=W.mapOverview('1-4').options.find(o=>o.id==='1-4-06');
+  [16,3,2,2,2,2].forEach((type,i)=>{h.store.const.$ships[i+1].api_stype=type;});
+  h.set('area','1-4');h.set('mapRoute',option.key);h.set('slots',[1,2,3,4,5,6].map(id=>W.entry(h.store,id)));
+  const settings={kind:'normal',fleet:1,area:'1-4',target:'boss',phase:'',missionId:1,revision:0};
+  const inspect=()=>{const report=W.inspect(h.service,h.store,h.get('slots'),settings);assert(report.valid);h.set('report',report);return report;};
+  let report=inspect(),tree=h.render();
+  const label=tree=>{const picker=h.find(tree,n=>n.type?.name==='RoutePicker');return '（'+picker.props.options.find(o=>o.key===picker.props.value).pathLabel+'）';};
+  assert.equal(label(tree),'（A→D→G→J→L；B→C→F→E→H→L）');
+  const actual=require('../../src/domain/routes/route_plans').fleetPathOption(report.route,option);
+  h.set('choices',[actual]);
+  [20,3,2,2,2,2].forEach((type,i)=>{h.store.const.$ships[i+1].api_stype=type;});
+  h.set('slots',[1,2,3,4,5,6].map(id=>W.entry(h.store,id)));inspect();tree=h.render();
+  assert.equal(label(tree),'（B→C→F→E→H→L）','manual edits override saved recommendation captions');
+  const select=h.control(tree,'参考路线');
+  assert(select.children.some(n=>n.type==='option'&&n.props.value===option.key&&n.children.includes(option.name+label(tree))));
+  h.find(tree,n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();
+  assert.equal(label(h.render()),`（${option.pathLabel}）`);
+  assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
+});
+
+test('merged 1-4 guidance shows the start, B fork, then D and later forks in travel order',()=>{
+  const h=harness(),option=W.mapOverview('1-4').options.find(o=>o.id==='1-4-01');
+  [20,7,3,2,2,2].forEach((type,i)=>{h.store.const.$ships[i+1].api_stype=type;});
+  h.set('area','1-4');h.set('mapRoute',option.key);h.set('slots',[1,2,3,4,5,6].map(id=>W.entry(h.store,id)));
+  h.set('report',W.inspect(h.service,h.store,h.get('slots'),{kind:'normal',fleet:1,area:'1-4',target:'boss',phase:'',missionId:1,revision:0}));
+  const rules=h.find(h.render(),n=>n.props.className==='paa-wb-route-requirements');
+  const scroll=h.find(rules,n=>n.props.className==='paa-wb-route-rules-scroll');
+  const nodes=scroll.children.filter(n=>n&&n.type==='div'&&typeof n.props.key==='string').map(n=>n.props.key);
+  assert.deepEqual(nodes,['start','B','D','F','E']);
+});
+
+test('a speed strategy caption follows its viable branch instead of the static strategy label',()=>{
+  const h=harness(),P=require('../../src/domain/routes/route_plans'),option=W.mapOverview('3-2').options.find(o=>P.optionPaths(o).length>1);
+  [3,2,2,2,2,2].forEach((type,i)=>{h.store.const.$ships[i+1].api_stype=type;});
+  h.set('area','3-2');h.set('mapRoute',option.key);h.set('slots',[1,2,3,4,5,6].map(id=>W.entry(h.store,id)));
+  const report=W.inspect(h.service,h.store,h.get('slots'),{kind:'normal',fleet:1,area:'3-2',target:'boss',phase:'',missionId:1,revision:0});
+  report.route.ships.forEach(s=>{s.radarEquipped=true;});
+  report.route.speed={status:'computed',fleetSpeed:'fastest',ships:report.route.ships.map(s=>({shipId:s.instanceId,status:'computed',speed:'fastest'}))};
+  h.set('report',report);h.set('choices',[P.fleetPathOption(report.route,option)]);
+  let tree=h.render();const caption=tree=>{const picker=h.find(tree,n=>n.type?.name==='RoutePicker');return '（'+picker.props.options.find(o=>o.key===picker.props.value).pathLabel+'）';};
+  assert.equal(caption(tree),'（C→E→F→L）');
+  assert(h.find(tree,n=>n.props.className==='paa-real-route'&&n.props.key==='C>E'));
+  assert(!h.find(tree,n=>n.props.className==='paa-real-route'&&n.props.key==='C>G'));
+  const scroll=h.find(tree,n=>n.props.className==='paa-wb-route-rules-scroll');
+  const nodes=scroll.children.filter(n=>n&&n.type==='div'&&typeof n.props.key==='string').map(n=>n.props.key);
+  assert(!nodes.includes('G'),'unreachable alternatives cannot supply current-rule highlights');
+  h.set('slots',Array(6).fill(null));tree=h.render();
+  assert.equal(caption(tree),'（'+option.pathLabel+'）','empty drafts cannot retain a cached restricted caption');
+  assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
 });

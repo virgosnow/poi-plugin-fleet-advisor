@@ -39,13 +39,13 @@ test('5-6 branch precedence and phase lock preserve the source conditions',()=>{
   fixed('K',[11,11,6,3,2,2],'K2',{speed:'slow'});
   assert.notEqual(point('Q1',[11,11,6,3,2,2]).status,'fixed');
 });
-test('5-6 guide catalogue covers three gauges and six actual paths with visible unlock prerequisites',()=>{
-  const options=routeOptions('5-6');assert.equal(options.length,7);
-  assert.deepEqual(options.map(o=>o.phase),['gauge1','gauge1','gauge2','gauge2','gauge3','gauge3','gauge3']);
-  assert.deepEqual([...new Set(options.map(o=>o.nodes.join('>')))],['A>C2>D>E>G','A>B>C2>D>E>G','I>J>K>L>N','I>J>K1>K>K2>L>N','I>O>Q>U>X>Z','I>O>Q>W>X>Z']);
-  assert.equal(new Set(options.map(o=>o.key)).size,7,'same W path supports separate light and fast-plus heavy fleets');
-  assert.match(W.routeArrival(null,options[2],false).note,/抵达 R 点/);
-  assert.match(W.routeArrival(null,options[4],false).note,/击破第二血条/);
+test('5-6 guide catalogue covers all gauges with distinct presets and visible unlock prerequisites',()=>{
+  const options=routeOptions('5-6').filter(o=>o.recommend!==false);
+  assert.deepEqual([...new Set(options.map(o=>o.phase))],['gauge1','gauge2','gauge3']);
+  for(const phase of ['gauge1','gauge2','gauge3'])assert(options.filter(o=>o.phase===phase).length>=3);
+  assert.equal(new Set(options.map(o=>o.key)).size,options.length);
+  assert.match(W.routeArrival(null,options.find(o=>o.phase==='gauge2'),false).note,/抵达 R 点/);
+  assert.match(W.routeArrival(null,options.find(o=>o.phase==='gauge3'),false).note,/击破第二血条/);
   for(const option of options){
     const preview={nodes:option.nodes.map(id=>({id,kind:'battle'})),edges:[]};
     const layout=actualMapLayout('5-6',preview,option.nodes);assert(layout.real);

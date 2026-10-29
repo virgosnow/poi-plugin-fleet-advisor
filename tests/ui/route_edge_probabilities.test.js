@@ -40,7 +40,7 @@ test('2-2 G labels retain 30/70 although entry into the G branch was only 30 per
 });
 
 test('4-5 only random start is labeled; active branches at A/C and fixed D-H are omitted',()=>{
-  const route=routeFor('4-5',[3,3,2,2,2,2]),selected=P.routeOptions('4-5').find(row=>row.key==='C>D>H>T');
+  const route=routeFor('4-5',[3,3,2,2,2,2]),selected=option([[...'CDHT'],[...'ADHT']]);
   assert.deepEqual(edgeMap(W.routeEdgeProbabilities(route,selected)),{'start>C':.5,'start>A':.5});
 });
 
@@ -101,7 +101,7 @@ test('fixed or blocked path exits do not display percentages or labels beyond th
 
 test('selected profile carries current labels without mutating its route or static overview',()=>{
   const overview=W.mapOverview('1-3'),selected=mergedUpper();
-  const localOverview={...overview,options:overview.options.map(row=>row.key===selected.key?selected:row)};
+  const localOverview={...overview,options:[selected]};
   const route=routeFor('1-3',[16,3,2,2,2,2]);
   const before=JSON.stringify({route,overview,localOverview,selected});
   const profile=W.selectedMapProfile(localOverview,selected.key,null,route);

@@ -74,10 +74,10 @@ test('every normal map renders before a fleet exists; selected reference routes 
     assert.equal(empty.routePaths.length,0);assert(empty.referenceOnly);
   }
   const overview=W.mapOverview('3-5');
-  assert.deepEqual(W.selectedMapProfile(overview,'upper').examples,[['B','D','H','K']]);
-  assert.deepEqual(W.selectedMapProfile(overview,'lower').examples,[['F','G','K']]);
+  assert.deepEqual(W.selectedMapProfile(overview,'guide:3-5-05').examples,[['B','D','H','K']]);
+  assert.deepEqual(W.selectedMapProfile(overview,'guide:3-5-01').examples,[['F','G','K']]);
   const wrongMap={area:'1-1',routePaths:[{nodes:['F','G','K']}]};
-  assert(W.selectedMapProfile(overview,'lower',wrongMap).referenceOnly);
+  assert(W.selectedMapProfile(overview,'guide:3-5-01',wrongMap).referenceOnly);
 });
 
 test('progress keeps observed counts, completed bars and reset counters separate',()=>{
@@ -109,7 +109,7 @@ test('unobserved gauge maps retain every bar without inventing remaining amounts
 });
 
 test('node selection owns one threat region and map background restores route threats',()=>{
-  const profile=W.selectedMapProfile(W.mapOverview('3-5'),'upper');
+  const profile=W.selectedMapProfile(W.mapOverview('3-5'),'guide:3-5-05');
   const local=W.displayThreat(profile,'K'),overview=W.displayThreat(profile,null);
   assert.equal(local.title,'K 点 · 主要威胁');assert(local.enemies.length);
   assert(local.enemies.every(e=>e.nodes.every(id=>id==='K')));
@@ -124,9 +124,9 @@ test('node selection owns one threat region and map background restores route th
 
 test('fleet summary shows air range, route-specific requirements and coefficient-qualified LoS without claiming full-route superiority',()=>{
   const report={metrics:{airPower:{status:'range',min:45,max:48},lineOfSight:{status:'estimate',scoresByCoefficient:{1:10,2:20,3:30,4:42},rawScoresByCoefficient:{4:42},lowerBoundScoresByCoefficient:{4:20}}},
-    route:{airControl:{assessment:{superiority:{required:381}},profiles:[{route:'upper',superiority:381,supremacy:762},{route:'lower',superiority:35,supremacy:69}]},
+    route:{airControl:{assessment:{superiority:{required:381}},profiles:[{route:'guide:3-5-05',superiority:381,supremacy:762},{route:'guide:3-5-01',superiority:35,supremacy:69}]},
       fixedArrivalCondition:{requirements:[{from:'G',coefficient:4,requiredScore:28}]}}};
-  const profile=W.selectedMapProfile(W.mapOverview('3-5'),'lower');
+  const profile=W.selectedMapProfile(W.mapOverview('3-5'),'guide:3-5-01');
   const result=W.fleetSummary(report,profile);
   assert.equal(result.air.value,'45–48');assert.match(result.air.hint,/空优 35.*空确 69/);
   assert.equal(result.air.state,'损耗待确认');assert.equal(result.los.value,'42.0');assert.equal(result.los.coefficient,4);

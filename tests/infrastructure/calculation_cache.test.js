@@ -102,7 +102,7 @@ test('pure tables are bounded, dependency keyed, exception safe and disabled for
 
 test('warm calculation tables still reallocate current inventory and reject newly busy fixed ships',t=>{
   const create=storage(t),recommend=require('../../src/recommendation/index').recommendNormalFleet;
-  const a=equipmentStore(),args={area:'1-1',fixedShipIds:[2],excludedShipIds:[1,3,4,5,6,7,8]};
+  const a=equipmentStore(),args={area:'1-1',routeKey:'A>C',fixedShipIds:[2],excludedShipIds:[1,3,4,5,6,7,8]};
   const first=withCalculationCache(create(),()=>recommend(a,args));
   assert(first.recommendations.some(r=>r.scheme.ships.some(s=>s.slots.includes(100))));
   const b=structuredClone(a);delete b.info.equips[100];b.info.equips[101]={api_slotitem_id:500,api_level:0};

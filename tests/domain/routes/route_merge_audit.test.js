@@ -15,13 +15,18 @@ function fleet(types){
   return store;
 }
 const ids=[1,2,3,4,5,6];
-const option=(area,key)=>P.routeOptions(area).find(row=>row.key===key);
+// Independent path vectors exercise merge arithmetic after preset replacement.
+const vectors={
+ '1-3:A>E>F>J':['AEFJ','ADBEFJ'], '2-1:C>D>H':['CDH','CEDH'],
+ '2-2:C>E>G>H>K':['CEGHK','CEGK'], '2-3:C>F>G>K>N':['CFGKN','CFGIKN','CDFGKN','CDFGIKN'],
+ '3-3:A>B>F>J>M':['ABFJM','ABDFJM'], '5-3:D>G>I>O>K>E>Q':['DGIOKEQ','DGIOKHEQ'],
+ '5-3:D>G>J>L>O>K>E>Q':['DGJLOKEQ','DGJLOKHEQ'], '7-3:A>C>D>G>J>P':['ACDGJP','ACDGIJP']};
+const option=(area,key)=>{const paths=vectors[area+':'+key].map(s=>[...s]);return {key,nodes:paths[0],paths,...area==='2-3'?{arrivalMode:'boss'}:{},...area==='7-3'?{phase:'gauge2'}:{}};};
 const assess=(store,area)=>evaluateNormalRoute(store,{area,scheme:{fleet:1,ships:ids}});
 const close=(actual,expected)=>assert(Math.abs(actual-expected)<1e-9,`${actual} != ${expected}`);
 
 test('2-1 resource detour recombines at D, without consuming the separate water-tender shortcut',()=>{
   const selected=option('2-1','C>D>H'),route=assess(fleet([7,7,5,5,2,2]),'2-1');
-  assert.equal(P.routeOptions('2-1').length,2,'the former E-detour row is part of this strategy');
   assert.deepEqual(P.optionPaths(selected),[[...'CDH'],[...'CEDH']]);
   assert.deepEqual(P.optionPlanning(route,selected).branches.map(b=>b.chance.probability),[.5,.5]);
   assert.equal(P.optionPlanning(route,selected).chance.probability,1);
@@ -45,8 +50,6 @@ test('2-2 G-K and G-H-K count together while the E-K shortcut and C-D diversion 
 
 test('2-3 submarine resource branches share one guide with all four journeys and unchanged Boss odds',()=>{
   const selected=option('2-3','C>F>G>K>N'),route=assess(fleet([13,13,13,13,13,13]),'2-3');
-  assert.equal(P.routeOptions('2-3').length,8);
-  assert(!option('2-3','C>D>F>G>K>N'),'the duplicate guide is removed');
   assert.deepEqual(P.optionPaths(selected),[[...'CFGKN'],[...'CFGIKN'],[...'CDFGKN'],[...'CDFGIKN']]);
   close(P.optionPlanning(route,selected).chance.probability,.138775);
   close(route.probability,.7607275);
@@ -87,8 +90,8 @@ test('every reviewed merged guide highlights exactly its full journeys in both m
     ['3-3','A>B>F>J>M'],['5-3','D>G>I>O>K>E>Q'],['5-3','D>G>J>L>O>K>E>Q'],
     ['7-3','A>C>D>G>J>P']
   ]){
-    const selected=option(area,key),profile=W.selectedMapProfile(W.mapOverview(area,'boss',selected.phase,{maxRoutes:20}),key);
-    assert.equal(selected.basis,'guide');assert.deepEqual(profile.highlightPaths,P.optionPaths(selected));
+    const selected=option(area,key),overview=W.mapOverview(area,'boss',selected.phase,{maxRoutes:20}),profile=W.selectedMapProfile({...overview,options:[selected]},key);
+assert.deepEqual(profile.highlightPaths,P.optionPaths(selected));
     assert.deepEqual(profile.examples,P.optionPaths(selected));
     assert.deepEqual(profile.routePaths.map(p=>p.nodes),P.optionPaths(selected));
   }
@@ -112,8 +115,8 @@ test('merged guide branches never count alternative player-controlled exits as i
 });
 
 test('5-3 recommendation and manual equipment updates accept the H branch without changing chosen ships',()=>{
-  const store=fleet([3,2,2,2,2,2]),before=JSON.stringify(store),selected=option('5-3','D>G>I>O>K>E>Q');
-  const result=recommendNormalFleet(store,{area:'5-3',fixedShipIds:ids});
+  const store=fleet([3,2,2,2,2,2]),before=JSON.stringify(store),selected={key:'D>G>I>O>K>H>E>Q'};
+  const result=recommendNormalFleet(store,{area:'5-3',routeKey:selected.key,fixedShipIds:ids});
   const found=result.routeResults.find(row=>row.key===selected.key);
   assert.equal(found.status,'available',found.message);assert.equal(found.chance.probability,1);
   const row=result.recommendations[found.recommendationIndex];

@@ -57,7 +57,7 @@ test('a first wave without enough aircraft expands the original reserve and pres
   store.info.equips[1001]={api_id:1001,api_slotitem_id:500,api_level:0};
   store.const.$shipTypes[2]={api_equip_type:{1:1}};store.info.ships[2].api_slot=[1001,-1];
   const held={id:2,slots:[1001,-1],ex:0,keep:{0:true},holdPosition:true},before=JSON.stringify(store);
-  const result=recommendNormalFleet(store,{area:'1-4',airGoal:'superiority',fixedShipIds:[2],heldSlots:[held]});
+  const result=recommendNormalFleet(store,{area:'1-4',routeKey:'A>D>E>H>L',airGoal:'superiority',fixedShipIds:[2],heldSlots:[held]});
   const p=result.search.gearPruning;assert(p.deferred>0);assert.equal(p.expanded,p.deferred);
   assert(result.recommendations.length>0);
   for(const row of result.recommendations){

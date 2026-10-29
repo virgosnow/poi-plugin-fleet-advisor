@@ -202,12 +202,13 @@ function fitGuideStrategy(store,scheme,inventory,option,heldSlots=[]){
   return fitted;
 }
 function strategyFailure(store,ctx,option,inventory,heldSlots=[]){
-  const speedName=option.strategy.minimumSpeed==='fastest'?'最速':'高速＋';
+  const speedName=({fast:'高速',fastPlus:'高速＋',fastest:'最速'})[option.strategy.minimumSpeed];
   const need=`需要全队${speedName}统一`+(option.strategy.radarCarriers?`、至少 ${option.strategy.radarCarriers} 艘携带电探`:'');
   const issues=[];
   const allowed=option.strategy.allowedStypes;
   const compatible=ctx.roster.filter(r=>!allowed||allowed.includes(r.stype));
-  if(new Set(compatible.map(shipFamilyKey)).size<6)issues.push('可用舰娘不足六艘');
+  const needed=Math.min(...(option.templates||[Array(6)]).map(slots=>slots.length));
+  if(new Set(compatible.map(shipFamilyKey)).size<needed)issues.push(`可用舰娘不足 ${needed} 艘`);
   const wrong=ctx.fixed.map(id=>ctx.byId.get(id)).filter(r=>allowed&&!allowed.includes(r.stype));
   if(wrong.length)issues.push('固定舰种不适用：'+wrong.map(r=>r.name).join('、'));
   const unfitted=ctx.fixed.filter(id=>{

@@ -99,10 +99,10 @@ test('service injects global preferences into workers and future planning never 
 
  test('route budget limits UI and actual searches without truncating the source graph',()=>{
   const P=require('../../src/domain/routes/route_plans'),W=require('../../src/ui/workbench/workbench_model'),R=require('../../src/recommendation/index');
-  const store=fixture(),full=P.routeOptions('2-3');assert.equal(full.length,8);
-  assert.equal(full.flatMap(P.optionPaths).length,16,'all original journeys remain inside merged choices');
-  assert.equal(P.recommendedOptions('2-3').length,5);
-  assert.equal(W.mapOverview('2-3').options.length,5);
+  const store=fixture(),full=P.routeOptions('2-3');assert.equal(full.filter(r=>r.recommend!==false).length,4);
+  assert.equal(new Set(full.flatMap(P.optionPaths).map(p=>p.join('>'))).size,16,'all physical journeys remain queryable');
+  assert.equal(P.recommendedOptions('2-3').length,4);
+  assert.equal(W.mapOverview('2-3').options.length,4);
   assert.equal(W.mapOverview('2-3','boss',undefined,{maxRoutes:2}).options.length,2);
   assert.equal(W.mapOverview('2-3').profile.routePaths.length,16);
   for(const [area,maxRoutes]of [['1-4',5],['1-4',2],['7-2',2],['7-2',4]]){
@@ -110,8 +110,8 @@ test('service injects global preferences into workers and future planning never 
     assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),P.recommendedOptions(area,'boss',undefined,{maxRoutes}).map(r=>[r.phase,r.key]));
     assert(result.recommendations.length<=maxRoutes);
   }
-  assert.equal(P.recommendedOptions('2-3','boss',undefined,{maxRoutes:20}).length,8);
-  assert.equal(P.recommendedOptions('1-1').length,1);
+  assert.equal(P.recommendedOptions('2-3','boss',undefined,{maxRoutes:20}).length,4);
+  assert.equal(P.recommendedOptions('1-1').length,4);
  });
 test('multiphase budgets reserve every phase and assign extras only to observed progress',()=>{
   const P=require('../../src/domain/routes/route_plans'),W=require('../../src/ui/workbench/workbench_model');
@@ -125,7 +125,7 @@ test('multiphase budgets reserve every phase and assign extras only to observed 
   assert.deepEqual(counts('5-6',store),{gauge1:1,gauge2:1,gauge3:3});
   assert.deepEqual(counts('5-6',store,1),{gauge1:1,gauge2:1,gauge3:1});
   store.info.maps[56].api_gauge_num=2;
-  assert.deepEqual(counts('5-6',store),{gauge1:1,gauge2:2,gauge3:1},'new submarine backup belongs only to active phase two');
+  assert.deepEqual(counts('5-6',store),{gauge1:1,gauge2:3,gauge3:1},'remaining quota belongs to active phase two');
   store.info.maps[75]={api_gauge_num:2};
   assert.deepEqual(counts('7-5',store),{gauge1:1,gauge2:3,gauge3:1},'both phase-two backup flows fit the shared budget');
   assert.deepEqual(counts('7-3',store,3,'gauge2'),{gauge2:3},'explicit phase uses its own budget');
@@ -147,7 +147,7 @@ test('snapshot worker and UI use the same observed phase allocation',async()=>{
     const result=await service.recommendNormalFleet({snapshotId,area:'7-2',});
     assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),
       P.recommendedOptions('7-2','boss',undefined,undefined,store).map(r=>[r.phase,r.key]));
-    assert.equal(result.routeResults.filter(r=>r.phase==='gauge2').length,3);
+    assert.equal(result.routeResults.filter(r=>r.phase==='gauge2').length,4);
     assert.equal(result.routeResults.filter(r=>r.phase==='gauge1').length,1);
   }finally{await service.dispose();clean(dir);}
 });

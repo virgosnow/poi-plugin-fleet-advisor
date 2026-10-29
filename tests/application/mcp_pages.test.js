@@ -234,3 +234,30 @@ test('two independent HTTP clients query/recommend/refit and share one mock exec
   assert((await a.tool('get_job',{jobId:accepted.jobId})).verified);
   assert((await a.tool('delete_scheme',{name:'协议回归'})).deleted);
 });
+
+test('map route queries expose the same fleet-specific caption as the workbench without narrowing the catalog',()=>{
+  const s=fixture();[20,11,11,11,13,14].forEach((type,i)=>{s.const.$ships[i+1].api_stype=type;});
+  const plans=require('../../src/domain/routes/route_plans'),option=plans.recommendedOptions('1-4').find(o=>o.id==='1-4-05');
+  const scheme={fleet:1,ships:[1,2,3,4,5,6].map(id=>({id,slots:[-1,-1],ex:-1}))};
+  const result=require('../../src/application/page_queries').evaluateRoute(s,{area:'1-4',routeKey:option.key,scheme});
+  assert.equal(result.selectedRoute.label,option.name+'（A/B→D→E→H→L）');
+  assert.deepEqual(result.selectedRoute.displayPaths,[['A','D','E','H','L'],['B','D','E','H','L']]);
+  assert.equal(result.selectedRoute.paths.length,2);
+});
+
+test('merged-map query captions and highlight paths agree for detours outside 1-4',()=>{
+  const P=require('../../src/domain/routes/route_plans'),Q=require('../../src/application/page_queries');
+  for(const [area,id,types,expected] of [
+    ['1-3','1-3-water',[22,3,2,2,2,2],['ADBEFJ']],['2-1','2-1-03',[16,11,3,2,2,5],['CEDH']],
+    ['2-2','2-2-04',[16,8,3,2,2,2],['CEK']]
+  ]){
+    const s=fixture();types.forEach((type,i)=>{s.const.$ships[i+1].api_stype=type;});
+    const option=P.routeOptions(area).find(o=>o.id===id);
+    const scheme={fleet:1,ships:[1,2,3,4,5,6].map(id=>({id,slots:[-1,-1],ex:-1}))};
+    const report=Q.evaluateRoute(s,{area,routeKey:option.key,scheme});
+    assert.deepEqual(report.selectedRoute.displayPaths.map(p=>p.join('')),expected,area);
+    assert.deepEqual(report.profile.highlightPaths,report.selectedRoute.displayPaths,area+' query cannot return stale reference highlights');
+    assert.equal(report.selectedRoute.label,option.name+'（'+P.pathLabel(expected.map(p=>p.split('')))+'）');
+    assert.deepEqual(report.selectedRoute.paths,option.paths,'querying a candidate never narrows the reusable option');
+  }
+});

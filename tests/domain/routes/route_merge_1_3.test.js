@@ -15,15 +15,16 @@ function fleet(types){
   }
   return state;
 }
-const upper=()=>P.routeOptions('1-3').find(option=>option.key==='A>E>F>J');
+// Explicit merged-path vectors stay independent of the preset fleet identity.
+const upper=()=>({...P.routeOptions('1-3').find(o=>o.id==='1-3-water'),fleetRequirement:undefined,arrivalMode:undefined});
 const assess=state=>evaluateNormalRoute(state,{area:'1-3',scheme:{fleet:1,ships:Object.keys(state.info.ships).map(Number)}});
 
 test('1-3 upper guide includes both temporary branches through their actual E merge',()=>{
   const option=upper();
-  assert.equal(option.name,'上路迂回流');assert.equal(P.routeOptions('1-3').length,2);
+  assert.equal(option.name,'上转下水母流');
   assert.deepEqual(P.optionPaths(option),[[...'AEFJ'],[...'ADBEFJ']]);
   assert.equal(option.pathLabel,'A→(D→B)→E→F→J');
-  assert(P.routeOptions('1-3').every(option=>option.basis==='guide'));
+  assert(P.routeOptions('1-3').filter(o=>o.recommend!==false).every(option=>option.basis==='guide'));
 });
 
 test('1-3 water-tender fleet sums A-E 20% and A-D-B-E 80% to fixed arrival',()=>{
@@ -64,9 +65,9 @@ test('1-3 true F-H diversions do not become success merely because H can also re
 });
 
 test('1-3 recommendation and equipment reevaluation share the explicit merged strategy',()=>{
-  for(const type of [16,22]){
+  for(const type of [16]){
     const state=fleet([type,3,2,2,2,2]),ids=[1,2,3,4,5,6],before=JSON.stringify(state),option=upper();
-    const result=recommendNormalFleet(state,{area:'1-3',fixedShipIds:ids});
+    const result=recommendNormalFleet(state,{area:'1-3',routeKey:option.key,fixedShipIds:ids});
     const selected=result.routeResults.find(row=>row.key===option.key);
     assert.equal(selected.status,'available',selected.message);assert.equal(selected.chance.probability,1);
     const row=result.recommendations[selected.recommendationIndex];

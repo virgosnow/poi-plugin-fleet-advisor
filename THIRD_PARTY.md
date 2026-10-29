@@ -44,7 +44,7 @@ MCP 服务采用 Node.js 内置 HTTP 实现，不捆绑协议 SDK 或客户端�
 | 本项目资料 | 来源与记录方式 |
 | --- | --- |
 | `data/normal_routes/*.json` | [NGA 地图配置2.0](https://bbs.nga.cn/read.php?tid=16820397)整理资料；逐图记录中文 Wiki、NGA 回复地址和哈希 |
-| `data/normal_route_guides.json` | [舰娘百科](https://zh.kcwiki.cn/)攻略、NGA 带路和核对后的路径；逐条保留来源 |
+| `data/normal_route_guides.json` | 根据带路与敌情独立编成分析、对照[日文 Wiki](https://wikiwiki.jp/kancolle/)修订的推荐预设；逐海域保留日文 Wiki 与[舰娘百科](https://zh.kcwiki.cn/)带路来源链接；游戏规则仍以 NGA 带路数据为准 |
 | `data/sortie/encounters/*.json` | [日文 Wiki](https://wikiwiki.jp/kancolle/)敌编成及血条，保留中文 Wiki 交叉核对 |
 | `data/sortie/enemy_catalog.json` | 敌舰身份、装备与属性资料 |
 | `data/sortie/adjudications.json` | 来源冲突、依据和裁定状态 |

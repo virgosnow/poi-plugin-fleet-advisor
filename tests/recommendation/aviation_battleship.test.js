@@ -28,7 +28,7 @@ function fixture(){
 }
 const scheme=()=>({fleet:1,ships:[{id:1,slots:[-1,-1,-1,-1,-1],ex:-1}]});
 const type=(store,id)=>store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_type[2];
-const base=store=>completeCombatLoadout(store,scheme(),availableEquipment(store),{area:'1-4',profile});
+const base=store=>completeCombatLoadout(store,scheme(),availableEquipment(store),{area:'1-4',routeKey:'A>D>E>H>L',profile});
 
 test('aviation battleships start with a large-slot seaplane bomber and no unnecessary Saiun',()=>{
   const store=fixture(),before=JSON.stringify(store),entry=base(store).ships[0];
@@ -42,7 +42,7 @@ test('water reconnaissance preserves spotting when bombers are unavailable or th
   for(const night of [false,true]){
     const store=fixture();if(!night)for(const id of [1101,1102])delete store.info.equips[id];
     const fitted=completeCombatLoadout(store,scheme(),availableEquipment(store),{
-      area:'5-3',profile:{...profile,counts:{...profile.counts,night:{maximum:night?2:0}}}});
+      area:'5-3',routeKey:'D>G>I>O>K>E>Q',profile:{...profile,counts:{...profile.counts,night:{maximum:night?2:0}}}});
     assert(fitted.ships[0].slots.includes(1201));
     assert.equal(fitted.ships[0].slots[4],1201,'observation plane uses the smallest free legal positive slot');
     assert(!fitted.ships[0].slots.some(id=>type(store,id)===9));
@@ -51,7 +51,7 @@ test('water reconnaissance preserves spotting when bombers are unavailable or th
 
 test('aviation fitting compares water bombers, safe reconnaissance and carrier bombers with observation',()=>{
   const store=fixture(),initial=base(store),before=JSON.stringify([store,initial]);
-  const variants=aviationBattleshipLoadouts(store,initial,availableEquipment(store),{area:'1-4',profile});
+  const variants=aviationBattleshipLoadouts(store,initial,availableEquipment(store),{area:'1-4',routeKey:'A>D>E>H>L',profile});
   assert(variants.some(s=>s.ships[0].slots.includes(1101)));
   assert(variants.some(s=>s.ships[0].slots.includes(1201)&&!s.ships[0].slots.some(id=>[7,11].includes(type(store,id)))));
   const dive=variants.find(s=>s.ships[0].slots.includes(1401));assert(dive);
@@ -62,8 +62,8 @@ test('aviation fitting compares water bombers, safe reconnaissance and carrier b
 
 test('aviation fitting preserves held items, held gaps and an explicitly held Saiun',()=>{
   const store=fixture(),held=[{id:1,slots:[1001,1002,1301,1003,-1],ex:-1,keep:{2:true,4:true}}];
-  const initial=completeCombatLoadout(store,emptyLoadout(store,scheme(),held),availableEquipment(store),{area:'1-4',profile,heldSlots:held});
-  for(const v of aviationBattleshipLoadouts(store,initial,availableEquipment(store),{area:'1-4',profile,heldSlots:held})){
+  const initial=completeCombatLoadout(store,emptyLoadout(store,scheme(),held),availableEquipment(store),{area:'1-4',routeKey:'A>D>E>H>L',profile,heldSlots:held});
+  for(const v of aviationBattleshipLoadouts(store,initial,availableEquipment(store),{area:'1-4',routeKey:'A>D>E>H>L',profile,heldSlots:held})){
     assert.equal(v.ships[0].slots[2],1301);assert.equal(v.ships[0].slots[4],-1);
   }
 });
@@ -84,8 +84,8 @@ test('real type-7 carrier bombers on aviation battleships receive opening aviati
 
 test('1-4 normal equipment and fleet searches retain an observation plane and avoid optional reconnaissance cargo',()=>{
   const store=fixture(),before=JSON.stringify(store);
-  const equipment=recommendNormalEquipment(store,{area:'1-4',scheme:scheme()});
-  const full=recommendNormalFleet(store,{area:'1-4',fixedShipIds:[1,2,3,4,5,6],airGoal:'superiority'});
+  const equipment=recommendNormalEquipment(store,{area:'1-4',routeKey:'A>D>E>H>L',scheme:scheme()});
+  const full=recommendNormalFleet(store,{area:'1-4',routeKey:'A>D>E>H>L',fixedShipIds:[1,2,3,4,5,6],airGoal:'superiority'});
   assert(full.recommendations.length>0,full.reason);
   for(const fitted of [equipment.scheme,...full.recommendations.map(r=>r.scheme)]){
     assert(fitted.ships[0].slots.some(id=>[10,11].includes(type(store,id))));

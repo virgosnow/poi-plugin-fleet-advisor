@@ -37,8 +37,8 @@ test('all reviewed maps retain source URLs and hashes without redistributing cap
   const c=require('../../../data/normal_routes/7-3.json').branchPoints.find(p=>p.from==='C').clauses.join('');
   assert(c.includes('[高速+]')&&c.includes('[最速]'),'literal speed labels must survive UBB formatting removal');
   for(const [key,g]of Object.entries(require('../../../data/normal_route_guides.json').maps)){
-    assert.match(g.source,/^https:\/\/zh\.kcwiki\.cn\/wiki\//);
-    assert.equal(g.routingSource,sources.get(key.split(':')[0]));
+    assert.match(g.source,/^https:\/\/wikiwiki\.jp\/kancolle\//);
+    assert.equal(g.routingSource,require('../../../data/normal_routes/'+key.split(':')[0]+'.json').source.url);
   }
 });
 

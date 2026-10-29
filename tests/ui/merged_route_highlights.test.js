@@ -71,12 +71,12 @@ test('blocked, pending and wrong-phase fleets never fall back to complete style 
   }
   const overview=W.mapOverview('3-5'),{store,scheme}=fleet([3,2,2,2,2,2],10,1);
   const route=evaluateNormalRoute(store,{area:'3-5',scheme});
-  const blocked=W.selectedMapProfile(overview,'lower',null,route);
+  const blocked=W.selectedMapProfile(overview,'guide:3-5-01',null,route);
   assert.deepEqual(blocked.highlightPaths,[],'known inadequate LoS blocks the selected path');
   assert(blocked.routePaths.length,'reference targets remain available for equipment mechanisms and inspection');
   const tree=render(h,{profile:blocked,compact:true,onNode:()=>{}});
   assert.equal(collect(tree,n=>n.props.className?.startsWith('paa-map-node active')).length,0);
   assert(collect(tree,n=>n.props['aria-label']==='地图节点图例')[0]?.children.length,'a gray map still needs its legend');
-  const unknown=W.selectedMapProfile(overview,'lower',null,{...route,lineOfSight:{status:'unknown'}});
+  const unknown=W.selectedMapProfile(overview,'guide:3-5-01',null,{...route,lineOfSight:{status:'unknown'}});
   assert.deepEqual(unknown.highlightPaths,[['F','G','K']],'missing data is not proof that a branch is impossible');
 });

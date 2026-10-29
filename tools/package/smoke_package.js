@@ -45,7 +45,8 @@ async function main() {
   const {matchesName}=require(path.join(root,'package/src/shared/name_matching.js'));
   if(!matchesName('発煙装置(煙幕)','发烟装置')||!matchesName('翔鶴改二甲','翔鹤'))throw new Error('Packed name-variant matching failed');
   const {routeOptions}=require(path.join(root,'package/src/domain/routes/route_plans.js'));
-  if(routeOptions('2-5')[0].label!=='下路空母流（C→E→I→O）')throw new Error('Packed route guide failed');
+  const guide=routeOptions('2-5')[0];
+  if(guide.key!=='guide:2-5-04'||guide.label!=='中路洗地流（C→E→I→O）'||!guide.fleetRequirement)throw new Error('Packed route guide failed');
   require(path.join(root,'package/src/domain/routes/route_speed.js'));
   const questCatalog=require(path.join(root,'package/data/quests/requirements.json'));
   const firstSortie=questCatalog.quests.find(quest=>quest.code==='B1');

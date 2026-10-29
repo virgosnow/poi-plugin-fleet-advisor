@@ -82,7 +82,8 @@ function evaluateRoute(store,args,settings){
   const fleet=fleetNumber(args.scheme?.fleet??args.fleet??1);
   const candidate=args.scheme?resolveCandidate(store,args.scheme):null;
   const metrics=candidate?evaluateCandidate(store,candidate.plan):F.inspect(store,fleet).metrics;
-  const profile=detail.profile,selected=detail.selectedRoute;
+  const selected=plans.fleetPathOption(route,detail.selectedRoute);
+  const profile=selected?W.selectedMapProfile({profile:detail.profile,options:[selected]},selected.key,null,route):detail.profile;
   const report={route,metrics,profile};
   return {...route,profile,metrics,progress:detail.progress,
     ...(selected?{selectedRoute:selected,planning:plans.optionPlanning(route,selected),

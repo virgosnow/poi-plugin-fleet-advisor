@@ -13,6 +13,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
   const ExecutionCard=require('../components/execution_card')(React,{subscribe,getStore});
   const QuestSection=require('../components/quest_section')(React);
   const AreaPicker=require('../components/area_picker')(React);
+  const RoutePicker=require('../components/route_picker')(React);
   const useMapLoading=require('../maps/map_loading')(React,{getStore});
   const summaryMetric=(reading,kind)=>{
     const good=kind==='air'?/^全程空/.test(reading.state):['索敌达标','无需索敌'].includes(reading.state);
@@ -238,7 +239,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         if(getStore().info!==initialStore.info||getStore().const!==initialStore.const||kind==='expedition'&&require('../../application/snapshots').fingerprint(getStore())!==stamp)throw Error('舰队资料已变化，请重新补全');
         routeCache.current={key:signature,info:initialStore.info,master:initialStore.const,stamp,found};
         const options=W.routeChoices(found);setChoices(options);
-        const selectedKey=requestedRoute||(area==='3-5'?requestedStyle:found.routeResults?.[0]?.key);
+        const selectedKey=requestedRoute||found.routeResults?.[0]?.key;
         const routeResult=found.routeResults?.find(r=>r.key===selectedKey);
         if(routeResult&&!routeResult.chance){setMapRoute(selectedKey);return;}
         if(!found.recommendations?.length&&!(kind==='expedition'&&found.closestRecommendation))throw Error(found.reason||found.message||'当前条件下没有可用方案，请调整固定舰娘或目标');
@@ -248,14 +249,6 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         choosePlan(row,key,requestedRoute);
       }catch(e){if(alive.current&&token===operation.current&&[origin,key].includes(latest.current))setError(e.message);}
       finally{if(alive.current&&token===operation.current){setWorking(false);setActivity('');}}
-    };
-    const changeStyle=value=>{
-      inspectSelection(value);
-      setStyle(value);setMapRoute(value);setNotice('');setNodeId(null);
-      // A new map/purpose remains an explicit full-search action. Once a draft
-      // belongs to this context, route changes use the prepared alternatives.
-      const previous=draftContext?JSON.parse(draftContext):null;
-      if(prepared.current&&(!slots.some(Boolean)||previous&&previous.every((v,i)=>i===5||v===JSON.parse(conditionKey)[i])))return complete(value,true,value);
     };
     const changeGoal=value=>{
       if(disabled||value===goal)return;
@@ -295,18 +288,27 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const mechanisms=kind==='expedition'?E.shipBadges(expeditionStatus):fleetMechanisms(store,slots,speedReading,mapProfile);
       const threat=mapProfile?W.displayThreat(mapProfile,nodeId):null;
       const progress=kind==='normal'?W.mapProgress(store,area):null;
-      const routeOptions=kind==='normal'?overview.options.map(o=>({...choices.find(c=>c.key===o.key),...o})):[];
+      const routeOptions=kind==='normal'?overview.options.map(o=>{
+        const saved=choices.find(c=>c.key===o.key);
+        const option={...saved,...o,displayPaths:undefined,displayPathLabel:undefined,
+          ...(rows.length&&saved?.displayPaths?{label:saved.label,pathLabel:saved.pathLabel,displayPaths:saved.displayPaths,displayPathLabel:saved.displayPathLabel||saved.pathLabel}:{})};
+        return o.key===mapRoute&&!dirty&&report.valid&&report.route?.area===area?
+          require('../../domain/routes/route_plans').fleetPathOption(report.route,option):option;
+      }):[];
       const selectedRoute=routeOptions.find(o=>o.key===mapRoute);
       const arrival=W.routeArrival(report,selectedRoute,!dirty&&report.route?.area===area&&rows.length>0,target);
       const requirementGroups=new Map();
-      for(const path of require('../../domain/routes/route_plans').optionPaths(selectedRoute)){
+      const guidancePaths=!dirty&&report.valid&&selectedRoute?.displayPaths?.length?selectedRoute.displayPaths:
+        require('../../domain/routes/route_plans').optionPaths(selectedRoute);
+      for(const path of guidancePaths){
         for(const point of require('../../domain/routes/route_plans').requirementDetails(area,path,effectivePhase,!dirty&&report.valid?report.route:null)){
           const previous=requirementGroups.get(point.from);
           if(previous){if(!previous.exits.includes(point.to))previous.exits.push(point.to);}
           else requirementGroups.set(point.from,{...point,exits:[point.to]});
         }
       }
-      const routeRequirements=[...requirementGroups.values()].map(p=>({...p,to:p.exits.join(' / '),
+      const nodeOrder=require('../../domain/routes/route_plans').orderedPathNodes(guidancePaths);
+      const routeRequirements=[...requirementGroups.values()].sort((a,b)=>nodeOrder.indexOf(a.from)-nodeOrder.indexOf(b.from)).map(p=>({...p,to:p.exits.join(' / '),
         rules:p.rules.map(r=>({...r,offRoute:r.active&&p.exits.every(to=>!r.destinations.split('/').includes(to))}))}));
       const speedRequirement=W.routeSpeedSummary(routeRequirements,selectedRoute);
       const routeSearchFailed=['notFound','unconfirmed'].includes(selectedRoute?.status);
@@ -393,16 +395,16 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       if(popup.slot===undefined&&(kind!=='normal'||prepared.current))return refreshEquipment(next);
     };
     const field=(label,value,onChange,options,route)=>h('label',{className:'paa-wb-field','data-route-caption':!!route},h('span',null,label),h('select',{'aria-label':label,value,disabled,onChange:e=>onChange(e.target.value)},...options.map(([value,name,optionDisabled])=>h('option',{key:value,value,disabled:optionDisabled},name))),
-      route?h('span',{className:'paa-wb-route-caption','aria-hidden':true},h('span',{className:'paa-wb-route-name'},route.name),h('span',{className:'paa-wb-route-path'},`（${route.strategy?.pathLabel||route.pathLabel||route.nodes.join('→')}）`)):null);
-    const normalRouteControl=kind==='normal'?h('div',{className:'paa-wb-section-head paa-wb-route-picker'},h('h3',null,'路线'),
-      field(area==='3-5'&&target==='boss'?'攻略流派':'参考路线',mapRoute,value=>{
+      route?h('span',{className:'paa-wb-route-caption','aria-hidden':true},h('span',{className:'paa-wb-route-name'},route.name),h('span',{className:'paa-wb-route-path'},`（${route.displayPathLabel||route.strategy?.pathLabel||route.pathLabel||route.nodes.join('→')}）`)):null);
+    const normalRouteControl=kind==='normal'?h(RoutePicker,{options:routeOptions,value:mapRoute,area,disabled,hidden,
+      currentPhase:require('../../domain/routes/route_plans').currentPhase(area,store),onChange:value=>{
         if(disabled)return;
         // Clearing the preview is not a request to assemble a default route.
         if(!value){setMapRoute('');setPathIndex(0);setNodeId(null);setNotice('');setError('');return;}
-        if(area==='3-5'&&target==='boss')return changeStyle(value);
+
         inspectSelection(value);setMapRoute(value);setNodeId(null);
         if(prepared.current&&(draftContext===conditionKey||!slots.some(Boolean)))return complete(style,true,value);
-      },[['','选择路线'],...routeOptions.map(c=>[c.key,c.label])],selectedRoute)):null;
+      }}):null;
     const contextControls=h('div',{className:'paa-wb-context-controls'},
         kind==='normal'?h(AreaPicker,{maps:catalog,mapMasters:store.const.$maps,value:area,onChange:changeArea,disabled,hidden}):
         h(React.Fragment,null,h(AreaPicker,{kind:'expedition',missions:catalog,missionMasters:store.const.$missions,missionProgress:store.expeditionProgress,fleets:store.info.fleets,useItems:store.const.$useitems,value:missionId,onChange:changeMission,disabled,hidden}),expeditionView.goal({value:goal,onChange:changeGoal,disabled})),normalRouteControl);

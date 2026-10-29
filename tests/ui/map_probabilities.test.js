@@ -315,7 +315,7 @@ function realSmallMap(area,key,types,paths){
     else{state.const.$ships[id].api_stype=types[Number(id)-1];state.info.ships[id].api_sakuteki=[20,20];}
   }
   const overview=W.mapOverview(area,'boss',undefined,{maxRoutes:20});
-  if(paths)overview.options=overview.options.map(option=>option.key===key?{...option,nodes:paths[0],paths}:option);
+  overview.options=[{key,nodes:(paths||[key.split('>')])[0],paths:paths||[key.split('>')]}];
   const report=evaluateNormalRoute(state,{area,scheme:{fleet:1,ships:types.map((_,i)=>i+1)}}),
     profile=W.selectedMapProfile(overview,key,null,report),
     chart=actualMapLayout(area,profile.mapPreview,profile.examples[0]),
@@ -355,7 +355,7 @@ test('400px 2-2 uses short leaders without trading away the unselected-route cle
 });
 
 test('400px 2-3 merged branches shorten the crowded 65% leader without crossing a route',()=>{
-  const placed=realSmallMap('2-3','A>D>G>K>N',[16,3,2,2,2,2]);
+  const placed=realSmallMap('2-3','A>D>G>K>N',[16,3,2,2,2,2],[[...'ADGKN'],[...'ADGIKN']]);
   assert.equal(placed.length,3);
   const branch=placed.find(label=>label.edge==='G>I');
   assert.equal(branch.probability,.65);

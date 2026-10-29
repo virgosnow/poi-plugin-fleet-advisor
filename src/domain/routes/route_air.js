@@ -171,7 +171,7 @@ function simulateAirPathCore(air,nodes,details=true){
     return {status:'unknown',reason:'喷气或特殊机种的额外航空阶段尚未支持'};
   // Explicit, stable object shape avoids allocating/copying unrelated metric
   // fields for every aircraft in every loadout trial.
-  const slots=air.slots.map(s=>({remaining:s.planes.slice(),aircraftType:s.aircraftType,
+  const slots=air.slots.map(s=>({shipId:s.shipId,slot:s.slot,remaining:s.planes.slice(),aircraftType:s.aircraftType,
     effectiveAntiAir:s.effectiveAntiAir,proficiencyBonus:s.proficiencyBonus}));
   const power=side=>slots.reduce((sum,s)=>sum+slotPower(s,s.remaining[side],side),0);
   const margins={superiority:{min:Infinity,max:Infinity},supremacy:{min:Infinity,max:Infinity}};
@@ -192,19 +192,27 @@ function simulateAirPathCore(air,nodes,details=true){
       if(details){steps.push(step);if(node.boss&&round===1)boss=step;}
       // Boss arrival is measured BEFORE its losses. No need to approximate
       // post-terminal interception just to assess the current air state.
-      if(node===nodes.at(-1)&&round===rounds)continue;
+      const terminal=node===nodes.at(-1)&&round===rounds;
+      if(terminal&&!details)continue;
       const states=[airState(before.min,enemy),airState(before.max,enemy)];
       for(const slot of slots){
         for(let side=0;side<2;side++)slot.remaining[side]=Math.max(0,slot.remaining[side]-
           stageOneLoss(slot.remaining[side],states[side],side===0));
         if(node.kind!=='aerialRaid'&&[7,8,11].includes(slot.aircraftType)&&slot.remaining[1]>0){
-          if(node.antiAir?.status!=='known'){issues.push(`${node.id} 点：${node.antiAir?.reason||'敌方防空资料缺失'}`);continue;}
+          if(node.antiAir?.status!=='known'){
+            // Terminal interception affects attack survival, not arrival air
+            // control. An unknown terminal AA value must not invalidate it.
+            if(!terminal)issues.push(`${node.id} 点：${node.antiAir?.reason||'敌方防空资料缺失'}`);
+            continue;
+          }
           // Full ordinary interception at the lower end, both AA rolls failing
           // at the upper end. No invented hit chance or fixed fleet-wide pad.
           const n=slot.remaining[0];
           slot.remaining[0]=Math.max(0,n-Math.floor(n*node.antiAir.proportion)-node.antiAir.fixed);
         }
       }
+      if(details)step.aircraft=slots.filter(s=>[7,8,11].includes(s.aircraftType)).map(s=>({shipId:s.shipId,slot:s.slot,planes:s.remaining.slice()}));
+      if(terminal)continue;
       before={min:power(0),max:power(1)};
       if(details)step.after=before;
       if(issues.length)break;

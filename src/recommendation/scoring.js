@@ -15,12 +15,15 @@ const carrierCI=require('../domain/combat/carrier_cutin'),metrics=require('../do
 const {snapshotMemo,hasEquipmentIndexCache}=require('../domain/fleet/equipment_planner');
 const {routeDifficulty,usefulPower}=require('./route_economy');
 const combatValue=require('./loadout/combat_value');
+const {survivalPenalty}=require('./loadout/aircraft_survival');
 
 function airGoalScore(result,airGoal,area,profile){
   const reference=routeAirReference(result,area,profile);
   if(airGoal==='ignore')return {airGoalStatus:'notRequested',airGoalRequired:null,
     airGoalBaseRequired:null,
-    airGoalTier:0,airGoalShortfall:0,routeAirReference:reference};
+     airGoalTier:0,airGoalShortfall:0,routeAirReference:reference,
+     routeAirEstimate:result.airControl?.fleetAirPower?.slots?.some(s=>[7,8,11].includes(s.aircraftType)&&s.planes?.[1]>0)?
+       estimateRouteAir(result.airControl.fleetAirPower,reference):undefined};
   const base=reference[airGoal];
   const needsPlane=base===0&&reference.nodes.some(n=>!n.noAirBattle&&n.kind!=='asw');
   const required=Number.isInteger(base)&&base>=0?Math.max(needsPlane?1:0,base):null;
@@ -329,12 +332,13 @@ function scoreRouteCore(result,profile,rows,airGoal,area,store,scheme){
   const aviationBattleship=aviationBattleshipStrike(store,rows,scheme);
   const seaplane=seaplaneStrike(store,rows,scheme);
   const strike=carrier+aviationBattleship+seaplane;
+  const aircraftRisk=survivalPenalty(store,scheme,air,airScore.routeAirReference,airScore.routeAirEstimate);
   // Modest combat credit for affordable AS+ fits, not another mandatory air
   // tier. Never reward an unarmed fighter mule or sacrifice the carrier's BA.
   const supremacyPreference=airGoal==='superiority'&&healthySupremacy(store,scheme,air,airScore.routeAirEstimate)&&
     supportedAirGoal(air,airScore.routeAirReference,'supremacy')?carrier*0.3:0;
   const strength=combat.strength+strike*0.7+(jet?.adjustment||0)*0.7+
-    supremacyPreference+(airGoal==='ignore'?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5);
+    supremacyPreference-aircraftRisk.penalty+(airGoal==='ignore'?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5);
   const difficulty=area!=='1-1'?routeDifficulty(profile):{tier:'combat',enabled:false};
   const largeAirAttacks=difficulty.enabled?rows.reduce((sum,row)=>{
     if(![7,11,18].includes(row.stype))return sum;
@@ -350,7 +354,7 @@ function scoreRouteCore(result,profile,rows,airGoal,area,store,scheme){
     usefulPower((jet?.adjustment||0)*0.7,difficulty)+
     // Extra damage can saturate; separate pre-shelling attack opportunities
     // still prevent return fire. Keep their quality value outside that cap.
-    largeAirAttacks*25+combat.openingTorpedoCount*25+
+    largeAirAttacks*25+combat.openingTorpedoCount*25-aircraftRisk.penalty+
     (airGoal==='ignore'?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5):strength;
   const specialBonus=difficulty.enabled?Math.min(specialAttack.bonus,difficulty.specialCeiling)+
     Math.max(0,specialAttack.bonus-difficulty.specialCeiling)*difficulty.excessWeight*0.1:specialAttack.bonus;
@@ -388,7 +392,7 @@ function scoreRouteCore(result,profile,rows,airGoal,area,store,scheme){
       (nightSupport?.supportTier||0)*1e7+specialBonus+groundAttack.bonus*100+
       (profile?.counts?.night?.maximum>=2&&!nightSupport?.zuiunEquipped?Math.max(0,Math.min(2,nightSupport?.flareCarriers||0)-1)*1000:0)+combatScore+probability-
       airScore.airGoalShortfall*10000+antiAir.value*20,
-    ...airScore,...jet?{jetAviation:jet}:{},antiAirDefense:antiAir,opportunisticSupremacy:supremacyPreference>0,nightSupport,specialAttack,groundAttack,
+    ...airScore,...jet?{jetAviation:jet}:{},antiAirDefense:antiAir,aircraftRisk,opportunisticSupremacy:supremacyPreference>0,nightSupport,specialAttack,groundAttack,
     routePriority,routeChance:chance,assumedChance:assumed,
     graphHops:result.reachableHops||null,strengthProxy:strength,
     routeEconomy:{...difficulty,effectiveStrength,specialBonus,largeAirAttacks},

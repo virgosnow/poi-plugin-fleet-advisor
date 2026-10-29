@@ -22,11 +22,65 @@ const GROUPS={carrier:'空母系',fleetCarrier:'正规/装甲空母',battleship:
 function optionPaths(option){
   return [...new Map((option?.strategy?.paths||option?.paths||(option?[option.nodes]:[])).map(nodes=>[nodes.join('>'),nodes])).values()];
 }
+// Merge only paths differing at one position. Combining unrelated branch
+// letters would imply journeys the fleet cannot take (a false cross product).
+function pathLabel(paths){
+  const unique=[...new Map(paths.map(nodes=>[nodes.join('>'),nodes])).values()];
+  // Preserve the compact optional-detour notation only for the exact pair
+  // that proves it: the direct path and that same path with one insertion.
+  if(unique.length===2){
+    const [a,b]=unique;let prefix=0,suffix=0;
+    while(prefix<Math.min(a.length,b.length)&&a[prefix]===b[prefix])prefix++;
+    while(suffix<Math.min(a.length,b.length)-prefix&&a[a.length-1-suffix]===b[b.length-1-suffix])suffix++;
+    const left=a.slice(prefix,a.length-suffix),right=b.slice(prefix,b.length-suffix);
+    if(prefix&&suffix&&(!left.length||!right.length))return [...a.slice(0,prefix),
+      `(${(left.length?left:right).join('→')})`,...a.slice(a.length-suffix)].join('→');
+  }
+  const groups=unique.map(nodes=>nodes.map(node=>[node]));
+  for(let changed=true;changed;){
+    changed=false;
+    outer:for(let i=0;i<groups.length;i++)for(let j=i+1;j<groups.length;j++){
+      if(groups[i].length!==groups[j].length)continue;
+      const differences=groups[i].flatMap((nodes,k)=>nodes.join('/')===groups[j][k].join('/')?[]:[k]);
+      if(differences.length!==1)continue;
+      const k=differences[0];groups[i][k]=[...new Set([...groups[i][k],...groups[j][k]])].sort();
+      groups.splice(j,1);changed=true;break outer;
+    }
+  }
+  return groups.map(nodes=>nodes.map(group=>group.join('/')).join('→')).join('；');
+}
+function fleetPaths(route,option){
+  if(!route?.area||!route.ships?.length||option?.phase&&option.phase!==route.phase)return [];
+  return optionPaths(option).filter(nodes=>planningPath(route,nodes,
+    {allowTentative:false,includeLosRequirements:false}).chance.max!==0);
+}
+function fleetPathOption(route,option){
+  if(optionPaths(option).length<=1||!route?.area||!route.ships?.length||option.phase&&option.phase!==route.phase)return option;
+  const displayPaths=fleetPaths(route,option);
+  const display=displayPaths.length?pathLabel(displayPaths):'无可达分支';
+  // Keep the complete option paths for re-evaluation after manual edits.
+  return {...option,pathLabel:display,displayPathLabel:display,label:`${option.name}（${display}）`,displayPaths};
+}
+function orderedPathNodes(paths){
+  const edges=new Map(),incoming=new Map();
+  const add=node=>{if(!edges.has(node)){edges.set(node,new Set());incoming.set(node,0);}};
+  add('start');
+  for(const path of paths){let from='start';for(const to of path){
+    add(to);if(!edges.get(from).has(to)){edges.get(from).add(to);incoming.set(to,incoming.get(to)+1);}from=to;
+  }}
+  const ready=[...incoming].filter(([,count])=>count===0).map(([node])=>node),ordered=[];
+  while(ready.length){
+    const from=ready.shift();ordered.push(from);
+    for(const to of edges.get(from)){incoming.set(to,incoming.get(to)-1);if(incoming.get(to)===0)ready.push(to);}
+  }
+  // Preserve a deterministic catalog order if a future route revisits a node.
+  return ordered.concat([...edges.keys()].filter(node=>!ordered.includes(node)));
+}
 // Branches are explicit, mutually exclusive journeys of ONE fleet. Do not
 // combine separate recommendations or alternative player-controlled exits.
 function optionPlanning(route,option){
   const branches=optionPaths(option).map(nodes=>({nodes,...planningPath(route,nodes,{allowTentative:false})}));
-  if(branches.length===1)return branches[0];
+  if(branches.length===1)return {...branches[0],branches};
   const min=Math.min(1,branches.reduce((sum,b)=>sum+b.chance.min,0)),max=Math.min(1,branches.reduce((sum,b)=>sum+b.chance.max,0));
   const viable=branches.filter(b=>b.chance.max>0),considered=viable.length?viable:branches;
   const losRequirements=[...new Map(considered.flatMap(b=>b.losRequirements).map(r=>[`${r.from}>${r.to}:${r.coefficient}:${r.required}`,r])).values()];
@@ -36,23 +90,25 @@ function optionPlanning(route,option){
 }
 function routeOptions(area,target='boss',phase){
   const phases=target==='boss'&&!phase?Object.keys(mapFor(area).bossPhases||{}):[];
-  if(phases.length)return phases.flatMap((p,i)=>routeOptions(area,target,p).map(r=>({...r,phase:p,name:`第 ${i+1} 阶段·${r.name}`,label:`第 ${i+1} 阶段·${r.label}`})));
+  if(phases.length)return phases.flatMap((p,i)=>routeOptions(area,target,p).map(r=>({...r,phase:p,phaseLabel:`第 ${i+1} 阶段`,label:`第 ${i+1} 阶段·${r.label}`})));
   const paths=previewForMap(area,{target,phase}).routePaths;
   const catalog=require('../../../data/normal_route_guides.json').maps;
   const phaseGuides=!phase?Object.entries(catalog).filter(([key])=>key.startsWith(area+':gauge')).map(([,value])=>value):[];
   const combined=phaseGuides.length?{source:phaseGuides[0].source,routes:phaseGuides.flatMap((g,i)=>g.routes.map(r=>({...r,name:`第 ${i+1} 阶段·${r.name}`})))}:null;
-  const guide=(target==='boss'||area==='1-6'&&target==='N')?(catalog[area+':'+phase]||catalog[area]||combined):null;
+  const guide=catalog[area+':'+(phase||target)]||catalog[area+':'+target]||
+    ((target==='boss'||area==='1-6'&&target==='N')?(catalog[area]||combined):null);
   const guidePaths=(guide?.routes||[]).filter(g=>optionPaths(g).every(nodes=>paths.some(p=>p.nodes.join('>')===nodes.join('>'))));
-  const choices=guidePaths.length?guidePaths:paths.slice(0,3).map((p,i)=>({nodes:p.nodes,
-    name:p.counts?.night?.maximum?'夜战突进流':p.counts?.asw?.maximum?'对潜护航流':
-      ['近海推进流','侧翼迂回流','远航推进流'][i]}));
-  return choices.map(p=>({key:p.id?`${p.nodes.join('>')}@${p.id}`:area==='3-5'?(p.nodes.join('')==='FGK'?'lower':'upper'):p.nodes.join('>'),
+  // Physical paths remain explicit query targets, not another preset list.
+  const used=new Set(guidePaths.map(p=>p.key));
+  const choices=[...guidePaths,...paths.filter(p=>!used.has(p.nodes.join('>'))).map(p=>({nodes:p.nodes,name:'自选路线',recommend:false}))];
+  return choices.map(p=>({key:p.key||p.nodes.join('>'),id:p.id,
     name:p.name,label:`${p.name}（${p.strategy?.pathLabel||p.pathLabel||p.nodes.join('→')}）`,nodes:p.nodes,
     ...(p.paths?{paths:p.paths,pathLabel:p.pathLabel}:{}),
     ...(guide?.arrivalMode==='boss'?{arrivalMode:'boss'}:{}),
     ...(p.strategy?{strategy:p.strategy}:{}),
     ...(p.fleetRequirement?{fleetRequirement:p.fleetRequirement}:{}),
-    ...(phase?{phase}:{}),basis:guidePaths.length?'guide':'inferred',source:guidePaths.length?guide.source:null,
+    ...(p.summary?{summary:p.summary,priority:p.priority}:{}),
+    ...(phase?{phase}:{}),basis:guidePaths.includes(p)?'guide':'inferred',source:guidePaths.includes(p)?guide.source:null,
     ...(mapFor(area).phaseNotes?.[phase]?{phaseNote:mapFor(area).phaseNotes[phase]}:{}),
     ...(p.recommend===false?{recommend:false}:{}),templates:p.templates||null}));
 }
@@ -123,6 +179,7 @@ function describe(v){
   if(v.not)return '不满足 '+describe(v.not);
   if(v.count)return count([...(v.count.stypes||[]).map(t=>TYPES[t]||t),...(v.count.groups||[]).map(g=>GROUPS[g]||g),...(v.count.prefixes||[])].join('/'),v.count);
   if(v.shipCount)return count('舰队',v.shipCount);
+  if(v.openingTorpedoCarriers)return count('可先制雷击舰',v.openingTorpedoCarriers);
   if(v.pathIncludes)return `已经过 ${v.pathIncludes} 点`;
   if(v.allStypes)return '全队仅含 '+v.allStypes.map(t=>TYPES[t]||t).join('/');
   if(v.allHulls)return '全队仅含 '+[...(v.allHulls.stypes||[]).map(t=>TYPES[t]||t),...(v.allHulls.prefixes||[])].join('/');
@@ -323,7 +380,7 @@ function strategyAssessment(route,option){
   const min=Math.min(1,branches.reduce((sum,b)=>sum+b.min,0)),max=Math.min(1,branches.reduce((sum,b)=>sum+b.max,0));
   const speedMet=['observed','computed','estimated'].includes(route.speed?.status)&&ranks[route.speed?.fleetSpeed]>=ranks[strategy.minimumSpeed];
   const radarMet=(route.ships||[]).filter(s=>s.radarEquipped===true).length>=(strategy.radarCarriers||0);
-  return {eligible:speedMet&&radarMet&&min>=1-1e-9,speedMet,radarMet,branches,
+  return {eligible:speedMet&&radarMet&&(strategy.requireFixedArrival===false?min>0:min>=1-1e-9),speedMet,radarMet,branches,
     chance:{min,max,probability:Math.abs(min-max)<1e-9?min:null}};
 }
 // Confirmed LoS windows for this hull composition and complete path. The
@@ -449,7 +506,7 @@ function routeDiagnostics(route,option){
   // the whole journey. Keep all diagnostics when the group cannot be reached.
   const issues=paths.length>1&&chance.probability===1?[]:[...points.values()],fleet=fleetRequirementAssessment(route,option);
   if(strategy&&!strategy.speedMet)issues.unshift({from:null,to:null,status:'blocked',requirements:[],summary:
-    `流派速力要求：全队${option.strategy.minimumSpeed==='fastest'?'最速':'高速＋'}统一；当前配装未达到。`});
+    `流派速力要求：全队${({fast:'高速',fastPlus:'高速＋',fastest:'最速'})[option.strategy.minimumSpeed]}统一；当前配装未达到。`});
   if(strategy&&!strategy.radarMet)issues.unshift({from:null,to:null,status:'blocked',requirements:[],summary:
     `流派电探要求：至少 ${option.strategy.radarCarriers} 艘携带电探；当前配装未达到。`});
   if(!fleet.eligible)issues.unshift({from:null,to:null,status:'blocked',requirements:[],summary:`攻略编成要求：${fleet.description}；当前编成未满足。`});
@@ -696,4 +753,4 @@ function hullSeeds(ctx,options,family){
   const unique=lists=>[...new Map(lists.flatMap(([,rows])=>rows).map(s=>[s.rows.map(r=>r.id).join(','),s.rows])).values()];
   return {rows:unique(beams),baselineRows:unique(beams.filter(([key])=>!key.endsWith(':combat'))),attempted,truncated};
 }
-module.exports={optionPaths,optionPlanning,fleetRequirementAssessment,routeOptions,recommendedOptions,currentPhase,pathChance,isPlayerChoice,requirements,requirementDetails,hullSeeds,hullCache,mergeHullParts,possiblePoint,routeFleetSizes,planningPath,hullPath,strategyAssessment,routeDiagnostics,routingNeeds,losGates,losWindows,createLoSWindowReader,withPlanningCache,namedShipRequirements};
+module.exports={optionPaths,pathLabel,fleetPaths,fleetPathOption,orderedPathNodes,optionPlanning,fleetRequirementAssessment,routeOptions,recommendedOptions,currentPhase,pathChance,isPlayerChoice,requirements,requirementDetails,hullSeeds,hullCache,mergeHullParts,possiblePoint,routeFleetSizes,planningPath,hullPath,strategyAssessment,routeDiagnostics,routingNeeds,losGates,losWindows,createLoSWindowReader,withPlanningCache,namedShipRequirements};

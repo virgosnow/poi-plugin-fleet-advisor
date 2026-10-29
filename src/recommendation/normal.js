@@ -7,6 +7,7 @@ const {canEquip,acceptsOtherSlot}=require('../domain/fleet/equipment_rules');
 const {orderEquipment,orderAircraftSlots}=require('../domain/fleet/equipment_order');
 const {groundLoadout,groundLoadouts}=require('./loadout/ground_fitting');
 const {aviationBattleshipLoadouts}=require('./loadout/aviation_fitting');
+const {reconSurvivalLoadout}=require('./loadout/aircraft_survival');
 const {routeGroundTargets}=require('../domain/combat/installation_attack');
 const {nightLoadout}=require('./loadout/night_equipment');
 const {auxiliaryVariants}=require('./loadout/auxiliary_refinement');
@@ -31,7 +32,7 @@ const {combatHullRanker,plannedCombatStat,plannedTorpedoStat,scoreRoute}=require
 const {positionUpgrades,combineUpgrades,finalHullUpgrades}=require('./refinement');
 const {routeDifficulty}=require('./route_economy');
 const {fleetOrderChoices}=require('./fleet_order');
-const {THREE_FIVE_MIN_LEVEL,THREE_FIVE_UPPER_MIN_AIR,guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,specialFleetSeeds,specialPositionLocks,threeFiveSeeds}=require('./strategies');
+const {guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,specialFleetSeeds,specialPositionLocks}=require('./strategies');
 
 function confirmedRouteEvidence(route,profile){
   const paths=(profile?.routePaths||[]).map(path=>({selectedPath:path.nodes,
@@ -47,8 +48,6 @@ function bestPathDiagnostics(route,profile,target){
     b.chance.min-a.chance.min||b.chance.max-a.chance.max||a.nodes.length-b.nodes.length);
   return choices.length?routePlans.routeDiagnostics(route,choices[0]):null;
 }
-// 3-5 has two materially different wiki攻略 routes. The level floor is a
-// recommender safety heuristic, not a route requirement or a wiki threshold.
 function candidateEvaluator(store,args,ctx,inventory){
   const factories=snapshotMemo(store,'search.evaluatorFactories',inventory,()=>new Map()),key=JSON.stringify(args);
   if(factories.has(key)){perf.count('candidate.setup.hit');return factories.get(key);}
@@ -255,6 +254,10 @@ function calculateBatch(store,batch){
       if(kind==='jets'||kind==='aviation'){
         const variants=kind==='jets'?jetLoadouts(store,seed.scheme,inventory,{heldSlots:args.heldSlots}):
           aviationBattleshipLoadouts(store,seed.scheme,inventory,{area,profile:seed.profile,heldSlots:args.heldSlots});
+        if(kind==='aviation'){
+          const safe=reconSurvivalLoadout(store,seed.scheme,inventory,seed.scores.aircraftRisk,args.heldSlots);
+          if(safe)variants.push(safe);
+        }
         for(const variant of variants){
           attempts++;singles.push(evaluate(rows,variant));
           if(airGoal!=='ignore'){
@@ -420,13 +423,11 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     const candidate=evaluateCandidate(rows,schemeOverride);
     return collect?collectCandidate(candidate,!schemeOverride||asSeed):candidate;
   };
-  if(area==='3-5'&&target==='boss')for(const rows of threeFiveSeeds(ctx)){
-    evaluate(rows);guideSeedKeys.add(idsKey(rows));
-  }
+
   if(area==='1-1'&&target==='boss')for(const rows of oneOneSeeds(ctx)){
     evaluate(rows);guideSeedKeys.add(idsKey(rows));
   }
-  for(const option of requestedRoutes)if(option.templates)for(const rows of guideSeeds(ctx,{...policy,minLevel:policy?.minLevel||1,templates:option.templates})){
+  for(const option of requestedRoutes)if(option.templates)for(const rows of guideSeeds(ctx,{...policy,minLevel:policy?.minLevel||1,templates:option.templates,fleetRequirement:option.fleetRequirement})){
     evaluate(rows);guideSeedKeys.add(idsKey(rows));
   }
   for(const rows of guideSeeds(ctx,policy)){
@@ -590,7 +591,8 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     .map(s=>[gearKey(s),s])).values()];
   const gearKinds=airGoal==='ignore'?['los','routing']:['air','los','routing'];
   if(inventory.some(i=>[56,57].includes(Number(i.master.api_type[2]))))gearKinds.push('jets');
-  if(gearSeeds.some(seed=>seed.scheme.ships.some(e=>Number(store.const.$ships[store.info.ships[e.id].api_ship_id]?.api_stype)===10)))gearKinds.push('aviation');
+  if(gearSeeds.some(seed=>seed.scheme.ships.some(e=>Number(store.const.$ships[store.info.ships[e.id].api_ship_id]?.api_stype)===10)||
+    seed.scores.aircraftRisk?.slots.some(s=>s.type===11&&s.risk>=.35)))gearKinds.push('aviation');
   if(area==='1-1')gearKinds.push('opening');
   if(initialWantsAsw)gearKinds.push('asw');
   if(gearSeeds.some(seed=>routeGroundTargets(seed.profile).length))gearKinds.push('ground');
@@ -667,7 +669,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     };
     const roster=ctx.roster.filter(canFit);
     const upgraded=fixed.every(canFit)?routePlans.hullSeeds({...ctx,roster,combatScore:null},{area,phase,routes:[option],speed:option.strategy.minimumSpeed},shipFamilyKey).rows:[];
-    const possibleHulls=[...new Map([...upgraded,...seeds.map(s=>s.rows)].filter(rows=>rows.length===6&&rows.every(canFit)&&
+    const possibleHulls=[...new Map([...upgraded,...seeds.map(s=>s.rows)].filter(rows=>rows.length>=1&&rows.length<=6&&rows.every(canFit)&&
       routePlans.fleetRequirementAssessment({ships:rows.map(r=>({stype:r.stype,name:r.name}))},option).eligible)
       .map(rows=>[idsKey(rows),rows])).values()];
     const hulls=hullShortlist(possibleHulls,{key:idsKey,roles:[
@@ -819,7 +821,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       if(!candidates.includes(trial)){candidates.push(trial);positioning.improved++;}
     }
   }
-  const guided35=area==='3-5'&&target==='boss';
+
   // Refit only excess automatic ASW gear on the winning hulls of each route.
   // A different reachable branch must not dictate this route's surface kit.
   const escortItems=requestedRoutes.flatMap(option=>{
@@ -899,7 +901,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     })])];
     const unconfirmed=!item&&diagnostics.chance.probability===null;
     const unmet=closest?planning(closest,option).losRequirements.filter(r=>r.shortfall>0||r.shortfall===null):[];
-    return {...option,status:item?'available':unconfirmed?'unconfirmed':'notFound',chance,diagnostics,
+    return {...(item?routePlans.fleetPathOption(item.route,option):option),status:item?'available':unconfirmed?'unconfirmed':'notFound',chance,diagnostics,
       requirements:[...new Map(routePlans.optionPaths(option).flatMap(nodes=>routePlans.requirements(area,nodes,phase)).map(r=>[r.from+'>'+r.to,r])).values()],
       message:item?'':(missingShips.length?'所选路线缺少可用的带路船，持有情况与排除原因如下。':option.strategy?strategyFailure(store,ctx,option,inventory,args.heldSlots):
         unconfirmed?'尚无到达率可确认的方案，以下分岐资料或条件需核实。':
@@ -907,7 +909,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
         (diagnostics.warnings.length?'\n'+diagnostics.warnings.join('\n'):'')+
         (unmet.length?'\n索敌缺口：'+unmet.map(r=>`${r.from} → ${r.to}，系数 ${r.coefficient}，当前 ${r.score===null?'未知':r.score.toFixed(1)}，需 ≥ ${r.required}`).join('；'):''),
       unmetRequirements:unmet,
-      item:item?{...item,profile:profileForRoute(area,item.route,routePlans.optionPaths(option)),routeKey:option.key,selectedPath:option.paths?planning(item,option).nodes:option.nodes,pathChance:chance,scores:pathScores(item,option)}:null};
+      item:item?{...item,profile:profileForRoute(area,item.route,routePlans.optionPaths(option)),routeKey:option.key,selectedPath:routePlans.optionPaths(option).length>1?planning(item,option).nodes:option.nodes,pathChance:chance,scores:pathScores(item,option)}:null};
   });
   const picked=routeResults.flatMap(r=>r.item?[r.item]:[]);
   if(compact&&!picked.length){
@@ -977,17 +979,13 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       equipmentVariantsTried:variantAttempts,poolSize:pool.length,gearPruning,combatRefinement:refinement,specialPositioning:positioning,lightening,fleetOrdering,auxiliaryRefinement,
       ...(pathSeeds?{routeCompositionsTried:pathSeeds.attempted,routeCompositionSearchTruncated:pathSeeds.truncated}:{}),
       globalOptimal:false,reason:'按路线条件、练度与作战能力保留不同候选，配装后复核路线并有界尝试局部战力升级；保留攻略、制空、索敌和手动条件，不保证全局最优'},
-    ...(guided35?{guide:{source:'https://wikiwiki.jp/kancolle/北方海域/3-5',
-      minLevel:THREE_FIVE_MIN_LEVEL,minUpperAirPower:THREE_FIVE_UPPER_MIN_AIR,
-      note:'3-5 推荐参考：每舰至少 Lv70、下路驱逐至少两件攻击装备、上路空母至少一架攻击机及出击前制空 170；这是筛选线，并非 wiki 带路条件或胜利保证。制空目标按本路线含斩杀阶段的较高线比较。'},
-      guideWarnings}:policy?{guide:{source:guideSource(area),minLevel:policy.minLevel,
+    ...(policy?{guide:{source:guideSource(area),minLevel:policy.minLevel,
         note:area==='1-1'? '1-1 敌舰最多四艘，优先小编成的先制雷击或开幕航空攻击；伊势型改二可搭载水爆／舰爆并带来第二轮炮击，但燃弹消耗较高，Boss 方向仍是随机。':
-          '按攻略舰种、最低练度、路线和关键作战装备筛选；练度线是推荐安全启发值，不是 wiki 带路条件或胜利保证。'},
+          '按路线目录的舰种结构、最低练度与关键作战装备筛选；练度线是推荐安全启发值，不是 wiki 带路条件或胜利保证。'},
       guideWarnings}:area==='1-5'&&target==='boss'?{guide:{source:guideSource(area),
         note:'1-5 沿用四舰以内的对潜专用推荐，优先能先制对潜的舰娘与声呐／爆雷；此处没有额外设置练度线，战斗结果仍需实战确认。'},
       guideWarnings:[]}:{}),
-    ...(picked.length?{}:{reason:(guided35?
-      '本轮未找到同时满足 3-5 攻略路线与练度参考线的可用编成；可调整固定舰娘或装备':policy?
+    ...(picked.length?{}:{reason:(policy?
       '本轮未找到同时满足攻略舰种、练度、关键装备和可达路线的编成；可调整固定舰娘、装备或制空目标':
       '在本轮有界搜索中未找到到达率可确认的可用编成；不等于不存在解') })};
 }
@@ -1045,7 +1043,8 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   };
   const initial=evaluate(base);
   if(!initial)throw error('INVALID_QUERY','当前舰娘或手动装备无法生成有效配装，当前编成已保留');
-  for(const fitted of aviationBattleshipLoadouts(store,base,inventory,{area,profile:initial.profile,heldSlots})){
+  const safeRecon=reconSurvivalLoadout(store,base,inventory,initial.scores.aircraftRisk,heldSlots);
+  for(const fitted of [...aviationBattleshipLoadouts(store,base,inventory,{area,profile:initial.profile,heldSlots}),...(safeRecon?[safeRecon]:[])]){
     evaluate(fitted);
     const air=airLoadout(store,fitted,inventory,initial.scores.airGoalRequired,initial.scores.routeAirReference,'superiority',heldSlots);
     if(air)evaluate(air);
@@ -1154,7 +1153,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   }
   const ordered=orderEquipment(store,chosen.scheme,heldSlots);
   const checked=ordered===chosen.scheme?chosen:evaluate(ordered)||chosen;
-  return {scheme:checked.scheme,variants:candidates.length,selectedPath:selectedRoute?(selectedRoute.paths?checked.planning.nodes:selectedRoute.nodes):checked.evidence.selectedPath,
+  return {scheme:checked.scheme,variants:candidates.length,selectedPath:selectedRoute?(routePlans.optionPaths(selectedRoute).length>1?checked.planning.nodes:selectedRoute.nodes):checked.evidence.selectedPath,
     pathChance:selectedRoute?(routePlans.strategyAssessment(checked.route,selectedRoute)?.chance||routePlans.optionPlanning(checked.route,selectedRoute).chance):checked.evidence.pathChance};
 }
 

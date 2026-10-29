@@ -207,8 +207,7 @@ function selectedMapProfile(overview,selection,actual,route,hasFleet=!!route?.sh
   // The full style is a preview only for an empty draft. A blocked fleet or
   // stale inspection must not make impossible alternatives look reachable.
   // Unknown (but not disproved) branches remain visible alongside random ones.
-  const paths=!hasFleet?requested:current?requested.filter(nodes=>plans.planningPath(route,nodes,
-    {allowTentative:false,includeLosRequirements:false}).chance.max!==0):[];
+  const paths=!hasFleet?requested:current?plans.fleetPaths(route,option||{nodes:requested[0]}):[];
   // Reference targets/encounters remain available even for a blocked draft;
   // highlightPaths alone describes the currently traversable alternatives.
   const selected=(paths.length?paths:requested).flatMap(nodes=>{
@@ -281,12 +280,13 @@ function routeArrivalResult(report,selected,ready,target='boss'){
   const fleet=plans.fleetRequirementAssessment(route,selected);
   if(!fleet.eligible)return {label:'攻略编成要求',value:'编成条件未满足',note:fleet.description,tone:'warning',warnings:plans.routeDiagnostics(route,selected).warnings};
   const strategy=plans.strategyAssessment(route,selected);
-  if(strategy){
+  if(strategy&&(selected.strategy.requireFixedArrival!==false||!strategy.eligible)){
     const speedNames={slow:'低速',fast:'高速',fastPlus:'高速＋',fastest:'最速'};
     const branches=strategy.branches.filter(b=>b.probability>0).map(b=>`${b.nodes[1]} 路 ${Math.round(b.probability*100)}%`).join(' / ');
     return {label:'按所选流派抵达 Boss',value:strategy.eligible?'固定到达':route.speed?.status==='unknown'?'条件待确认':'流派条件未满足',
       tone:strategy.eligible?'good':'warning',warnings:strategy.eligible?[]:plans.routeDiagnostics(route,selected).warnings,
-      note:strategy.eligible?(selected.strategy.arrivalNote?selected.strategy.arrivalNote.replace('{branches}',branches):''):
+      note:strategy.eligible?(selected.strategy.arrivalNote?selected.strategy.arrivalNote.replace('{branches}',branches):
+        strategy.branches.filter(b=>b.probability>0).map(b=>`${b.nodes.join('→')} ${Math.round(b.probability*1000)/10}%`).join('；')):
         `需全队${speedNames[selected.strategy.minimumSpeed]}统一${selected.strategy.radarCarriers?`、至少 ${selected.strategy.radarCarriers} 艘携带电探`:''}；当前速力：${speedNames[route.speed?.fleetSpeed]||'待确认'}。请补全或调整舰娘及提速装备。`};
   }
   if(selected.paths){

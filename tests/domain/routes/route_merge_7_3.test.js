@@ -8,7 +8,8 @@ const W=require('../../../src/ui/workbench/workbench_model');
 const {recommendNormalFleet,recommendNormalEquipment}=require('../../../src/recommendation');
 
 const ids=[1,2,3,4,5,6],boilerId=900;
-const option=()=>P.routeOptions('7-3','boss','gauge2').find(row=>row.key==='A>C>D>G>J>P');
+// Routing regression for legal manually selected fleets, independent of presets.
+const option=()=>({key:'A>C>D>G>I>J>P',phase:'gauge2',nodes:[...'ACDGJP'],paths:[[...'ACDGJP'],[...'ACDGIJP']],pathLabel:'A→C→D→G→(I)→J→P'});
 function fleet({submarine=true}={}){
   const store=fixture(),types=[submarine?13:5,5,5,2,2,2];
   const names=[submarine?'伊201改':'妙高改二','羽黒改二','足柄改二','测试驱逐甲','测试驱逐乙','测试驱逐丙'];
@@ -81,7 +82,7 @@ test('7-3 recommendation and manual refitting preserve the real speed item and s
   const store=fleet(),before=JSON.stringify(store),selected=option();
   const heldSlots=[{...scheme(true).ships[0],pin:true,keep:{0:true}}];
   const heldBefore=JSON.stringify(heldSlots);
-  const result=recommendNormalFleet(store,{area:'7-3',phase:'gauge2',fixedShipIds:ids,heldSlots});
+  const result=recommendNormalFleet(store,{area:'7-3',phase:'gauge2',routeKey:selected.key,fixedShipIds:ids,heldSlots});
   const found=result.routeResults.find(row=>row.key===selected.key);
   assert.equal(found.status,'available',found.message);assert.equal(found.chance.probability,1);
   const row=result.recommendations[found.recommendationIndex];

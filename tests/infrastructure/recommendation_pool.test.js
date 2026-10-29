@@ -99,7 +99,7 @@ test('reusing a batch object cannot retain previous query parameters in a worker
 
 test('real threads preserve complete results, fixed ships, held slots and the input snapshot',async()=>{
   const store=fixture(),before=structuredClone(store);
-  const args={area:'2-3',airGoal:'superiority',fixedShipIds:[1],excludedShipIds:[8],
+  const args={area:'2-3',routeKey:'A>D>G>K>N',airGoal:'superiority',fixedShipIds:[1],excludedShipIds:[8],
     heldSlots:[{id:1,slots:[-1,-1],keep:{0:true},pin:true}],automaticFilters:{excludeUnremodeled:false}};
   const expected=recommendNormalFleet(store,args);
   for(const size of [6,8]){
@@ -117,7 +117,7 @@ test('real threads preserve complete results, fixed ships, held slots and the in
 test('late fitting preserves a manually positioned ship and legacy non-route recommendations',async()=>{
   const store=fixture(),before=structuredClone(store);
   for(const byRoute of [true,false]){
-    const args={area:byRoute?'2-3':'1-1',byRoute,airGoal:'superiority',fixedShipIds:[1],
+    const args={area:byRoute?'2-3':'1-1',routeKey:byRoute?'A>D>G>K>N':'A>C',byRoute,airGoal:'superiority',fixedShipIds:[1],
       heldSlots:[null,null,null,{id:1,slots:[-1,-1],keep:{0:true},pin:true}],
       automaticFilters:{excludeUnremodeled:false}};
     const expected=recommendNormalFleet(store,args),pool=new RecommendationPool(store,{size:2});
