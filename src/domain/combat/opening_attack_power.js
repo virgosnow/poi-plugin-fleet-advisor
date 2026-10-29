@@ -3,6 +3,7 @@
 // recommendation score. See docs/ARCHITECTURE.md for mechanism boundaries.
 const {cap,torpedoPanel}=require('./attack_power'),{bonus}=require('./opening_asw'),{combatBonuses}=require('./equipment_bonuses');
 const jet=require('./jet_aviation');
+const {aircraftTypes,activeAircraft,aswMode}=require('./asw_capability');
 const compact=s=>String(s||'').normalize('NFKC').replace(/\s/g,'');
 const number=v=>v==null||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const first=v=>number(Array.isArray(v)?v[0]:v);
@@ -26,7 +27,8 @@ function aswPower(target,store,{opening=false}={}){
   const instance=store.info.equips[id],master=store.const.$equips[instance?.api_slotitem_id];
   return {id:Number(instance?.api_slotitem_id),level:instance?.api_level,type:Number(master?.api_type?.[2]),master,raw:master?Number(master.api_tais||0):null};
  });
- const items=target.items.map(e=>({...e,id:Number(e.instance?.api_slotitem_id),level:e.instance?.api_level,raw:e.master?Number(e.master.api_tais||0):null}));
+ const items=target.items.map(e=>({...e,slot:target.after.slots.indexOf(e.id)<0?'ex':target.after.slots.indexOf(e.id),
+  id:Number(e.instance?.api_slotitem_id),level:e.instance?.api_level,raw:e.master?Number(e.master.api_tais||0):null}));
  const old=bonus(store,target,oldItems),blue=bonus(store,target,items),panel=first(target.ship.api_taisen);
  const reasons=[...new Set([...old.reasons,...blue.reasons])];
  const hull=panel===null||!old.known||oldItems.some(e=>e.raw===null)?null:panel-oldItems.reduce((n,e)=>n+e.raw,0)-old.value;
@@ -36,18 +38,16 @@ function aswPower(target,store,{opening=false}={}){
  });
  const aircraft=slots.filter(e=>[7,8,11,25,26,41].includes(e.type)&&([11,25,26,41].includes(e.type)||Number(e.master.api_tais)>0));
  const live=aircraft.some(e=>e.planes>0),unknownCapacity=aircraft.some(e=>e.planes===null);
- const type=Number(target.master.api_stype),name=compact(target.master.api_name),surface=[1,2,3,4,21,22].includes(type);
- const exceptionalBomb=/^(扶桑|山城)改二(?:補)?$|^(迅鯨改|長鯨改|平安丸改|朝日改|明石改|第百一号輸送艦(?:改)?)$/.test(name)&&items.some(e=>e.type===15);
- const air=!([1,2,3,4,21].includes(type)||exceptionalBomb&&!live)&&([7,11,18].includes(type)||live||unknownCapacity);
- if(!opening&&!surface&&!live&&!exceptionalBomb&&!unknownCapacity)return {status:'unavailable',reason:'当前舰种或配装不能对潜',detail:'对潜攻击力：不可用'};
- if(!opening&&surface&&hull===0&&!live)return {status:'unavailable',reason:'基础对潜为 0',detail:'对潜攻击力：不可用'};
- if(air&&unknownCapacity&&!live)reasons.push('对潜航空槽容量待确认');
+ const mode=aswMode(target,items,hull??1),air=mode==='air'||opening&&mode===null;
+ if(!opening&&mode===null&&!unknownCapacity)return {status:'unavailable',reason:'当前舰种或配装不能对潜',detail:'对潜攻击力：不可用'};
+ if((air||mode===null)&&unknownCapacity&&!live)reasons.push('对潜航空槽容量待确认');
  const sonar=items.some(e=>[14,40].includes(e.type)),small=items.some(e=>e.type===14),depth=items.some(e=>e.type===15&&named(e,depthNames)),projector=items.some(e=>e.type===15&&named(e,projectorNames)),mortar=items.some(e=>e.type===15&&/迫撃砲/.test(e.master?.api_name));
  if(items.some(e=>e.type===15&&!named(e,depthNames)&&!named(e,projectorNames)&&!/迫撃砲/.test(e.master?.api_name)))reasons.push('对潜兵装协同未收录');
  const synergy=(sonar&&(projector||mortar)?1.15:1)*(1+(depth&&(small||sonar&&!projector&&!mortar)?.15:0)+(depth&&projector?.1:0));
- const raw=target.items.reduce((n,e)=>n+([7,8,11,14,15,25,26,40].includes(e.type)?Number(e.master.api_tais||0):0),0);
+ const weapons=items.filter(e=>[7,8,11,14,15,25,26,40].includes(e.type)&&(!aircraftTypes.has(e.type)||activeAircraft(target,e)));
+ const raw=weapons.reduce((n,e)=>n+(e.raw||0),0);
  let improvement=0;
- for(const e of items.filter(e=>[7,8,11,14,15,25,26,40].includes(e.type))){
+ for(const e of weapons){
   const star=number(e.level);if(star===null||star<0){reasons.push('对潜装备改修资料缺失');continue;}
   if([14,15,40].includes(e.type))improvement+=Math.sqrt(star);
   else if(e.type===25)improvement+=.3*star;

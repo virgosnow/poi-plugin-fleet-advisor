@@ -1,10 +1,10 @@
 'use strict';
 // Shared by candidate scoring, current-roster seeding and workbench badges.
 const data=require('../../../data/asw_bonuses.json');
+const {activeAircraft}=require('./asw_capability');
 const compact=s=>String(s||'').replace(/[\s　]/g,'');
 const numeric=v=>{const n=Array.isArray(v)?v[0]:v;return n===undefined||n===null?null:Number(n);};
 const valid=v=>Number.isFinite(v)&&v>=0;
-const ids=s=>(s.slots||[]).concat(s.ex).filter(id=>id>0);
 const automatic=/^(五十鈴改二|龍田改二|夕張改二丁|吹雪改三護(?:\(六式\))?|Jervis改|Janus改|Javelin改|SamuelB\.Roberts(?:改|Mk\.II)|Fletcher(?:改|改Mod\.2|Mk\.II)?|Johnston(?:改)?|HeywoodL\.E\.改|RichardP\.Leary改|Visby(?:改)?)$/;
 const byId=new Map(),byType=new Map();
 for(const r of data.rules)for(const [index,values]of [[byId,r.ids],[byType,r.types]])for(const id of values||[]){
@@ -21,9 +21,10 @@ function context(store){
   }}
   const c={parents,bonuses:new Map()};caches.set(key,c);return c;
 }
-function itemsFor(store,state){return ids(state).map(instanceId=>{
+function itemsFor(store,state){return (state.slots||[]).map((instanceId,slot)=>({instanceId,slot}))
+  .concat({instanceId:state.ex,slot:'ex'}).filter(e=>e.instanceId>0).map(({instanceId,slot})=>{
   const instance=store.info.equips[instanceId],id=Number(instance?.api_slotitem_id),master=store.const.$equips[id];
-  return {id,level:instance?.api_level??0,type:Number(master?.api_type?.[2]),master,
+  return {id,slot,level:instance?.api_level??0,type:Number(master?.api_type?.[2]),master,
     raw:master?Number(master.api_tais||0):null};
 });}
 function signature(items){return items.map(e=>`${e.id}:${e.level}`).sort().join(',');}
@@ -77,14 +78,15 @@ function aswStats(store,target){
 function openingASW(store,target){
   const stats=aswStats(store,target),items=stats.items,type=Number(target.master.api_stype),name=compact(target.master.api_name);
   const has=fn=>items.some(fn),sonar=has(e=>[14,40].includes(e.type)),raw=items.reduce((s,e)=>s+(e.raw||0),0);
-  const combatPlane=has(e=>[7,8].includes(e.type)&&e.raw>0),patrol=has(e=>[25,26].includes(e.type));
-  const goodPlane=patrol||has(e=>e.type===8&&e.raw>=7);
+  const aircraft=items.filter(e=>activeAircraft(target,e)),hasPlane=fn=>aircraft.some(fn);
+  const combatPlane=hasPlane(e=>[7,8].includes(e.type)&&e.raw>0),patrol=hasPlane(e=>[25,26].includes(e.type));
+  const goodPlane=patrol||hasPlane(e=>e.type===8&&e.raw>=7);
   let eligible=false,reason='该舰不具备先制对潜条件',threshold=null;
   if(automatic.test(name)){eligible=true;reason='该改造形态无需对潜装备或对潜值门槛';}
   else if(name==='加賀改二護'||/^(大鷹|雲鷹|神鷹)改(?:二)?$/.test(name)){
     eligible=combatPlane||patrol;reason=eligible?'满足对潜航空装备条件':'需要对潜航空装备';
   }else if(name==='日向改二'){
-    eligible=has(e=>[326,327].includes(e.id)||/^S-51J/.test(e.master?.api_name))||items.filter(e=>e.type===25).length>=2;
+    eligible=hasPlane(e=>[326,327].includes(e.id)||/^S-51J/.test(e.master?.api_name))||aircraft.filter(e=>e.type===25).length>=2;
     reason='需要 S-51J 系列一槽或旋翼机两槽';
   }else if(type===7){
     if(/^(鈴谷|熊野)航改二$/.test(name)){
@@ -93,12 +95,12 @@ function openingASW(store,target){
     else if(sonar&&combatPlane)threshold=100;
     else reason='缺少先制对潜所需航空装备';
   }else if(/^(神州丸改|大和改二重|扶桑改二(?:補)?|山城改二(?:補)?|熊野丸(?:改)?)$/.test(name)){
-    const attack=/^熊野丸/.test(name)?patrol||has(e=>e.type===7&&e.raw>0):
-      has(e=>[11,25].includes(e.type))||/^(扶桑|山城)/.test(name)&&has(e=>e.type===15);
+    const attack=/^熊野丸/.test(name)?patrol||hasPlane(e=>e.type===7&&e.raw>0):
+      hasPlane(e=>[11,25].includes(e.type))||/^(扶桑|山城)/.test(name)&&has(e=>e.type===15);
     if(sonar&&attack)threshold=100;else reason='需要声呐及该舰对应的对潜攻击装备';
   }else if(type===1){if(sonar)threshold=60;else if(raw>=4)threshold=75;else reason='需要声呐，或装备基础对潜合计至少 4';}
   else if([2,3,4,21,22].includes(type)||/^宗谷|^しまね丸改$/.test(name)){
-    const blocked=/^(山汐丸改|しまね丸改)$/.test(name)&&has(e=>[7,8].includes(e.type)&&e.raw===0)&&!combatPlane;
+    const blocked=/^(山汐丸改|しまね丸改)$/.test(name)&&hasPlane(e=>[7,8].includes(e.type)&&e.raw===0)&&!combatPlane;
     if(sonar&&!blocked)threshold=100;else reason=blocked?'零对潜航空攻击机组合阻止先制对潜':'需要声呐';
   }
   if(threshold!==null){eligible=stats.total===null?null:stats.total>=threshold;

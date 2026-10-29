@@ -3,6 +3,7 @@ const {canEquip,acceptsOtherSlot}=require('../../domain/fleet/equipment_rules');
 const {orderCarrierUtility,orderAircraftSlots}=require('../../domain/fleet/equipment_order');
 const {snapshotMemo}=require('../../domain/fleet/equipment_planner');
 const {openingASW}=require('../../domain/combat/opening_asw');
+const {aswMode}=require('../../domain/combat/asw_capability');
 const {smallCarrierSlot,carrierUtility}=require('./carrier_policy');
 const combatValue=require('./combat_value');
 const type=m=>Number(m?.api_type?.[2]);
@@ -40,7 +41,11 @@ function aswEscortLimit(profile,store){
 const aswEncounterWeight=profile=>Math.max(profile?.counts?.asw?.maximum||0,
   Math.min(1,(profile?.counts?.mixedAsw?.maximum||0)*0.25));
 function aswEscortIds(store,entries,limit){
-  const rows=entries.filter(entry=>[1,2,3,4,21,22].includes(Number(store.const.$ships[store.info.ships[entry.id].api_ship_id]?.api_stype)));
+  const rows=entries.filter(entry=>{
+    const sm=store.const.$ships[store.info.ships[entry.id].api_ship_id];
+    return [1,2,3,4,21,22].includes(Number(sm?.api_stype))||limit===Infinity&&
+      ([6,7,10,16,17,19,20].includes(Number(sm?.api_stype))||sm?.api_name==='加賀改二護');
+  });
   if(!limit)return new Set();
   if(limit>=rows.length)return new Set(rows.map(entry=>entry.id));
   return new Set(rows.map(entry=>{
@@ -102,6 +107,7 @@ function combatPools(inventory){
     waterRecon:select([10],m=>Number(m.api_saku||0)),
     seaplaneBomber:select([11],m=>Number(m.api_baku||0)+Number(m.api_houm||0)*0.2),shell:select([19]),
     sonar:select([14,40],m=>Number(m.api_tais||0)),depth:select([15],m=>Number(m.api_tais||0)),
+    aswAir:select([7,8,11,25,26,41],m=>Number(m.api_tais||0)).filter(i=>Number(i.master.api_tais)>0||[11,25,41].includes(type(i.master))),
     submarineRadar:select([51],m=>attackValue(m)+Number(m.api_houk||0)+Number(m.api_saku||0)),
     auxiliary:select([12,13,21,27,39],m=>attackValue(m)+Number(m.api_souk||0)+Number(m.api_houk||0)+Number(m.api_saku||0))};
   poolCache.set(inventory,pools);return pools;
@@ -123,7 +129,7 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
   for(const entry of entries){
     const ship=store.info.ships[entry.id],sm=store.const.$ships[ship.api_ship_id],stype=Number(sm.api_stype),keep=locks.get(entry.id)||{};
     const carrier=[7,11,18].includes(stype),sub=[13,14].includes(stype),pure=area==='1-5';
-    const capacity=k=>Number(ship.api_onslot?.[k]??sm.api_maxeq?.[k]??0);
+    const capacity=k=>Number(sm.api_maxeq?.[k]??ship.api_onslot?.[k]??0);
     const count=types=>entry.slots.filter(id=>types.includes(type(master(store,id)))).length;
     const positions=entry.slots.map((_,k)=>k);
     const assign=(items,where=positions)=>{
@@ -132,7 +138,7 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
         const chosen=items.find(i=>{
           if(used.has(i.id))return false;
           const t=type(i.master);
-          if([6,7,8,9,10,11,41,45,56,57,58].includes(t)&&(k==='ex'||capacity(k)<=0))return false;
+          if([6,7,8,9,10,11,25,26,41,45,56,57,58].includes(t)&&(k==='ex'||capacity(k)<=0))return false;
           try{return canEquip(store,entry.id,i.id,k)&&(!i.sourceShipId||i.sourceShipId===entry.id||acceptsOtherSlot(store,entry.id,i.id,k));}catch(_){return false;}
         });
         if(chosen){if(k==='ex')entry.ex=chosen.id;else entry.slots[k]=chosen.id;used.add(chosen.id);return true;}
@@ -148,7 +154,32 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
       if(!count([14,40]))assign(pool.sonar);
       if(pure&&!count([15]))assign(pool.depth);
     }
-    if(sub){
+    if(pure&&escorts.has(entry.id)&&![1,2,3,4,21,22].includes(stype)){
+      // An aviation hull needs an attack, not merely a high ASW panel. Keep
+      // this seed cheap; final package fitting compares opening and power.
+      const target=()=>({id:entry.id,ship,master:sm,before:{slots:ship.api_slot,ex:ship.api_slot_ex},after:entry});
+      const items=()=>entry.slots.map((id,slot)=>({slot,master:master(store,id),type:type(master(store,id)),raw:Number(master(store,id)?.api_tais||0)}));
+      const airSlots=positions.slice().sort((a,b)=>capacity(b)-capacity(a)||a-b);
+      if(sm.api_name==='日向改二'){
+        if(!openingASW(store,target()).eligible){
+          if(!assign(pool.aswAir.filter(i=>[326,327].includes(Number(i.master.api_id))),airSlots)){
+            while(count([25])<2&&assign(pool.aswAir.filter(i=>type(i.master)===25),airSlots)){};
+          }
+        }
+      }
+      if(!aswMode(target(),items(),1)){
+        if(carrier)assign(pool.aswAir.filter(i=>[7,8].includes(type(i.master))),airSlots);
+        else assign(pool.aswAir.filter(i=>type(i.master)!==26||/^熊野丸/.test(sm.api_name)),airSlots);
+      }
+      if(!aswMode(target(),items(),1))assign(pool.depth.filter(i=>aswMode(target(),[
+        ...items(),{slot:0,id:Number(i.master.api_id),type:15,master:i.master,raw:Number(i.master.api_tais||0)}],1)));
+      if(aswMode(target(),items(),1)){
+        if(!count([14,40]))assign(pool.sonar);
+        if(!openingASW(store,target()).eligible&&carrier)assign(pool.aswAir.filter(i=>[25,26].includes(type(i.master))),airSlots);
+        while(assign([...pool.depth,...pool.sonar,...pool.aswAir])){};
+      }
+    }
+    else if(sub){
       while(count([5,32])<2&&assign(pool.torpedo)){};
       const hasRadar=()=>count([51])>0||type(master(store,entry.ex))===51;
       // Prefer expansion radar so two-slot submarines retain both torpedoes.
@@ -187,7 +218,7 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
       if(area!=='1-1'&&[8,9,10].includes(stype)&&!count([19]))assign(pool.shell);
     }
     if(asw&&!pure&&escorts.has(entry.id)&&!count([14,40]))assign(pool.sonar);
-    if(pure){while(assign([...pool.depth,...pool.sonar])){};}
+    if(pure&&escorts.has(entry.id)&&[1,2,3,4,21,22].includes(stype)){while(assign([...pool.depth,...pool.sonar])){};}
   }
   // Allocate scarce auxiliary permissions first (e.g. Yubari's fifth slot),
   // across the whole fleet. A flexible earlier slot must not consume the only
@@ -213,6 +244,8 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
     if(entry.slots[k]>0||locks.get(entry.id)?.[k])continue;
     const ship=store.info.ships[entry.id],sm=store.const.$ships[ship.api_ship_id];
     const later=entry.slots.findIndex((id,j)=>j>k&&id>0&&!locks.get(entry.id)?.[j]&&
+      !([6,7,8,9,10,11,25,26,41,45,56,57,58].includes(type(master(store,id)))&&
+        Number(sm.api_maxeq?.[k]??ship.api_onslot?.[k]??0)<=0)&&
       !([7,11,18].includes(Number(sm.api_stype))&&[7,8,57,58].includes(type(master(store,id)))&&
         smallCarrierSlot(ship,sm,k)&&!smallCarrierSlot(ship,sm,j))&&legal(entry,k,{id,sourceShipId:null}));
     if(later>=0){entry.slots[k]=entry.slots[later];entry.slots[later]=-1;}

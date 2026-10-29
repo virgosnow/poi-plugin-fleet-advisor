@@ -188,3 +188,97 @@ test('entry ammo is assessed before each encounter, not from the target or anoth
   assert.equal(nodes.find(n=>n.id==='B').ammo,1);
   assert.equal(nodes.find(n=>n.id==='S').ammo,0);
 });
+
+test('aviation ASW requires an attack aircraft, not sonar, recon, fighter or a zero-capacity slot',()=>{
+  const {aswPower}=require('../../../src/domain/combat/opening_attack_power');
+  for(const stype of [6,10,16]){
+    const f=fixture({name:stype===10?'伊勢改二':'测试航空舰',stype});f.target.master.api_maxeq=[0,8,18];
+    const sonar=f.gear(132,40,11,'零式水中聴音機'),recon=f.gear(9,10,2,'零式水上偵察機'),fighter=f.gear(163,45,1,'Ro.44水上戦闘機');
+    const bomber=f.gear(26,11,4,'瑞雲');
+    f.target.after.slots=[sonar,recon,fighter];assert.equal(f.read().normal,false);
+    f.target.after.slots=[bomber,sonar,-1];assert.equal(f.read().normal,false);
+    f.target.after.slots=[sonar,bomber,-1];assert.equal(f.read().normal,true);assert.equal(f.read().opening,false);
+    const ui=()=>aswPower({...f.target,items:f.target.after.slots.filter(id=>id>0).map(id=>({id,
+      instance:f.store.info.equips[id],master:f.store.const.$equips[id],type:f.store.const.$equips[id].api_type[2]}))},f.store);
+    near(ui().base,f.read().power);
+    f.target.after.slots=[sonar,recon,fighter];assert.equal(ui().status,'unavailable');
+    f.target.after.slots=[sonar,bomber,-1];delete f.target.master.api_maxeq;
+    assert.equal(ui().status,'unknown','missing aircraft capacity cannot produce confirmed ASW power');
+  }
+});
+
+test('light carriers separate rotor-only opening ASW from normal ASW; patrol alone does not enable ordinary BBV ASW',()=>{
+  const f=fixture({name:'龍驤改二',stype:7});f.target.master.api_maxeq=[18,12,6];
+  const rotor=f.gear(69,25,9,'カ号観測機'),patrol=f.gear(70,26,7,'三式指揮連絡機(対潜)'),plane=f.gear(97,8,6,'天山');
+  f.target.after.slots=[rotor];assert.equal(f.read().normal,false);assert.equal(f.read().opening,true);
+  f.target.after.slots=[rotor,plane];assert.equal(f.read().normal,true);assert.equal(f.read().opening,true);
+  f.target.master.api_stype=10;f.target.master.api_name='伊勢改二';f.target.after.slots=[patrol];
+  assert.equal(f.read().normal,false);assert.equal(f.read().power,0);
+  f.target.after.slots=[rotor];assert.equal(f.read().normal,true);assert.equal(f.read().opening,false);
+});
+
+test('Fusou and Yamashiro retain their real depth-charge exception, but sonar alone cannot enable it',()=>{
+  const f=fixture({name:'扶桑改二',stype:10});f.target.ship.api_taisen=[100,100];
+  const sonar=f.gear(132,40,11,'零式水中聴音機'),depth=f.gear(227,15,7,'二式爆雷');
+  f.target.after.slots=[sonar];assert.equal(f.read().normal,false);assert.equal(f.read().opening,false);
+  f.target.after.slots=[sonar,depth];assert(f.read().normal&&f.read().opening);near(f.read().power,(20+27+13)*1.15);
+});
+
+function aviationFittingFixture(stype=10,name='日向改二'){
+  const f=fixture({stype,name});f.target.master.api_slot_num=5;f.target.master.api_maxeq=[2,8,24,12,11];
+  f.target.ship.api_taisen=[80,80];f.target.ship.api_slot=[-1,-1,-1,-1,-1];
+  Object.assign(f.store.const.$shipTypes[stype].api_equip_type,{7:1,8:1,11:1,25:1,26:1});
+  // Distinct physical copies, with real catalog IDs for blue-bonus coverage.
+  const add=(mid,t,raw,name,copies)=>Array.from({length:copies},(_,n)=>{
+    f.gear(mid,t,raw,name);const id=mid*100+n;f.store.info.equips[id]={api_id:id,api_slotitem_id:mid,api_level:0};return id;
+  });
+  const sonars=add(149,14,12,'四式水中聴音機',5),rotors=add(69,25,9,'カ号観測機',2),bombers=add(26,11,4,'瑞雲',2),torpedo=add(82,8,8,'九七式艦攻(九三一空)',2);
+  for(const mid of [149,69,26,82])delete f.store.info.equips[mid];
+  const inventory=()=>Object.values(f.store.info.equips).map(e=>({id:e.api_id,master:f.store.const.$equips[e.api_slotitem_id]}));
+  const scheme={fleet:1,ships:[{id:1,slots:sonars,ex:0}]},profile=previewForMap('1-5',{paths:[['A','D','F','G','J']]});
+  return {...f,sonars,rotors,bombers,torpedo,inventory,scheme,profile};
+}
+
+test('1-5 Hyuga replaces an all-sonar outfit with a usable opening-ASW package and compares whole power',()=>{
+  const f=aviationFittingFixture(),before=JSON.stringify(f.store);
+  const {completeCombatLoadout,emptyLoadout,aswEscortIds}=require('../../../src/recommendation/loadout/loadout_policy');
+  const seed=completeCombatLoadout(f.store,emptyLoadout(f.store,f.scheme),f.inventory(),{area:'1-5',asw:true,profile:f.profile});
+  const read=scheme=>{f.target.after=scheme.ships[0];return f.read();};
+  assert(read(seed).normal&&read(seed).opening);assert.equal(seed.ships[0].slots.filter(id=>f.rotors.includes(id)).length,2);
+  const variants=fitAswLoadouts(f.store,f.scheme,f.inventory(),{profile:f.profile,escorts:aswEscortIds(f.store,f.scheme.ships,Infinity)});
+  assert(variants.length);
+  for(const v of variants){const a=read(v);assert(a.normal&&a.opening);assert(a.power>=read(seed).power);
+    assert.equal(new Set(v.ships[0].slots).size,5);}
+  assert.equal(JSON.stringify(f.store),before);
+});
+
+test('pure-ASW CAV, AV and CVL fits keep an actual normal attack; unavailable and held slots stay respected',()=>{
+  for(const [stype,name] of [[6,'最上改二'],[16,'千歳甲'],[7,'龍驤改二']]){
+    const f=aviationFittingFixture(stype,name);
+    const variants=fitAswLoadouts(f.store,f.scheme,f.inventory(),{profile:f.profile,escorts:new Set([1]),
+      heldSlots:[{...f.scheme.ships[0],keep:{0:true}}]});
+    assert(variants.length,name);
+    for(const v of variants){f.target.after=v.ships[0];assert(f.read().normal,name);assert.equal(v.ships[0].slots[0],f.sonars[0]);}
+  }
+  const f=aviationFittingFixture();
+  const {completeCombatLoadout,emptyLoadout}=require('../../../src/recommendation/loadout/loadout_policy');
+  const inventory=f.inventory().filter(e=>f.sonars.includes(e.id));
+  const fitted=completeCombatLoadout(f.store,emptyLoadout(f.store,f.scheme),inventory,{area:'1-5',asw:true,profile:f.profile});
+  f.target.after=fitted.ships[0];assert.equal(f.read().normal,false);assert(fitted.ships[0].slots.every(id=>id<=0),'do not fill five useless sonars without an attack');
+});
+
+test('submarine objectives credit normal aviation ASW and preserve it even after fleet coverage saturates',()=>{
+  const f=aviationFittingFixture(10,'伊勢改二'),base={fleet:1,ships:[{id:1,slots:f.sonars,ex:0}]};
+  const fit={fleet:1,ships:[{id:1,slots:[f.bombers[0],...f.sonars.slice(0,4)],ex:0}]};
+  assert(assessAsw(f.store,fit,f.profile,{limit:1}).readiness>assessAsw(f.store,base,f.profile,{limit:1}).readiness);
+  assert.equal(require('../../../src/domain/combat/asw_combat').maintainsAsw(f.store,fit,base,f.profile,1),false);
+});
+
+test('filling gaps cannot compact a required ASW aircraft into a zero-capacity slot',()=>{
+  const f=aviationFittingFixture(16,'测试水母');f.target.master.api_maxeq=[0,8,0,0,0];
+  const {completeCombatLoadout,emptyLoadout}=require('../../../src/recommendation/loadout/loadout_policy');
+  const fitted=completeCombatLoadout(f.store,emptyLoadout(f.store,f.scheme),f.inventory().filter(e=>f.rotors.includes(e.id)),
+    {area:'1-5',asw:true,profile:f.profile});
+  f.target.after=fitted.ships[0];assert.equal(f.read().normal,true);assert.equal(f.target.after.slots[0],-1);
+  assert(f.rotors.includes(f.target.after.slots[1]));
+});

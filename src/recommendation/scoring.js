@@ -99,7 +99,12 @@ function combatCapabilityCore(rows,result,profile,store,scheme,airExposure){
   const openingTorp=openingTorpedo(store,rows,scheme,panels);
   const aswTypes=new Set([1,2,3,4,21,22]);
   const opening=new Map((result.openingASW?.ships||[]).map(ship=>[ship.shipId,ship]));
-  const aswShips=rows.filter(row=>aswTypes.has(row.stype)||opening.get(row.id)?.eligible===true);
+  const needsAsw=aswEscortLimit(profile,store)>0;
+  const aswShips=rows.filter(row=>{
+    if(!needsAsw)return aswTypes.has(row.stype)||opening.get(row.id)?.eligible===true;
+    const entry=scheme.ships.find(e=>e.id===row.id),attack=entry&&aswCombat.reading(store,entry);
+    return attack?.normal||attack?.opening;
+  });
   const surfaceShips=rows.filter(row=>![13,14].includes(row.stype));
   const aswValues=aswShips.map(row=>{
     const reading=opening.get(row.id),value=reading?.totalAswEstimate;
@@ -333,11 +338,12 @@ function scoreRouteCore(result,profile,rows,airGoal,area,store,scheme){
   const seaplane=seaplaneStrike(store,rows,scheme);
   const strike=carrier+aviationBattleship+seaplane;
   const aircraftRisk=survivalPenalty(store,scheme,air,airScore.routeAirReference,airScore.routeAirEstimate);
+  const pureAsw=profile?.counts?.asw?.maximum>0&&profile.counts.surface.maximum===0&&profile.counts.air.maximum===0;
   // Modest combat credit for affordable AS+ fits, not another mandatory air
   // tier. Never reward an unarmed fighter mule or sacrifice the carrier's BA.
   const supremacyPreference=airGoal==='superiority'&&healthySupremacy(store,scheme,air,airScore.routeAirEstimate)&&
     supportedAirGoal(air,airScore.routeAirReference,'supremacy')?carrier*0.3:0;
-  const strength=combat.strength+strike*0.7+(jet?.adjustment||0)*0.7+
+  const strength=combat.strength+(pureAsw?0:strike*0.7+(jet?.adjustment||0)*0.7)+
     supremacyPreference-aircraftRisk.penalty+(airGoal==='ignore'?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5);
   const difficulty=area!=='1-1'?routeDifficulty(profile):{tier:'combat',enabled:false};
   const largeAirAttacks=difficulty.enabled?rows.reduce((sum,row)=>{

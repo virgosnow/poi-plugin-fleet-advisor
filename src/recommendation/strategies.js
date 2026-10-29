@@ -163,12 +163,13 @@ function guideReady(policy,area,phase,store,scheme,rows,route,profile){
     .map(entry=>(entry.slots||usableSlots(store,entry.id)).filter(id=>
       [2,3,4].includes(Number(store.const.$equips[
         store.info.equips[id]?.api_slotitem_id]?.api_type?.[2]))).length);
-  if(capitalGuns.some(count=>count<(area==='1-1'?1:2)))return false;
+  const pureAsw=profile?.counts?.asw?.maximum>0&&profile.counts.surface.maximum===0&&profile.counts.air.maximum===0;
+  if(!pureAsw&&capitalGuns.some(count=>count<(area==='1-1'?1:2)))return false;
   const strike=()=>carrierStrike(store,rows,scheme)>0;
   const ground=()=>antiGroundShips(store,scheme);
   // Route predicates and the selected preset already validate hulls, speed,
   // LoS and target. Do not reapply older map-specific compositions here.
-  if(counts([7,11,18])&&!strike())return false;
+  if(counts([7,11,18])&&!strike()&&!pureAsw)return false;
   if(routeGroundTargets(profile).length&&ground().length===0)return false;
 
   return true;

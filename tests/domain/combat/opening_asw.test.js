@@ -51,10 +51,18 @@ test('unconditional ships bypass missing stat bonuses; ordinary hulls still need
 });
 test('carrier planes use raw ASW, not a blue bonus, to meet the aircraft-specific threshold',()=>{
   const f=fixture(999,'龍驤改二',7);f.target.ship.api_taisen=[65,65];
+  f.target.master.api_maxeq=[18,12,6,0];
   f.target.after.slots=[f.gear(101,8,6)];assert.equal(f.read().eligible,false);
   f.target.after.slots=[f.gear(102,8,7)];assert.equal(f.read().eligible,true);
   f.target.ship.api_taisen=[43,43];f.target.after.ex=f.gear(103,40,0);assert.equal(f.read().eligible,true);
   f.target.ship.api_taisen=[42,42];assert.equal(f.read().eligible,false);
+});
+
+test('aviation opening ASW requires an aircraft in a positive-capacity normal slot',()=>{
+  const f=fixture(554,'日向改二',10),rotor=f.gear(326,25,12);
+  f.target.after.slots=[rotor];assert.equal(f.read().eligible,false);
+  f.target.master.api_maxeq[0]=2;assert.equal(f.read().eligible,true);
+  f.target.after.slots=[];f.target.after.ex=rotor;assert.equal(f.read().eligible,false);
 });
 test('escort thresholds use raw equipment totals and Fusou accepts real depth charges only',()=>{
   const f=fixture(999,'海防舰',1);f.target.ship.api_taisen=[71,71];f.target.after.ex=f.gear(101,15,4);

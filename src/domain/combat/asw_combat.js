@@ -3,6 +3,7 @@
 // Tokai sorties or favorable engagement. These are not sortie success rates.
 // https://wikiwiki.jp/kancolle/戦闘について/与ダメージの算定に関わる要素の考察#AntiSubmarine
 const {bonus,openingASW}=require('./opening_asw');
+const {aircraftTypes,activeAircraft,aswMode,aswImprovement}=require('./asw_capability');
 const {consumption}=require('../routes/sortie_profile');
 const catalog=new Map(require('../../../data/sortie/enemy_catalog.json').enemies.map(e=>[e.apiId,e]));
 const number=v=>v==null||!Number.isFinite(Number(v))?null:Number(v);
@@ -22,28 +23,24 @@ function roles(item){
 }
 function aswAttack(store,target){
   const before=requireItems(store,target.before),after=requireItems(store,target.after);
-  const stype=Number(target.master.api_stype),surface=[1,2,3,4,21,22].includes(stype);
-  const aviation=[6,7,10,16,17,20].includes(stype)||compact(target.master.api_name)==='加賀改二護';
-  if(!surface&&!aviation)return {status:'known',power:0,opening:false,normal:false,hull:0};
-  const items=after.map(e=>({...e,planes:e.slot==='ex'?0:Number(target.master.api_maxeq?.[e.slot]??target.ship.api_onslot?.[e.slot]??0)}));
-  const aircraft=items.some(e=>[7,8,11,25,41].includes(e.type)&&e.planes>0&&
-    (e.raw>0||[11,25,41].includes(e.type)));
-  const opening=openingASW(store,target).eligible===true&&(surface||items.some(e=>[7,8,11,25,26].includes(e.type)&&e.planes>0));
-  if(!surface&&!aircraft&&!opening)return {status:'known',power:0,opening:false,normal:false,hull:0};
+  const stype=Number(target.master.api_stype),items=after;
+  const opening=openingASW(store,target).eligible===true;
+  if(!aswMode(target,items,1)&&!opening)return {status:'known',power:0,opening:false,normal:false,hull:0};
   const old=bonus(store,target,before),next=bonus(store,target,after),observed=first(target.ship.api_taisen);
   const unknown=[...old.reasons,...next.reasons];
   if(observed===null||!old.known||!next.known)return {status:'unknown',power:null,reason:unknown.join('；')||'对潜属性缺失'};
   const hull=observed-before.reduce((n,e)=>n+(e.raw||0),0)-old.value;
   if(hull<0)return {status:'unknown',power:null,reason:'对潜面板与装备资料不一致'};
-  const normal=surface&&hull>0||aviation&&aircraft;
+  const mode=aswMode(target,items,hull),normal=mode!==null;
   if(!normal&&!opening)return {status:'known',power:0,opening:false,normal:false,hull};
-  const air=!surface,rs=items.map(roles),has=name=>rs.some(r=>r[name]);
+  const air=mode==='air'||!normal,rs=items.map(roles),has=name=>rs.some(r=>r[name]);
   const sonar=has('small')||has('large'),depth=has('depth'),projector=has('projector');
   const oldSynergy=sonar&&(projector||has('mortar'))?1.15:1;
   const newSynergy=1+(depth&&(has('small')||has('large')&&!projector&&!has('mortar')) ? .15 : 0)+(depth&&projector ? .1 : 0);
-  const raw=items.filter(e=>weaponTypes.has(e.type)&&(![7,8,11,25,26].includes(e.type)||e.planes>0))
+  const weapons=items.filter(e=>weaponTypes.has(e.type)&&(!aircraftTypes.has(e.type)||activeAircraft(target,e)));
+  const raw=weapons
     .reduce((n,e)=>n+(e.raw||0),0);
-  const improvements=items.filter(e=>isAswWeapon(e.master)).reduce((n,e)=>n+Math.sqrt(Math.max(0,Number(e.level||0))),0);
+  const improvements=weapons.reduce((n,e)=>n+aswImprovement(e),0);
   const penetration=items.reduce((n,e,i)=>n+(rs[i].penetration?Math.sqrt(Math.max(0,(e.raw||0)-2))+(stype===1?1:0):0),0);
   return {status:'known',power:(2*Math.sqrt(hull)+1.5*(raw+next.value)+improvements+(air?8:13))*oldSynergy*newSynergy,
     opening,normal,hull,equipmentAsw:raw,blue:next.value,improvements,synergy:oldSynergy*newSynergy,penetration};
@@ -131,8 +128,7 @@ function reading(store,entry){
 }
 function assessAsw(store,scheme,profile,{limit=6,formation,details=false}={}){
   const encounters=submarineEncounters(profile);if(!encounters.length)return {status:'none',score:0,readiness:1,nodes:[]};
-  const objective=encounters.some(node=>node.boss&&(node.kind==='asw'||
-    profile.mapPreview?.nodes.find(n=>n.id===node.id)?.submarineFlagship));
+  const pure=profile.counts?.surface?.maximum===0&&profile.counts?.air?.maximum===0;
   const attackers=scheme.ships.map(entry=>({entry,attack:reading(store,entry),
     stype:Number(store.const.$ships[store.info.ships[entry.id].api_ship_id].api_stype)}));
   let score=0,readiness=1,unknown=false;
@@ -150,22 +146,26 @@ function assessAsw(store,scheme,profile,{limit=6,formation,details=false}={}){
         if(damage.some(d=>d.status==='unknown')){unknown=true;return {id:entry.id,effect:0,opening:0,normal:0,damage};}
         const fraction=damage.reduce((n,d,i)=>n+Math.min(1,d.mean/enemies[i].hp),0)/enemies.length;
         return {id:entry.id,effect:fraction*(Number(attack.opening)+Number(attack.normal)*.5),
-          opening:attack.opening?fraction:0,normal:attack.normal?fraction:0,damage};
+          opening:attack.opening?fraction:0,normal:attack.normal?fraction:0,referencePower:attack.power,damage};
       }).sort((a,b)=>b.effect-a.effect||a.id-b.id).slice(0,Math.min(limit,enemies.length));
       const early=rows.reduce((n,r)=>n+r.opening,0),normal=rows.reduce((n,r)=>n+r.normal,0);
-      // Pure submarine objectives favor effective opening attacks before
-      // torpedoes. Surface routes credit a bounded escort capacity; damage
+      // Opening attacks have twice the coverage weight of normal attacks;
+      // ordinary aviation ASW must still count on submarine objectives.
+      // Surface routes credit a bounded escort capacity; damage
       // beyond that capacity must not keep displacing boss-combat weapons.
-      const coverage=objective?early:early+normal*.5;
+      const coverage=early+normal*.5;
       // Clearing the weak escorts must not hide zero effective damage to
       // the armored flagship in that same enemy formation.
       const hardest=enemies.reduce((a,e,i)=>e.hp+e.armor>enemies[a].hp+enemies[a].armor?i:a,0);
       const hardRequired=Math.min(required,enemies.filter(e=>e.hp===enemies[hardest].hp&&e.armor===enemies[hardest].armor).length);
       const hardCapacity=rows.reduce((n,row)=>n+Math.min(1,(row.damage[hardest]?.mean||0)/enemies[hardest].hp)*
-        (Number(row.opening>0)+(objective?0:Number(row.normal>0)*.5)),0);
+        (Number(row.opening>0)+Number(row.normal>0)*.5),0);
       const ready=required?Math.min(1,coverage/required,hardCapacity/hardRequired):1;
       const value={formation:chosen,ammo:node.ammo,enemyCount:enemies.length,required,
-        openingCapacity:early,firstShellingCapacity:normal,hardTargetCapacity:hardCapacity,score:ready*required*200,
+        openingCapacity:early,firstShellingCapacity:normal,hardTargetCapacity:hardCapacity,
+        // Once coverage is satisfied, pure ASW still compares opening
+        // attacks and whole-package power. Keep road-escort overkill capped.
+        score:ready*required*200+(pure?early*20+rows.reduce((n,r)=>n+Math.min(170,r.referencePower||0),0)*.02:0),
         readiness:ready,
         ...(details?{enemies,ships:rows}: {})};
       if(!worst||value.readiness<worst.readiness-1e-9||Math.abs(value.readiness-worst.readiness)<1e-9&&value.required>worst.required)worst=value;
@@ -178,6 +178,13 @@ function assessAsw(store,scheme,profile,{limit=6,formation,details=false}={}){
 }
 function maintainsAsw(store,before,after,profile,limit){
   if(!requiresAswPackages(profile))return true;
+  // Capped fleet coverage must not hide a ship losing its actual attack.
+  for(const entry of before.ships){
+    const prior=reading(store,entry),next=after.ships.find(e=>e.id===entry.id);
+    if(!next)continue;
+    const fitted=reading(store,next);
+    if(prior.normal&&!fitted.normal||prior.opening&&!fitted.opening)return false;
+  }
   const a=assessAsw(store,before,profile,{limit});
   if(a.status==='partial'){
     const items=entries=>entries.flatMap(e=>e.slots.concat(e.ex)).filter(id=>isAswWeapon(store.const.$equips[store.info.equips[id]?.api_slotitem_id]));
