@@ -101,18 +101,18 @@ test('service injects global preferences into workers and future planning never 
 
  test('all curated routes reach the UI and the active-stage search despite legacy route budgets',()=>{
   const P=require('../../src/domain/routes/route_plans'),W=require('../../src/ui/workbench/workbench_model'),R=require('../../src/recommendation/index');
-  const store=fixture(),full=P.routeOptions('2-3');assert.equal(full.filter(r=>r.recommend!==false).length,4);
+  const store=fixture(),full=P.routeOptions('2-3');assert.equal(full.filter(r=>r.recommend!==false).length,5);
   assert.equal(new Set(full.flatMap(P.optionPaths).map(p=>p.join('>'))).size,16,'all physical journeys remain queryable');
-  assert.equal(P.recommendedOptions('2-3').length,4);
-  assert.equal(W.mapOverview('2-3').options.length,4);
-  assert.equal(W.mapOverview('2-3','boss',undefined,{maxRoutes:2}).options.length,4);
+  assert.equal(P.recommendedOptions('2-3').length,5);
+  assert.equal(W.mapOverview('2-3').options.length,5);
+  assert.equal(W.mapOverview('2-3','boss',undefined,{maxRoutes:2}).options.length,5);
   assert.equal(W.mapOverview('2-3').profile.routePaths.length,16);
   for(const [area,maxRoutes]of [['1-4',2],['7-2',2]]){
     const result=R.recommendNormalFleet(store,{area,automaticFilters:{maxRoutes}});
     assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),P.recommendedOptions(area,'boss',P.currentPhase(area,store),{maxRoutes}).map(r=>[r.phase,r.key]));
     assert(result.routeResults.length>maxRoutes);
   }
-  assert.equal(P.recommendedOptions('2-3','boss',undefined,{maxRoutes:20}).length,4);
+  assert.equal(P.recommendedOptions('2-3','boss',undefined,{maxRoutes:20}).length,5);
   assert.equal(P.recommendedOptions('1-1').length,4);
  });
 test('all stages retain every curated route regardless of progress or old route limits',()=>{

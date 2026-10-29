@@ -58,6 +58,22 @@ test('2-3 submarine resource branches share one guide with all four journeys and
   assert.notEqual(card.value,'固定到达');
 });
 
+test('2-3 all-submarine preset includes every viable Boss journey and its complete arrival chance',()=>{
+  const selected=P.recommendedOptions('2-3').find(o=>o.id==='2-3-submarines');
+  assert.equal(selected.name,'全潜艇流');assert.equal(selected.arrivalMode,'boss');
+  const route=assess(fleet([13,14,13,14,13,14]),'2-3');
+  assert(P.fleetRequirementAssessment(route,selected).eligible);
+  assert(!P.fleetRequirementAssessment({...route,ships:route.ships.slice(1)},selected).eligible);
+  assert(!P.fleetRequirementAssessment({...route,ships:route.ships.map((s,i)=>i? s:{...s,stype:2})},selected).eligible);
+  const reachable=require('../../../src/domain/routes/sortie_profile').previewForMap('2-3').routePaths
+    .filter(p=>P.planningPath(route,p.nodes,{allowTentative:false}).chance.max>0).map(p=>p.nodes.join('>')).sort();
+  assert.equal(reachable.length,8);assert.deepEqual(P.optionPaths(selected).map(p=>p.join('>')).sort(),reachable);
+  close(P.optionPlanning(route,selected).chance.probability,.7607275);
+  const card=W.routeArrival({route},selected,true);
+  assert.equal(card.value,'到达概率 76.1%');assert.equal(card.label,'最终抵达 Boss');
+  assert.equal(card.noteLines.filter(r=>r.nodes).length,8);assert.deepEqual(card.warnings,[]);
+});
+
 test('3-3 B-D-F and B-F merge, but the remaining F-H diversion is still a real failure',()=>{
   const selected=option('3-3','A>B>F>J>M'),route=assess(fleet([13,2,2,2,2,2]),'3-3');
   assert.deepEqual(P.optionPaths(selected),[[...'ABFJM'],[...'ABDFJM']]);

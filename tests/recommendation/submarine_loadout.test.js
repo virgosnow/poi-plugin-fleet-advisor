@@ -113,6 +113,27 @@ test('equipment search retains the submarine radar policy with both standard and
   }
 });
 
+test('2-3 all-submarine recommendation selects six SS/SSV and fits their torpedoes',()=>{
+  const store=submarineFixture({torpedoes:12}),base=structuredClone(store.info.ships[1]);
+  for(const id of [7,8])delete store.info.ships[id];
+  for(let id=1;id<=6;id++){
+    const masterId=6100+id,stype=id%2?13:14;
+    store.const.$ships[masterId]={...store.const.$ships[6001],api_id:masterId,api_name:`测试潜水舰${id}改`,api_stype:stype};
+    store.info.ships[id]={...structuredClone(base),api_id:id,api_ship_id:masterId};
+    store.const.$shipTypes[stype]={api_equip_type:{5:1,32:1,51:1}};
+  }
+  const before=JSON.stringify(store),result=require('../../src/recommendation').recommendNormalFleet(store,
+    {area:'2-3',routeKey:'guide:2-3-submarines'});
+  assert.equal(result.recommendations.length,1);assert.equal(result.routeResults[0].status,'available');
+  const row=result.recommendations[0];assert.equal(row.route.ships.length,6);
+  assert(row.route.ships.every(s=>[13,14].includes(s.stype)));
+  assert(Math.abs(row.pathChance.probability-.7607275)<1e-9);
+  const assigned=row.scheme.ships.flatMap(s=>s.slots);
+  assert.equal(assigned.length,12);assert.equal(new Set(assigned).size,12);
+  assert(assigned.every(id=>store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_type[2]===32));
+  assert.equal(JSON.stringify(store),before);
+});
+
 test('submarine explanations distinguish inherent opening torpedoes, torpedoes and submarine radar',()=>{
   const store=submarineFixture({slots:3});
   const explanation=explainLoadout(store,{id:1,slots:[101,102,301],ex:-1},{area:'1-1'});

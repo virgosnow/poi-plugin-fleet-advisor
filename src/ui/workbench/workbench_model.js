@@ -270,6 +270,10 @@ function displayThreat(profile,nodeId){
     status:node?.threatStatus||'unknown',kind:node?.kind,warnings:node?.dataWarnings||[],
     enemies:(node?.enemyFamilies||node?.enemies||[]).map(e=>({...e,nodes:[nodeId]}))};
 }
+function bossArrivalLabel(total,selectedProbability){
+  const otherBranches=Number.isFinite(total)&&Number.isFinite(selectedProbability)&&total-selectedProbability>1e-9;
+  return total!==1&&otherBranches?'最终抵达 Boss（含其他分支）':'最终抵达 Boss';
+}
 function routeArrival(report,selected,ready,target='boss'){
   const result=routeArrivalResult(report,selected,ready,target);
   return selected?.phaseNote?withArrivalNotes(result,
@@ -297,11 +301,16 @@ function routeArrivalResult(report,selected,ready,target='boss'){
     const arrival=selected.arrivalMode==='boss'?plans.bossArrivalChance(route,selected):null;
     const total=arrival?arrival.probability:probability;
     const percent=n=>`${Math.round(n*1000)/10}%`;
-    return withArrivalNotes({label:selected.arrivalMode==='boss'?'最终抵达 Boss（含其他分支）':'沿所选流派抵达 Boss',
+    const branches=grouped.branches.filter(b=>b.chance.max>0);
+    // Complete journey probabilities already include these random forks.
+    // Keep actual blockers and unknown conditions in the warning area.
+    const warnings=probability===1?[]:plans.routeDiagnostics(route,selected).points
+      .filter(point=>!branches.length||point.status!=='random').map(point=>point.summary);
+    return withArrivalNotes({label:selected.arrivalMode==='boss'?bossArrivalLabel(total,probability):'沿所选流派抵达 Boss',
       value:total===1?'固定到达':total===0?'无法抵达 Boss':Number.isFinite(total)?`到达概率 ${percent(total)}`:'到达率待确认',
-      tone:total===1?'good':'warning',unreachable:total===0,warnings:probability===1?[]:plans.routeDiagnostics(route,selected).warnings},
+      tone:total===1?'good':'warning',unreachable:total===0,warnings},
       [{text:probability===0?'当前编成无法走所选路线':selected.arrivalMode==='boss'?`所选合流路线 ${probability===null?'概率待确认':percent(probability)}`:'分支在后续节点汇合'},
-        ...grouped.branches.filter(b=>b.chance.max>0).sort((a,b)=>(b.chance.probability??-1)-(a.chance.probability??-1))
+        ...branches.sort((a,b)=>(b.chance.probability??-1)-(a.chance.probability??-1))
           .map(b=>({nodes:b.nodes,value:b.chance.probability===null?'待确认':percent(b.chance.probability)})),
         ...(arrival?.playerChoices.length?[{text:`能动分歧：${arrival.playerChoices.map(p=>`${p.from} 点选 ${p.to}`).join('，')}`}]:[]),
         {text:'不含战斗撤退',muted:true}]);
@@ -325,7 +334,7 @@ function routeArrivalResult(report,selected,ready,target='boss'){
     const arrival=plans.bossArrivalChance(route,selected),total=arrival.probability;
     const pathNote=chance.probability===null?'所选路线概率待确认':chance.probability===0?
       '当前编成无法走所选路线':`所选路线 ${percent(chance.probability)}`;
-    return {label:'最终抵达 Boss（含其他分支）',value:total===1?'固定到达':Number.isFinite(total)?
+    return {label:bossArrivalLabel(total,chance.probability),value:total===1?'固定到达':Number.isFinite(total)?
       total===0?'无法抵达 Boss':`到达概率 ${percent(total)}`:'到达率待确认',
       note:[pathNote,...(arrival.playerChoices.length?[`能动分歧：${arrival.playerChoices.map(p=>`${p.from} 点选 ${p.to}`).join('，')}`]:[]),'不含战斗撤退'].join('；'),
       tone:total===1?'good':'warning',unreachable:total===0,warnings};

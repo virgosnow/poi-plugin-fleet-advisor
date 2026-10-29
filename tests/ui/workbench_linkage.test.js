@@ -1388,7 +1388,7 @@ test('route warnings stay on the left and no stale chance or duplicate LoS badge
   assert(!h.find(left,n=>n.props.className==='paa-wb-arrival-icon'),'unreviewed drafts keep a neutral status');
 });
 
-test('arrival status expands route requirements while notes and route warnings remain visible',()=>{
+test('arrival status expands route requirements while notes and complete journey probabilities remain visible',()=>{
   const h=harness(),slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
   h.store.const.$ships[2].api_stype=4;h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
   h.set('report',W.inspect(h.service,h.store,slots,settings));
@@ -1401,7 +1401,9 @@ test('arrival status expands route requirements while notes and route warnings r
   assert.match(text(control),/到达概率 80%/);
   assert(!text(card).includes('所选路线的舰种与带路要求'),'the arrival row is the only disclosure heading');
   const warning=h.find(card,n=>n.props['aria-label']==='路线条件');
-  assert(warning);assert(!h.find(rules,n=>n===warning),'warnings must not disappear with collapsed rules');
+  assert(!warning,'random-fork prose is redundant with the complete journey probability');
+  const probabilities=h.find(card,n=>n.props['aria-label']==='各路线到达概率');
+  assert(probabilities);assert(!h.find(rules,n=>n===probabilities),'probabilities remain visible when rules are collapsed');
   const note=h.find(card,n=>n.props.className==='paa-wb-arrival-note');
   if(note)assert(!h.find(rules,n=>n===note),'arrival notes remain outside the disclosure');
   control.props.onClick();tree=h.render();card=h.find(tree,n=>n.props.className==='paa-wb-route-status');
