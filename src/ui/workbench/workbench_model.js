@@ -1,5 +1,6 @@
 'use strict';
 const V=require('../models/presentation_model');
+const {withArrivalNotes}=require('../models/route_presentation');
 const R=require('../../domain/fleet/equipment_rules');
 const {normalizeName}=require('../../shared/name_matching');
 const {profileForRoute}=require('../../domain/routes/sortie_profile');
@@ -271,7 +272,8 @@ function displayThreat(profile,nodeId){
 }
 function routeArrival(report,selected,ready,target='boss'){
   const result=routeArrivalResult(report,selected,ready,target);
-  return selected?.phaseNote?{...result,note:[selected.phaseNote,result.note].filter(Boolean).join(' ')}:result;
+  return selected?.phaseNote?withArrivalNotes(result,
+    [{text:selected.phaseNote},...(result.noteLines||(result.note?[{text:result.note}]:[]))]):result;
 }
 function routeArrivalResult(report,selected,ready,target='boss'){
   const label=target==='boss'?'沿所选路线抵达 Boss':`沿所选路线抵达 ${target}`;
@@ -284,21 +286,23 @@ function routeArrivalResult(report,selected,ready,target='boss'){
   if(strategy&&(selected.strategy.requireFixedArrival!==false||!strategy.eligible)){
     const speedNames={slow:'低速',fast:'高速',fastPlus:'高速＋',fastest:'最速'};
     const branches=strategy.branches.filter(b=>b.probability>0).map(b=>`${b.nodes[1]} 路 ${Math.round(b.probability*100)}%`).join(' / ');
-    return {label:'按所选流派抵达 Boss',value:strategy.eligible?'固定到达':route.speed?.status==='unknown'?'条件待确认':'流派条件未满足',
-      tone:strategy.eligible?'good':'warning',warnings:strategy.eligible?[]:plans.routeDiagnostics(route,selected).warnings,
-      note:strategy.eligible?(selected.strategy.arrivalNote?selected.strategy.arrivalNote.replace('{branches}',branches):
-        strategy.branches.filter(b=>b.probability>0).map(b=>`${b.nodes.join('→')} ${Math.round(b.probability*1000)/10}%`).join('；')):
-        `需全队${speedNames[selected.strategy.minimumSpeed]}统一${selected.strategy.radarCarriers?`、至少 ${selected.strategy.radarCarriers} 艘携带电探`:''}；当前速力：${speedNames[route.speed?.fleetSpeed]||'待确认'}。请补全或调整舰娘及提速装备。`};
+    const notes=strategy.eligible?(selected.strategy.arrivalNote?[{text:selected.strategy.arrivalNote.replace('{branches}',branches)}]:
+      strategy.branches.filter(b=>b.probability>0).sort((a,b)=>b.probability-a.probability).map(b=>({nodes:b.nodes,value:`${Math.round(b.probability*1000)/10}%`}))):
+      [{text:`需全队${speedNames[selected.strategy.minimumSpeed]}统一${selected.strategy.radarCarriers?`、至少 ${selected.strategy.radarCarriers} 艘携带电探`:''}；当前速力：${speedNames[route.speed?.fleetSpeed]||'待确认'}。请补全或调整舰娘及提速装备。`}];
+    return withArrivalNotes({label:'按所选流派抵达 Boss',value:strategy.eligible?'固定到达':route.speed?.status==='unknown'?'条件待确认':'流派条件未满足',
+      tone:strategy.eligible?'good':'warning',warnings:strategy.eligible?[]:plans.routeDiagnostics(route,selected).warnings},notes);
   }
   if(selected.paths){
     const grouped=plans.optionPlanning(route,selected),probability=grouped.chance.probability;
     const total=selected.arrivalMode==='boss'?route.probability:probability;
     const percent=n=>`${Math.round(n*1000)/10}%`;
-    return {label:selected.arrivalMode==='boss'?'最终抵达 Boss（含其他分支）':'沿所选流派抵达 Boss',
+    return withArrivalNotes({label:selected.arrivalMode==='boss'?'最终抵达 Boss（含其他分支）':'沿所选流派抵达 Boss',
       value:total===1?'固定到达':total===0?'无法抵达 Boss':Number.isFinite(total)?`到达概率 ${percent(total)}`:'到达率待确认',
-      tone:total===1?'good':'warning',unreachable:total===0,warnings:probability===1?[]:plans.routeDiagnostics(route,selected).warnings,
-      note:[probability===0?'当前编成无法走所选路线':selected.arrivalMode==='boss'?`所选合流路线 ${probability===null?'概率待确认':percent(probability)}`:'分支在后续节点汇合',
-        ...grouped.branches.filter(b=>b.chance.max>0).map(b=>`${b.nodes.join('→')} ${b.chance.probability===null?'待确认':percent(b.chance.probability)}`),'不含战斗撤退'].join('；')};
+      tone:total===1?'good':'warning',unreachable:total===0,warnings:probability===1?[]:plans.routeDiagnostics(route,selected).warnings},
+      [{text:probability===0?'当前编成无法走所选路线':selected.arrivalMode==='boss'?`所选合流路线 ${probability===null?'概率待确认':percent(probability)}`:'分支在后续节点汇合'},
+        ...grouped.branches.filter(b=>b.chance.max>0).sort((a,b)=>(b.chance.probability??-1)-(a.chance.probability??-1))
+          .map(b=>({nodes:b.nodes,value:b.chance.probability===null?'待确认':percent(b.chance.probability)})),
+        {text:'不含战斗撤退',muted:true}]);
   }
   const observed=plans.pathChance(route,nodes);
   // Re-evaluate with candidate LoS and known propulsion rules. "Estimated"

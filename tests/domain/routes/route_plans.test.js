@@ -318,7 +318,7 @@ test('3-2 speed strategy must fit a real six-ship fast-plus two-battle fleet',()
   const W=require('../../../src/ui/workbench/workbench_model');
   const arrival=W.routeArrival({route:row.route},option,true);
   assert.equal(arrival.value,'固定到达');assert.equal(arrival.tone,'good');
-  assert.match(arrival.note,/C→E→F→L 40%.*C→G→F→L 60%/);
+  assert.deepEqual(arrival.note.split('\n'),['C→G→F→L 60%','C→E→F→L 40%']);
   assert.deepEqual(W.selectedMapProfile(W.mapOverview('3-2'),option.key).highlightPaths,require('../../../src/domain/routes/route_plans').optionPaths(option));
   const ordinary=evaluateNormalRoute(store,{area:'3-2',scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
   assert.equal(W.routeArrival({route:ordinary},option,true).value,'流派条件未满足');

@@ -1,4 +1,5 @@
 'use strict';
+const {routeFormula}=require('../models/route_presentation');
 function routeGroups(options,currentPhase){
   const groups=new Map();
   for(const option of options){
@@ -50,7 +51,7 @@ module.exports=function createRoutePicker(React){
     const isExpanded=group=>groups.length===1||(expanded.context===context&&Object.hasOwn(expanded.phases,group.phase)?
       expanded.phases[group.phase]:group.phase===currentPhase||group.phase===selected?.phase||!currentPhase&&group===groups[0]);
     const toggle=group=>setExpanded({context,phases:{...(expanded.context===context?expanded.phases:{}),[group.phase]:!isExpanded(group)}});
-    const path=o=>o.displayPathLabel||o.strategy?.pathLabel||o.pathLabel||o.nodes.join('→');
+    const path=routeFormula;
     return h('div',{className:'paa-area-picker paa-wb-route-picker','data-kind':'route'},
       h('span',{className:'paa-area-label'},'路线'),
       h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,

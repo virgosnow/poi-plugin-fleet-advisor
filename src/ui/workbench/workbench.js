@@ -2,6 +2,7 @@
 const W=require('./workbench_model'),V=require('../models/presentation_model');
 const E=require('../expedition/expedition_model');
 const T=require('../models/metric_tooltips');
+const {arrivalNote}=require('../models/route_presentation');
 const {fleetMechanisms,fleetSpeed,aircraftCapacity}=require('../../domain/combat/ship_mechanisms');
 const routePreview=require('../maps/route_preview'),shipDrag=require('../components/ship_drag');
 const {retain,hiddenPage}=require('../components/retained_view');
@@ -446,7 +447,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
               h(routeRequirements.length?'button':'div',{className:'paa-wb-arrival','data-tone':arrival.tone,
                 ...(routeRequirements.length?{type:'button',disabled,'aria-expanded':routeRulesOpen,'aria-controls':`${kind}-route-requirements`,onClick:()=>setRouteRulesOpen(open=>!open)}:{role:'status'})},
                 h('span',null,arrival.label),h('strong',null,arrivalIcon(arrival.tone),arrival.value)),
-            arrival.note&&!routeSearchFailed?h('small',{className:'paa-wb-arrival-note'},arrival.note):null,
+            !routeSearchFailed?arrivalNote(h,arrival):null,
             reasons.length?h('div',{className:'paa-wb-route-warnings',role:'region',tabIndex:0,'aria-label':'路线条件'},...reasons.map((reason,i)=>h('p',{key:i},reason))):null,
             ['notFound','unconfirmed'].includes(selectedRoute?.status)?h('div',{className:'paa-wb-route-warnings',role:'region',tabIndex:0,'aria-label':'推荐路线受阻条件'},...(selectedRoute.diagnostics?.briefWarnings?.length?selectedRoute.diagnostics.briefWarnings:['未找到符合所选路线的编成']).map((text,i)=>h('p',{key:i},text))):null,
             routeRequirements.length?h('div',{id:`${kind}-route-requirements`,className:'paa-wb-route-requirements','data-open':routeRulesOpen,'aria-hidden':!routeRulesOpen,inert:routeRulesOpen?undefined:''},
