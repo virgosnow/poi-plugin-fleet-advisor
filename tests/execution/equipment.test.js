@@ -40,7 +40,7 @@ test('projection retains all allocation guards and falls back for partial or nam
   (f,s)=>s.ships[0].slots=[301,-1,-1], // land base
   (f,s)=>s.ships[0].slots=[-1,104,-1],
   (f,s)=>s.ships[0].slots=[999,-1,-1],
-  (f,s)=>{s.ships[0].slots=[201,-1,-1];f.data.info.repairs=[{api_ship_id:2}];},
+  (f,s)=>{s.ships[0].slots=[201,-1,-1];f.data.info.fleets.push({api_ship:[2],api_mission:[1]});},
   f=>f.data.info.repairs=[{api_ship_id:1}],
   f=>f.data.info.fleets[0].api_mission=[1],
   (f,s)=>{f.data.info.ships[1].api_slot_ex=0;s.ships[0].ex=103;},
@@ -465,7 +465,14 @@ test('borrow star/alv constraints and free/current preference remain exact',()=>
 test('borrowing source eligibility does not remove disabled rows from picker ranks',()=>{
  const f=fixture();f.data.info.fleets.push({api_ship:[2],api_mission:[1]});
  assert(f.api.otherPickerList(0,1,0).some(e=>e.id===201));assert.throws(()=>f.plan([{id:1,slots:[201]}]),/无可用/);
- f.data.info.fleets[1].api_mission=[0];f.data.info.repairs=[{api_ship_id:2}];assert.throws(()=>f.plan([{id:1,ex:201}]),/无可用/);
+ f.data.info.fleets[1].api_mission=[0];f.data.info.repairs=[{api_ship_id:2}];
+ assert.equal(f.api.availableShip(2),false);assert.equal(f.api.availableEquipmentSource(2),true);
+ assert.equal(f.plan([{id:1,ex:201}]).donors[0].shipId,2);
+ const planner=createFleetPlanner(()=>f.data),scheme={fleet:1,ships:[{id:1,slots:[201,-1,-1],ex:-1}]};
+ const full=planner.preview('fleet',scheme);
+ assert.equal(full.equipment.donors[0].shipId,2);
+ withEquipmentIndexCache(f.data,()=>assert.deepEqual(planner.project(scheme).equipment.expected,
+   full.equipment.expected.filter(row=>row.shipId===1)));
 });
 test('other picker order retains instance order despite improvement levels',()=>{
  const f=fixture();f.data.info.ships[2].api_slot=[201,104,106];f.data.info.equips[104].api_level=10;
@@ -510,8 +517,9 @@ test('cross-ship swap completes one ship before rebuilding the next, borrowing e
  assert.equal(mutations[0].path,'api_req_kaisou/slot_deprive');assert.equal(mutations[0].sourceShip,2);
  assert.equal(mutations[1].path,'api_req_kaisou/slotset');assert.equal(mutations[1].item,-1);
 });
-for(const fromEx of [false,true])for(const toEx of [false,true])test(`borrow ${fromEx?'ex':'normal'} to ${toEx?'ex':'normal'} checks both ships and exact request`,async()=>{
+for(const repairing of [false,true])for(const fromEx of [false,true])for(const toEx of [false,true])test(`borrow ${fromEx?'ex':'normal'} to ${toEx?'ex':'normal'}${repairing?' from docked ship':''} checks both ships and exact request`,async()=>{
  const f=runtime();f.data.info.ships[1].api_slot=[-1,-1,-1];f.data.info.ships[1].api_slot_ex=-1;
+ if(repairing){f.data.info.repairs=[{api_ship_id:2}];f.data.info.ships[2].api_situation=2;}
  if(fromEx){f.data.info.ships[2].api_slot=[-1,-1,-1];f.data.info.ships[2].api_slot_ex=201;}
  const r=await restoreEquipment(f.session,{fleet:1,ships:[{id:1,...(toEx?{ex:201}:{slots:[201]})}]});assert.equal(r.changed,1);
  assert.equal(toEx?f.data.info.ships[1].api_slot_ex:f.data.info.ships[1].api_slot[0],201);
@@ -527,6 +535,13 @@ test('fast borrow confirmation still rejects a donor change immediately before s
  const f=runtime();f.data.info.ships[1].api_slot=[-1,-1,-1];
  const until=f.session.until.bind(f.session);
  f.session.until=async(...args)=>{const result=await until(...args);if(args[0]==='borrowconfirm')f.data.info.ships[2].api_slot[0]=-1;return result;};
+ await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[201]}]}));
+ assert.equal(f.inputs.filter(i=>i.mutation).length,0);
+});
+test('a donor starting an expedition before confirmation remains blocked',async()=>{
+ const f=runtime();f.data.info.ships[1].api_slot=[-1,-1,-1];
+ const until=f.session.until.bind(f.session);
+ f.session.until=async(...args)=>{const result=await until(...args);if(args[0]==='borrowconfirm')f.data.info.fleets.push({api_ship:[2],api_mission:[1]});return result;};
  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[201]}]}));
  assert.equal(f.inputs.filter(i=>i.mutation).length,0);
 });

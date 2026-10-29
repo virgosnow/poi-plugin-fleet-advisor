@@ -42,15 +42,14 @@ for(const w of witnesses)test(`catalog ${w.id} follows actual branch order, pres
   assert.deepEqual(profile.highlightPaths,w.paths);
   if(option.strategy)assert(P.strategyAssessment(route,option).eligible);
 });
-test('current-phase quotas and optional unlock targets do not mix fleets from different stages',()=>{
+test('all stages expose every curated option without mixing optional unlock targets',()=>{
   for(const area of ['5-6','7-2','7-3','7-5']){
     const phases=Object.keys(require('../../../data/normal_routes/'+area+'.json').bossPhases);
     for(let i=0;i<phases.length;i++){
       const store={info:{maps:{[Number(area.replace('-',''))]:{api_gauge_num:i+1}}}};
       const selected=P.recommendedOptions(area,'boss',undefined,{maxRoutes:5},store);
-      assert(selected.length<=5);
       for(const phase of phases)assert.equal(selected.filter(r=>r.phase===phase).length,
-        phase===phases[i]?Math.min(catalog.maps[area+':'+phase].routes.length,6-phases.length):1);
+        catalog.maps[area+':'+phase].routes.length);
       assert(selected.every(r=>r.phaseLabel&&!r.name.includes('阶段')));
     }
   }

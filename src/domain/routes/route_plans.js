@@ -120,19 +120,9 @@ function currentPhase(area,store){
   return phases[Number.isInteger(number)&&number>0&&number<=phases.length?number-1:0];
 }
 function recommendedOptions(area,target='boss',phase,settings,store){
-  const {maxRoutes}=require('../../config/recommendation_filters').normalizeGroup('normal',settings);
-  const options=routeOptions(area,target,phase).filter(option=>option.recommend!==false),groups=new Map();
-  for(const option of options){
-    if(!groups.has(option.phase))groups.set(option.phase,[]);
-    groups.get(option.phase).push(option);
-  }
-  if(phase||groups.size<=1)return options.slice(0,maxRoutes);
-  // Reserve one guide per phase; only the observed current phase receives
-  // extra slots. Unknown/locked progress starts from phase one for planning.
-  const selected=new Set([...groups.values()].map(rows=>rows[0]));
-  const extra=Math.max(0,maxRoutes-selected.size);
-  for(const option of (groups.get(currentPhase(area,store))||[]).slice(1,1+extra))selected.add(option);
-  return options.filter(option=>selected.has(option));
+  // Show every curated option in stage order, including inactive stages.
+  // Legacy route-budget settings no longer hide or skip recommendations.
+  return routeOptions(area,target,phase).filter(option=>option.recommend!==false);
 }
 // Probability of this exact path, not the sum of all paths to the same boss.
 // Missing conditions remain intervals; missing random odds use the selected-exit reference policy.

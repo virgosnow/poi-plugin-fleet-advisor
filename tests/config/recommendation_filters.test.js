@@ -52,10 +52,12 @@ test('preferences persist independently, migrate old settings, and roll back on 
     fs.writeFileSync(path.join(dir,'mcp-state.json'),JSON.stringify({mcpEnabled:false,httpPort:47615,jobs:[]}));
     const create=()=>new FleetAdvisorService({storageDir:dir,getStore:()=>store,controller:new Controller({getStore:()=>store})});
     service=create();assert.deepEqual(service.getRecommendationFilters(),F.DEFAULTS);
-    service.setRecommendationFilters({normal:{maxRoutes:8,minLevel:60,excludeUnremodeled:false},expedition:{defaultGoal:'success'}});
+    service.setRecommendationFilters({normal:{allowEquipmentBorrowing:false,minLevel:60,excludeUnremodeled:false},expedition:{defaultGoal:'success'}});
     restored=create();assert.equal(restored.getRecommendationFilters().normal.minLevel,60);
-    assert.equal(restored.getRecommendationFilters().normal.maxRoutes,8);
-    for(const maxRoutes of [0,21,1.5,'5'])assert.throws(()=>restored.setRecommendationFilters({normal:{maxRoutes}}),/无效/);
+    assert.equal(restored.getRecommendationFilters().normal.allowEquipmentBorrowing,false);
+    for(const allowEquipmentBorrowing of [0,1,null,'false'])assert.throws(()=>restored.setRecommendationFilters({normal:{allowEquipmentBorrowing}}),/无效/);
+    assert.equal(F.normalizeGroup('normal',{maxRoutes:2}).allowEquipmentBorrowing,true);
+    assert(!('maxRoutes' in F.normalizeGroup('normal',{maxRoutes:2})));
     assert.deepEqual(restored.getRecommendationFilters().expedition,{...F.DEFAULTS.expedition,defaultGoal:'success'});
     for(const defaultGoal of [null,true,0,'unknown','GREAT'])assert.throws(()=>restored.setRecommendationFilters({expedition:{defaultGoal}}),/无效/);
     assert.equal(F.normalizeGroup('expedition',{defaultGoal:'invalid'}).defaultGoal,'great');
@@ -97,41 +99,41 @@ test('service injects global preferences into workers and future planning never 
   }finally{await service.dispose();clean(dir);}
 });
 
- test('route budget limits UI and actual searches without truncating the source graph',()=>{
+ test('all curated routes reach the UI and actual search despite legacy route budgets',()=>{
   const P=require('../../src/domain/routes/route_plans'),W=require('../../src/ui/workbench/workbench_model'),R=require('../../src/recommendation/index');
   const store=fixture(),full=P.routeOptions('2-3');assert.equal(full.filter(r=>r.recommend!==false).length,4);
   assert.equal(new Set(full.flatMap(P.optionPaths).map(p=>p.join('>'))).size,16,'all physical journeys remain queryable');
   assert.equal(P.recommendedOptions('2-3').length,4);
   assert.equal(W.mapOverview('2-3').options.length,4);
-  assert.equal(W.mapOverview('2-3','boss',undefined,{maxRoutes:2}).options.length,2);
+  assert.equal(W.mapOverview('2-3','boss',undefined,{maxRoutes:2}).options.length,4);
   assert.equal(W.mapOverview('2-3').profile.routePaths.length,16);
-  for(const [area,maxRoutes]of [['1-4',5],['1-4',2],['7-2',2],['7-2',4]]){
+  for(const [area,maxRoutes]of [['1-4',2],['7-2',2]]){
     const result=R.recommendNormalFleet(store,{area,automaticFilters:{maxRoutes}});
     assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),P.recommendedOptions(area,'boss',undefined,{maxRoutes}).map(r=>[r.phase,r.key]));
-    assert(result.recommendations.length<=maxRoutes);
+    assert(result.routeResults.length>maxRoutes);
   }
   assert.equal(P.recommendedOptions('2-3','boss',undefined,{maxRoutes:20}).length,4);
   assert.equal(P.recommendedOptions('1-1').length,4);
  });
-test('multiphase budgets reserve every phase and assign extras only to observed progress',()=>{
+test('all stages retain every curated route regardless of progress or old route limits',()=>{
   const P=require('../../src/domain/routes/route_plans'),W=require('../../src/ui/workbench/workbench_model');
   const counts=(area,store,maxRoutes=5,phase)=>Object.fromEntries(
     P.recommendedOptions(area,'boss',phase,{maxRoutes},store).reduce((groups,row)=>
       groups.set(row.phase,(groups.get(row.phase)||0)+1),new Map()));
   const store={info:{maps:{73:{api_gauge_num:2},56:{api_gauge_num:3}}}};
-  assert.deepEqual(counts('7-3',store),{gauge1:1,gauge2:4});
-  assert.deepEqual(counts('7-3',store,3),{gauge1:1,gauge2:2});
-  assert.deepEqual(counts('7-3',store,1),{gauge1:1,gauge2:1});
-  assert.deepEqual(counts('5-6',store),{gauge1:1,gauge2:1,gauge3:3});
-  assert.deepEqual(counts('5-6',store,1),{gauge1:1,gauge2:1,gauge3:1});
+  assert.deepEqual(counts('7-3',store),{gauge1:3,gauge2:4});
+  assert.deepEqual(counts('7-3',store,3),{gauge1:3,gauge2:4});
+  assert.deepEqual(counts('7-3',store,1),{gauge1:3,gauge2:4});
+  assert.deepEqual(counts('5-6',store),{gauge1:3,gauge2:5,gauge3:6});
+  assert.deepEqual(counts('5-6',store,1),{gauge1:3,gauge2:5,gauge3:6});
   store.info.maps[56].api_gauge_num=2;
-  assert.deepEqual(counts('5-6',store),{gauge1:1,gauge2:3,gauge3:1},'remaining quota belongs to active phase two');
+  assert.deepEqual(counts('5-6',store),{gauge1:3,gauge2:5,gauge3:6});
   store.info.maps[75]={api_gauge_num:2};
-  assert.deepEqual(counts('7-5',store),{gauge1:1,gauge2:3,gauge3:1},'both phase-two backup flows fit the shared budget');
-  assert.deepEqual(counts('7-3',store,3,'gauge2'),{gauge2:3},'explicit phase uses its own budget');
+  assert.deepEqual(counts('7-5',store),{gauge1:5,gauge2:5,gauge3:5});
+  assert.deepEqual(counts('7-3',store,3,'gauge2'),{gauge2:4},'explicit phase still selects only that stage');
   for(const value of [undefined,null,0,9,1.5]){
     store.info.maps[73].api_gauge_num=value;
-    assert.deepEqual(counts('7-3',store),{gauge1:3,gauge2:1},'unknown progress plans phase one without filling other phases');
+    assert.deepEqual(counts('7-3',store),{gauge1:3,gauge2:4},'unknown progress must not hide stages');
   }
   store.info.maps[73].api_gauge_num=2;
   assert.deepEqual(W.mapOverview('7-3','boss',undefined,{maxRoutes:3},store).options,
@@ -148,16 +150,20 @@ test('snapshot worker and UI use the same observed phase allocation',async()=>{
     assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),
       P.recommendedOptions('7-2','boss',undefined,undefined,store).map(r=>[r.phase,r.key]));
     assert.equal(result.routeResults.filter(r=>r.phase==='gauge2').length,4);
-    assert.equal(result.routeResults.filter(r=>r.phase==='gauge1').length,1);
+    assert.equal(result.routeResults.filter(r=>r.phase==='gauge1').length,3);
   }finally{await service.dispose();clean(dir);}
 });
- test('settings use concise visible exclusions and an independent route budget control',()=>{
+ test('settings align equipment borrowing with the independent expedition goal control',()=>{
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})};
   let changed;const view=require('../../src/ui/settings/recommendation_settings')(React),props={value:F.normalize(),onChange:value=>{changed=value;},disabled:false},tree=view(props);
   const nodes=n=>n&&typeof n==='object'?[n,...n.children.flatMap(nodes)]:[];
-  const input=nodes(tree).find(n=>n.props['aria-label']==='推荐路线上限');
-  assert.equal(input.props.value,5);input.props.onChange({target:{value:'8'}});
-  assert.equal(changed.normal.maxRoutes,8);assert.deepEqual(changed.expedition,F.DEFAULTS.expedition);
+  assert(!nodes(tree).some(n=>n.props['aria-label']==='推荐路线上限'));
+  const borrowing=nodes(tree).find(n=>n.props['aria-label']==='出击装备借用');
+  assert.equal(borrowing.props.role,'group');
+  assert.deepEqual(borrowing.children.map(n=>[n.children[0],n.props['aria-pressed']]),[['允许借用',true],['不借用',false]]);
+  borrowing.children[0].props.onClick();assert.equal(changed,undefined);
+  borrowing.children[1].props.onClick();assert.equal(changed.normal.allowEquipmentBorrowing,false);
+  assert.deepEqual(changed.expedition,F.DEFAULTS.expedition);
   const goal=nodes(tree).find(n=>n.props['aria-label']==='远征默认目标');
   assert.equal(goal.props.role,'group');
   const buttons=goal.children;
@@ -172,6 +178,8 @@ test('snapshot worker and UI use the same observed phase allocation',async()=>{
   changed=undefined;
   const disabledGoal=nodes(view({...props,disabled:true})).find(n=>n.props['aria-label']==='远征默认目标');
   assert(disabledGoal.children.every(n=>n.props.disabled));disabledGoal.children[1].props.onClick();assert.equal(changed,undefined);
+  const disabledBorrowing=nodes(view({...props,disabled:true})).find(n=>n.props['aria-label']==='出击装备借用');
+  assert(disabledBorrowing.children.every(n=>n.props.disabled));disabledBorrowing.children[1].props.onClick();assert.equal(changed,undefined);
   const strings=nodes(tree).flatMap(n=>n.children.filter(c=>typeof c==='string'));
   assert.equal(strings.filter(s=>s==='排除以下舰娘').length,2);
   assert(!strings.some(s=>/^排除.*舰$/.test(s)));assert(strings.includes('第一舰队成员'));

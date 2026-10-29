@@ -9,11 +9,13 @@ module.exports=React=>{
     h('div',{className:'paa-selection-grid'},...['normal','expedition'].map(kind=>{
       const group=value[kind],title=kind==='normal'?'出击设置':'远征设置';
       const change=(key,v)=>onChange({...value,[kind]:{...group,[key]:v}},kind+'.'+key);
-      const hint=kind==='normal'?'选择每次推荐几条路线，以及哪些舰娘不参与自动编成。\n不会改动你已经选好的舰娘和装备。':
+      const hint=kind==='normal'?'选择推荐时能否借用其他舰娘的装备。\n不借用：仅使用仓库和本次编成舰娘身上的装备。\n允许借用包含入渠舰娘的装备；远征中的装备始终不可借用。\n下方设置排除自动选船的范围，不改动已有草稿。':
         '切换远征时，自动选中默认目标。\n排除暂时不想参与推荐的舰娘，不改动已有编成。';
       return h('section',{className:'paa-settings-card',key:kind},h('div',{className:'paa-settings-section-head'},h('div',{className:'paa-settings-label'},h('h3',null,title),feedback(React,undefined,{label:title,text:hint}))),
-        kind==='normal'?h('div',{className:'paa-selection-count'},h('span',{className:'paa-settings-label'},h('label',{htmlFor:'paa-max-routes'},'推荐路线上限')),h('span',{className:'paa-settings-value'},
-          h('input',{id:'paa-max-routes',type:'number',min:1,max:20,step:1,value:group.maxRoutes,disabled,'aria-label':'推荐路线上限',onChange:e=>{const v=Number(e.target.value);if(Number.isInteger(v)&&v>=1&&v<=20)change('maxRoutes',v);}}),h('span',{className:'paa-muted'},'条'),feedback(React,feedbacks[kind+'.maxRoutes']))):
+        kind==='normal'?h('div',{className:'paa-selection-count'},h('span',{className:'paa-settings-label'},h('span',null,'装备借用')),h('span',{className:'paa-settings-value'},
+          h('div',{className:'paa-exp-goal paa-settings-goal',role:'group','aria-label':'出击装备借用'},
+            ...[[true,'允许借用'],[false,'不借用']].map(([id,label])=>h('button',{key:String(id),type:'button','aria-pressed':group.allowEquipmentBorrowing===id,disabled,
+              onClick:()=>{if(!disabled&&group.allowEquipmentBorrowing!==id)return change('allowEquipmentBorrowing',id);}},label))),feedback(React,feedbacks[kind+'.allowEquipmentBorrowing']))):
           h('div',{className:'paa-selection-count'},h('span',{className:'paa-settings-label'},h('span',null,'默认目标')),h('span',{className:'paa-settings-value'},
             h('div',{className:'paa-exp-goal paa-settings-goal',role:'group','aria-label':'远征默认目标'},
               ...[['great','优先大成功'],['success','成功即可']].map(([id,label])=>h('button',{key:id,type:'button','aria-pressed':group.defaultGoal===id,disabled,

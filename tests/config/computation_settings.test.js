@@ -100,7 +100,7 @@ test('global recommendation reset persists four sections together and preserves 
   const storageDir=directory(t),service=new FleetAdvisorService({storageDir,getStore:require('../helpers/workbench_fixture'),controller:{dispose(){}}});
   try{
     service.mcpEnabled=true;service.httpPort=49999;
-    service.setRecommendationFilters({normal:{minLevel:70,maxRoutes:9},expedition:{defaultGoal:'success',minLevel:50,excludeUnremodeled:true}});
+    service.setRecommendationFilters({normal:{minLevel:70,allowEquipmentBorrowing:false},expedition:{defaultGoal:'success',minLevel:50,excludeUnremodeled:true}});
     await service.setComputationSettings({threads:8,expeditionThreads:1,cacheLimitMiB:128});
     const beforeFilters=service.getRecommendationFilters(),beforeCompute=service.getComputationSettings(),persist=service.persist.bind(service);
     service.persist=()=>{throw Error('只读');};

@@ -326,7 +326,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const {changeSummary,rows,rowById,expeditionStatus,mission,map,expedition,rate,income,dirty,overview,mapProfile,speedReading,speedRequirement,mechanisms,threat,progress,routeOptions,selectedRoute,arrival,routeRequirements,routeSearchFailed,reasons,checks,summary}=data||{rows:[],dirty:false,routeOptions:[]};
     React.useEffect(()=>{
       if(!paused&&!resumePending.current&&kind==='normal'&&mapRoute&&!routeOptions.some(o=>o.key===mapRoute))setMapRoute('');
-    },[paused,kind,area,target,phase,selectionSettings?.maxRoutes,mapRoute,store.info?.maps]);
+    },[paused,kind,area,target,phase,mapRoute,store.info?.maps]);
     const calculating=working||(!hidden&&dirty&&rows.length>0);
     const cardActivity=working?({complete:'补全中',route:'切换路线中',equipment:'调整装备中'})[activity]:null;
     const resultsPending=!busy&&(working&&['complete','route','equipment'].includes(activity)||dirty&&rows.length>0);

@@ -18,6 +18,21 @@ function state(){
 const temp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'paa-mcp-test-'));
 const clean=dir=>{if(!path.resolve(dir).startsWith(path.resolve(os.tmpdir())+path.sep))throw Error('unsafe test cleanup');fs.rmSync(dir,{recursive:true,force:true});};
 
+test('equipment queries allow borrowing from repair docks without making repairing hulls available',()=>{
+  const store=state();
+  store.info.ships[2]={...store.info.ships[1],api_id:2,api_slot:[102,-1],api_slot_ex:103,api_situation:2};
+  store.info.repairs=[{api_ship_id:2}];
+  const snapshots=new Snapshots(()=>store);
+  let snapshotId=snapshots.create().snapshotId;
+  const query=()=>snapshots.queryEquipment({snapshotId,targetShipId:1,slot:0,location:'ship',availableOnly:true,limit:100});
+  for(const id of [102,103]){
+    const item=query().items.find(item=>item.instanceId===id);
+    assert(item?.sourceAvailable);assert(item.equipable);assert.equal(item.sourceShipId,2);
+  }
+  store.info.fleets.push({api_ship:[2],api_mission:[1]});snapshotId=snapshots.create().snapshotId;
+  assert(!query().items.some(item=>[102,103].includes(item.instanceId)),'expedition overrides repair lending');
+});
+
 test('execution timeout diagnostics survive the service job record without changing the thrown error',async()=>{
   const dir=temp(),{observationTimeout}=require('../../src/execution/observation_diagnostics');
   const failure=observationTimeout('batch',{checks:[{kind:'equipmode'}]},

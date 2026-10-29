@@ -200,7 +200,7 @@ class FleetAdvisorService {
     for(const [kind,group]of Object.entries(value||{})){
       if(!selectionFilters.DEFAULTS[kind]||!group||typeof group!=='object')throw error('INVALID_QUERY','无效的推荐设置');
       for(const [key,v]of Object.entries(group)){
-        if(!(key in selectionFilters.DEFAULTS[kind])||(key==='defaultGoal'?!['great','success'].includes(v):key==='maxRoutes'?(!Number.isInteger(v)||v<1||v>20):key==='minLevel'?(!Number.isInteger(v)||v<0||v>999):typeof v!=='boolean'))
+        if(!(key in selectionFilters.DEFAULTS[kind])||(key==='defaultGoal'?!['great','success'].includes(v):key==='minLevel'?(!Number.isInteger(v)||v<0||v>999):typeof v!=='boolean'))
           throw error('INVALID_QUERY','无效的排除选项：'+key);
       }
     }
@@ -341,7 +341,7 @@ class FleetAdvisorService {
   }
   async recommendNormalEquipment(args){
     const snapshot=this.snapshots.get(args.snapshotId);
-    args=this.equipmentRecommendationArgs(snapshot.store,args);
+    args={...this.equipmentRecommendationArgs(snapshot.store,args),automaticFilters:this.getRecommendationFilters().normal};
     const result=pageQueries.verifyConstraints(await this.recommendations.run('recommendNormalEquipment',snapshot.store,args),args,true);
     return {snapshotId:args.snapshotId,...result,evaluation:pageQueries.evaluateRoute(snapshot.store,
       {...args,scheme:result.scheme,fleet:result.scheme.fleet},this.getRecommendationFilters().normal)};

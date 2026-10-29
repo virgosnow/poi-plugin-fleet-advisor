@@ -16,7 +16,7 @@ function aviationFixture(escorts=[13,14]){
 const scheme=ids=>({fleet:1,ships:ids.map(id=>({id,slots:[-1,-1],ex:-1}))});
 test('1-4 preset identities bind their reviewed hulls and never include the I detour',()=>{
  const catalog=plans.routeOptions('1-4'),options=catalog.filter(o=>o.recommend!==false);
- assert.equal(options.length,6);assert.equal(plans.recommendedOptions('1-4').length,5);
+ assert.equal(options.length,6);assert.equal(plans.recommendedOptions('1-4').length,6);
  for(const option of options){assert.equal(option.label,option.name+`（${option.pathLabel}）`);assert(option.templates.length);assert(option.paths.every(p=>!p.includes('I')&&p.at(-1)==='L'));}
  const carrier=carrierOption();assert.equal(carrier.pathLabel,'A/B→D→E→H→L');
  const ships=types=>({ships:types.map(stype=>({stype,name:'测试舰',openingTorpedo:[4,13,14].includes(stype)}))});

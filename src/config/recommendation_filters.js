@@ -1,14 +1,13 @@
 'use strict';
 // Preferences affect automatic selection, never the user's explicit draft.
 const DEFAULTS={
-  normal:{maxRoutes:5,minLevel:30,excludeUnremodeled:true,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeHeavyDamage:true,excludeFatigued:true},
+  normal:{allowEquipmentBorrowing:true,minLevel:30,excludeUnremodeled:true,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeHeavyDamage:true,excludeFatigued:true},
   expedition:{defaultGoal:'great',minLevel:0,excludeUnremodeled:false,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeFirstFleet:true},
 };
 function normalizeGroup(kind,value={}){
   const defaults=DEFAULTS[kind],out={};
   for(const [key,fallback]of Object.entries(defaults))out[key]=key==='defaultGoal'?
-    (['great','success'].includes(value?.[key])?value[key]:fallback):key==='maxRoutes'?
-    (Number.isInteger(value?.[key])&&value[key]>=1&&value[key]<=20?value[key]:fallback):key==='minLevel'?
+    (['great','success'].includes(value?.[key])?value[key]:fallback):key==='minLevel'?
     (Number.isInteger(value?.[key])&&value[key]>=0&&value[key]<=999?value[key]:fallback):
     (typeof value?.[key]==='boolean'?value[key]:fallback);
   return out;
@@ -41,7 +40,13 @@ function evaluator(store,kind,value){
 // private calculation copy is released; live preview/execution stays strict.
 function planningStore(store,settings){
   if(settings.excludeExpedition&&settings.excludeRepairing)return store;
-  return {...store,info:{...store.info,
+  // Including expedition hulls for future planning never makes their gear
+  // borrowable. Repairing ships, in contrast, can lend their equipment.
+  const busy=new Set((store.info.fleets||[]).filter(f=>Number(f.api_mission?.[0]||0)!==0).flatMap(f=>f.api_ship||[]));
+  const locked=new Set(store.planningUnavailableEquipmentIds||[]);
+  for(const [id,ship]of Object.entries(store.info.ships))if(busy.has(Number(id)))
+    for(const item of [...(ship.api_slot||[]),ship.api_slot_ex])if(item>0)locked.add(item);
+  return {...store,planningUnavailableEquipmentIds:[...locked],info:{...store.info,
     fleets:settings.excludeExpedition?store.info.fleets:store.info.fleets.map(f=>({...f,api_mission:[0,0,0]})),
     repairs:settings.excludeRepairing?store.info.repairs:[],
     ships:settings.excludeRepairing?store.info.ships:Object.fromEntries(Object.entries(store.info.ships).map(([id,s])=>[id,{...s,api_situation:s.api_situation===2?0:s.api_situation}]))}};

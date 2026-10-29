@@ -218,7 +218,7 @@ test('home resets all draft instances and inline execution feedback preserves st
 });
 
 test('home remounts every workbench while preserving all global settings and the computation settings instance',()=>{
-  const filters=require('../../src/config/recommendation_filters').normalize({normal:{minLevel:77,maxRoutes:3},expedition:{minLevel:22,excludeUnremodeled:true}});
+  const filters=require('../../src/config/recommendation_filters').normalize({normal:{minLevel:77,allowEquipmentBorrowing:false},expedition:{minLevel:22,excludeUnremodeled:true}});
   const computation={threads:8,resultCache:false,calculationCache:true,cacheLimitMiB:256},cache={results:{bytes:1234,files:2},calculations:{bytes:5678,files:3}};
   const savedSchemes=[{name:'保留的编成',scheme:{fleet:3,ships:[{id:2}]}}],mutations=[];
   const forbid=name=>()=>{mutations.push(name);throw Error('Home must not modify '+name);};

@@ -70,7 +70,7 @@ async function restoreEquipment(session,scheme) {
         const checkSource=()=>{
           const source=planner.sourceMap()[op.id];
           if(op.source) {
-            if(!source||source.shipId!==op.source.shipId||source.j!==op.source.j||!planner.availableShip(source.shipId)
+            if(!source||source.shipId!==op.source.shipId||source.j!==op.source.j||!planner.availableEquipmentSource(source.shipId)
               ||!planner.sameState(planner.currentState(source.shipId),op.source.before))throw new Error('Borrow source changed');
           } else if(planner.occupiedMap()[op.id])throw new Error('Equipment is occupied');
         };

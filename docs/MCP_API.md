@@ -247,7 +247,7 @@ Effect: **read-only**.
 
 #### `fleet_advisor_query_equipment`
 
-Page individual owned equipment instances: owners, stats, stars and proficiency. targetShipId/slot tests equippability. Does not merge instances.
+Page individual owned equipment instances: owners, stats, stars and proficiency. sourceAvailable includes equipment worn by repairing ships; expedition and airbase equipment remain unavailable. targetShipId/slot tests equippability. This is item availability, not permission to deploy a repairing hull or override the recommendation borrowing preference. Does not merge instances.
 
 Effect: **read-only**.
 
@@ -439,7 +439,7 @@ Effect: **read-only**.
 
 #### `fleet_advisor_recommend_normal_fleet`
 
-Recommend hulls/equipment with the page search. Defaults to route-based search and airGoal=superiority. routeResults include notFound diagnostics and probabilities. routeKey restricts the exact route. Honors sortie filters/locks. Bounded search, not global optimization or victory guarantee.
+Recommend hulls/equipment for every curated route in the requested map/stage; no route-count cap. airGoal defaults to superiority. routeResults include notFound diagnostics and probabilities. routeKey restricts the exact route. Honors saved sortie filters/locks and equipment borrowing: when disabled, use only unequipped inventory and equipment owned by ships in each proposed fleet, including expansion slots. Clients cannot override this setting. Bounded search, not global optimization or victory guarantee.
 
 Effect: **read-only**.
 
@@ -458,7 +458,7 @@ Effect: **read-only**.
 
 #### `fleet_advisor_recommend_normal_equipment`
 
-Refit only equipment for supplied hulls/order and map/route. Starts unlocked slots empty, retains heldSlots.keep. Returns full scheme and route assessment; can fail if hulls cannot meet the route. No game change.
+Refit only equipment for supplied hulls/order and map/route. Starts unlocked slots empty, retains heldSlots.keep. Honors the saved sortie equipment-borrowing setting: when disabled, only unequipped inventory and equipment owned by the supplied hulls can be used. A held item from another ship is a conflict; do not silently discard it. Returns full scheme and route assessment; can fail if hulls cannot meet the route. No game change.
 
 Effect: **read-only**.
 

@@ -774,7 +774,7 @@ test('all-route diagnostics list later blockers too, with full LoS and hull cond
 
 test('phase-less route selection exposes and previews the correct 7-3 gauge',()=>{
   const W=require('../../../src/ui/workbench/workbench_model'),overview=W.mapOverview('7-3','boss',undefined,undefined,{info:{maps:{73:{api_gauge_num:2}}}});
-  assert.deepEqual(overview.options.map(r=>r.phase),['gauge1','gauge2','gauge2','gauge2','gauge2']);
+  assert.deepEqual(overview.options.map(r=>r.phase),['gauge1','gauge1','gauge1','gauge2','gauge2','gauge2','gauge2']);
   for(const option of overview.options){
     const profile=W.selectedMapProfile(overview,option.key);
     assert(profile.routePaths.some(p=>p.nodes.join('>')===option.nodes.join('>')));

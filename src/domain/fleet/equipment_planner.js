@@ -58,8 +58,13 @@ function createEquipmentPlanner(getStore) {
     }
     return sources;
   }
+  // Repairing hulls cannot be refitted directly, but other ships can take
+  // their equipment through the game's "other ships' equipment" picker.
+  function availableEquipmentSource(sid) {
+    return !!info().ships[sid]&&!info().fleets.some(f=>f.api_ship.includes(sid)&&f.api_mission[0]!==0);
+  }
   function availableShip(sid) {
-    return !info().fleets.some(f=>f.api_ship.includes(sid)&&f.api_mission[0]!==0)
+    return availableEquipmentSource(sid)
       && info().ships[sid].api_situation!==2
       && !(info().repairs||[]).some(d=>Number(typeof d==='object'?d.api_ship_id:d)===sid);
   }
@@ -125,6 +130,7 @@ function createEquipmentPlanner(getStore) {
     const plan = {fleet, fleetShips:options.fleetShips||fleetShipIds(fleet), ships:[], expected:[], notes:[]};
     const sources=sourceMap();
     const free = snapshotMemo(store(),'equipmentPlanningFree','all',()=>new Set(freeListAll().map(x => x.id))), seenShips = new Set(), requests = [];
+    const unavailable=new Set(store().planningUnavailableEquipmentIds||[]);
     const concreteIds=options.projectionOnly?new Set():null;
     const drafts = scheme.ships.map(raw => {
       const sh = typeof raw === 'number' ? {id:raw} : typeof raw === 'string' ? {name:raw} : raw;
@@ -158,9 +164,9 @@ function createEquipmentPlanner(getStore) {
           if(concreteIds){
             // Every slot is explicit in a search projection: there is no name
             // choice or implicit retained slot to solve by bipartite matching.
-            if(!(free.has(spec)||owned.has(spec)||sources[spec]&&availableShip(sources[spec].shipId))||
+            if(unavailable.has(spec)||!(free.has(spec)||owned.has(spec)||sources[spec]&&availableEquipmentSource(sources[spec].shipId))||
               !canEquip(sid,spec,j)||!(owned.has(spec)||!sources[spec]||R.acceptsOtherSlot(store(),sid,spec,j)))
-              throw new Error('无可用装备(排除基地、远征和修理中来源): '+spec);
+              throw new Error('无可用装备(排除基地和远征中来源): '+spec);
             if(concreteIds.has(spec))throw new Error('装备数量不足或实例重复，无法一对一分配');
             concreteIds.add(spec);
             if(j==='ex')want.ex=spec;else want.slots[j]=spec;
@@ -177,10 +183,10 @@ function createEquipmentPlanner(getStore) {
               (obj.alv === undefined || Number(e.api_alv || 0) === obj.alv);
           });
         }
-        candidates = candidates.filter(id => (free.has(id) || owned.has(id) || sources[id]&&availableShip(sources[id].shipId))
+        candidates = candidates.filter(id => !unavailable.has(id)&&(free.has(id) || owned.has(id) || sources[id]&&availableEquipmentSource(sources[id].shipId))
           &&canEquip(sid,id,j)&&(owned.has(id)||!sources[id]||R.acceptsOtherSlot(store(),sid,id,j)));
         candidates.sort((a,b) => (b===current)-(a===current) || Number(free.has(b))-Number(free.has(a)) || Number(owned.has(b))-Number(owned.has(a)) || Number(info().equips[a].api_level || 0)-Number(info().equips[b].api_level || 0) || Number(info().equips[a].api_alv || 0)-Number(info().equips[b].api_alv || 0) || a-b);
-        if (!candidates.length) throw new Error('无可用装备(排除基地、远征和修理中来源): '+JSON.stringify(spec));
+        if (!candidates.length) throw new Error('无可用装备(排除基地和远征中来源): '+JSON.stringify(spec));
         requests.push({draft,j,candidates});
       }
       (sh.slots || []).forEach((spec,j) => request(spec,j)); request(sh.ex,'ex');
@@ -291,7 +297,7 @@ function createEquipmentPlanner(getStore) {
             const at=state.slots.indexOf(id),ex=state.ex===id;
             if(at<0&&!ex)continue;
             if(sid===d.shipId)throw new Error('内部规划未先卸下本舰装备: '+id);
-            if(!availableShip(sid))throw new Error('来源舰不可借用: '+sid);
+            if(!availableEquipmentSource(sid))throw new Error('来源舰不可借用: '+sid);
             const source={shipId:sid,j:ex?'ex':at,before:copy(state)};
             const changed=writable(sid);
             if(ex)changed.ex=-1;else{changed.slots.splice(at,1);changed.slots.push(-1);}
@@ -346,7 +352,7 @@ function createEquipmentPlanner(getStore) {
   occupiedMap=indexed('occupied',occupiedMap);
   sourceMap=indexed('sources',sourceMap);
   freeListAll=indexed('free',freeListAll);
-  return {resolvePlan,currentState,sameState,occupiedMap,sourceMap,availableShip,otherPickerList,freeListAll,freePickerList,t3of,canEquip,categoryFor,categoryAccepts,get groupDefs(){return groupDefs();}};
+  return {resolvePlan,currentState,sameState,occupiedMap,sourceMap,availableShip,availableEquipmentSource,otherPickerList,freeListAll,freePickerList,t3of,canEquip,categoryFor,categoryAccepts,get groupDefs(){return groupDefs();}};
 }
 module.exports={createEquipmentPlanner,withEquipmentIndexCache,snapshotMemo,
   hasEquipmentIndexCache:snapshot=>indexScopes.has(snapshot)};

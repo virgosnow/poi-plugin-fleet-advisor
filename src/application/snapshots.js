@@ -160,7 +160,7 @@ class Snapshots {
     const planner=createEquipmentPlanner(()=>s);
     const rows=Object.entries(s.info.equips).map(([key,item])=>{
       const id=Number(key),master=s.const.$equips[item.api_slotitem_id]||{},source=owners.get(id)||{location:'free'};
-      const sourceAvailable=source.location==='free'||source.location==='ship'&&planner.availableShip(source.sourceShipId);
+      const sourceAvailable=source.location==='free'||source.location==='ship'&&planner.availableEquipmentSource(source.sourceShipId);
       const row={instanceId:id,masterId:Number(item.api_slotitem_id),name:master.api_name||'',
         type:Number(master.api_type?.[2])||null,iconType:Number(master.api_type?.[3])||null,
         improvement:Number(item.api_level)||0,proficiency:Number(item.api_alv)||0,
