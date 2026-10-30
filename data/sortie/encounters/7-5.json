@@ -3492,7 +3492,8 @@
               "enemyAirPower": 264,
               "enemyAirPowerNote": null,
               "airStatus": "verified",
-              "airSuperiority": 394,
+              "airSuperiority": 396,
+              "airSuperioritySourceNote": "日文 Wiki 原表记为 394；按敌制空 264×1.5 修正为 396，与中文 Wiki 一致。",
               "airSupremacy": 792,
               "hqLevelRange": null,
               "appearanceRate": null,
@@ -3883,7 +3884,7 @@
   },
   "validation": [
     {
-      "severity": "sourceConflict",
+      "severity": "corrected",
       "kind": "airLineInconsistency",
       "node": "R",
       "pattern": 4,
@@ -3891,7 +3892,9 @@
       "recorded": 394,
       "expected": 396,
       "enemyAirPower": 264,
-      "message": "空优线 394 与敌制空 264×1.5=396 不符；保留原值并标注，待核查"
+      "message": "日文 Wiki 原表记为 394；根据敌制空 264 计算及中文 Wiki 记载修正为 396。",
+      "verifiedSource": "https://zh.kcwiki.cn/wiki/7-5",
+      "verifiedAt": "2026-10-30"
     }
   ],
   "coverageCheck": {
@@ -3977,7 +3980,8 @@
               "飛行場姫(陸爆弱)"
             ],
             "formation": "輪形陣",
-            "air": null,
+            "air": 335,
+            "airSourceNote": "中文 Wiki 深海配置；2026-10-30 复核。",
             "exp": null,
             "finalForm": null
           },
@@ -3992,7 +3996,8 @@
               "飛行場姫(陸爆弱)"
             ],
             "formation": "輪形陣<br>輪形陣",
-            "air": null,
+            "air": 200,
+            "airSourceNote": "中文 Wiki 深海配置；2026-10-30 复核。",
             "exp": null,
             "finalForm": null
           },
@@ -4007,7 +4012,8 @@
               "飛行場姫(陸爆弱)"
             ],
             "formation": "輪形陣",
-            "air": null,
+            "air": 169,
+            "airSourceNote": "中文 Wiki 深海配置；2026-10-30 复核。",
             "exp": null,
             "finalForm": null
           },
@@ -4020,7 +4026,8 @@
               "飛行場姫(陸爆中)"
             ],
             "formation": "輪形陣",
-            "air": null,
+            "air": 48,
+            "airSourceNote": "中文 Wiki 深海配置；2026-10-30 复核。",
             "exp": null,
             "finalForm": null
           }

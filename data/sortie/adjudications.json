@@ -389,10 +389,12 @@
         "airSuperiority"
       ],
       "wikiwiki": 394,
-      "kcwiki": null,
+      "kcwiki": 396,
       "computed": 396,
-      "status": "pending",
-      "note": "原表自相矛盾：敌制空264×规则值396≠记载394；保留原值待核查"
+      "status": "resolved",
+      "note": "日文 Wiki 原表记为 394；敌制空 264 的空优线应为 396，与中文 Wiki 相符。",
+      "resolvedSource": "https://zh.kcwiki.cn/wiki/7-5",
+      "resolvedAt": "2026-10-30"
     },
     {
       "area": "7-5",

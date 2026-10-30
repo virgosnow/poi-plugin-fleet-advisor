@@ -19,6 +19,22 @@ test('3-5 uses the same generic node calculation for both routes',()=>{
   assert.deepEqual(['FGK','BDHK'].map(path=>reference('3-5',path).superiority),[35,381]);
 });
 
+test('7-5 includes both sourced air raid variants and the corrected R air line',()=>{
+  const a=reference('7-5','A'),r=reference('7-5','R'),q=reference('7-5','Q');
+  assert.equal(a.status,'known');assert.deepEqual([a.enemyAirPower,a.superiority,a.supremacy],[335,503,1005]);
+  assert.equal(r.status,'known');assert.deepEqual([r.enemyAirPower,r.superiority,r.supremacy],[264,396,792]);
+  assert.equal(q.status,'known');assert.deepEqual([q.enemyAirPower,q.superiority,q.supremacy],[114,171,342]);
+  const source=require('../../../data/sortie/encounters/7-5.json');
+  assert.deepEqual(source.crossCheck.nodes.A.kcwikiVariants.map(v=>v.air),[335,200,169,48]);
+  assert.equal(source.nodes.R.phases.base.patterns.find(p=>p.pattern===4).airSuperiority,396);
+  assert.equal(source.validation.find(v=>v.node==='R').recorded,394,'the original wiki value remains traceable');
+  for(const option of require('../../../src/domain/routes/route_plans').recommendedOptions('7-5')){
+    const paths=require('../../../src/domain/routes/route_plans').optionPaths(option);
+    const result=routeAirReference(null,'7-5',{examples:paths});
+    assert.equal(result.status,'known',`${option.phase} ${option.name}: ${result.reason}`);
+  }
+});
+
 test('unselected and unavailable routes cannot fall back to whole-map maxima',()=>{
   const result={airControl:{assessment:{superiority:{required:999}}}};
   assert.equal(routeAirReference(result,'5-4',{}).status,'unselected');
