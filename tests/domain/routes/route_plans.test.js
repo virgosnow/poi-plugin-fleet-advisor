@@ -783,6 +783,19 @@ test('phase-less route selection exposes and previews the correct 7-3 gauge',()=
   }
 });
 
+test('1-6 upper carrier route is available and respects M coefficient-three routing',()=>{
+  const option=routeOptions('1-6','N').find(o=>o.id==='1-6-upper-carriers');
+  assert(option);assert.equal(option.name,'上路双轻母流');
+  assert.deepEqual(option.nodes,['C','H','K','M','J','D','N']);
+  assert(require('../../../src/domain/routes/route_plans').recommendedOptions('1-6','N').some(o=>o.key===option.key));
+  const ships=[7,7,3,2,2,2].map((stype,i)=>({stype,name:'测试舰'+i,instanceId:i+1}));
+  const route=score=>({area:'1-6',targetNodes:['N'],ships,lineOfSight:{status:'computed',rawScoresByCoefficient:{3:score}}});
+  assert(require('../../../src/domain/routes/route_plans').fleetRequirementAssessment(route(30),option).eligible);
+  assert.equal(planningPath(route(30),option.nodes,{allowTentative:false}).chance.probability,1);
+  assert.equal(planningPath(route(27),option.nodes,{allowTentative:false}).chance.probability,0);
+  assert.equal(planningPath(route(29),option.nodes,{allowTentative:false}).chance.probability,.5);
+});
+
 test('7-3 generic five-ship alternatives do not require historical names',()=>{
  for(const id of ['7-3-08','7-3-09']){
   const w=witnesses.find(w=>w.id===id),option=routeOptions('7-3','boss','gauge2').find(o=>o.id===id);

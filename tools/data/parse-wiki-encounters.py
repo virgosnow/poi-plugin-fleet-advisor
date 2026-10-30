@@ -319,6 +319,13 @@ def parse_enemy_fold(section, area, source_info, routes):
         rates = entry.pop('_rates', None)
         constraint = entry.pop('_avail_constraint', None)
         entry.pop('_row', None)
+        # Some tables describe the point as a goal in the header but place
+        # "no battle" and its resource reward in the effect cell. The header
+        # alone otherwise defaults to battle. Never override an actual enemy
+        # formation or an explicitly classified aerial/recon/resource point.
+        effect = (entry.get('effect') or {}).get('raw', '')
+        if entry['kind'] == 'battle' and not entry['phases'] and '戦闘なし' in effect:
+            entry['kind'] = 'resources' if '入手' in effect and re.search(r'燃料|弾薬|鋼材|ボーキ', effect) else 'noBattle'
         if rates and rates['scoped']:
             entry['appearanceRates'] = rates['scoped']
         if constraint is not None:

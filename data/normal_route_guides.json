@@ -1605,7 +1605,7 @@
       "routes": [
         {
           "id": "1-6-01",
-          "name": "水雷护航流",
+          "name": "下路水雷护航流",
           "nodes": [
             "A",
             "E",
@@ -1678,7 +1678,7 @@
         },
         {
           "id": "1-6-04",
-          "name": "海防护航流",
+          "name": "下路海防护航流",
           "nodes": [
             "A",
             "E",
@@ -1756,6 +1756,25 @@
           "summary": "两海防改善反潜可实现性，但会降低 F/B 的耐久和水面输出。",
           "priority": "备用",
           "key": "guide:1-6-04"
+        },
+        {
+          "id": "1-6-upper-carriers",
+          "name": "上路双轻母流",
+          "nodes": ["C", "H", "K", "M", "J", "D", "N"],
+          "paths": [["C", "H", "K", "M", "J", "D", "N"]],
+          "pathLabel": "C→H→K→M→J→D→N",
+          "templates": [[[7], [7], [3], [2], [2], [2]]],
+          "fleetRequirement": {
+            "all": [
+              {"shipCount": {"exact": 6}},
+              {"count": {"stypes": [7], "exact": 2}},
+              {"count": {"stypes": [3], "exact": 1}},
+              {"count": {"stypes": [2], "exact": 3}}
+            ]
+          },
+          "summary": "双轻母争取制空，轻巡和驱逐兼顾先制对潜；M 点系数 3 索敌至少 30 才能固定走 J，航空损耗和消耗高于下路。",
+          "priority": "备用",
+          "key": "guide:1-6-upper-carriers"
         }
       ]
     },

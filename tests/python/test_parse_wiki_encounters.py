@@ -86,6 +86,21 @@ class ParseAirInheritanceTest(unittest.TestCase):
         self.assertEqual(nodes['B']['kind'], 'noBattle')
         self.assertEqual(nodes['B']['effect']['raw'], '敵影を見ず。')
 
+    def test_goal_effect_sets_resource_kind_only_when_no_enemy_formation(self):
+        fold = FOLD.replace('B：戦闘なし|||敵影を見ず。',
+                            'B：ゴール地点|||燃料、弾薬のいずれかを入手&br;戦闘なし')
+        nodes = self.parse_patterns(fold)
+        self.assertEqual(nodes['B']['kind'], 'resources')
+        self.assertIn('戦闘なし', nodes['B']['effect']['raw'])
+        fold = FOLD.replace('B：戦闘なし|||敵影を見ず。',
+                            'B：ゴール地点|||到達する&br;戦闘なし')
+        self.assertEqual(self.parse_patterns(fold)['B']['kind'], 'noBattle')
+        fold = FOLD.replace('|A：&br;敵機動部隊|パターン1',
+                            '|A：&br;敵機動部隊|||一部は戦闘なし|||||\n|~|パターン1')
+        nodes = self.parse_patterns(fold)
+        self.assertTrue(nodes['A']['phases'])
+        self.assertEqual(nodes['A']['kind'], 'battle')
+
     def test_post_clear_rates_scope(self):
         nodes = self.parse_patterns(BOSS_FOLD)
         entry = nodes['J']

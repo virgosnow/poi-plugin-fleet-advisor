@@ -49,6 +49,25 @@ test('night-only fights and inherited gun-only enemy formations add no air-state
   assert.equal(reference('1-1','AC').superiority,0);
 });
 
+test('1-6 N is a resource goal without a battle or extra air requirement',()=>{
+  const {previewForMap,consumption}=require('../../../src/domain/routes/sortie_profile');
+  const data=require('../../../data/sortie/encounters/1-6.json'),node=data.nodes.N;
+  assert.equal(node.kind,'resources');assert.match(node.effect.raw,/戦闘なし/);
+  const alone=reference('1-6','N');
+  assert.equal(alone.status,'known');assert.equal(alone.enemyAirPower,0);
+  assert.equal(alone.nodes[0].noAirBattle,true);
+  const before=reference('1-6','AEGFB'),withGoal=reference('1-6','AEGFBN');
+  assert.equal(withGoal.status,before.status);assert.equal(withGoal.superiority,before.superiority);
+  assert(!withGoal.reason?.includes('N 点'));
+  for(const [path,superiority] of [['AEGFBN',83],['CHKMJDN',198],['CHKMLIDN',288]]){
+    const route=reference('1-6',path);assert.equal(route.status,'known',route.reason);
+    assert.equal(route.superiority,superiority);
+  }
+  const map=previewForMap('1-6',{target:'N',paths:[['A','E','G','F','B','N']]});
+  assert.equal(map.mapPreview.nodes.find(n=>n.id==='N').kind,'resources');
+  const resource=consumption(node,'1-6');assert.equal(resource.fuel,0);assert.equal(resource.ammo,null);
+});
+
 test('bounded source discrepancies matter only if they can change the route maximum',()=>{
   const conflict=reference('2-5','C');
   assert.equal(conflict.status,'unknown');assert.equal(conflict.superiority,null);

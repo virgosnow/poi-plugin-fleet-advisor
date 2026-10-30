@@ -3278,7 +3278,7 @@
     },
     "N": {
       "node": "N",
-      "kind": "battle",
+      "kind": "resources",
       "kindRaw": "N：ゴール地点",
       "fleetName": "ゴール地点",
       "boss": false,
