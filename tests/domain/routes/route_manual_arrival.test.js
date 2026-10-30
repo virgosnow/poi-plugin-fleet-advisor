@@ -17,6 +17,17 @@ function sample(w){
 }
 const middle=()=>sample(witnesses.find(w=>w.id==='5-6-17'));
 
+test('single-path speed strategies still prompt for manual exits without phase prose',()=>{
+  const {route,option}=sample(witnesses.find(w=>w.id==='5-6-heavy-fast'));
+  const card=W.routeArrival({route},option,true);
+  const h=(type,props,...children)=>({type,props:props||{},children});
+  const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
+  assert.equal(card.value,'固定到达');
+  const shown=text(require('../../../src/ui/models/route_presentation').arrivalNote(h,card));
+  assert.match(shown,/能动分歧：I 点选 O，O 点选 Q/);
+  assert(!shown.includes('需先击破第二血条'));
+});
+
 test('5-6 middle carrier route follows I-O and O-Q instead of including unchosen manual exits',()=>{
   const {route,option}=middle(),before=JSON.stringify({route,option});
   assert.equal(P.optionPlanning(route,option).chance.probability,1);
@@ -28,6 +39,8 @@ test('5-6 middle carrier route follows I-O and O-Q instead of including unchosen
     assert.equal(card.value,'固定到达');assert.equal(card.tone,'good');
     assert.match(card.note,/I 点选 O，O 点选 Q/);
   }
+  const nonBoss=W.routeArrival({route},{...option,arrivalMode:undefined},true);
+  assert.match(nonBoss.note,/能动分歧：I 点选 O，O 点选 Q/,'manual exit guidance also applies to non-Boss targets');
   assert.equal(JSON.stringify({route,option}),before,'the unselected graph and draft remain unchanged');
 });
 

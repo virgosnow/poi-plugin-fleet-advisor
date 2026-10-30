@@ -404,6 +404,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const field=(label,value,onChange,options,route)=>h('label',{className:'paa-wb-field','data-route-caption':!!route},h('span',null,label),h('select',{'aria-label':label,value,disabled,onChange:e=>onChange(e.target.value)},...options.map(([value,name,optionDisabled])=>h('option',{key:value,value,disabled:optionDisabled},name))),
       route?h('span',{className:'paa-wb-route-caption','aria-hidden':true},h('span',{className:'paa-wb-route-name'},route.name),h('span',{className:'paa-wb-route-path'},`（${route.displayPathLabel||route.strategy?.pathLabel||route.pathLabel||route.nodes.join('→')}）`)):null);
     const normalRouteControl=kind==='normal'?h(RoutePicker,{options:routeOptions,value:mapRoute,area,disabled,hidden,
+      showNext:(!working||activity==='route')&&draftContext===conditionKey&&choices.some(choice=>choice.row&&(choice.phase||'')===(effectivePhase||'')),
       currentPhase:require('../../domain/routes/route_plans').currentPhase(area,store),onChange:value=>{
         if(disabled)return;
         // Clearing the preview is not a request to assemble a default route.
@@ -454,6 +455,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
               h('div',{className:'paa-wb-route-rules-clip'},
               h('div',{key:`${area}:${phase}:${mapRoute}`,className:'paa-wb-route-rules-scroll',role:'region',tabIndex:0,'aria-label':'详细带路规则'},
               selectedRoute?.source?h('a',{href:selectedRoute.source,target:'_blank',rel:'noopener noreferrer'},'攻略来源'):h('small',{className:'paa-muted'},'推定路线'),
+              selectedRoute?.phaseNote?h('small',{className:'paa-muted'},selectedRoute.phaseNote):null,
               h('small',{className:'paa-muted'},'各点从上到下判断；概率判定未命中时继续下一条。随机分岐不保证走所选出口。'),
               ...routeRequirements.map(p=>h('div',{key:p.from},h('strong',null,`${p.from==='start'?'出发点':p.from} → ${p.to}`),
                 p.playerChoice?h('div',{className:'paa-wb-player-choice'},h('span',null,'↔ 能动分歧'),`请在游戏中选择 ${p.to} 点`):null,

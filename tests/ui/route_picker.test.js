@@ -46,3 +46,41 @@ test('other gauges stay folded and cannot be selected until explicitly expanded;
   props.area='7-3';props.options=require('../../src/domain/routes/route_plans').recommendedOptions('7-3');props.value='';props.currentPhase='gauge2';ui.render();
   assert.deepEqual(toggles().map(n=>n.props['aria-expanded']),[true,false],'expansion from another map cannot leak');
 });
+
+test('next-route shortcut stays hidden until enabled and cycles only within the selected gauge',()=>{
+  const options=require('../../src/domain/routes/route_plans').recommendedOptions('5-6'),calls=[];
+  const first=options.filter(o=>o.phase==='gauge1'),third=options.filter(o=>o.phase==='gauge3');
+  const props={area:'5-6',options,value:first.at(-1).key,currentPhase:'gauge3',onChange:key=>calls.push(key)},ui=harness(props);
+  const next=()=>ui.find(n=>n.props['aria-label']==='下一条路线');
+  assert(!next());props.showNext=true;ui.render();assert(next());
+  next().props.onClick();assert.deepEqual(calls,[first[0].key],'wrapping cannot advance to another gauge');
+  props.value=first[0].key;ui.render();next().props.onClick();assert.equal(calls.at(-1),first[1].key);
+  props.value='';ui.render();next().props.onClick();assert.equal(calls.at(-1),third[0].key,'an empty selection starts in the active gauge');
+  props.disabled=true;ui.render();assert(next().props.disabled);const count=calls.length;next().props.onClick();assert.equal(calls.length,count);
+  props.disabled=false;props.hidden=true;ui.render();next().props.onClick();assert.equal(calls.length,count);
+});
+
+test('next-route shortcut safely handles one route or an empty catalogue and closes a popup on switching',()=>{
+  const only={key:'only',name:'唯一路线',nodes:['A','B']},calls=[];
+  const props={options:[only],value:'only',showNext:true,onChange:key=>calls.push(key)},ui=harness(props);
+  const next=()=>ui.find(n=>n.props['aria-label']==='下一条路线');
+  assert(next().props.disabled);next().props.onClick();assert.deepEqual(calls,[]);
+  props.value='';ui.render();assert(!next().props.disabled);ui.open();next().props.onClick();ui.render();
+  assert.deepEqual(calls,['only']);assert(!ui.find(n=>n.props.role==='dialog'));
+  props.options=[];ui.render();assert(next().props.disabled);next().props.onClick();assert.equal(calls.length,1);
+});
+
+test('popup grid navigation follows its columns and skips folded stages',()=>{
+  const options=require('../../src/domain/routes/route_plans').recommendedOptions('5-6');
+  const ui=harness({options,value:'',currentPhase:'gauge3',onChange:()=>{}});ui.open();
+  const anchor=ui.find(n=>n.props.className==='paa-area-anchor'),focused=[];
+  const rows=Array.from({length:6},(_,i)=>({focus:()=>focused.push(i),closest:()=>grid}));
+  const grid={querySelectorAll:()=>rows,ownerDocument:{defaultView:{getComputedStyle:()=>({gridTemplateColumns:'200px 200px'})}}};
+  const ref=anchor.props.ref;ref.current={};
+  const folded={focus:()=>assert.fail('folded phase received focus'),closest:selector=>selector==='[aria-hidden=true]'?{}:null};
+  const section=ui.find(n=>n.props.role==='dialog');section.props.ref.current={querySelectorAll:()=>[...rows,folded]};
+  rows.forEach(row=>{row.closest=selector=>selector==='.paa-route-options'?grid:null;});
+  const press=(key,target)=>anchor.props.onKeyDown({key,target,preventDefault(){}});
+  press('ArrowDown',rows[0]);press('ArrowUp',rows[4]);press('ArrowRight',rows[1]);press('ArrowLeft',rows[2]);press('End',rows[2]);
+  assert.deepEqual(focused,[2,2,2,1,5]);
+});

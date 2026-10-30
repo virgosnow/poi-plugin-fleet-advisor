@@ -54,7 +54,8 @@ test('2-3 submarine resource branches share one guide with all four journeys and
   close(P.optionPlanning(route,selected).chance.probability,.138775);
   close(route.probability,.7607275);
   const card=W.routeArrival({route},selected,true);
-  assert.match(card.note,/所选合流路线/);assert.match(card.label,/最终抵达/);
+  assert.match(card.note,/所选合流路线/);assert.equal(card.label,'按既定路线抵达目标');
+  assert.match(card.note,/总到达概率包含其他可抵达目标的分支/);
   assert.notEqual(card.value,'固定到达');
 });
 
@@ -70,7 +71,7 @@ test('2-3 all-submarine preset includes every viable Boss journey and its comple
   assert.equal(reachable.length,8);assert.deepEqual(P.optionPaths(selected).map(p=>p.join('>')).sort(),reachable);
   close(P.optionPlanning(route,selected).chance.probability,.7607275);
   const card=W.routeArrival({route},selected,true);
-  assert.equal(card.value,'到达概率 76.1%');assert.equal(card.label,'最终抵达 Boss');
+  assert.equal(card.value,'到达概率 76.1%');assert.equal(card.label,'按既定路线抵达目标');
   assert.equal(card.noteLines.filter(r=>r.nodes).length,8);assert.deepEqual(card.warnings,[]);
 });
 

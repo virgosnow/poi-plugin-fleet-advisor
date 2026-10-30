@@ -690,7 +690,8 @@ test('branch arrival uses all exits of the same fleet, separately from the highl
     const selected=options.find(o=>Math.abs(planningPath(route,o.nodes).chance.probability-pathProbability)<1e-9);assert(selected);
     const card=W.routeArrival({route},selected,true);
     assert.equal(card.value,area==='1-4'?'固定到达':'到达概率 96.9%');
-    assert.equal(card.label.includes('含其他分支'),area!=='1-4');assert(card.note.includes(`${pathProbability*100}%`));
+    assert.equal(card.label,'按既定路线抵达目标');
+    assert.match(card.note,/总到达概率包含其他可抵达目标的分支/);assert(card.note.includes(`${pathProbability*100}%`));
     assert.equal(W.routeArrival({route},options[0],false).value,'待核对编成');
     assert.equal(W.routeArrival({route:{...route,probability:null}},options[0],true).value,'到达率待确认');
     const blocked=options.find(o=>planningPath(route,o.nodes).chance.probability===0);

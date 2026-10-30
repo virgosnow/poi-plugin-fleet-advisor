@@ -270,35 +270,35 @@ function displayThreat(profile,nodeId){
     status:node?.threatStatus||'unknown',kind:node?.kind,warnings:node?.dataWarnings||[],
     enemies:(node?.enemyFamilies||node?.enemies||[]).map(e=>({...e,nodes:[nodeId]}))};
 }
-function bossArrivalLabel(total,selectedProbability){
-  const otherBranches=Number.isFinite(total)&&Number.isFinite(selectedProbability)&&total-selectedProbability>1e-9;
-  return total!==1&&otherBranches?'最终抵达 Boss（含其他分支）':'最终抵达 Boss';
-}
 function routeArrival(report,selected,ready,target='boss'){
   const result=routeArrivalResult(report,selected,ready,target);
   return selected?.phaseNote?withArrivalNotes(result,
-    [{text:selected.phaseNote},...(result.noteLines||(result.note?[{text:result.note}]:[]))]):result;
+    [{kind:'phase',text:selected.phaseNote},...(result.noteLines||(result.note?[{text:result.note}]:[]))]):result;
 }
 function routeArrivalResult(report,selected,ready,target='boss'){
-  const label=target==='boss'?'沿所选路线抵达 Boss':`沿所选路线抵达 ${target}`;
+  const label='按既定路线抵达目标';
   if(!selected)return {label,value:'请选择路线',note:'',tone:'pending',warnings:[]};
   if(!ready||!report.route)return {label,value:'待核对编成',note:'',tone:'pending',warnings:[]};
   const plans=require('../../domain/routes/route_plans'),route=report.route,nodes=selected.nodes;
   const fleet=plans.fleetRequirementAssessment(route,selected);
-  if(!fleet.eligible)return {label:'攻略编成要求',value:'编成条件未满足',note:fleet.description,tone:'warning',warnings:plans.routeDiagnostics(route,selected).warnings};
+  if(!fleet.eligible)return {label,value:'编成条件未满足',note:fleet.description,tone:'warning',warnings:plans.routeDiagnostics(route,selected).warnings};
   const strategy=plans.strategyAssessment(route,selected);
   if(strategy&&(selected.strategy.requireFixedArrival!==false||!strategy.eligible)){
     const speedNames={slow:'低速',fast:'高速',fastPlus:'高速＋',fastest:'最速'};
     const branches=strategy.branches.filter(b=>b.probability>0).map(b=>`${b.nodes[1]} 路 ${Math.round(b.probability*100)}%`).join(' / ');
-    const notes=strategy.eligible?(selected.strategy.arrivalNote?[{text:selected.strategy.arrivalNote.replace('{branches}',branches)}]:
-      strategy.branches.filter(b=>b.probability>0).sort((a,b)=>b.probability-a.probability).map(b=>({nodes:b.nodes,value:`${Math.round(b.probability*1000)/10}%`}))):
+    const manual=strategy.eligible?plans.bossArrivalChance(route,selected).playerChoices:[];
+    const notes=strategy.eligible?[
+      ...(selected.strategy.arrivalNote?[{text:selected.strategy.arrivalNote.replace('{branches}',branches)}]:[]),
+      ...strategy.branches.filter(b=>b.probability>0).sort((a,b)=>b.probability-a.probability).map(b=>({nodes:b.nodes,probability:b.probability,value:`${Math.round(b.probability*1000)/10}%`})),
+      ...(manual.length?[{text:`能动分歧：${manual.map(p=>`${p.from} 点选 ${p.to}`).join('，')}`}]:[])]:
       [{text:`需全队${speedNames[selected.strategy.minimumSpeed]}统一${selected.strategy.radarCarriers?`、至少 ${selected.strategy.radarCarriers} 艘携带电探`:''}；当前速力：${speedNames[route.speed?.fleetSpeed]||'待确认'}。请补全或调整舰娘及提速装备。`}];
-    return withArrivalNotes({label:'按所选流派抵达 Boss',value:strategy.eligible?'固定到达':route.speed?.status==='unknown'?'条件待确认':'流派条件未满足',
+    return withArrivalNotes({label,value:strategy.eligible?'固定到达':route.speed?.status==='unknown'?'条件待确认':'流派条件未满足',
       tone:strategy.eligible?'good':'warning',warnings:strategy.eligible?[]:plans.routeDiagnostics(route,selected).warnings},notes);
   }
   if(selected.paths){
     const grouped=plans.optionPlanning(route,selected),probability=grouped.chance.probability;
     const arrival=selected.arrivalMode==='boss'?plans.bossArrivalChance(route,selected):null;
+    const manual=(arrival||plans.bossArrivalChance(route,selected)).playerChoices;
     const total=arrival?arrival.probability:probability;
     const percent=n=>`${Math.round(n*1000)/10}%`;
     const branches=grouped.branches.filter(b=>b.chance.max>0);
@@ -306,14 +306,14 @@ function routeArrivalResult(report,selected,ready,target='boss'){
     // Keep actual blockers and unknown conditions in the warning area.
     const warnings=probability===1?[]:plans.routeDiagnostics(route,selected).points
       .filter(point=>!branches.length||point.status!=='random').map(point=>point.summary);
-    return withArrivalNotes({label:selected.arrivalMode==='boss'?bossArrivalLabel(total,probability):'沿所选流派抵达 Boss',
+    return withArrivalNotes({label,hasOtherBranches:Number.isFinite(total)&&Number.isFinite(probability)&&total-probability>1e-9,
       value:total===1?'固定到达':total===0?'无法抵达 Boss':Number.isFinite(total)?`到达概率 ${percent(total)}`:'到达率待确认',
       tone:total===1?'good':'warning',unreachable:total===0,warnings},
-      [{text:probability===0?'当前编成无法走所选路线':selected.arrivalMode==='boss'?`所选合流路线 ${probability===null?'概率待确认':percent(probability)}`:'分支在后续节点汇合'},
+      [{kind:'probabilitySummary',text:probability===0?'当前编成无法走所选路线':selected.arrivalMode==='boss'?`所选合流路线 ${probability===null?'概率待确认':percent(probability)}`:'分支在后续节点汇合'},
+        ...(Number.isFinite(total)&&Number.isFinite(probability)&&total-probability>1e-9?[{text:'总到达概率包含其他可抵达目标的分支'}]:[]),
         ...branches.sort((a,b)=>(b.chance.probability??-1)-(a.chance.probability??-1))
-          .map(b=>({nodes:b.nodes,value:b.chance.probability===null?'待确认':percent(b.chance.probability)})),
-        ...(arrival?.playerChoices.length?[{text:`能动分歧：${arrival.playerChoices.map(p=>`${p.from} 点选 ${p.to}`).join('，')}`}]:[]),
-        {text:'不含战斗撤退',muted:true}]);
+          .map(b=>({nodes:b.nodes,probability:b.chance.probability,value:b.chance.probability===null?'待确认':percent(b.chance.probability)})),
+        ...(manual.length?[{text:`能动分歧：${manual.map(p=>`${p.from} 点选 ${p.to}`).join('，')}`}]:[])]);
   }
   const observed=plans.pathChance(route,nodes);
   // Re-evaluate with candidate LoS and known propulsion rules. "Estimated"
@@ -333,10 +333,10 @@ function routeArrivalResult(report,selected,ready,target='boss'){
   if(selected.arrivalMode==='boss'){
     const arrival=plans.bossArrivalChance(route,selected),total=arrival.probability;
     const pathNote=chance.probability===null?'所选路线概率待确认':chance.probability===0?
-      '当前编成无法走所选路线':`所选路线 ${percent(chance.probability)}`;
-    return {label:bossArrivalLabel(total,chance.probability),value:total===1?'固定到达':Number.isFinite(total)?
+      '当前编成无法走所选路线':chance.probability>=1-1e-9?'':`所选路线 ${percent(chance.probability)}`;
+    return {label,hasOtherBranches:Number.isFinite(total)&&Number.isFinite(chance.probability)&&total-chance.probability>1e-9,value:total===1?'固定到达':Number.isFinite(total)?
       total===0?'无法抵达 Boss':`到达概率 ${percent(total)}`:'到达率待确认',
-      note:[pathNote,...(arrival.playerChoices.length?[`能动分歧：${arrival.playerChoices.map(p=>`${p.from} 点选 ${p.to}`).join('，')}`]:[]),'不含战斗撤退'].join('；'),
+      note:[pathNote,...(Number.isFinite(total)&&Number.isFinite(chance.probability)&&total-chance.probability>1e-9?['总到达概率包含其他可抵达目标的分支']:[]),...(arrival.playerChoices.length?[`能动分歧：${arrival.playerChoices.map(p=>`${p.from} 点选 ${p.to}`).join('，')}`]:[])].filter(Boolean).join('\n'),
       tone:total===1?'good':'warning',unreachable:total===0,warnings};
   }
   if(chance.probability===1)return {label,value:'固定到达',note:playerChoice?'能动分岐请按所选路线选择出口':'',tone:'good',warnings};

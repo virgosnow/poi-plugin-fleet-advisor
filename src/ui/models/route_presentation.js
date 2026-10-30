@@ -29,12 +29,22 @@ function routeFormula(option){
 }
 
 function withArrivalNotes(result,noteLines){
+  const branches=noteLines.filter(row=>row.nodes);
+  if(branches.length===1&&Number.isFinite(branches[0].probability)&&branches[0].probability>=1-1e-9)
+    noteLines=noteLines.filter(row=>!row.nodes&&row.kind!=='probabilitySummary');
   return {...result,noteLines,note:noteLines.map(row=>row.nodes?`${row.nodes.join('→')} ${row.value}`:row.text).join('\n')};
 }
 
 function arrivalNote(h,arrival){
   if(!arrival.note)return null;
-  const lines=arrival.noteLines||arrival.note.split('\n').map(text=>({text})),content=[];
+  const allLines=arrival.noteLines||arrival.note.split('\n').map(text=>({text}));
+  const branches=allLines.filter(row=>row.nodes);
+  // A non-certain journey also proves another exit, even when that exit does
+  // not lead to the target and therefore has no row in the goal-path list.
+  const multiple=branches.length>1||arrival.hasOtherBranches||branches.some(row=>Number.isFinite(row.probability)&&row.probability>0&&row.probability<1-1e-9);
+  const lines=allLines.filter(row=>row.kind!=='phase'&&(multiple||/^能动分[歧岐]/.test(row.text||'')));
+  if(!lines.length)return null;
+  const content=[];
   for(let i=0;i<lines.length;i++){
     const row=lines[i];
     if(!row.nodes){content.push(h('small',{key:i,'data-muted':row.muted||undefined},row.text));continue;}

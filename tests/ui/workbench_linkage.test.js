@@ -203,18 +203,26 @@ test('multi-stage completion searches only the selected gauge and caches each ga
   };
   const select=async key=>{await h.control(h.render(),'参考路线').props.onChange({target:{value:key}});h.render();assert.equal(h.get('error'),'');};
   const first=plans.recommendedOptions('5-6','boss','gauge1'),third=plans.recommendedOptions('5-6','boss','gauge3');
-  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  const picker=()=>h.find(h.render(),n=>n.type?.name==='RoutePicker');
+  assert.equal(picker().props.showNext,false,'no shortcut before recommendation');
+  const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert.equal(picker().props.showNext,false,'no shortcut while computing');await pending;
+  assert.equal(picker().props.showNext,true,'all routes in this gauge have finished');
   assert.deepEqual(queries.map(q=>q.phase),['gauge3']);
   assert.equal(h.get('choices').length,third.length);
   assert.equal(h.control(h.render(),'参考路线').props.options.length,plans.recommendedOptions('5-6').length,'all phase catalogs remain browseable');
   await select(first[0].key);assert.equal(h.get('choices').length,first.length);
-  await select(first[1].key);await select(third[0].key);
+  const switching=h.control(h.render(),'参考路线').props.onChange({target:{value:first[1].key}});
+  assert.equal(picker().props.showNext,true,'a cached route switch keeps the control in place');
+  assert.equal(picker().props.disabled,true);await switching;await select(third[0].key);
   assert.deepEqual(queries.map(q=>q.phase),['gauge3','gauge1'],'switching back reuses that gauge only');
   assert(queries.every(q=>q.routeKey===undefined),'selection calculates all routes in the chosen gauge');
   assert(queries.every(q=>q.fixedShipIds.includes(2)));assert(h.get('slots')[0].pin);
   await select('');assert.equal(queries.length,2,'clearing a route does not calculate');
   h.store.info={...h.store.info};await select(third[1].key);
   assert.deepEqual(queries.map(q=>q.phase),['gauge3','gauge1','gauge3'],'new snapshots invalidate phase results');
+  h.find(h.render(),n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();
+  assert.equal(picker().props.showNext,false,'clearing the draft retires the shortcut');
 });
 
 test('selecting another gauge before completion calculates it, while late results cannot refill a changed map',async()=>{

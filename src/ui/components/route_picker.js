@@ -11,15 +11,15 @@ function routeGroups(options,currentPhase){
   return [...groups.values()].sort((a,b)=>Number(b.phase===currentPhase)-Number(a.phase===currentPhase));
 }
 module.exports=function createRoutePicker(React){
-  const h=React.createElement;
-  return function RoutePicker({options=[],value='',onChange,currentPhase,disabled=false,hidden=false,area}){
+  const h=React.createElement,placementEffect=React.useLayoutEffect||React.useEffect;
+  return function RoutePicker({options=[],value='',onChange,currentPhase,disabled=false,hidden=false,showNext=false,area}){
     const [open,setOpen]=React.useState(false),anchor=React.useRef(null),trigger=React.useRef(null),panel=React.useRef(null);
     const [expanded,setExpanded]=React.useState({});
     const close=()=>{setOpen(false);trigger.current?.focus({preventScroll:true});};
     const show=()=>{setExpanded({});setOpen(true);};
     const choose=key=>{if(disabled||hidden)return;if(key!==value)onChange(key);close();};
     React.useEffect(()=>setOpen(false),[area,disabled,hidden]);
-    React.useEffect(()=>{
+    placementEffect(()=>{
       if(!open||disabled||hidden)return;
       const root=anchor.current,dialog=panel.current,doc=root.ownerDocument,win=doc.defaultView;
       const place=()=>{
@@ -39,14 +39,25 @@ module.exports=function createRoutePicker(React){
     },[open,disabled,hidden]);
     const keys=e=>{
       if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
-      if(!['ArrowDown','ArrowUp','Home','End'].includes(e.key))return;
+      if(!['ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
       e.preventDefault();if(!open){show();return;}
       const buttons=[...panel.current.querySelectorAll('[role=option], .paa-route-phase-toggle')]
         .filter(button=>!button.closest('[aria-hidden=true]')),i=buttons.indexOf(e.target);
-      const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(i+(e.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length;
-      buttons[next]?.focus();
+      const direction=['ArrowDown','ArrowRight'].includes(e.key)?1:-1;
+      let next=e.key==='Home'?0:e.key==='End'?buttons.length-1:i+direction;
+      const grid=e.target.closest?.('.paa-route-options');
+      if(grid&&['ArrowDown','ArrowUp'].includes(e.key)){
+        const siblings=[...grid.querySelectorAll('[role=option]')],at=siblings.indexOf(e.target);
+        const columns=grid.ownerDocument.defaultView.getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length;
+        const target=siblings[at+direction*columns];
+        next=target?buttons.indexOf(target):direction>0?i+siblings.length-at:i-at-1;
+      }
+      buttons[(next+buttons.length)%buttons.length]?.focus();
     };
     const selected=options.find(o=>o.key===value),groups=routeGroups(options,currentPhase);
+    const cycleGroup=groups.find(group=>group.phase===(selected?.phase||currentPhase||''))||groups[0];
+    const cycle=cycleGroup?.options||[],cycleIndex=cycle.findIndex(option=>option.key===value);
+    const nextRoute=cycle.length?cycle[(cycleIndex+1)%cycle.length]:null;
     const context=[area,currentPhase,selected?.phase].join(':');
     const isExpanded=group=>groups.length===1||(expanded.context===context&&Object.hasOwn(expanded.phases,group.phase)?
       expanded.phases[group.phase]:group.phase===currentPhase||group.phase===selected?.phase||!currentPhase&&group===groups[0]);
@@ -79,7 +90,12 @@ module.exports=function createRoutePicker(React){
                 h('div',{id,className:'paa-collapse','data-open':expanded,'aria-hidden':!expanded,inert:expanded?undefined:''},
                   h('div',{className:'paa-collapse-clip'},h('div',{className:'paa-route-options'},...rows))));
             })),
-          !options.length?h('p',{className:'paa-muted'},'当前没有推荐路线'):null):null));
+          !options.length?h('p',{className:'paa-muted'},'当前没有推荐路线'):null):null),
+      showNext?h('button',{type:'button',className:'paa-route-next',disabled:disabled||hidden||!nextRoute||nextRoute.key===value,
+        'aria-label':'下一条路线','data-tooltip':nextRoute?`下一条：${nextRoute.name}${cycleGroup.phase?'\n仅在'+cycleGroup.label+'内切换':''}`:'没有可切换的路线',
+        onClick:()=>{if(disabled||hidden||!nextRoute||nextRoute.key===value)return;setOpen(false);onChange(nextRoute.key);}},
+        h('svg',{width:16,height:16,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
+          h('path',{d:'M3 8h10M9 4l4 4-4 4'}))):null);
   };
 };
 module.exports.routeGroups=routeGroups;
