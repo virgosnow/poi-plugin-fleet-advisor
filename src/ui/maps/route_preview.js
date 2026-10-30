@@ -1,6 +1,6 @@
 'use strict';
 const V=require('../models/presentation_model');
-const {actualMapLayout,bossSymbol,startSymbol}=require('./map_assets');
+const {actualMapLayout,bossSymbol,startSymbol,bossDisplaySymbol}=require('./map_assets');
 const {mapPan}=require('./map_pan');
 const {probabilityMarkers,layoutProbabilityLabels}=require('./route_probabilities');
 // Color and shape communicate encounter types independently of route selection.
@@ -106,7 +106,8 @@ const gameIcon=(h,symbol,className,{clipId,...props}={})=>h('svg',{viewBox:`${sy
   clipId?h('defs',null,h('clipPath',{id:clipId,clipPathUnits:'userSpaceOnUse'},
     h('rect',{x:symbol.frame.x,y:symbol.frame.y,width:symbol.frame.w,height:symbol.frame.h}))):null,
   h('image',{href:symbol.image,width:symbol.width,height:symbol.height,clipPath:clipId?`url(#${clipId})`:undefined}));
-const bossIcon=(h,props)=>gameIcon(h,bossSymbol,'paa-map-boss-icon',props);
+// The original game sprite with its transparent edge tightened and padded.
+const bossIcon=(h,props)=>gameIcon(h,bossDisplaySymbol,'paa-map-boss-icon',props);
 const startIcon=(h,props)=>gameIcon(h,startSymbol,'paa-map-start-icon',props);
 
 // Use the SVG transform rather than click coordinates, so keyboard selection,

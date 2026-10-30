@@ -72,7 +72,25 @@ test('compact maps mask baked-in markers and use equal circles for aerial and su
   assert(!text(boss).includes('字母红色'));assert(!text(collect(boss,n=>n.props.className==='paa-map-legend')[0]).includes('Boss'));
 });
 
-test('compact off-route Boss nodes use the cropped game symbol and keep selection accessible',()=>{
+test('Boss marker preserves the original pixels while tightening the transparent edge',()=>{
+  const {PNG}=require('pngjs');
+  const dir=path.join(__dirname,'../../data/sortie/maps');
+  const atlas=PNG.sync.read(fs.readFileSync(path.join(dir,commonSource.image)));
+  const marker=PNG.sync.read(fs.readFileSync(path.join(dir,'boss_marker.png')));
+  const frame=commonSource.runtimeAtlas.frames[commonSource.bossFrame];
+  assert.deepEqual([marker.width,marker.height],[frame.w+4,frame.h+4]);
+  for(let y=0;y<marker.height;y++)for(let x=0;x<marker.width;x++){
+    const i=(y*marker.width+x)*4;
+    if(x<2||y<2||x>=frame.w+2||y>=frame.h+2){assert.equal(marker.data[i+3],0);continue;}
+    const j=((frame.y+y-2)*atlas.width+frame.x+x-2)*4;
+    const alpha=Math.max(0,Math.min(255,Math.round((atlas.data[j+3]-72)*255/112)));
+    assert.equal(marker.data[i+3],alpha);
+    if(alpha)assert.deepEqual([...marker.data.subarray(i,i+3)],[...atlas.data.subarray(j,j+3)]);
+  }
+  assert(marker.data[((frame.h+1)*marker.width+Math.floor(marker.width/2))*4+3]>0,'bottom edge is retained');
+});
+
+test('compact off-route Boss nodes use the adjusted original sprite and keep selection accessible',()=>{
   const h=(type,props,...children)=>({type,props:props||{},children});
   const collect=(tree,p)=>!tree||typeof tree!=='object'?[]:
     [...(p(tree)?[tree]:[]),...(tree.children||[]).flatMap(n=>collect(n,p))];
@@ -84,7 +102,11 @@ test('compact off-route Boss nodes use the cropped game symbol and keep selectio
   const boss=collect(tree,n=>n.props['data-boss'])[0];assert(boss);
   const symbol=collect(boss,n=>n.props.className==='paa-map-boss-icon')[0];assert(symbol);
   const clip=collect(symbol,n=>n.type==='clipPath')[0];assert(clip);
-  assert.equal(collect(symbol,n=>n.type==='image')[0].props.clipPath,`url(#${clip.props.id})`);
+  const image=collect(symbol,n=>n.type==='image')[0];
+  assert.equal(image.props.clipPath,`url(#${clip.props.id})`);
+  assert.equal(image.props.href,require('../../src/ui/maps/map_assets').bossDisplaySymbol.image);
+  assert.equal(symbol.props.viewBox,'0 0 62 65');
+  const clipRect=collect(clip,n=>n.type==='rect')[0];assert.deepEqual([clipRect.props.x,clipRect.props.y,clipRect.props.width,clipRect.props.height],[0,0,62,65]);
   assert.equal(collect(boss,n=>n.props.className==='paa-map-node-label').length,0);
   boss.props.onClick({stopPropagation(){}});tree=draw();
   assert.equal(collect(tree,n=>n.props.className==='paa-map-selection')[0].props['data-node-id'],nodeId);

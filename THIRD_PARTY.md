@@ -58,7 +58,7 @@ MCP 服务采用 Node.js 内置 HTTP 实现，不捆绑协议 SDK 或客户端�
 
 `data/sortie/maps/index.json` 记录 37 张海图的坐标、裁切、资源路径、阶段偏移、来源地址和 SHA-256。5-6 的分阶段游戏资源单独记录在索引中。运行图片从缓存、poi 或登记地址获取，使用前验证尺寸和哈希。
 
-项目不分发海域开发参考大图。公共 `map_common.png` 只保留 Boss、出发点及必要插值边缘，保持画布尺寸和使用帧像素；来源、原始哈希、运行哈希和保留帧见 `map_common.source.json`。`map_common.json` 的原始字节参与来源校验，不能改变换行或格式。
+项目不分发海域开发参考大图。公共 `map_common.png` 只保留 Boss、出发点及必要插值边缘，保持画布尺寸和使用帧像素；来源、原始哈希、运行哈希和保留帧见 `map_common.source.json`。`boss_marker.png` 从 Boss 原图生成，只调整边缘透明度并增加透明边距，生成方式见 `tools/data/build-boss-marker.py`。`map_common.json` 的原始字节参与来源校验，不能改变换行或格式。
 
 生成与像素核对使用 `tools/data/import-map-assets.py`、`build-5-6.py` 和 `optimize-map-assets.py`；说明见[地图资源](data/sortie/maps/README.md)。
 

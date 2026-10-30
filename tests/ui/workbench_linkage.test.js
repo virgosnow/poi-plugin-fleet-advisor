@@ -1481,7 +1481,7 @@ test('progress renders one compact boss row per stage, including completed and u
   assert.equal(h.find(second,n=>n.type==='progress').props.value,3);
   const icon=h.find(heading,n=>n.props.className==='paa-map-boss-icon');
   assert.equal(icon.props.width,15);assert.equal(icon.props.height,15);
-  assert.equal(h.find(icon,n=>n.type==='image').props.href,require('../../src/ui/maps/map_assets').bossSymbol.image);
+  assert.equal(h.find(icon,n=>n.type==='image').props.href,require('../../src/ui/maps/map_assets').bossDisplaySymbol.image,'Boss progress uses the same adjusted game sprite');
   h.set('area','7-5');
   const unknown=h.find(h.render(),n=>n.props.className==='paa-wb-progress-list');
   assert.equal(unknown.children.length,3);assert.equal(unknown.props['data-has-current'],false);

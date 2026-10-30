@@ -6,6 +6,8 @@ const commonSource=require('../../../data/sortie/maps/map_common.source.json');
 const bossSymbol={image:pathToFileURL(path.join(__dirname,'../../../data/sortie/maps/map_common.png')).href,
   frame:common.frames[commonSource.bossFrame].frame,width:common.meta.size.w,height:common.meta.size.h};
 const startSymbol={...bossSymbol,frame:common.frames[commonSource.startFrame].frame};
+const bossDisplaySymbol={image:pathToFileURL(path.join(__dirname,'../../../data/sortie/maps/boss_marker.png')).href,
+  frame:{x:0,y:0,w:62,h:65},width:62,height:65};
 
 // Coordinates and route sprites are display data only. Never use this module
 // to add exits to the navigation engine or promote an uncertain route.
@@ -40,4 +42,4 @@ function actualMapLayout(area,preview,selectedPath=[],asset){
     image:asset?.parts?.[0]?.image,images:asset?.parts||[],
     source:map.source.kind==='gamePhasedAtlas'?map.source.url:manifest.source.repository,real:true};
 }
-module.exports={actualMapLayout,bossSymbol,startSymbol};
+module.exports={actualMapLayout,bossSymbol,startSymbol,bossDisplaySymbol};
