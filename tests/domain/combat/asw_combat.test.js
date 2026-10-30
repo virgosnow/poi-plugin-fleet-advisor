@@ -81,6 +81,18 @@ test('missing blue-bonus coverage cannot turn a native opening attack into confi
   assert.equal(assessment.status,'partial');assert.equal(assessment.readiness,0);
 });
 
+test('unknown opening ASW eligibility is not silently converted to false',()=>{
+  const f=fixture({name:'鈴谷航改二',stype:7});
+  f.target.master.api_maxeq=[18,0,0];
+  f.target.after.slots=[f.gear(97,8,7,'测试舰攻'),f.gear(47,14,10,'三式水中探信儀')];
+  const reading=f.read();
+  assert.equal(reading.status,'unknown');assert.equal(reading.opening,null);
+  assert.equal(reading.power,null);assert.match(reading.reason,/尚未确认/);
+  const p=previewForMap('1-5',{paths:[['A','D','E','J']]});
+  const assessment=assessAsw(f.store,{fleet:1,ships:[f.target.after]},p,{limit:1});
+  assert.equal(assessment.status,'partial');
+});
+
 test('pure ASW filling never substitutes underway replenishment for missing depth charges',()=>{
   const f=fixture({stype:2}),id=f.gear(146,44,0,'洋上補給');
   f.store.const.$shipTypes[2].api_equip_type[44]=1;

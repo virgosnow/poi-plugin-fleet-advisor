@@ -19,7 +19,7 @@ for(const name of fs.readdirSync(path.join(ROOT,'sortie/encounters')).filter(n=>
 const hasAswNodes=area=>Object.values(encounters.get(area)?.nodes||{})
   .some(node=>node.kind==='asw');
 const LIMIT=128;
-const NON_COMBAT=new Set(['noBattle','item','resources','transport','activeBranch','airRecon']);
+const NON_COMBAT=new Set(['noBattle','item','resources','transport','activeBranch','airRecon','whirlpool']);
 // Generic consumption from https://wikiwiki.jp/kancolle/資材 . Explicit
 // per-node values from the encounter table always override these defaults.
 const DEFAULT_CONSUMPTION={battle:[0.2,0.2],asw:[0.08,0],nightBattle:[0.1,0.1],
@@ -71,9 +71,23 @@ function enemySummary(enemy){
     familyKey:family,familyName,variantRank:/flagship/i.test(catalog?.name||name)?2:/elite/i.test(catalog?.name||name)?1:0,
     apiId:identityVerified?enemy.apiId:null,identityVerified,type,priority,reason};
 }
-function nodeSummary(id,node,area){
+function nodeSummary(id,node,area,encounterStage='unknown'){
   if(!node)return {id,kind:id==='start'?'start':'unknown',enemies:[],threatStatus:id==='start'?'none':'unknown'};
-  const patterns=Object.values(node.phases||{}).flatMap(phase=>phase.patterns||[]);
+  const rawPatterns=Object.entries(node.phases||{}).flatMap(([phase,group])=>(group.patterns||[]).map(pattern=>({...pattern,phase})));
+  const patterns=require('../combat/encounter_stage').filterFormations(area,id,rawPatterns,encounterStage);
+  // Preserve the flagship of the first documented main fleet before enemies
+  // are grouped or sorted by threat. Resolve a pattern alias within its phase.
+  let bossFlagship=null;
+  if(node.boss)for(const pattern of patterns){
+    const rows=node.phases?.[pattern.phase]?.patterns||[];
+    const main=(row,seen=new Set())=>{
+      if(!row||seen.has(row))return null;
+      seen.add(row);
+      return row.enemyShips?.length?row.enemyShips:row.sameAsPattern?main(rows.find(other=>other.pattern===row.sameAsPattern),seen):null;
+    };
+    const ships=main(pattern);
+    if(ships){bossFlagship=enemySummary(ships[0]);break;}
+  }
   const submarine=enemy=>/潜水/.test(enemySummary(enemy).type+' '+enemy.name);
   // Count each formation separately; alternative formations are not one fleet.
   // Keep flagship identity before threat sorting obscures its original position.
@@ -86,7 +100,7 @@ function nodeSummary(id,node,area){
     const summary=enemySummary(enemy),key=summary.apiId||summary.originalName;
     if(!enemies.has(key))enemies.set(key,summary);
   }
-  return {id,kind:node.kind,boss:!!node.boss,
+  return {id,kind:node.kind,boss:!!node.boss,...(node.boss?{bossFlagship}:{}),
     submarines:submarineCounts.length?span(submarineCounts):null,
     submarineFlagship:patterns.length>0&&patterns.every(pattern=>pattern.enemyShips?.[0]&&submarine(pattern.enemyShips[0])),
     enemies:[...enemies.values()].sort((a,b)=>b.priority-a.priority||a.name.localeCompare(b.name)),
@@ -97,7 +111,7 @@ function nodeSummary(id,node,area){
     patterns:patterns.length};
 }
 function previewGraph(map,route,data){
-  const key=`${map.area}:${route.phase||''}:${route.targetNodes.join(',')}`;
+  const key=`${map.area}:${route.phase||''}:${route.encounterStage||'unknown'}:${route.targetNodes.join(',')}`;
   if(previewCache.has(key))return previewCache.get(key);
   const edges=new Map(),ids=new Set(['start']);
   const add=(from,to)=>{ids.add(from);ids.add(to);edges.set(`${from}>${to}`,{from,to});};
@@ -110,7 +124,7 @@ function previewGraph(map,route,data){
     if(point.phase&&route.phase&&point.phase!==route.phase)continue;
     for(const to of point.destinations)add(point.from,to);
   }
-  const result={nodes:[...ids].map(id=>({...nodeSummary(id,data.nodes[id],map.area),
+  const result={nodes:[...ids].map(id=>({...nodeSummary(id,data.nodes[id],map.area,route.encounterStage),
     target:route.targetNodes.includes(id)})),edges:[...edges.values()]};
   previewCache.set(key,result);return result;
 }
@@ -188,7 +202,7 @@ function profileForRoute(area,route,selectedPaths){
   // Enemy summaries and consumption depend on the resolved paths, not the
   // candidate ships/equipment. Resolve branches first (including 7-4 history
   // and LoS), then share only identical path sets and uncertainty flags.
-  const profileKey=JSON.stringify([area,route.phase||null,route.targetNodes,paths,incomplete,truncated]);
+  const profileKey=JSON.stringify([area,route.phase||null,route.encounterStage||'unknown',route.targetNodes,paths,incomplete,truncated]);
   if(profileCache.has(profileKey))return profileCache.get(profileKey);
   const preview=previewGraph(map,route,data),summaries=new Map(preview.nodes.map(node=>[node.id,node]));
   const detailed=paths.map(row=>{
@@ -221,7 +235,7 @@ function profileForRoute(area,route,selectedPaths){
   const knownFuel=detailed.every(p=>p.fuelConsumed!==null);
   const uncertain=incomplete||truncated||detailed.some(p=>p.uncertain);
   const ordered=detailed.slice().sort((a,b)=>a.hops-b.hops||a.nodes.join('').localeCompare(b.nodes.join('')));
-  const result={status:uncertain?'possible':'known',area,targetNodes:route.targetNodes,
+  const result={status:uncertain?'possible':'known',area,targetNodes:route.targetNodes,encounterStage:route.encounterStage||'unknown',
     source:data.source?.url||null,
     pathCount:detailed.length,truncated,incomplete,
     counts:{surface:range('surfaceBattles'),air:range('airBattles'),
@@ -250,19 +264,19 @@ function profileForRoute(area,route,selectedPaths){
 const overviewCache=new Map();
 // Reference display before a fleet exists. Edges still come only from the
 // reviewed route graph; these paths are not a verdict that a fleet can sail them.
-function previewForMap(area,{target='boss',phase,paths}={}){
-  const key=JSON.stringify([area,target,phase||null,paths||null]);
+function previewForMap(area,{target='boss',phase,paths,encounterStage='unknown'}={}){
+  const key=JSON.stringify([area,target,phase||null,paths||null,encounterStage]);
   if(overviewCache.has(key))return overviewCache.get(key);
   const map=routeMaps.get(area),data=encounters.get(area);
   if(!map||!data)return {area,status:'unavailable',routePaths:[],examples:[]};
-  const route={targetNodes:target==='boss'?(phase?map.bossPhases?.[phase]||map.bossNodes:map.bossNodes):[target],phase,
+  const route={targetNodes:target==='boss'?(phase?map.bossPhases?.[phase]||map.bossNodes:map.bossNodes):[target],phase,encounterStage,
     pointAssessments:map.branchPoints.filter(p=>!phase||!p.phase||p.phase===phase).map(p=>({from:p.from,phase:p.phase,
       assessment:{status:'unknown',destinations:p.destinations}}))};
   const profile=profileForRoute(area,route,paths),graph=previewGraph(map,route,data);
   const known=new Set(graph.nodes.map(n=>n.id));
   const result={...profile,area,referenceOnly:true,targetNodes:route.targetNodes,
     routePaths:profile.routePaths||[],examples:profile.examples||[],
-    mapPreview:{...graph,nodes:graph.nodes.concat(Object.entries(data.nodes).filter(([id])=>!known.has(id)).map(([id,node])=>nodeSummary(id,node,area)))}};
+    mapPreview:{...graph,nodes:graph.nodes.concat(Object.entries(data.nodes).filter(([id])=>!known.has(id)).map(([id,node])=>nodeSummary(id,node,area,encounterStage)))}};
   overviewCache.set(key,result);return result;
 }
 module.exports={profileForRoute,previewForMap,consumption,hasAswNodes};

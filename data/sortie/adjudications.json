@@ -206,11 +206,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "6-5",
@@ -374,11 +374,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "7-5",
@@ -420,11 +420,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "7-5",
@@ -437,11 +437,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "7-5",
@@ -454,11 +454,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "7-5",
@@ -471,11 +471,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "7-5",
@@ -488,11 +488,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "7-5",
@@ -505,11 +505,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "7-5",
@@ -1358,11 +1358,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "3-5",
@@ -1392,11 +1392,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "3-5",
@@ -1409,11 +1409,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "3-5",
@@ -1443,11 +1443,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "3-5",
@@ -1456,15 +1456,15 @@
       "kind": "compositionConflict",
       "fields": [],
       "wikiwikiApiIds": [
-        null,
-        null,
+        1587,
+        1549,
         1550,
         1527,
         1576,
         1576
       ],
-      "status": "pending",
-      "note": "敌舰 ID 序列不一致，待人工裁定"
+      "status": "resolved",
+      "note": "已核对当前日 Wiki 和中文 Wiki：旧裁定未更新已识别的敌舰 ID；中文未列出的编成沿用日 Wiki 所记阶段，不视作不存在。"
     },
     {
       "area": "3-5",
@@ -1473,15 +1473,15 @@
       "kind": "compositionConflict",
       "fields": [],
       "wikiwikiApiIds": [
-        null,
-        null,
+        1587,
+        1549,
         1550,
         1551,
         1550,
         1551
       ],
-      "status": "pending",
-      "note": "敌舰 ID 序列不一致，待人工裁定"
+      "status": "resolved",
+      "note": "已核对当前日 Wiki 和中文 Wiki：旧裁定未更新已识别的敌舰 ID；中文未列出的编成沿用日 Wiki 所记阶段，不视作不存在。"
     },
     {
       "area": "3-5",
@@ -1491,14 +1491,14 @@
       "fields": [],
       "wikiwikiApiIds": [
         1588,
-        null,
+        1549,
         1550,
         1551,
         1550,
         1551
       ],
-      "status": "pending",
-      "note": "敌舰 ID 序列不一致，待人工裁定"
+      "status": "resolved",
+      "note": "已核对当前日 Wiki 和中文 Wiki：旧裁定未更新已识别的敌舰 ID；中文未列出的编成沿用日 Wiki 所记阶段，不视作不存在。"
     },
     {
       "area": "3-5",
@@ -1508,14 +1508,14 @@
       "fields": [],
       "wikiwikiApiIds": [
         1589,
-        null,
+        1549,
         1550,
         1527,
         1576,
         1576
       ],
-      "status": "pending",
-      "note": "敌舰 ID 序列不一致，待人工裁定"
+      "status": "resolved",
+      "note": "已核对当前日 Wiki 和中文 Wiki：旧裁定未更新已识别的敌舰 ID；中文未列出的编成沿用日 Wiki 所记阶段，不视作不存在。"
     },
     {
       "area": "3-5",
@@ -1525,14 +1525,14 @@
       "fields": [],
       "wikiwikiApiIds": [
         1589,
-        null,
+        1549,
         1550,
         1551,
         1550,
         1551
       ],
-      "status": "pending",
-      "note": "敌舰 ID 序列不一致，待人工裁定"
+      "status": "resolved",
+      "note": "已核对当前日 Wiki 和中文 Wiki：旧裁定未更新已识别的敌舰 ID；中文未列出的编成沿用日 Wiki 所记阶段，不视作不存在。"
     },
     {
       "area": "3-5",
@@ -1542,14 +1542,14 @@
       "fields": [],
       "wikiwikiApiIds": [
         1590,
-        null,
+        1549,
         1550,
         1551,
         1550,
         1551
       ],
-      "status": "pending",
-      "note": "敌舰 ID 序列不一致，待人工裁定"
+      "status": "resolved",
+      "note": "已核对当前日 Wiki 和中文 Wiki：旧裁定未更新已识别的敌舰 ID；中文未列出的编成沿用日 Wiki 所记阶段，不视作不存在。"
     },
     {
       "area": "3-5",
@@ -1562,11 +1562,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "3-5",
@@ -2019,14 +2019,14 @@
       "fields": [],
       "wikiwikiApiIds": [
         1613,
-        null,
+        1549,
         1567,
         1595,
         1526,
         1526
       ],
-      "status": "pending",
-      "note": "敌舰 ID 序列不一致，待人工裁定"
+      "status": "resolved",
+      "note": "已核对当前中日 Wiki：旧裁定缺失的护卫要塞 A 已确认为 1549，编成及最终形态与现有敌情数据相符。"
     },
     {
       "area": "4-5",
@@ -2042,8 +2042,8 @@
           "kcwiki": false
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "已核对当前中日 Wiki：旧裁定缺失的护卫要塞 A 已确认为 1549，编成及最终形态与现有敌情数据相符。"
     },
     {
       "area": "4-5",
@@ -2053,14 +2053,14 @@
       "fields": [],
       "wikiwikiApiIds": [
         1613,
-        null,
+        1549,
         1550,
         1567,
         1595,
         1558
       ],
-      "status": "pending",
-      "note": "敌舰 ID 序列不一致，待人工裁定"
+      "status": "resolved",
+      "note": "已核对当前中日 Wiki：旧裁定缺失的护卫要塞 A 已确认为 1549，编成及最终形态与现有敌情数据相符。"
     },
     {
       "area": "5-2",
@@ -2713,11 +2713,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "6-4",
@@ -2730,11 +2730,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "6-4",
@@ -2752,11 +2752,11 @@
         },
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
       "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定 中文来源未标注最终形态为缺失而非否定；沿用日文表的阶段标记。"
     },
     {
       "area": "6-4",
@@ -2818,11 +2818,11 @@
         },
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
       "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定 中文来源未标注最终形态为缺失而非否定；沿用日文表的阶段标记。"
     },
     {
       "area": "6-4",
@@ -2835,11 +2835,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "6-4",
@@ -2925,11 +2925,11 @@
         },
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
       "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定 中文来源未标注最终形态为缺失而非否定；沿用日文表的阶段标记。"
     },
     {
       "area": "6-4",
@@ -2947,11 +2947,11 @@
         },
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
       "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定 中文来源未标注最终形态为缺失而非否定；沿用日文表的阶段标记。"
     },
     {
       "area": "6-4",
@@ -3013,11 +3013,11 @@
         },
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
       "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定 中文来源未标注最终形态为缺失而非否定；沿用日文表的阶段标记。"
     },
     {
       "area": "6-4",
@@ -3035,11 +3035,11 @@
         },
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
       "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定 中文来源未标注最终形态为缺失而非否定；沿用日文表的阶段标记。"
     },
     {
       "area": "6-4",
@@ -3222,11 +3222,11 @@
         },
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
       "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定 中文来源未标注最终形态为缺失而非否定；沿用日文表的阶段标记。"
     },
     {
       "area": "6-4",
@@ -3244,11 +3244,11 @@
         },
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
       "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定 中文来源未标注最终形态为缺失而非否定；沿用日文表的阶段标记。"
     },
     {
       "area": "6-4",
@@ -3261,11 +3261,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "6-4",
@@ -3332,11 +3332,11 @@
         },
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
       "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定 中文来源未标注最终形态为缺失而非否定；沿用日文表的阶段标记。"
     },
     {
       "area": "6-4",
@@ -3371,11 +3371,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "6-4",
@@ -3454,11 +3454,11 @@
         },
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
       "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定 中文来源未标注最终形态为缺失而非否定；沿用日文表的阶段标记。"
     },
     {
       "area": "6-4",
@@ -3476,11 +3476,11 @@
         },
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
       "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定 中文来源未标注最终形态为缺失而非否定；沿用日文表的阶段标记。"
     },
     {
       "area": "7-1",
@@ -3629,11 +3629,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "7-3",
@@ -3702,11 +3702,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "7-4",
@@ -3747,11 +3747,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "7-4",
@@ -3764,11 +3764,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "7-4",
@@ -3781,11 +3781,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "7-4",
@@ -3798,11 +3798,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "3-5",
@@ -3818,8 +3818,8 @@
           "kcwiki": false
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "已核对当前日 Wiki 和中文 Wiki：旧裁定未更新已识别的敌舰 ID；中文未列出的编成沿用日 Wiki 所记阶段，不视作不存在。"
     },
     {
       "area": "4-5",
@@ -3835,8 +3835,8 @@
           "kcwiki": false
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "已核对当前中日 Wiki：旧裁定缺失的护卫要塞 A 已确认为 1549，编成及最终形态与现有敌情数据相符。"
     },
     {
       "area": "4-5",
@@ -3852,8 +3852,8 @@
           "kcwiki": false
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "已核对当前中日 Wiki：旧裁定缺失的护卫要塞 A 已确认为 1549，编成及最终形态与现有敌情数据相符。"
     },
     {
       "area": "7-2",
@@ -4074,11 +4074,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "5-6",
@@ -4091,11 +4091,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "5-6",
@@ -4108,11 +4108,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "5-6",
@@ -4125,11 +4125,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "5-6",
@@ -4142,11 +4142,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     },
     {
       "area": "5-6",
@@ -4159,11 +4159,11 @@
       "values": {
         "finalForm": {
           "wikiwiki": true,
-          "kcwiki": false
+          "kcwiki": null
         }
       },
-      "status": "pending",
-      "note": "kcwiki 与 wikiwiki 数值差异，待逐项裁定"
+      "status": "resolved",
+      "note": "中文来源未标注最终形态为缺失而非否定；沿用日文表明确记载的阶段标记。"
     }
   ]
 }

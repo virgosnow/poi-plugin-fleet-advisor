@@ -6,6 +6,7 @@ const catalog=new Map(require('../../../data/sortie/enemy_catalog.json').enemies
 const pending=require('../../../data/sortie/adjudications.json').entries.filter(e=>e.status==='pending');
 const cache=new Map();
 const jets=require('../combat/jet_aviation');
+const {filterFormations}=require('../combat/encounter_stage');
 const {createMarginPlan}=require('./air_margin_plan');
 const noAirBattle=new Set(['start','noBattle','item','resources','transport','whirlpool','activeBranch','airRecon','nightBattle']);
 const valid=n=>Number.isFinite(n)&&n>=0;
@@ -46,11 +47,11 @@ function antiAirEnvelope(patterns){
   }
   return {status:'known',proportion,fixed,...profiles.length?{profiles}:{}};
 }
-function nodeAir(area,id,node,cross){
+function nodeAir(area,id,node,cross,encounterStage='unknown'){
   if(!node)return {id,enemyAirPower:null,issues:['节点敌情缺失']};
   if(noAirBattle.has(node.kind))return {id,enemyAirPower:0,issues:[],noAirBattle:true};
-  const patterns=Object.values(node.phases||{}).flatMap(phase=>{
-    const rows=phase.patterns||[];
+  const allPatterns=Object.entries(node.phases||{}).flatMap(([phase,group])=>{
+    const rows=group.patterns||[];
     const resolve=(row,seen=new Set())=>{
       if(!row||seen.has(row.pattern))return {};
       seen.add(row.pattern);
@@ -59,8 +60,9 @@ function nodeAir(area,id,node,cross){
         escortFleet:row.escortFleet||parent.escortFleet,
         enemyAirPower:row.enemyAirPower??parent.enemyAirPower};
     };
-    return rows.map(row=>resolve(row));
-  }),values=[],issues=[],bounds=[];
+    return rows.map(row=>({...resolve(row),phase}));
+  });
+  const patterns=filterFormations(area,id,allPatterns,encounterStage),values=[],issues=[],bounds=[];
   if(!patterns.length)issues.push('敌编成缺失');
   for(const pattern of patterns){
     const conflicts=pending.filter(e=>e.area===area&&e.node===id&&e.pattern===pattern.pattern);
@@ -83,9 +85,13 @@ function nodeAir(area,id,node,cross){
   }
   // If formations disagree, include the other source's complete alternatives.
   // A different gun-only composition does not create imaginary enemy aircraft.
-  if(pending.some(e=>e.area===area&&e.node===id&&e.kind==='compositionConflict')){
+  const hasCompositionConflict=pending.some(e=>e.area===area&&e.node===id&&e.kind==='compositionConflict');
+  // Secondary-source alternatives are retained when their stage is unknown,
+  // exactly as in the battle model. Never infer a final state from a name.
+  const variants=hasCompositionConflict?filterFormations(area,id,cross?.kcwikiVariants||[],encounterStage):[];
+  if(hasCompositionConflict){
     if(!cross?.kcwikiVariants?.length)issues.push('差异编成资料不足');
-    for(const variant of cross?.kcwikiVariants||[]){
+    for(const variant of variants){
       const ships=[...(variant.apiIds||[]),...(variant.escortApiIds||[])].map(apiId=>({apiId}));
       const value=valid(variant.air)?variant.air:ships.length&&ships.every(noCombatAircraft)?0:null;
       // Numeric wiki patterns can cover the same aircraft composition even when
@@ -100,8 +106,8 @@ function nodeAir(area,id,node,cross){
     }
   }
   const maximum=values.length?Math.max(...values):null;
-  const crossPatterns=pending.some(e=>e.area===area&&e.node===id&&e.kind==='compositionConflict')?
-    (cross?.kcwikiVariants||[]).map(v=>({enemyShips:(v.apiIds||[]).map(apiId=>({apiId})),
+  const crossPatterns=hasCompositionConflict?
+    variants.map(v=>({enemyShips:(v.apiIds||[]).map(apiId=>({apiId})),
       escortFleet:v.escortApiIds?.length?{enemyShips:v.escortApiIds.map(apiId=>({apiId}))}:null})):[];
   const knownShips=patterns.flatMap(p=>[...(p.enemyShips||[]),...(p.escortFleet?.enemyShips||[])]).map(s=>catalog.get(s.apiId));
   const pureSubmarines=knownShips.length>0&&knownShips.every(s=>s&&['潜水艦','潜水空母'].includes(s.shipType));
@@ -111,12 +117,13 @@ function nodeAir(area,id,node,cross){
     upperBound:!issues.length&&bounds.length?Math.max(maximum,...bounds):null,
     issues:[...new Set([...issues,...(bounds.length?['敌制空数值存在来源差异']:[])])]};
 }
-function encounterAir(area){
-  if(cache.has(area))return cache.get(area);
+function encounterAir(area,encounterStage='unknown'){
+  const key=area+'|'+encounterStage;
+  if(cache.has(key))return cache.get(key);
   if(!/^\d-\d$/.test(area||''))return null;
   let data;try{data=require(`../../../data/sortie/encounters/${area}.json`);}catch(_){return null;}
-  const value={source:data.source?.url||null,nodes:new Map(Object.entries(data.nodes).map(([id,node])=>[id,nodeAir(area,id,node,data.crossCheck?.nodes?.[id])]))};
-  cache.set(area,value);return value;
+  const value={source:data.source?.url||null,nodes:new Map(Object.entries(data.nodes).map(([id,node])=>[id,nodeAir(area,id,node,data.crossCheck?.nodes?.[id],encounterStage)]))};
+  cache.set(key,value);return value;
 }
 const referenceCache=new Map();
 function boundedSet(cache,key,value,limit){
@@ -125,24 +132,25 @@ function boundedSet(cache,key,value,limit){
 }
 function routeAirReference(result,area,profile){
   const paths=profile?.routePaths?.map(p=>p.nodes)||profile?.examples||[];
-  const key=area+'|'+paths.map(p=>p.join('>')).join('|');
+  const encounterStage=profile?.encounterStage||result?.encounterStage||'unknown';
+  const key=area+'|'+encounterStage+'|'+paths.map(p=>p.join('>')).join('|');
   if(referenceCache.has(key))return referenceCache.get(key);
-  return boundedSet(referenceCache,key,buildReference(area,paths.map(p=>p.slice())),256);
+  return boundedSet(referenceCache,key,buildReference(area,paths.map(p=>p.slice()),encounterStage),256);
 }
-function buildReference(area,paths){
+function buildReference(area,paths,encounterStage){
   const ids=[...new Set(paths.flat())].filter(id=>!id.startsWith('start'));
   const empty={superiority:null,supremacy:null,enemyAirPower:null,scope:'selectedRoute',nodes:[],limitingNodes:[],
     routeSustainability:'notSimulated'};
   if(!ids.length)return {...empty,status:'unselected',reason:'选择路线后显示制空门槛'};
-  const data=encounterAir(area);
+  const data=encounterAir(area,encounterStage);
   if(!data)return {...empty,status:'unknown',reason:'该海域缺少逐点敌情'};
   const nodes=ids.map(id=>data.nodes.get(id)||nodeAir(area,id,null));
   const maximum=Math.max(0,...nodes.filter(n=>valid(n.enemyAirPower)).map(n=>n.enemyAirPower));
   // A bounded disagreement below a verified higher encounter cannot change the
   // route maximum. Unbounded/missing data must still remain unknown.
   const unknown=nodes.filter(n=>!valid(n.enemyAirPower)&&!(valid(n.upperBound)&&n.upperBound<=maximum));
-  const base={...empty,nodes,paths,source:data.source,scope:paths.length===1?'selectedRoute':'candidateRoutes',
-    basis:'仅统计所列路线节点，按已收录各阶段、司令部等级的敌编成最大值；不计基地航空队削减或道中损耗'};
+  const base={...empty,nodes,paths,encounterStage,source:data.source,scope:paths.length===1?'selectedRoute':'candidateRoutes',
+    basis:'仅统计所列路线节点，按当前血条阶段可能出现的敌编成最大值；未明确出现条件时保留各可能编成，不计基地航空队削减或道中损耗'};
   if(unknown.length)return {...base,status:'unknown',reason:unknown.map(n=>`${n.id} 点：${n.issues.join('、')}`).join('；')};
   return {...base,status:'known',enemyAirPower:maximum,superiority:Math.ceil(maximum*1.5),supremacy:maximum*3,
     limitingNodes:maximum?nodes.filter(n=>n.enemyAirPower===maximum).map(n=>n.id):[]};

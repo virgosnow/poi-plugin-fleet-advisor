@@ -60,8 +60,10 @@ function aswPower(target,store,{opening=false}={}){
  return {status:base===null?'unknown':'known',base,synergy,rows,reasons:[...new Set(reasons)],
   detail:rows.map(r=>`${r.formation}攻击力：${r.power??'待确认'} × 1击`).join('\n')};
 }
-function aviationPowers(target,store,slots,allocationSlots=slots){
- const blue=combatBonuses(store,target),reasons=new Set(blue.reasons),bonuses=new Map();
+function aviationPowers(target,store,slots,allocationSlots=slots,{withoutBlueReference=false}={}){
+ const observed=combatBonuses(store,target),blue=withoutBlueReference?{...observed,known:true,matches:[]}:observed,
+  reasons=new Set(observed.reasons),bonuses=new Map();
+ if(withoutBlueReference)reasons.add('假设航空攻击不计蓝字加成，仅作基础参考，实际数值可能不同');
  for(const m of blue.matches){if(!bonuses.has(m.fromInstance))bonuses.set(m.fromInstance,{torpedo:0,bomber:0});
   const own=bonuses.get(m.fromInstance);own.torpedo+=m.torpedo;own.bomber+=m.bomber;}
  const stat=s=>Number(s.equipment.master[s.equipment.type===8?'api_raig':'api_baku']||0);

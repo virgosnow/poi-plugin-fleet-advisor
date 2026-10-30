@@ -1,5 +1,6 @@
 'use strict';
 const REGIONS=['','镇守府海域','南西诸岛海域','北方海域','西方海域','南方海域','中部海域','南西海域'];
+const REGION_ORDER=new Map([1,2,3,7,4,5,6].map((world,index)=>[world,index]));
 const {missionSummary,referenceIncome}=require('../expedition/expedition_model');
 const {normalizeName}=require('../../shared/name_matching');
 const INCOME_ORDERS={fuel:'燃料',ammo:'弹药',steel:'钢材',bauxite:'铝土'};
@@ -34,7 +35,7 @@ function groups(maps){
     const world=Number(match[1]);if(!rows.has(world))rows.set(world,[]);
     rows.get(world).push(map);
   }
-  return [...rows].sort(([a],[b])=>a-b).map(([world,maps])=>({world,name:REGIONS[world]||`第 ${world} 海域`,
+  return [...rows].sort(([a],[b])=>(REGION_ORDER.get(a)??REGION_ORDER.size)-(REGION_ORDER.get(b)??REGION_ORDER.size)||a-b).map(([world,maps])=>({world,name:REGIONS[world]||`第 ${world} 海域`,
     maps:maps.slice().sort((a,b)=>Number(a.area.split('-')[1])-Number(b.area.split('-')[1]))}));
 }
 module.exports=function createAreaPicker(React){

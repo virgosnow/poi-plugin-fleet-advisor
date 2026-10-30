@@ -92,12 +92,13 @@ def parse_kcwiki_blocks(raw):
             suffix = '' if idx == 1 else str(idx)
             ships = fields.get(f'敌方{suffix}', '')
             groups = [g for g in re.split(r'<br\s*/?>', ships) if g.strip()]
+            marker = fields.get(f'lastkill{suffix}', '').strip().lower()
             return {'formation': fields.get(f'阵型{suffix}', ''),
                     'main': groups[0] if groups else '',
                     'escort': groups[1] if len(groups) > 1 else '',
                     'air': fields.get(f'制空值{suffix}', ''),
                     'exp': fields.get(f'获得经验{suffix}', ''),
-                    'finalForm': fields.get(f'lastkill{suffix}', '') == 'true'}
+                    'finalForm': {'true': True, 'false': False}.get(marker)}
         variants = [make(1)]
         idx = 2
         while f'阵型{idx}' in fields or f'敌方{idx}' in fields or f'获得经验{idx}' in fields:
@@ -134,6 +135,10 @@ def norm_formation(tokens):
 
 def ids_of_ships(ships):
     return [s.get('apiId') for s in (ships or [])]
+
+def final_form_conflict(wikiwiki, kcwiki):
+    """An absent marker is unknown, not a negative assertion."""
+    return isinstance(wikiwiki, bool) and isinstance(kcwiki, bool) and wikiwiki != kcwiki
 
 def main():
     areas = sys.argv[1:] or ['1-5', '2-5', '5-5', '6-5', '7-5']
@@ -180,7 +185,7 @@ def main():
                     'formation': v['formation'] or None,
                     'air': to_int(v['air']),
                     'exp': to_int(v['exp']),
-                    'finalForm': v['finalForm'] or None,
+                    'finalForm': v['finalForm'],
                 })
             node_report['kcwikiVariants'] = variants
             patterns = []
@@ -207,7 +212,7 @@ def main():
                 w_form = norm_formation(p.get('formation') or [])
                 w_air = p.get('enemyAirPower')
                 w_exp = p.get('exp')
-                w_final = bool(p.get('finalForm'))
+                w_final = p.get('finalForm')
                 ids_complete = bool(main_ids) and all(i is not None for i in main_ids)
                 id_pool = [v for v in variants if main_ids == v['apiIds']] if ids_complete else []
                 if id_pool:
@@ -238,10 +243,10 @@ def main():
                         field_conflicts.append({'field': 'formation',
                                                 'wikiwiki': sorted(w_form), 'kcwiki': sorted(v_form),
                                                 'relation': relation})
-                    if w_final != bool(v.get('finalForm')):
+                    if final_form_conflict(w_final, v.get('finalForm')):
                         field_conflicts.append({'field': 'finalForm',
-                                                'wikiwiki': w_final, 'kcwiki': bool(v.get('finalForm')),
-                                                'note': '双方对哪些编成属于最終形態记载不同（kcwiki 可能未标 lastkill）'})
+                                                'wikiwiki': w_final, 'kcwiki': v['finalForm'],
+                                                'note': '双方明确标注的最终形态状态不同'})
                     score = (0 if field_conflicts else 1, -len(field_conflicts))
                     if best is None or score > best[0]:
                         best = (score, v, basis, field_conflicts)

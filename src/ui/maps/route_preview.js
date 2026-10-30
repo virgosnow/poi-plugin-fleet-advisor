@@ -176,7 +176,7 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
       filter:highlight?`url(#${highlight==='muted'?mutedTint:tint})`:undefined,onError:onAssetError})));
   };
   const approximate=layout.real&&layout.edges.some(e=>activeEdges.has(`${e.from}>${e.to}`)&&!e.sprite);
-  const formations=nodePopup&&!textOnly&&nodeId?require('./node_formations').nodeFormations(profile.area,nodeId):[];
+  const formations=nodePopup&&!textOnly&&nodeId?require('./node_formations').nodeFormations(profile.area,nodeId,profile.encounterStage):[];
   const detail=showDetails&&focus?[
     h('strong',{key:'name'},focus.id.startsWith('start')?'出发':`${focus.id} 点 · ${V.nodeKind[focus.kind]||'资料不足'}${focus.target?' · 目标点':''}`),
     textOnly?null:formations.length&&enemyPortrait?h('div',{key:'formations',className:'paa-map-formations','aria-label':'敌方编成例'},

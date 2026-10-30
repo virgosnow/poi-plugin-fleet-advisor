@@ -118,7 +118,7 @@ function merge(store,old,candidate,{preservePositions=true}={}){
   const held=old.filter(s=>s&&(s.pin||Object.keys(s.keep||{}).length));
   for(const s of held)if(!proposed.some(x=>x.id===s.id))throw Error('推荐没有保留手动指定的舰娘，当前编成未改变');
   const pending=proposed.filter(x=>!preservePositions||!held.some(s=>s.id===x.id)),out=Array(6).fill(null);
-  old.forEach((s,i)=>{if(!held.includes(s))return;const next=proposed.find(x=>x.id===s.id);next.pin=s.pin;next.keep={...s.keep};
+  old.forEach((s,i)=>{if(!held.includes(s))return;const next=proposed.find(x=>x.id===s.id);next.pin=s.pin;next.keep={...s.keep};if(s.preselected){next.preselected=true;next.preselectionComplete=true;}
     for(const k of Object.keys(s.keep)){if(k==='ex')next.ex=s.ex;else next.slots[k]=s.slots[k];}if(preservePositions)out[i]=next;});
   for(let i=0;i<6;i++)if(!out[i])out[i]=pending.shift()||null;
   // A held equipment instance has one owner; remove the planner's other use.
@@ -168,7 +168,8 @@ function badges(report){
 }
 function mapOverview(area,target='boss',phase,settings,store){
   const activePhase=phase||(target==='boss'?require('../../domain/routes/route_plans').currentPhase(area,store):undefined);
-  const profile=require('../../domain/routes/sortie_profile').previewForMap(area,{target,phase:activePhase});
+  const encounterStage=require('../../domain/combat/encounter_stage').encounterStage(store,area,activePhase);
+  const profile=require('../../domain/routes/sortie_profile').previewForMap(area,{target,phase:activePhase,encounterStage});
   const options=require('../../domain/routes/route_plans').recommendedOptions(area,target,phase,settings,store);
   return {profile,options};
 }
@@ -200,9 +201,10 @@ function routeEdgeProbabilities(route,option){
   return [...edges.values()].filter(edge=>!edge.conflicting&&edge.probability<1-1e-9)
     .map(({from,to,probability})=>({from,to,probability}));
 }
-function selectedMapProfile(overview,selection,actual,route,hasFleet=!!route?.ships?.length){
+function selectedMapProfile(overview,selection,actual,route,hasFleet=!!route?.ships?.length,store){
   const option=overview.options.find(o=>o.key===selection);
-  if(option?.phase)overview={...overview,profile:require('../../domain/routes/sortie_profile').previewForMap(overview.profile.area,{phase:option.phase})};
+  if(option?.phase){const encounterStage=require('../../domain/combat/encounter_stage').encounterStage(store,overview.profile.area,option.phase);
+    overview={...overview,profile:require('../../domain/routes/sortie_profile').previewForMap(overview.profile.area,{phase:option.phase,encounterStage})};}
   const plans=require('../../domain/routes/route_plans');
   const requested=option?plans.optionPaths(option):[selection?selection.split('>'):[]];
   const current=route?.area===overview.profile.area&&route.ships?.length&&(!option?.phase||option.phase===route.phase);
@@ -269,6 +271,35 @@ function displayThreat(profile,nodeId){
   return {title:`${nodeId.startsWith('start')?'出发点':nodeId+' 点'} · 主要威胁`,
     status:node?.threatStatus||'unknown',kind:node?.kind,warnings:node?.dataWarnings||[],
     enemies:(node?.enemyFamilies||node?.enemies||[]).map(e=>({...e,nodes:[nodeId]}))};
+}
+// Boss cards always show the first documented main fleet's flagship. This is
+// presentation only: threat scoring and the reference battle remain unchanged.
+function displayBossFlagship(profile,nodeId){
+  const node=profile?.mapPreview?.nodes?.find(n=>n.id===nodeId);
+  if(!node?.boss)return null;
+  const enemy=node.bossFlagship;
+  return {status:enemy?'qualitative':'unknown',enemies:enemy?[{...enemy,nodes:[nodeId]}]:[],warnings:[]};
+}
+// Describe the current fitted fleet, independently of a full recommendation search.
+function draftRouteIssue(report,selected,ready){
+  if(!ready||!report?.route?.ships?.length||!selected)return null;
+  const plans=require('../../domain/routes/route_plans'),details=plans.routeDiagnostics(report.route,selected);
+  const route=report.route,strategy=plans.strategyAssessment(route,selected);
+  const knownSpeed=['observed','computed','estimated'].includes(route.speed?.status);
+  const knownRadar=(route.ships||[]).every(s=>typeof s.radarEquipped==='boolean');
+  const unmetSpeed=!!strategy&&knownSpeed&&!strategy.speedMet,unmetRadar=!!strategy&&knownRadar&&!strategy.radarMet;
+  const fleetCondition=selected.fleetRequirement?require('../../domain/routes/normal_routes').predicate(selected.fleetRequirement,route.ships,{}):true;
+  const unmetFleet=fleetCondition===false,impossible=details.chance?.max===0;
+  if(!impossible&&!unmetSpeed&&!unmetRadar&&!unmetFleet)return null;
+  const relevant=details.blocked.filter(p=>!p.summary?.startsWith('流派速力要求：')||knownSpeed)
+    .filter(p=>!p.summary?.startsWith('流派电探要求：')||knownRadar)
+    .filter(p=>!p.summary?.startsWith('攻略编成要求：')||fleetCondition===false);
+  const warnings=[...new Set(relevant.map(p=>{
+    if(p.from===null||!p.current)return p.summary;
+    const requirements=[...new Set((p.requirements||[]).filter(r=>r.state!=='matched').map(r=>r.condition))];
+    return `${p.from==='start'?'出发点':p.from} → ${p.to}：${p.current}${requirements.length?'；需要 '+requirements.join(' 或 '):''}`;
+  }))];
+  return {unreachable:impossible,value:impossible?'无法沿此路线抵达':'编成不满足路线要求',warnings};
 }
 function routeArrival(report,selected,ready,target='boss'){
   const result=routeArrivalResult(report,selected,ready,target);
@@ -468,4 +499,4 @@ function fleetSummary(report,profile,routeNodes){
 }
 const income=require('../../domain/expeditions/expedition_income').missionIncome;
 
-module.exports={TYPES,entry,scheme,resolved,roster,replacementCandidates,changeSummary,equipmentOptions,recommendationHolds,merge,withEquipment,projected,inspect,routeChoices,badges,income,mapOverview,selectedMapProfile,routeEdgeProbabilities,mapProgress,displayThreat,fleetSummary,routeArrival,routeSpeedSummary,applicationWarning};
+module.exports={TYPES,entry,scheme,resolved,roster,replacementCandidates,changeSummary,equipmentOptions,recommendationHolds,merge,withEquipment,projected,inspect,routeChoices,badges,income,mapOverview,selectedMapProfile,routeEdgeProbabilities,mapProgress,displayThreat,displayBossFlagship,fleetSummary,routeArrival,draftRouteIssue,routeSpeedSummary,applicationWarning};

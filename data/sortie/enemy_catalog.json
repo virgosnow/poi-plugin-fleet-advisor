@@ -9381,7 +9381,12 @@
         "加重対空値": 16,
         "艦隊対空ボーナス": 2
       },
-      "equipment": [],
+      "equipment": [
+        {"name": "深海解放陸爆", "wikiAnchor": "abyss_lib_lbdbomber", "slotCapacity": 12, "slotCapacityEstimated": true},
+        {"name": "深海解放陸爆", "wikiAnchor": "abyss_lib_lbdbomber", "slotCapacity": 12, "slotCapacityEstimated": true},
+        {"name": "深海解放陸爆", "wikiAnchor": "abyss_lib_lbdbomber", "slotCapacity": 8, "slotCapacityEstimated": true},
+        {"name": "深海解放陸爆", "wikiAnchor": "abyss_lib_lbdbomber", "slotCapacity": 4, "slotCapacityEstimated": true}
+      ],
       "enemyAirPower": 34,
       "enemyAirPowerSource": "enemy page 制空値 row",
       "evolution": "集積地棲姫 → [[集積地棲姫-壊]]\n[[集積地棲姫II]] → [[集積地棲姫II-壊]]\n[[集積地棲姫III]] → [[集積地棲姫III-壊]]\n[[集積地棲姫IV]] → [[集積地棲姫IV-壊]]\n[[集積地夏姫]]\n[[集積地棲姫 バカンスmode]] → [[集積地棲姫 バカンスmode-壊]]\n[[集積地棲姫II 夏季上陸mode]] → [[集積地棲姫II 夏季上陸mode-壊]]\n[[集積地棲姫II バカンスmode]] → [[集積地棲姫II バカンスmode-壊]]\n[[集積地棲姫III バカンスmode]] → [[集積地棲姫III バカンスmode-壊]]\n[[集積地棲姫V バカンスmode]] → [[集積地棲姫V バカンスmode-壊]]\n[[集積地棲姫改]] → [[集積地棲姫改-壊]]|",
@@ -9480,7 +9485,12 @@
         "加重対空値": 18,
         "艦隊対空ボーナス": 2
       },
-      "equipment": [],
+      "equipment": [
+        {"name": "深海解放陸爆Ace", "wikiAnchor": "abyss_lib_lbdbomber_ace", "slotCapacity": 16, "slotCapacityEstimated": true},
+        {"name": "深海解放陸爆", "wikiAnchor": "abyss_lib_lbdbomber", "slotCapacity": 16, "slotCapacityEstimated": true},
+        {"name": "深海解放陸爆", "wikiAnchor": "abyss_lib_lbdbomber", "slotCapacity": 12, "slotCapacityEstimated": true},
+        {"name": "深海解放陸爆", "wikiAnchor": "abyss_lib_lbdbomber", "slotCapacity": 4, "slotCapacityEstimated": true}
+      ],
       "enemyAirPower": 48,
       "enemyAirPowerSource": "enemy page 制空値 row",
       "evolution": null,
@@ -11597,7 +11607,12 @@
         "加重対空値": 18,
         "艦隊対空ボーナス": 2
       },
-      "equipment": [],
+      "equipment": [
+        {"name": "深海解放陸爆Ace", "wikiAnchor": "abyss_lib_lbdbomber_ace", "slotCapacity": 12, "slotCapacityEstimated": true},
+        {"name": "深海解放陸爆", "wikiAnchor": "abyss_lib_lbdbomber", "slotCapacity": 12, "slotCapacityEstimated": true},
+        {"name": "深海解放陸爆", "wikiAnchor": "abyss_lib_lbdbomber", "slotCapacity": 12, "slotCapacityEstimated": true},
+        {"name": "深海解放陸爆", "wikiAnchor": "abyss_lib_lbdbomber", "slotCapacity": 12, "slotCapacityEstimated": true}
+      ],
       "enemyAirPower": 47,
       "enemyAirPowerSource": "enemy page 制空値 row",
       "evolution": "集積地棲姫II → [[集積地棲姫II-壊]]\n[[集積地棲姫III]] → [[集積地棲姫III-壊]]\n[[集積地棲姫IV]] → [[集積地棲姫IV-壊]]\n[[集積地夏姫]]\n[[集積地棲姫 バカンスmode]] → [[集積地棲姫 バカンスmode-壊]]\n[[集積地棲姫II 夏季上陸mode]] → [[集積地棲姫II 夏季上陸mode-壊]]\n[[集積地棲姫II バカンスmode]] → [[集積地棲姫II バカンスmode-壊]]\n[[集積地棲姫III バカンスmode]] → [[集積地棲姫III バカンスmode-壊]]\n[[集積地棲姫V バカンスmode]] → [[集積地棲姫V バカンスmode-壊]]\n[[集積地棲姫改]] → [[集積地棲姫改-壊]]|",
@@ -11696,7 +11711,12 @@
         "加重対空値": 18,
         "艦隊対空ボーナス": 3
       },
-      "equipment": [],
+      "equipment": [
+        {"name": "深海解放陸爆Ace", "wikiAnchor": "abyss_lib_lbdbomber_ace", "slotCapacity": 18, "slotCapacityEstimated": true},
+        {"name": "深海解放陸爆Ace", "wikiAnchor": "abyss_lib_lbdbomber_ace", "slotCapacity": 18, "slotCapacityEstimated": true},
+        {"name": "深海解放陸爆", "wikiAnchor": "abyss_lib_lbdbomber", "slotCapacity": 18, "slotCapacityEstimated": true},
+        {"name": "深海解放陸爆", "wikiAnchor": "abyss_lib_lbdbomber", "slotCapacity": 18, "slotCapacityEstimated": true}
+      ],
       "enemyAirPower": 66,
       "enemyAirPowerSource": "enemy page 制空値 row",
       "evolution": null,
@@ -11740,6 +11760,7 @@
       "name": "南太平洋空母棲姫",
       "variantLabel": "南太平洋空母棲姫 (A)",
       "apiId": 1971,
+      "rangeSourceNote": "假设南太平洋空母栖姬射程按超长参考，中英文资料记载中射程",
       "apiIdStatus": "verified",
       "kcwikiNameJa": "南太平洋空母棲姫",
       "kcwikiNameZh": "南太平洋空母栖姬",
@@ -11765,9 +11786,14 @@
         "加重対空値": 24,
         "艦隊対空ボーナス": 2
       },
-      "equipment": [],
-      "enemyAirPower": null,
-      "enemyAirPowerSource": null,
+      "equipment": [
+        {"name": "夜猫深海艦戦", "wikiAnchor": "night_cat_abyss_fighter", "slotCapacity": 22, "slotCapacityEstimated": true},
+        {"name": "夜深海艦爆", "wikiAnchor": "night_abyss_dbomber", "slotCapacity": 22, "slotCapacityEstimated": true},
+        {"name": "深海地獄艦爆改", "wikiAnchor": "abyss_hell_dbomber_kai", "slotCapacity": 22, "slotCapacityEstimated": true},
+        {"name": "夜復讐深海艦攻", "wikiAnchor": "night_rev_abyss_tbomber", "slotCapacity": 11, "slotCapacityEstimated": true}
+      ],
+      "enemyAirPower": 93,
+      "enemyAirPowerSource": "enemy page 制空値 row (推测值)",
       "evolution": "南太平洋空母棲姫 → [[南太平洋空母棲姫-壊]]|",
       "sourcePage": "南太平洋空母棲姫",
       "anchor": null
@@ -11854,6 +11880,7 @@
       "name": "南太平洋空母棲姫-壊",
       "variantLabel": "南太平洋空母棲姫-壊 (A)",
       "apiId": 1974,
+      "rangeSourceNote": "假设南太平洋空母栖姬射程按超长参考，中英文资料记载中射程",
       "apiIdStatus": "verified",
       "kcwikiNameJa": "南太平洋空母棲姫-壊",
       "kcwikiNameZh": "南太平洋空母栖姬-坏",
@@ -11879,9 +11906,14 @@
         "加重対空値": 26,
         "艦隊対空ボーナス": 2
       },
-      "equipment": [],
-      "enemyAirPower": null,
-      "enemyAirPowerSource": null,
+      "equipment": [
+        {"name": "夜猫深海艦戦", "wikiAnchor": "night_cat_abyss_fighter", "slotCapacity": 23, "slotCapacityEstimated": true},
+        {"name": "夜深海艦爆", "wikiAnchor": "night_abyss_dbomber", "slotCapacity": 23, "slotCapacityEstimated": true},
+        {"name": "深海地獄艦爆改", "wikiAnchor": "abyss_hell_dbomber_kai", "slotCapacity": 22, "slotCapacityEstimated": true},
+        {"name": "夜復讐深海艦攻", "wikiAnchor": "night_rev_abyss_tbomber", "slotCapacity": 22, "slotCapacityEstimated": true}
+      ],
+      "enemyAirPower": 103,
+      "enemyAirPowerSource": "enemy page 制空値 row (推测值)",
       "evolution": null,
       "sourcePage": "南太平洋空母棲姫-壊",
       "anchor": null

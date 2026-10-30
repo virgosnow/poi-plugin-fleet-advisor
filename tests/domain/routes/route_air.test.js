@@ -85,6 +85,39 @@ const combat=(id='A',enemy=100,kind='battle')=>({id,kind,enemyAirPower:enemy,
   antiAir:{status:'known',proportion:0.25,fixed:12}});
 const boss={...combat('Z'),boss:true};
 
+test('route air references and aircraft losses follow encounter stage without stale cache reuse',()=>{
+  const paths=[['X','Z']],forStage=encounterStage=>routeAirReference({},'5-6',{examples:paths,encounterStage});
+  // Query unknown and final first: later before/after requests must not reuse
+  // a stronger stage merely because their physical paths are identical.
+  const unknown=forStage('unknown'),final=forStage('final'),before=forStage('before'),after=forStage('after');
+  assert.deepEqual([unknown.enemyAirPower,final.enemyAirPower,before.enemyAirPower,after.enemyAirPower],[435,435,325,218]);
+  assert.notStrictEqual(before,final);assert.strictEqual(before,forStage('before'));
+  assert.deepEqual(before.nodes.map(n=>n.enemyAirPower),[325,325]);
+  assert.deepEqual(final.nodes.map(n=>n.enemyAirPower),[435,435]);
+  assert.deepEqual(after.nodes.map(n=>n.enemyAirPower),[218,218]);
+  const plane=aircraft(25,32,7);
+  const beforeLoss=estimateRouteAir(plane,before),afterLoss=estimateRouteAir(plane,after);
+  assert.equal(beforeLoss.status,'estimated');assert.equal(afterLoss.status,'estimated');
+  assert(beforeLoss.paths[0].steps[0].aircraft[0].planes[0]<afterLoss.paths[0].steps[0].aircraft[0].planes[0]);
+  assert.equal(estimateRouteAir(plane,final).paths[0].steps[0].required.superiority,653);
+});
+
+test('route stage can come from the evaluated route while unknown remains conservative',()=>{
+  const path={examples:[['H']]};
+  const before=routeAirReference({encounterStage:'before'},'3-5',path);
+  const final=routeAirReference({encounterStage:'final'},'3-5',path);
+  const unknown=routeAirReference({},'3-5',path);
+  assert.deepEqual([before.enemyAirPower,final.enemyAirPower,unknown.enemyAirPower],[221,254,254]);
+  assert.equal(routeAirReference({encounterStage:'final'},'3-5',{...path,encounterStage:'before'}),before);
+});
+
+test('4-5 boss uses the documented final and post-clear air compositions',()=>{
+  const path={examples:[['T']]};
+  const values=['before','final','after','unknown'].map(encounterStage=>
+    routeAirReference({},'4-5',{...path,encounterStage}).enemyAirPower);
+  assert.deepEqual(values,[138,111,138,138]);
+});
+
 test('air query attribution reconciles cache hits and pass/fail without changing results',()=>{
   const perf=require('../../../src/shared/performance_trace');
   const {routeAirMeets}=require('../../../src/domain/routes/route_air');

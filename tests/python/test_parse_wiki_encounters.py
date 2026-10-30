@@ -25,6 +25,7 @@ def load_tool(name):
 parser = load_tool('parse-wiki-encounters')
 gate = load_tool('update-encounters')
 catalog_tool = load_tool('build-enemy-catalog')
+crosscheck = load_tool('crosscheck-encounters')
 
 FOLD = '''#fold(敵編成){{
 ''敵編成''
@@ -48,6 +49,46 @@ AIRLINE_FOLD = '''#fold(敵編成){{
 |~出現場所|~パターン|~EXP|~出現艦船|~陣形|~[[敵制空値>航空戦#AirSupremacy]]|~優勢|~確保|
 |A：&br;敵増援機動部隊|パターン1|200|[[軽母ヌ級改elite]]、[[軽巡ツ級]]|輪形|264|394|792|
 }}'''
+
+class CrossCheckFinalFormTest(unittest.TestCase):
+    def test_absent_explicit_true_and_false_are_distinct(self):
+        raw = '''{{敌方配置表
+|海域点=A
+|敌方={{深海横幅|1501}}
+|阵型=単縦
+|敌方2={{深海横幅|1502}}
+|阵型2=単縦
+|lastkill2=true
+|敌方3={{深海横幅|1503}}
+|阵型3=単縦
+|lastkill3=false
+}}'''
+        variants = crosscheck.parse_kcwiki_blocks(raw)['A']['variants']
+        self.assertEqual([v['finalForm'] for v in variants], [None, True, False])
+        self.assertFalse(crosscheck.final_form_conflict(True, None))
+        self.assertFalse(crosscheck.final_form_conflict(None, True))
+        self.assertTrue(crosscheck.final_form_conflict(True, False))
+        self.assertFalse(crosscheck.final_form_conflict(False, False))
+
+class EnemyCatalogEstimatedSlotsTest(unittest.TestCase):
+    def test_question_mark_capacity_is_retained_with_reference_marker(self):
+        raw = '''(No.1971) 南太平洋空母棲姫 (A)
+|>|>|>|>|~No.1971|
+|~|~制空値|>|>|93?|
+|~|22?|>|>|[[夜深海艦爆>敵艦船#night_abyss_dbomber]]|
+|~|11|>|>|[[夜復讐深海艦攻>敵艦船#night_rev_abyss_tbomber]]|
+|~|>|>|>|装備不可|
+'''
+        [block] = catalog_tool.parse_page({'page': '测试', 'rawSource': raw})
+        self.assertEqual(block['ownAirPower'], 93)
+        self.assertTrue(block['ownAirPowerEstimated'])
+        self.assertEqual(block['equipment'][0], {
+            'name': '夜深海艦爆', 'wikiAnchor': 'night_abyss_dbomber',
+            'slotCapacity': 22, 'slotCapacityEstimated': True})
+        self.assertEqual(block['equipment'][1], {
+            'name': '夜復讐深海艦攻', 'wikiAnchor': 'night_rev_abyss_tbomber',
+            'slotCapacity': 11})
+        self.assertEqual(block['equipment'][2], {'notEquippable': True})
 
 class ParseAirInheritanceTest(unittest.TestCase):
     def parse_patterns(self, fold):

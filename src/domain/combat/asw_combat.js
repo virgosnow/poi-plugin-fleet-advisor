@@ -24,7 +24,12 @@ function roles(item){
 function aswAttack(store,target){
   const before=requireItems(store,target.before),after=requireItems(store,target.after);
   const stype=Number(target.master.api_stype),items=after;
-  const opening=openingASW(store,target).eligible===true;
+  const openingReading=openingASW(store,target);
+  // A not-yet-verified opening-ASW requirement is not proof that the attack
+  // cannot happen. Preserve the uncertainty for scoring and damage estimates.
+  if(openingReading.eligible===null)return {status:'unknown',power:null,opening:null,normal:null,
+    reason:openingReading.reason||'先制对潜条件待确认'};
+  const opening=openingReading.eligible===true;
   if(!aswMode(target,items,1)&&!opening)return {status:'known',power:0,opening:false,normal:false,hull:0};
   const old=bonus(store,target,before),next=bonus(store,target,after),observed=first(target.ship.api_taisen);
   const unknown=[...old.reasons,...next.reasons];

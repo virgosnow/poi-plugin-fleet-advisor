@@ -22,6 +22,14 @@ PAGES = ROOT.parent / 'tmp/sortie_sources/enemies/pages'
 ENEMIES = ROOT.parent / 'tmp/sortie_sources/enemies'
 OUT = ROOT / 'data/sortie/enemy_catalog.json'
 
+# Japanese and Chinese/English references disagree about these hull ranges.
+# Keep the Japanese value as a conservative reference, with the discrepancy
+# visible to downstream battle comparisons rather than asserting certainty.
+RANGE_SOURCE_NOTES = {
+    1971: '假设南太平洋空母栖姬射程按超长参考，中英文资料记载中射程',
+    1974: '假设南太平洋空母栖姬射程按超长参考，中英文资料记载中射程',
+}
+
 def clean(text):
     text = re.sub(r'&color\([^)]*\)\{(.*?)\};', r'\1', text)
     text = re.sub(r'\(\((.+?)\)\)', '', text)
@@ -76,20 +84,23 @@ def parse_page(record):
                 elif label.startswith('艦隊対空'):
                     stats['艦隊対空ボーナス'] = stat_num(value)
         own_air = None
-        om = re.search(r'\|~\|~制空値\|>\|>\|(\d+)\|', seg)
+        om = re.search(r'\|~\|~制空値\|>\|>\|(\d+)(\?)?\|', seg)
         if om:
             own_air = int(om.group(1))
         equipment = []
-        for em in re.finditer(r'\|~\|(?:(\d+)\|)?>\|>\|(?:>\|)?([^|]+)\|', seg):
+        for em in re.finditer(r'\|~\|(?:(\d+)(\?)?\|)?>\|>\|(?:>\|)?([^|]+)\|', seg):
             capacity = int(em.group(1)) if em.group(1) else None
-            raw = em.group(2).strip()
+            estimated = bool(em.group(2))
+            raw = em.group(3).strip()
             link = re.fullmatch(r'\[\[(.+?)>([^\]]+)\]\]', raw)
             if link:
                 equipment.append({'name': clean(link.group(1)),
                                   'wikiAnchor': link.group(2).split('#')[-1],
-                                  'slotCapacity': capacity})
+                                  'slotCapacity': capacity,
+                                  **({'slotCapacityEstimated': True} if estimated else {})})
             elif '未装備' in raw:
-                equipment.append({'name': None, 'slotCapacity': capacity})
+                equipment.append({'name': None, 'slotCapacity': capacity,
+                                  **({'slotCapacityEstimated': True} if estimated else {})})
             elif '装備不可' in raw:
                 equipment.append({'notEquippable': True})
         evolution = None
@@ -103,6 +114,7 @@ def parse_page(record):
             'shipType': ship_type,
             'stats': {k: v for k, v in stats.items() if v is not None},
             'ownAirPower': own_air,
+            'ownAirPowerEstimated': bool(om and om.group(2)),
             'equipment': equipment,
             'anchor': anchor,
             'evolution': evolution,
@@ -203,7 +215,7 @@ def main():
                 id_status = 'nameDisagreement'
             lookup_name = (block['name'] or '').replace(' ', '')
             air = block['ownAirPower']
-            air_source = 'enemy page 制空値 row' if air is not None else None
+            air_source = ('enemy page 制空値 row (推测值)' if block['ownAirPowerEstimated'] else 'enemy page 制空値 row') if air is not None else None
             if air is None and lookup_name:
                 air = air_table.get(lookup_name)
                 air_source = '敵艦船 制空値一覧' if air is not None else None
@@ -214,6 +226,7 @@ def main():
                 'name': block['name'],
                 'variantLabel': block['variantLabel'],
                 'apiId': block['apiId'],
+                **({'rangeSourceNote': RANGE_SOURCE_NOTES[block['apiId']]} if block['apiId'] in RANGE_SOURCE_NOTES else {}),
                 'apiIdStatus': id_status,
                 'kcwikiNameJa': banner_ja,
                 'kcwikiNameZh': id2zh.get(str(block['apiId'])),

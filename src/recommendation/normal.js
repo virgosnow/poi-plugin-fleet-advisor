@@ -23,6 +23,7 @@ const {fitRouteLoS,selectLoSFinalists}=require('../domain/routes/route_los');
 const {emptyLoadout,completeCombatLoadout,availableEquipment,aswEscortLimit,aswEscortIds}=require('./loadout/loadout_policy');
 const {equipmentForFleet,prepareFleetEquipment,assertFleetEquipment}=require('./loadout/equipment_borrowing');
 const {profileForRoute,previewForMap}=require('../domain/routes/sortie_profile');
+const {encounterStage}=require('../domain/combat/encounter_stage');
 const aswCombat=require('../domain/combat/asw_combat');
 const {fitAswLoadouts}=require('./loadout/asw_fitting');
 const selectionFilters=require('../config/recommendation_filters');
@@ -34,6 +35,7 @@ const {positionUpgrades,combineUpgrades,finalHullUpgrades}=require('./refinement
 const {routeDifficulty}=require('./route_economy');
 const {fleetOrderChoices}=require('./fleet_order');
 const {guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,specialFleetSeeds,specialPositionLocks}=require('./strategies');
+const previewForSnapshot=(store,area,options={})=>previewForMap(area,{...options,encounterStage:encounterStage(store,area,options.phase)});
 
 // Combat-first submarine fleets may use spare aircraft slots, but an air
 // trial cannot consume either of the first two available torpedo positions.
@@ -65,7 +67,7 @@ function confirmedRouteEvidence(route,profile){
     a.selectedPath.join('>').localeCompare(b.selectedPath.join('>')))[0]||null;
 }
 function bestPathDiagnostics(route,profile,target){
-  const paths=profile?.routePaths?.length?profile.routePaths:previewForMap(route.area,{target,phase:route.phase}).routePaths;
+  const paths=profile?.routePaths?.length?profile.routePaths:previewForMap(route.area,{target,phase:route.phase,encounterStage:route.encounterStage}).routePaths;
   const choices=paths.map(path=>({nodes:path.nodes,
     chance:routePlans.planningPath(route,path.nodes,{allowTentative:false}).chance})).sort((a,b)=>
     b.chance.min-a.chance.min||b.chance.max-a.chance.max||a.nodes.length-b.nodes.length);
@@ -82,7 +84,7 @@ function prepareCandidateEvaluator(store,args,ctx,inventory){
   const {area,target='boss',phase,airGoal='superiority'}=args;
   const policy=guidePolicy(area,target,phase);
   const available=new Map(inventory.map(i=>[i.id,i]));
-  const fittingProfile=previewForMap(area,{target,phase});
+  const fittingProfile=previewForSnapshot(store,area,{target,phase});
   const initialWantsAsw=aswEscortLimit(fittingProfile,store)>0;
   const cache=snapshotMemo(store,'search.candidates',JSON.stringify(args),()=>new Map());
   const inputs=snapshotMemo(store,'search.candidateInputs',JSON.stringify(args),()=>new Map());
@@ -160,7 +162,7 @@ function calculateBatch(store,batch){
   const {args,items,kind}=batch,{area,phase,airGoal='superiority'}=args;
   const ctx=context(store,args,1),allInventory=availableEquipment(store);
   if(kind==='hulls'){
-    ctx.combatScore=combatHullRanker(store,previewForMap(area,{target:args.target||'boss',phase}));
+    ctx.combatScore=combatHullRanker(store,previewForSnapshot(store,area,{target:args.target||'boss',phase}));
     return (batch.serial?[undefined]:items).map(shard=>routePlans.hullSeeds(ctx,
       {...batch.options,shard,partial:true},shipFamilyKey));
   }
@@ -276,8 +278,9 @@ function calculateBatch(store,batch){
     const inventory=equipmentForFleet(allInventory,rows,args.automaticFilters);
     // Worker messages clone references. Reuse this worker's static reference
     // for the exact same paths so aviation trial caches survive batch changes.
-    const reference=batch.finalGround?routeAirReference({},area,{examples:seed.profile.examples}):seed.scores.routeAirReference?.paths?
-      routeAirReference({},area,{examples:seed.scores.routeAirReference.paths}):seed.scores.routeAirReference;
+    const encounterStage=seed.profile.encounterStage||seed.route?.encounterStage||'unknown';
+    const reference=batch.finalGround?routeAirReference({},area,{examples:seed.profile.examples,encounterStage}):seed.scores.routeAirReference?.paths?
+      routeAirReference({},area,{examples:seed.scores.routeAirReference.paths,encounterStage}):seed.scores.routeAirReference;
     let attempts=0;
     for(const kind of gearKinds){
       if(kind==='jets'||kind==='aviation'){
@@ -394,9 +397,9 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   const policy=guidePolicy(area,target,phase);
   // Include the selected stage's reachable submarine encounters, including
   // submarine escorts in otherwise surface formations, before sampling hulls.
-  const initialWantsAsw=aswEscortLimit(previewForMap(area,{target,phase}),store)>0;
+  const initialWantsAsw=aswEscortLimit(previewForSnapshot(store,area,{target,phase}),store)>0;
   const ctx=context(store,args,1);
-  ctx.combatScore=combatHullRanker(store,previewForMap(area,{target,phase}));
+  ctx.combatScore=combatHullRanker(store,previewForSnapshot(store,area,{target,phase}));
   const pool=ctx.roster,fixed=ctx.fixed.map(id=>ctx.byId.get(id));
   const allSizes=[1,2,3,4,5,6].filter(n=>n>=fixed.length);
   const viableSizes=routePlans.routeFleetSizes(area,requestedRoutes,phase);
@@ -457,7 +460,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     // A route can permit a combined-arms touch fleet outside its guide examples.
     // This is a role template; actual routing and equipment still decide validity.
     {minLevel:1,templates:[[[8,9,10],[7],[5,6],[3],[2],[2]],[[8,9,10],[11,18],[5,6],[3],[2],[2]]]}],args.heldSlots,
-    previewForMap(area,{target,phase}).counts?.night?.maximum>0);
+    previewForSnapshot(store,area,{target,phase}).counts?.night?.maximum>0);
   for(const rows of specialSeeds)evaluate(rows);
   let pathSeeds=null;
   {
@@ -1039,7 +1042,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   const inventory=allowedInventory.filter(item=>!reserved.has(item.id));
   const selectedRoute=routeKey?routePlans.routeOptions(area,target,phase).find(r=>r.key===routeKey):null;
   if(routeKey&&!selectedRoute)throw error('INVALID_QUERY','所选路线不存在，请重新选择路线；当前编成已保留');
-  const fittingProfile=previewForMap(area,{target,phase,paths:selectedRoute?routePlans.optionPaths(selectedRoute):undefined});
+  const fittingProfile=previewForSnapshot(store,area,{target,phase,paths:selectedRoute?routePlans.optionPaths(selectedRoute):undefined});
   const fittingOptions={area,asw:aswEscortLimit(fittingProfile,store)>0,profile:fittingProfile,heldSlots};
   const base=completeCombatLoadout(store,normalize(emptyLoadout(store,scheme,heldSlots)),inventory,fittingOptions);
   const candidates=[];
@@ -1132,7 +1135,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
         const check=routePlans.optionPlanning(route,selectedRoute);return check.chance.max>0&&check.losShortfall===0;}});
     if(fit)evaluate(fit);
   }
-  const intervalPaths=selectedRoute?routePlans.optionPaths(selectedRoute):previewForMap(area,{target,phase}).routePaths.map(p=>p.nodes);
+  const intervalPaths=selectedRoute?routePlans.optionPaths(selectedRoute):previewForSnapshot(store,area,{target,phase}).routePaths.map(p=>p.nodes);
   for(const nodes of intervalPaths){
     const finalists=selectLoSFinalists(candidates,{
       nodes,key:row=>JSON.stringify(row.scheme),rank:row=>row.scores.rank,

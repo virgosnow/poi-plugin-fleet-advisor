@@ -464,7 +464,7 @@ function evaluateNormalRouteCore(store,{area,target='boss',fleet=1,scheme,phase}
     probability=minimum===maximum&&verdict!=='likelyGuaranteed'?minimum:null;
   }
   const hops=map.graphComplete?reachableHops(map,'start',targetNodes,ships,metrics,new Set(),phase||null,assess):[];
-  return {area,target,targetNodes,phase:phase||null,fleet,ships,
+  return {area,target,targetNodes,phase:phase||null,encounterStage:require('../combat/encounter_stage').encounterStage(store,area,phase),fleet,ships,
     lineOfSight:metrics.lineOfSight,speed:metrics.speed,openingASW:metrics.openingASW,
     airControl,bossNodes:map.bossNodes,
     terminalNodes:map.terminalNodes,verdict,probability,chanceRange,

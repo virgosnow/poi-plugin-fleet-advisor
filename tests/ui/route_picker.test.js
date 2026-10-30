@@ -29,6 +29,35 @@ test('route popup stays anchored and Escape never changes the fleet or selected 
   anchor.props.onKeyDown({key:'Escape',preventDefault(){},stopPropagation(){}});ui.render();assert.deepEqual(calls,[]);assert(!ui.find(n=>n.props.role==='dialog'));
 });
 
+test('battle predictions replace priority labels and rank routes within each phase without changing selections',()=>{
+  const {fromRatio}=require('../../src/domain/combat/combat_balance');
+  const combat=ratio=>({status:'estimated',balance:fromRatio(ratio)});
+  const options=[
+    {key:'low',name:'较弱',phase:'gauge2',priority:'优先',combat:combat(.5)},
+    {key:'high',name:'较强',phase:'gauge2',combat:combat(4)},
+    {key:'tie1',name:'同档一',phase:'gauge2',combat:combat(2)},
+    {key:'tie2',name:'同档二',phase:'gauge2',combat:combat(2)},
+    {key:'mid',name:'同档更强',phase:'gauge2',combat:combat(2.5)},
+    {key:'pending',name:'计算中',phase:'gauge2',combat:{status:'pending'}},
+    {key:'unknown',name:'未能评估',phase:'gauge2',combat:{status:'unknown'}},
+    {key:'blocked',name:'缺船',phase:'gauge2',status:'notFound',combat:combat(10)},
+    {key:'other',name:'其他阶段',phase:'gauge1',combat:combat(20)}
+  ];
+  const before=options.map(option=>option.key),calls=[];
+  const ui=harness({options,value:'low',currentPhase:'gauge2',onChange:key=>calls.push(key)});ui.open();
+  const groups=ui.all(n=>n.props.role==='group');
+  assert.deepEqual(groups.map(n=>n.props['aria-label']),['第 2 阶段','第 1 阶段']);
+  const rows=ui.all(n=>n.props.className==='paa-route-option');
+  assert.deepEqual(rows.map(n=>n.props.key),['high','mid','tie1','tie2','low','pending','unknown','blocked','other']);
+  assert.deepEqual(options.map(option=>option.key),before,'input order must not be mutated');
+  const texts=node=>typeof node==='string'?node:node&&typeof node==='object'?node.children.map(texts).join(''):'';
+  const row=key=>rows.find(n=>n.props.key===key);
+  assert.match(texts(row('high')),/压倒性优势/);assert.match(texts(row('low')),/明显劣势/);
+  assert(!texts(row('low')).includes('优先'));assert.match(texts(row('pending')),/计算中/);
+  assert.match(texts(row('unknown')),/暂不可评估/);assert.match(texts(row('blocked')),/上次未找到方案/);
+  assert.equal(row('low').props['aria-selected'],true);assert.deepEqual(calls,[]);
+});
+
 test('other gauges stay folded and cannot be selected until explicitly expanded; expansion does not search',()=>{
   const options=require('../../src/domain/routes/route_plans').recommendedOptions('5-6'),calls=[];
   const props={area:'5-6',options,value:'',currentPhase:'gauge3',onChange:key=>calls.push(key)},ui=harness(props);
@@ -60,14 +89,28 @@ test('next-route shortcut stays hidden until enabled and cycles only within the 
   props.disabled=false;props.hidden=true;ui.render();next().props.onClick();assert.equal(calls.length,count);
 });
 
-test('next-route shortcut safely handles one route or an empty catalogue and closes a popup on switching',()=>{
+test('next-route shortcut hides with no alternative and skips unavailable routes',()=>{
   const only={key:'only',name:'唯一路线',nodes:['A','B']},calls=[];
   const props={options:[only],value:'only',showNext:true,onChange:key=>calls.push(key)},ui=harness(props);
   const next=()=>ui.find(n=>n.props['aria-label']==='下一条路线');
-  assert(next().props.disabled);next().props.onClick();assert.deepEqual(calls,[]);
-  props.value='';ui.render();assert(!next().props.disabled);ui.open();next().props.onClick();ui.render();
+  assert(!next());props.value='';ui.render();assert(next());ui.open();next().props.onClick();ui.render();
   assert.deepEqual(calls,['only']);assert(!ui.find(n=>n.props.role==='dialog'));
-  props.options=[];ui.render();assert(next().props.disabled);next().props.onClick();assert.equal(calls.length,1);
+  props.options=[];ui.render();assert(!next());
+  props.options=[only,{key:'bad',name:'条件未满足',status:'notFound'},{key:'unknown',name:'待确认',status:'unconfirmed'},
+    {key:'good',name:'可用路线',status:'available'}];props.value='only';ui.render();
+  next().props.onClick();assert.equal(calls.at(-1),'good');
+  props.options=props.options.filter(o=>o.key!=='good');ui.render();assert(!next());
+});
+
+test('failed or unconfirmed route choices are disabled until their status is cleared',()=>{
+  const calls=[],options=[{key:'ok',name:'可用',nodes:['A']},{key:'bad',name:'缺船',nodes:['B'],status:'notFound'},
+    {key:'unknown',name:'待确认',nodes:['C'],status:'unconfirmed'}],props={options,value:'ok',onChange:key=>calls.push(key)};
+  const ui=harness(props);ui.open();
+  const row=key=>ui.find(n=>n.props.key===key&&n.props.role==='option');
+  assert(row('bad').props.disabled);assert.equal(row('bad').props.tabIndex,-1);assert(row('unknown').props.disabled);
+  row('bad').props.onClick();row('unknown').props.onClick();assert.deepEqual(calls,[]);
+  props.options=options.map(({status,...option})=>option);ui.render();assert(!row('bad').props.disabled);
+  row('bad').props.onClick();assert.deepEqual(calls,['bad']);
 });
 
 test('popup grid navigation follows its columns and skips folded stages',()=>{

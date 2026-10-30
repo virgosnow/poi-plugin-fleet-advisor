@@ -163,7 +163,7 @@ function harness(kind='normal',automaticFilters){
   };
   const chooseGoal=(tree,goal)=>find(tree,n=>n.type==='button'&&n.children.includes(goal==='great'?'优先大成功':'成功即可')).props.onClick();
   render();set('area','3-5');set('catalog',[{area:'3-5',bossNodes:['K']},{area:'1-1',bossNodes:['B']}]);
-  return {render,find,control,chooseGoal,get,set,service,calls,store,effects};
+  return {render,find,control,chooseGoal,get,set,service,calls,store,effects,refs};
 }
 
 test('map node selection never replaces route-level combat assessment or its two threat cards',()=>{
@@ -172,11 +172,77 @@ test('map node selection never replaces route-level combat assessment or its two
   h.set('report',W.inspect(h.service,h.store,slots,settings));
   const section=()=>h.find(h.render(),n=>n.props.className==='paa-wb-threat');
   const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
-  const before=text(section());assert.match(before,/战力预估/);assert.match(before,/目标点最大威胁/);assert.match(before,/道中最大威胁/);
+  const before=text(section());assert.match(before,/战况预测/);assert.match(before,/最大威胁/);
+  assert.doesNotMatch(before,/目标点最大威胁|道中最大威胁|资料待确认/);
   h.set('nodeId','A');assert.equal(text(section()),before);
   h.set('nodeId','C');assert.equal(text(section()),before);
   h.set('nodeId',null);assert.equal(text(section()),before);
   assert.equal(h.calls.fleet+h.calls.equipment,0);
+});
+
+test('battle comparison result appears beside its heading without hover details',()=>{
+  const h=harness(),ship=h.store.info.ships[1],master=h.store.const.$ships[1];
+  Object.assign(ship,{api_nowhp:30,api_maxhp:30,api_soukou:[12,12],api_karyoku:[35,35],api_raisou:[30,30],api_kyouka:[0,0,0,0],api_lucky:[20,20]});
+  Object.assign(master,{api_houg:[35,35],api_raig:[30,30],api_leng:2});
+  const slots=[W.entry(h.store,1)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
+  h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
+  h.set('report',W.inspect(h.service,h.store,slots,settings));
+  const section=()=>h.find(h.render(),n=>n.props.className==='paa-wb-threat');
+  const head=h.find(section(),n=>n.props.className==='paa-wb-section-head');
+  const tier=h.find(head,n=>n.props.className==='paa-balance-tier');
+  assert(tier);assert.equal(tier.props['data-tooltip'],undefined);
+  const comparison=h.find(section(),n=>n.props.className==='paa-combat-balance');
+  assert(comparison);assert.equal(comparison.props['data-tooltip'],undefined);
+  assert.equal(h.find(comparison,n=>n.props.className==='paa-balance-tier'),undefined);
+  assert(!head.children.some(child=>child?.props?.className==='paa-muted'));
+  const toggle=h.find(head,n=>n.props.className==='paa-balance-toggle');
+  assert(toggle);assert.equal(toggle.props['aria-expanded'],false);
+  const detail=()=>h.find(section(),n=>n.props.id==='normal-combat-details');
+  assert.equal(detail().props['aria-hidden'],true);assert.equal(detail().props.inert,'');
+  toggle.props.onClick();assert.equal(h.find(section(),n=>n.props.className==='paa-balance-toggle').props['aria-expanded'],true);
+  assert.equal(detail().props['aria-hidden'],false);assert.equal(detail().props.inert,undefined);
+  h.find(section(),n=>n.props.className==='paa-balance-toggle').props.onClick();
+  assert.equal(detail().props['aria-hidden'],true);
+  assert.equal(h.find(head,n=>n.props.className==='paa-balance-title').children[0],'战况预测');
+  const click=(target={},selection=null,extra={})=>({button:0,target,currentTarget:{ownerDocument:{getSelection:()=>selection},contains:()=>true},...extra});
+  assert.equal(section().props['data-expandable'],true);
+  section().props.onClick(click({closest:()=>null}));assert.equal(detail().props['aria-hidden'],false);
+  section().props.onClick(click({closest:selector=>selector.includes('.paa-threat-cards')?{}:null}));assert.equal(detail().props['aria-hidden'],false,'threat cards do not toggle the prediction details');
+  section().props.onClick(click({closest:()=>({})}));assert.equal(detail().props['aria-hidden'],false,'nested controls and details remain independently usable');
+  section().props.onClick(click({closest:()=>null},{isCollapsed:false,anchorNode:{}}));assert.equal(detail().props['aria-hidden'],false,'selecting text does not toggle');
+  section().props.onClick(click({closest:()=>null},null,{button:2}));assert.equal(detail().props['aria-hidden'],false,'secondary click does not toggle');
+  section().props.onClick(click({closest:()=>null}));assert.equal(detail().props['aria-hidden'],true);
+  h.set('report',{valid:false});
+  const calculating=h.render(),region=h.find(calculating,n=>n.props['data-result-region']==='route');
+  assert.equal(region.props['aria-busy'],true);
+  assert.equal(h.find(region,n=>n.props.className==='paa-wb-calculation-content').props['aria-hidden'],true);
+  assert(h.find(region,n=>n.props.className==='paa-wb-calculating'));
+  h.set('report',{valid:false,scheme:W.scheme(slots,1),settingsKey:JSON.stringify(settings)});
+  const pending=section();assert.equal(h.find(pending,n=>n.props.className==='paa-balance-tier'),undefined);
+  assert(h.find(pending,n=>n.props.className==='paa-balance-pending'));
+});
+
+test('1-6 noncombat destination shows two distinct enroute enemies under one title',()=>{
+  const h=harness();h.set('area','1-6');h.set('target','N');h.set('mapRoute',W.mapOverview('1-6','N').options[0].key);
+  const tree=h.render(),findAll=(node,pred)=>!node||typeof node!=='object'?[]:
+    [...(pred(node)?[node]:[]),...(node.children||[]).flatMap(child=>findAll(child,pred))];
+  const section=h.find(tree,n=>n.props.className==='paa-wb-threat');
+  const cards=findAll(section,n=>n.props.className==='paa-threat-card');
+  const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
+  assert.equal(cards.length,2);assert.match(text(section),/最大威胁/);
+  assert.notEqual(text(cards[0]),text(cards[1]));assert.doesNotMatch(text(section),/资料待确认/);
+});
+test('battle target keeps target then enroute threat as independent cards',()=>{
+  const h=harness(),slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
+  h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
+  h.set('report',W.inspect(h.service,h.store,slots,settings));
+  const section=h.find(h.render(),n=>n.props.className==='paa-wb-threat');
+  const findAll=(node,pred)=>!node||typeof node!=='object'?[]:
+    [...(pred(node)?[node]:[]),...(node.children||[]).flatMap(child=>findAll(child,pred))];
+  const cards=findAll(section,n=>n.props.className==='paa-threat-card');
+  const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
+  assert.equal(cards.length,2);assert.match(text(cards[0]),/C 点/);assert.match(text(cards[1]),/A 点/);
+  assert.match(text(cards[0]),/轻巡|軽巡/,'Boss card shows the first main-fleet flagship');
 });
 
 test('route selection uses a grouped anchored component and keeps names separate from path letters',()=>{
@@ -205,45 +271,303 @@ test('route choices retain each recommended fleet name and clear it with the fle
   h.set('slots',[]);h.set('mapRoute','');assert.equal(choice().name,base.name,'empty drafts do not retain a previous fleet verdict');
 });
 
-test('multi-stage completion searches only the selected gauge and caches each gauge independently',async()=>{
+test('multi-stage completion only evaluates the chosen gauge until the player explicitly completes another',async()=>{
   const h=harness(),plans=require('../../src/domain/routes/route_plans'),queries=[];
   h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};
   h.set('slots',[{...W.entry(h.store,2),pin:true},null,null,null,null,null]);
   h.service.recommendNormalFleet=args=>{
     queries.push(args);const options=plans.recommendedOptions(args.area,'boss',args.phase);
     return {phase:args.phase,routeResults:options.map((o,i)=>({...o,status:'available',chance:{probability:1},recommendationIndex:i})),
-      recommendations:options.map(o=>({routeKey:o.key,scheme:W.scheme([W.entry(h.store,2)],1)}))};
+      recommendations:options.map(o=>({routeKey:o.key,scheme:W.scheme([W.entry(h.store,1),W.entry(h.store,2)],1)}))};
   };
-  const select=async key=>{await h.control(h.render(),'参考路线').props.onChange({target:{value:key}});h.render();assert.equal(h.get('error'),'');};
   const first=plans.recommendedOptions('5-6','boss','gauge1'),third=plans.recommendedOptions('5-6','boss','gauge3');
   const picker=()=>h.find(h.render(),n=>n.type?.name==='RoutePicker');
-  assert.equal(picker().props.showNext,false,'no shortcut before recommendation');
-  const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
-  assert.equal(picker().props.showNext,false,'no shortcut while computing');await pending;
-  assert.equal(picker().props.showNext,true,'all routes in this gauge have finished');
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();
+  for(let i=0;i<80&&Object.keys(h.get('batchRouteChoices')||{}).length<third.length;i++){
+    await new Promise(resolve=>setTimeout(resolve,10));h.render();
+  }
   assert.deepEqual(queries.map(q=>q.phase),['gauge3']);
-  assert.equal(h.get('choices').length,third.length);
-  assert.equal(h.control(h.render(),'参考路线').props.options.length,plans.recommendedOptions('5-6').length,'all phase catalogs remain browseable');
-  await select(first[0].key);assert.equal(h.get('choices').length,first.length);
-  const switching=h.control(h.render(),'参考路线').props.onChange({target:{value:first[1].key}});
-  assert.equal(picker().props.showNext,true,'a cached route switch keeps the control in place');
-  assert.equal(picker().props.disabled,true);await switching;await select(third[0].key);
-  assert.deepEqual(queries.map(q=>q.phase),['gauge3','gauge1'],'switching back reuses that gauge only');
-  assert(queries.every(q=>q.routeKey===undefined),'selection calculates all routes in the chosen gauge');
-  assert(queries.every(q=>q.fixedShipIds.includes(2)));assert(h.get('slots')[0].pin);
-  await select('');assert.equal(queries.length,2,'clearing a route does not calculate');
-  h.store.info={...h.store.info};await select(third[1].key);
-  assert.deepEqual(queries.map(q=>q.phase),['gauge3','gauge1','gauge3'],'new snapshots invalidate phase results');
-  h.find(h.render(),n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();
-  assert.equal(picker().props.showNext,false,'clearing the draft retires the shortcut');
+  assert(third.every(o=>h.get('routeCombatResults')[o.key]?.status!=='pending'));
+  assert(first.every(o=>!h.get('routeCombatResults')[o.key]),'other stages are not marked as calculating');
+  assert.equal(h.get('slots')[1].id,2);assert.equal(h.get('slots')[1].pin,true,'automatic placement may move a held ship');
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:first[0].key}});h.render();
+  await new Promise(resolve=>setTimeout(resolve,40));h.render();
+  assert.deepEqual(queries.map(q=>q.phase),['gauge3'],'selecting another gauge alone never starts recommendation');
+  assert.equal(h.get('mapRoute'),first[0].key);assert.equal(h.get('combatDeferredPhase'),'gauge1');
+  assert(h.get('slots').every(s=>s===null),'changing stages clears even manually fixed ships');
+  assert(first.every(o=>!h.get('routeCombatResults')[o.key]),'selected gauge remains unassessed until completion');
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:first[1].key}});h.render();
+  await new Promise(resolve=>setTimeout(resolve,40));h.render();
+  assert.deepEqual(queries.map(q=>q.phase),['gauge3'],'another route in the unassessed gauge also waits for explicit completion');
+  assert.equal(h.get('combatDeferredPhase'),'gauge1');
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();
+  for(let i=0;i<80&&first.some(o=>!h.get('routeCombatResults')[o.key]||h.get('routeCombatResults')[o.key].status==='pending');i++){
+    await new Promise(resolve=>setTimeout(resolve,10));h.render();
+  }
+  assert.deepEqual(queries.map(q=>q.phase),['gauge3','gauge1']);
+  assert(first.every(o=>h.get('routeCombatResults')[o.key]?.status!=='pending'));
+  assert(third.every(o=>!h.get('routeCombatResults')[o.key]),'clearing the old constraints invalidates their results');
+  assert(queries.every(q=>q.routeKey===undefined));assert(queries[0].fixedShipIds.includes(2));assert.deepEqual(queries[1].fixedShipIds,[]);
+  assert.equal(h.get('combatDeferredPhase'),'');assert(picker().props.options.some(o=>o.phase==='gauge2'));
 });
 
-test('selecting another gauge before completion calculates it, while late results cannot refill a changed map',async()=>{
+test('changing stages does not run a new stage battle simulation until explicit completion',async()=>{
+  const assessment=require('../../src/application/combat_assessment');
+  const workbenchPath=require.resolve('../../src/ui/workbench/workbench'),cached=require.cache[workbenchPath];
+  const original=assessment.assessCombat,phases=[];
+  assessment.assessCombat=args=>{phases.push(args.option?.phase);return original(args);};delete require.cache[workbenchPath];
+  try{
+    const h=harness(),plans=require('../../src/domain/routes/route_plans');
+    h.set('area','7-3');const first=plans.recommendedOptions('7-3','boss','gauge1')[0],second=plans.recommendedOptions('7-3','boss','gauge2')[0];
+    const slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'7-3',target:'boss',phase:'gauge1',missionId:1,revision:0};
+    h.set('slots',slots);h.set('mapRoute',first.key);h.set('report',W.inspect(h.service,h.store,slots,settings));
+    h.render();phases.length=0;
+    await h.control(h.render(),'参考路线').props.onChange({target:{value:second.key}});const tree=h.render();
+    assert(!phases.includes('gauge2'),'stage selection never invokes combat assessment for the new stage');
+    assert.equal(h.calls.fleet,0);
+    const pending=h.find(tree,n=>n.props.className==='paa-balance-pending');
+    assert(pending);assert.equal(pending.children[0],'一键补全后计算');
+  }finally{
+    assessment.assessCombat=original;delete require.cache[workbenchPath];if(cached)require.cache[workbenchPath]=cached;
+  }
+});
+
+test('same-stage route changes keep a preselected fleet but a different stage clears it',async()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans');
+  h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};
+  const third=plans.recommendedOptions('5-6','boss','gauge3'),first=plans.recommendedOptions('5-6','boss','gauge1');
+  const ship={...W.entry(h.store,2),pin:true,preselected:true,preselectionComplete:false,keep:{0:true}};
+  h.set('slots',[ship,null,null,null,null,null]);h.set('mapRoute',third[0].key);
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:third[1].key}});h.render();
+  assert.equal(h.get('slots')[0],ship);assert.equal(h.calls.fleet,0);
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:first[0].key}});h.render();
+  assert(h.get('slots').every(s=>s===null));assert.equal(h.get('phase'),'');
+  assert.equal(h.get('mapRoute'),first[0].key);assert.equal(h.get('combatDeferredPhase'),'gauge1');
+  assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
+});
+
+test('clearing route selection keeps its phase anchored for the current fleet',async()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans');
+  h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};
+  const first=plans.recommendedOptions('5-6','boss','gauge1'),third=plans.recommendedOptions('5-6','boss','gauge3');
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:first[0].key}});h.render();
+  const ship={...W.entry(h.store,2),pin:true,preselected:true,preselectionComplete:false,keep:{0:true}};
+  h.set('slots',[ship,null,null,null,null,null]);h.render();
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:''}});h.render();
+  assert.equal(h.get('routePhaseAnchor'),'gauge1');assert.equal(h.get('slots')[0],ship);
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:first[1].key}});h.render();
+  assert.equal(h.get('slots')[0],ship,'another route in the anchored stage keeps the fleet');
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:''}});h.render();
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:third[0].key}});h.render();
+  assert(h.get('slots').every(s=>s===null),'a genuinely different stage clears the fleet');
+  assert.equal(h.get('routePhaseAnchor'),'gauge3');assert.equal(h.get('mapRoute'),third[0].key);
+  assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
+});
+
+test('one-click completion without a selected route uses the anchored stage',async()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans');
+  h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};
+  const first=plans.recommendedOptions('5-6','boss','gauge1');let query;
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:first[0].key}});h.render();
+  const ship={...W.entry(h.store,2),pin:true,preselected:true,preselectionComplete:false};
+  h.set('slots',[ship,null,null,null,null,null]);h.render();
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:''}});h.render();
+  h.service.recommendNormalFleet=args=>{query=args;return {routeResults:[{...first[0],status:'available',chance:{probability:1},recommendationIndex:0}],
+    recommendations:[{routeKey:first[0].key,scheme:W.scheme([W.entry(h.store,2)],1)}]};};
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();
+  assert.equal(query.phase,'gauge1');assert.deepEqual(query.fixedShipIds,[2]);assert.equal(h.get('slots')[0].id,2);
+});
+
+test('a delayed battle assessment cannot refill state after a phase change',async()=>{
+  const modulePath=require.resolve('../../src/application/route_combat_assessments');
+  const workbenchPath=require.resolve('../../src/ui/workbench/workbench'),cached=require.cache[workbenchPath];
+  const module=require(modulePath),original=module.assessRouteChoices;
+  try{
+    for(const shouldFail of [false,true]){
+      let finish;module.assessRouteChoices=()=>new Promise((resolve,reject)=>{finish=()=>shouldFail?reject(Error('late')):resolve({stale:{status:'estimated'}});});
+      delete require.cache[workbenchPath];const h=harness(),plans=require('../../src/domain/routes/route_plans');
+      h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};
+      const first=plans.recommendedOptions('5-6','boss','gauge1')[0],third=plans.recommendedOptions('5-6','boss','gauge3')[0];
+      h.service.recommendNormalFleet=()=>({routeResults:[{...third,status:'available',chance:{probability:1},recommendationIndex:0}],
+        recommendations:[{routeKey:third.key,scheme:W.scheme([W.entry(h.store,2)],1)}]});
+      await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();
+      for(let i=0;!finish&&i<30;i++)await new Promise(resolve=>setTimeout(resolve,5));
+      assert(finish,'the original assessment must already be in flight');
+      await h.control(h.render(),'参考路线').props.onChange({target:{value:first.key}});h.render();
+      finish();await new Promise(resolve=>setTimeout(resolve,20));h.render();
+      assert.equal(h.get('mapRoute'),first.key);assert(h.get('slots').every(s=>s===null));
+      assert.deepEqual(h.get('routeCombatResults'),{});assert.deepEqual(h.get('batchRouteChoices'),{});assert.equal(h.get('error'),'');
+    }
+  }finally{module.assessRouteChoices=original;delete require.cache[workbenchPath];if(cached)require.cache[workbenchPath]=cached;}
+});
+
+test('changing stages clears saved fleets and battle results without operating the game',async()=>{
+  const assessment=require('../../src/application/combat_assessment');
+  const workbenchPath=require.resolve('../../src/ui/workbench/workbench'),cached=require.cache[workbenchPath];
+  const original=assessment.assessCombat,phases=[],oldArrival=W.routeArrival,oldIssue=W.draftRouteIssue;
+  W.routeArrival=()=>({value:'固定到达',label:'最终抵达 Boss',tone:'good',warnings:[],noteLines:[]});W.draftRouteIssue=()=>null;
+  assessment.assessCombat=args=>{phases.push(args.option?.phase);return original(args);};delete require.cache[workbenchPath];
+  try{
+    const h=harness(),plans=require('../../src/domain/routes/route_plans');
+    h.set('area','7-3');const first=plans.recommendedOptions('7-3','boss','gauge1')[0],second=plans.recommendedOptions('7-3','boss','gauge2')[0];
+    const slots=[{...W.entry(h.store,2),pin:true,keep:{0:true}},null,null,null,null,null],settings={kind:'normal',fleet:1,area:'7-3',target:'boss',phase:'gauge2',missionId:1,revision:0};
+    h.set('slots',slots);h.set('mapRoute',second.key);h.set('report',W.inspect(h.service,h.store,slots,settings));
+    const cachedCombat={status:'estimated',balance:{label:'优势',rank:3,ratio:2,blueShare:2/3}};
+    const draft={slots,excluded:[],prepared:true,usable:true,revision:0,fleet:1,combat:cachedCombat,choices:[]};
+    const snapshots=h.refs.find(ref=>ref.current instanceof WeakMap)?.current;assert(snapshots);
+    snapshots.set(draft,{info:h.store.info,master:h.store.const});h.set('routeDrafts',{[first.key]:draft});
+    h.set('excluded',[3]);h.set('choices',[{key:second.key,status:'available'}]);h.set('routeCombatResults',{[second.key]:cachedCombat});
+    h.set('batchRouteChoices',{[second.key]:{key:second.key,status:'available'}});h.set('pathIndex',1);h.set('routeRulesOpen',true);
+    const before=JSON.stringify(h.store);h.render();phases.length=0;
+    await h.control(h.render(),'参考路线').props.onChange({target:{value:first.key}});h.render();
+    assert(!phases.includes('gauge1'),'the prior stage is not re-simulated on selection');
+    assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);assert.equal(JSON.stringify(h.store),before);
+    assert.equal(h.get('area'),'7-3');assert.equal(h.get('mapRoute'),first.key);assert.equal(h.get('combatDeferredPhase'),'gauge1');
+    assert(h.get('slots').every(s=>s===null));assert.deepEqual(h.get('excluded'),[]);assert.deepEqual(h.get('routeDrafts'),{});
+    assert.deepEqual(h.get('routeCombatResults'),{});assert.deepEqual(h.get('batchRouteChoices'),{});assert.deepEqual(h.get('choices'),[]);
+    assert.equal(h.get('report').valid,false);assert.equal(h.get('pathIndex'),0);assert.equal(h.get('routeRulesOpen'),false);
+    await h.control(h.render(),'参考路线').props.onChange({target:{value:second.key}});h.render();
+    assert(h.get('slots').every(s=>s===null),'returning to a former stage does not restore its old fleet');
+  }finally{
+    W.routeArrival=oldArrival;W.draftRouteIssue=oldIssue;
+    assessment.assessCombat=original;delete require.cache[workbenchPath];if(cached)require.cache[workbenchPath]=cached;
+  }
+});
+
+test('hot reload includes the deferred phase gate and route phase anchor',()=>{
+  const fs=require('node:fs'),path=require('node:path');
+  const source=fs.readFileSync(path.join(__dirname,'../../tools/dev/hot-reload.js'),'utf8');
+  const fields=source.match(/const draftFields=\[([^\]]+)\]/)?.[1]||'';
+  assert.match(fields,/'combatDeferredPhase'/);
+  assert.match(fields,/'routePhaseAnchor'/);
+});
+
+test('a changed snapshot during foreground completion cannot apply a stale recommendation',async()=>{
+  const h=harness();let finish;h.set('area','1-1');
+  h.set('slots',[{...W.entry(h.store,2),pin:true},null,null,null,null,null]);
+  h.service.recommendNormalFleet=()=>new Promise(resolve=>{finish=resolve;});
+  const before=JSON.stringify(h.get('slots'));
+  const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  for(let i=0;i<40&&!finish;i++)await new Promise(resolve=>setTimeout(resolve,5));
+  assert(finish);h.store.info={...h.store.info};
+  finish({recommendations:[{routeKey:'guide:1-1-01',scheme:W.scheme([W.entry(h.store,3)],1)}]});
+  await pending;h.render();assert.equal(h.get('error'),'舰队资料已变化，请重新补全');
+  assert.equal(JSON.stringify(h.get('slots')),before);assert.deepEqual(h.get('routeCombatResults'),{});
+});
+
+test('resuming a hidden page clears completed battle results from an older snapshot',async()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans');
+  h.set('area','1-1');h.set('slots',[{...W.entry(h.store,2),pin:true},null,null,null,null,null]);
+  h.service.recommendNormalFleet=args=>{const options=plans.recommendedOptions(args.area,'boss',args.phase);return {
+    routeResults:options.map((o,i)=>({...o,status:'available',chance:{probability:1},recommendationIndex:i})),
+    recommendations:options.map(o=>({routeKey:o.key,scheme:W.scheme([W.entry(h.store,2)],1)}))};};
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();
+  for(let i=0;i<80&&!Object.keys(h.get('batchRouteChoices')||{}).length;i++){await new Promise(resolve=>setTimeout(resolve,10));h.render();}
+  assert(Object.keys(h.get('routeCombatResults')).length);
+  h.render({hidden:true});h.store.info={...h.store.info};h.render({hidden:false});
+  const effect=h.effects.filter(e=>String(e.fn).includes('snapshot=routeCombatSnapshot.current')).at(-1);
+  assert(effect);effect.fn();assert.deepEqual(h.get('routeCombatResults'),{});assert.deepEqual(h.get('batchRouteChoices'),{});
+});
+
+test('a route missing from a completed recommendation is marked unknown instead of pending',async()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans');h.set('area','1-4');
+  h.set('slots',[{...W.entry(h.store,2),pin:true},null,null,null,null,null]);
+  const options=plans.recommendedOptions('1-4');
+  h.service.recommendNormalFleet=()=>({routeResults:[{...options[0],status:'available',chance:{probability:1},recommendationIndex:0}],
+    recommendations:[{routeKey:options[0].key,scheme:W.scheme([W.entry(h.store,2)],1)}]});
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();
+  for(let i=0;i<80&&h.get('routeCombatResults')?.[options[1].key]?.status!=='unknown';i++){
+    await new Promise(resolve=>setTimeout(resolve,10));h.render();
+  }
+  assert.equal(h.get('routeCombatResults')[options[1].key].status,'unknown');
+});
+
+test('route picker prefers a matching saved draft battle result over a recommendation',()=>{
+  const h=harness(),options=W.mapOverview('1-4').options;h.set('area','1-4');
+  const saved={status:'estimated',balance:{label:'完胜',rank:4,ratio:3,blueShare:.75}};
+  const recommended={status:'estimated',balance:{label:'劣势',rank:1,ratio:.5,blueShare:1/3}};
+  h.set('routeCombatResults',{[options[0].key]:recommended});
+  const draft={usable:true,revision:0,fleet:1,combat:saved};
+  const snapshots=h.refs.find(ref=>ref.current instanceof WeakMap)?.current;assert(snapshots);
+  snapshots.set(draft,{info:h.store.info,master:h.store.const});h.set('routeDrafts',{[options[0].key]:draft});
+  const choice=()=>h.find(h.render(),n=>n.type?.name==='RoutePicker').props.options.find(o=>o.key===options[0].key);
+  assert.equal(choice().combat,saved);
+  h.store.info={...h.store.info};h.set('revision',1);assert.equal(choice().combat,recommended,'a stale draft result is not displayed');
+});
+
+test('saved route drafts do not serialize the account store or master data',async()=>{
+  const h=harness(),options=W.mapOverview('1-4').options;h.set('area','1-4');
+  h.store.info.ships[2].privateTestMarker='private-account-store-marker';
+  h.store.const.$ships[2].privateTestMarker='private-master-store-marker';
+  h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);h.set('mapRoute',options[0].key);
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:options[1].key}});h.render();
+  const draft=h.get('routeDrafts')[options[0].key];assert(draft);
+  const serialized=JSON.stringify(draft);
+  assert(!serialized.includes('private-account-store-marker'));assert(!serialized.includes('private-master-store-marker'));
+  assert.equal(draft.snapshotInfo,undefined);assert.equal(draft.snapshotMaster,undefined);
+});
+
+test('next-route shortcut requires another selectable route in the selected stage',()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans');h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};
+  const options=plans.recommendedOptions('5-6'),third=options.filter(o=>o.phase==='gauge3');assert(third.length>1);
+  h.set('mapRoute',third[0].key);h.set('choices',third.map((o,i)=>({...o,status:i===0?'available':'notFound',row:i===0?{}:null})));
+  const picker=()=>h.find(h.render(),n=>n.type?.name==='RoutePicker');assert.equal(picker().props.showNext,false);
+  h.set('choices',third.map((o,i)=>({...o,status:i<2?'available':'notFound',row:i<2?{}:null})));assert.equal(picker().props.showNext,true);
+  h.set('choices',third.map((o,i)=>({...o,status:i===0?'available':'unconfirmed',row:i===0?{}:null})));assert.equal(picker().props.showNext,false);
+});
+
+test('changing phases clears prior unavailable route results',async()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans');h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};
+  const first=plans.recommendedOptions('5-6','boss','gauge1'),third=plans.recommendedOptions('5-6','boss','gauge3');
+  h.set('slots',[{...W.entry(h.store,2),pin:true},null,null,null,null,null]);h.set('mapRoute',first[0].key);
+  h.set('choices',[{key:first[1].key,phase:'gauge1',status:'notFound'}]);
+  h.service.recommendNormalFleet=args=>({routeResults:third.map((o,i)=>({...o,status:'available',chance:{probability:1},recommendationIndex:i})),
+    recommendations:third.map(o=>({routeKey:o.key,scheme:W.scheme([W.entry(h.store,2)],1)}))});
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:third[0].key}});
+  assert.deepEqual(h.get('choices'),[]);
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:first[1].key}});assert.equal(h.get('mapRoute'),first[1].key);
+  h.find(h.render(),n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();
+  assert.equal(h.get('mapRoute'),'');assert.deepEqual(h.get('choices'),[]);
+});
+
+test('blocked ship replacement shows red routing reasons without searching or switching routes',async()=>{
+  for(const fittingFails of [true,false]){
+    const h=harness(),routes=require('../../src/domain/routes/route_plans').recommendedOptions('3-2');
+    h.set('area','3-2');h.set('mapRoute',routes[0].key);h.store.const.$ships[1].api_soku=5;
+    h.set('slots',[1,2,3,4,5,6].map(id=>W.entry(h.store,id)));h.render();
+    h.service.recommendNormalEquipment=args=>{h.calls.equipment++;if(fittingFails)throw Error('当前舰娘及保留装备无法配出路线方案');return {scheme:args.scheme};};
+    h.service.recommendNormalFleet=()=>{h.calls.fleet++;throw Error('换船时不应搜索其他路线');};
+    h.set('popup',{index:5});const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+    await list.children.find(n=>n?.type==='button'&&n.props.key===7).props.onClick();
+    assert.equal(h.get('slots')[5].id,7);assert.equal(h.calls.fleet,0);assert.equal(h.get('mapRoute'),routes[0].key);
+    const tree=h.render(),arrival=h.find(tree,n=>n.props.className==='paa-wb-arrival');
+    assert.equal(arrival.props['data-tone'],'bad');assert(h.find(arrival,n=>n.type==='strong').children.includes('无法沿此路线抵达'));
+    const warnings=h.find(tree,n=>n.props['aria-label']==='路线条件');assert(warnings);assert.equal(warnings.props['data-tone'],'bad');
+    assert(warnings.children.some(n=>n.children.join('').includes('速力要求')));assert.equal(h.get('error'),'');
+  }
+});
+
+test('next-route shortcut survives ship replacement and reflects the current gauge catalogue',async()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans'),routes=plans.recommendedOptions('3-5');
+  h.set('slots',[{...W.entry(h.store,2),pin:true},W.entry(h.store,1),null,null,null,null]);
+  h.set('mapRoute',routes[0].key);h.set('choices',routes.map((o,i)=>({...o,status:i===1?'notFound':'available',row:{}})));
+  const picker=()=>h.find(h.render(),n=>n.type?.name==='RoutePicker');
+  assert(picker().props.showNext);h.set('popup',{index:1});
+  const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+  await list.children.find(n=>n?.type==='button'&&n.props.key===3).props.onClick();
+  assert.equal(h.calls.equipment,1);assert.equal(h.get('choices').length,1);assert.equal(h.get('choices')[0].status,'notFound');
+  assert(picker().props.showNext,'route shortcuts survive replacing the ship and clearing stale recommendations');
+  assert(picker().props.options.some(o=>o.key!==routes[0].key));
+});
+
+test('selecting another gauge before completion only selects the route; late completion cannot refill a changed map',async()=>{
   const h=harness(),plans=require('../../src/domain/routes/route_plans');
   h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};
   const first=plans.recommendedOptions('5-6','boss','gauge1')[0];let finish,query;
   h.service.recommendNormalFleet=args=>{query=args;return new Promise(resolve=>{finish=resolve;});};
-  const pending=h.control(h.render(),'参考路线').props.onChange({target:{value:first.key}});
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:first.key}});
+  assert.equal(query,undefined);assert.equal(h.get('mapRoute'),first.key);
+  const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
   h.render();await new Promise(resolve=>setTimeout(resolve,30));assert.equal(query.phase,'gauge1');
   h.find(h.render(),n=>n.type?.name==='AreaPicker').props.onChange('1-1');h.render();
   finish({recommendations:[{routeKey:first.key,scheme:W.scheme([W.entry(h.store,2)],1)}]});await pending;
@@ -268,6 +592,16 @@ test('adding ships before normal-map completion retains worn gear and skips fitt
   };
   await pick(0,2);await pick(1,3);
   assert.equal(h.calls.equipment+h.calls.fleet,0);assert.equal(previews,0);
+  let tree=h.render();
+  for(const id of [2,3]){
+    const card=h.find(tree,n=>n.props['data-ship-id']===id);
+    assert.equal(card.props['data-preselected'],true);
+    assert(h.find(card,n=>n.props.className==='paa-wb-preselected'&&n.children.includes('预选')));
+    const gear=h.find(card,n=>n.props.className==='paa-wb-gear');
+    assert.equal(gear.props.disabled,true);assert(gear.children.some(n=>n?.children?.includes('现有主炮')));
+    assert.equal(h.get('slots').find(s=>s?.id===id).preselected,true);
+  }
+  assert.equal(h.find(tree,n=>n.props['data-result-region']==='metrics').props['aria-busy'],false,'preselection does not start a calculation veil');
   await h.control(h.render(),'攻略流派').props.onChange({target:{value:'guide:3-5-05'}});
   assert.equal(previews,0,'selecting a route before completion does not inspect the partial fleet');
   h.render();
@@ -284,37 +618,198 @@ test('adding ships before normal-map completion retains worn gear and skips fitt
   await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
   assert.equal(h.get('error'),'');assert.deepEqual(h.get('slots').map(s=>s.id),[3,1,2,4,5,6]);
   assert(h.get('slots')[0].pin&&h.get('slots')[2].pin);
+  assert(h.get('slots')[0].preselected&&h.get('slots')[0].preselectionComplete);
+  assert(h.get('slots')[2].preselected&&h.get('slots')[2].preselectionComplete);
+  assert(!h.get('slots')[1].preselected);
+  assert.equal(h.find(h.render(),n=>n.props['data-ship-id']===3).props['data-preselected'],true);
   assert.equal(h.calls.fleet,1);assert(previews>0,'completion inspects the final formation');
   h.find(h.render(),n=>n.type?.name==='AreaPicker').props.onChange('1-1');
   await pick(0,2);assert.equal(h.calls.equipment,0,'changing maps resets the deferred fitting state');
 });
 
-test('ship picker searches filtered-out Asashio and supports ship types without changing the game',async()=>{
+test('replacing a preselected ship stays idle but does not mark the replacement as preselected',async()=>{
+  const h=harness();const pick=async(index,id)=>{h.set('popup',{index});const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+    await list.children.find(n=>n?.type==='button'&&n.props.key===id).props.onClick();};
+  await pick(0,2);assert(h.get('slots')[0].preselected);
+  await pick(0,3);assert(!h.get('slots')[0].preselected);assert.equal(h.get('slots')[0].preselectionComplete,false);
+  assert(!h.find(h.render(),n=>n.props.className==='paa-wb-preselected'));assert.equal(h.calls.equipment+h.calls.fleet,0);
+  await pick(1,4);assert(h.get('slots')[1].preselected);assert.equal(h.calls.equipment+h.calls.fleet,0);
+});
+
+test('replacing or removing a preselected ship recalculates when a route is selected',async()=>{
+  for(const action of ['replace','remove']){
+    const h=harness();h.set('mapRoute','guide:3-5-05');h.set('slots',[
+      {...W.entry(h.store,2),pin:true,preselected:true,preselectionComplete:false},
+      {...W.entry(h.store,3),pin:true,preselected:true,preselectionComplete:false},null,null,null,null]);
+    let query;h.service.recommendNormalEquipment=args=>{h.calls.equipment++;query=args;return {scheme:args.scheme};};
+    if(action==='replace'){
+      h.set('popup',{index:0});const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+      await list.children.find(n=>n?.type==='button'&&n.props.key===4).props.onClick();assert(!h.get('slots')[0].preselected);
+    }else{
+      const card=h.find(h.render(),n=>n.props['data-ship-id']===2);await h.find(card,n=>n.props.className==='paa-wb-remove').props.onClick();
+    }
+    assert.equal(h.calls.equipment,1);assert.equal(h.calls.fleet,0);assert.equal(query.routeKey,'guide:3-5-05');
+    assert(h.get('slots').filter(s=>s?.preselected).every(s=>s.preselectionComplete));
+  }
+});
+
+test('a restored unfinished replacement without a marker does not activate fitting',async()=>{
+  const h=harness();h.set('slots',[{...W.entry(h.store,2),pin:true,preselectionComplete:false},null,null,null,null,null]);
+  h.render();h.set('popup',{index:1});const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+  await list.children.find(n=>n?.type==='button'&&n.props.key===3).props.onClick();
+  assert.equal(h.calls.equipment+h.calls.fleet,0);assert(h.get('slots')[1].preselected);
+});
+
+test('normal preselection resumes fitting only after successful completion and resets on clear',async()=>{
+  const h=harness(),queries=[];
+  h.service.recommendNormalFleet=args=>{queries.push(args);return {recommendations:[{routeKey:'guide:3-5-05',
+    scheme:W.scheme(args.fixedShipIds.map(id=>W.entry(h.store,id)).concat(W.entry(h.store,1)),1)}]};};
+  const pick=async(index,id)=>{h.set('popup',{index});const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+    await list.children.find(n=>n?.type==='button'&&n.props.key===id).props.onClick();};
+  await pick(0,2);assert.equal(h.calls.equipment,0);
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert.deepEqual(queries[0].fixedShipIds,[2]);assert(h.get('slots')[0].preselected);
+  assert(h.get('slots')[0].preselectionComplete);
+  assert(h.find(h.render(),n=>n.props.className==='paa-wb-preselected'));
+  await pick(1,3);assert.equal(h.calls.equipment,1,'ship replacement refits after completion');
+  assert(!h.get('slots')[1].preselected,'replacement after completion is not preselected');
+  h.find(h.render(),n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();
+  await pick(0,4);assert.equal(h.calls.equipment,1,'clearing returns to preselection');
+  assert.equal(h.get('slots')[0].preselected,true);
+  assert(h.find(h.render(),n=>n.props.className==='paa-wb-preselected'));
+});
+
+test('restored completed preselection keeps its marker and enables replacement fitting',async()=>{
+  const h=harness();h.set('slots',[{...W.entry(h.store,2),pin:true,preselected:true,preselectionComplete:true},W.entry(h.store,1),null,null,null,null]);
+  assert(h.find(h.render(),n=>n.props['data-ship-id']===2).props['data-preselected']);
+  h.set('popup',{index:1});const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+  await list.children.find(n=>n?.type==='button'&&n.props.key===3).props.onClick();
+  assert.equal(h.calls.equipment,1);assert(!h.get('slots')[1].preselected);
+});
+
+test('manual removal refits the remaining fleet for the current route without replacing the removed ship',async()=>{
+  const h=harness();h.set('slots',[W.entry(h.store,1),W.entry(h.store,2),W.entry(h.store,3),null,null,null]);
+  h.set('mapRoute','guide:3-5-05');let request;
+  h.service.recommendNormalEquipment=args=>{h.calls.equipment++;request=args;return {scheme:args.scheme};};
+  const card=h.find(h.render(),n=>n.props['data-ship-id']===2);
+  await h.find(card,n=>n.props.className==='paa-wb-remove').props.onClick();
+  assert.deepEqual(h.get('slots').filter(Boolean).map(s=>s.id),[1,3]);assert.equal(request.routeKey,'guide:3-5-05');
+  assert.deepEqual(request.scheme.ships.map(s=>s.id),[1,3]);assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,1);
+});
+
+test('removing the last ship returns manual additions to idle preselection',async()=>{
+  const h=harness();h.set('mapRoute','guide:3-5-05');h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
+  const card=h.find(h.render(),n=>n.props['data-ship-id']===2);await h.find(card,n=>n.props.className==='paa-wb-remove').props.onClick();
+  assert(h.get('slots').every(s=>!s));h.set('popup',{index:0});const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+  await list.children.find(n=>n?.type==='button'&&n.props.key===3).props.onClick();
+  assert(h.get('slots')[0].preselected);assert.equal(h.calls.equipment,0);assert.equal(h.calls.fleet,0);
+});
+
+test('uncompleted preselection drafts are preserved independently for each route',async()=>{
+  const h=harness(),options=W.mapOverview('3-5').options,first=options[0],second=options[1];h.set('mapRoute',first.key);
+  const pick=async(index,id)=>{h.set('popup',{index});const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+    await list.children.find(n=>n?.type==='button'&&n.props.key===id).props.onClick();};
+  await pick(0,2);await h.control(h.render(),'参考路线').props.onChange({target:{value:second.key}});await pick(1,3);
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:first.key}});
+  assert.deepEqual(h.get('slots').filter(Boolean).map(s=>s.id),[2]);assert(h.get('slots')[0].preselected);
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:second.key}});
+  assert.deepEqual(h.get('slots').filter(Boolean).map(s=>s.id),[2,3]);assert(h.get('slots')[1].preselected);
+  assert.equal(h.calls.fleet+h.calls.equipment,0);assert.equal(h.get('error'),'');
+});
+
+test('each route restores its own edited fleet and state without another recommendation search',async()=>{
+  const h=harness(),options=W.mapOverview('3-5').options,first=options[0],second=options[1];
+  const original=[{...W.entry(h.store,2),pin:true,preselected:true,preselectionComplete:true},W.entry(h.store,1),null,null,null,null];
+  original[1].keep={0:true};h.set('slots',original);h.set('mapRoute',first.key);h.set('pathIndex',1);h.set('nodeId','A');h.set('routeRulesOpen',true);h.set('notice','保留的状态');
+  h.set('draftContext',JSON.stringify(['normal','3-5','boss','','clear','lower',1,'great',null]));
+  h.service.recommendNormalFleet=()=>{h.calls.fleet++;return {routeResults:[{...second,status:'available',chance:{probability:1},recommendationIndex:0}],
+    recommendations:[{routeKey:second.key,scheme:W.scheme([W.entry(h.store,2),W.entry(h.store,1),W.entry(h.store,3)],1)}]};};
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:second.key}});
+  assert.deepEqual(h.get('slots').filter(Boolean).map(s=>s.id),[2,1,3]);assert.equal(h.calls.fleet,1);
+  h.set('popup',{index:2});let list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+  await list.children.find(n=>n?.type==='button'&&n.props.key===4).props.onClick();
+  assert.deepEqual(h.get('slots').filter(Boolean).map(s=>s.id),[2,1,4]);assert(!h.get('slots')[2].preselected);
+  h.set('routeRulesOpen',false);h.set('nodeId','C');
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:first.key}});
+  assert.deepEqual(h.get('slots').filter(Boolean).map(s=>s.id),[2,1]);assert(h.get('slots')[0].preselected);assert.deepEqual(h.get('slots'),original);assert.equal(h.get('notice'),'保留的状态');
+  assert.equal(h.get('nodeId'),'A');assert.equal(h.get('pathIndex'),1);assert.equal(h.get('routeRulesOpen'),true);assert.equal(h.calls.fleet,1);
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:second.key}});
+  assert.deepEqual(h.get('slots').filter(Boolean).map(s=>s.id),[2,1,4]);assert.equal(h.get('nodeId'),'C');assert.equal(h.get('routeRulesOpen'),false);
+  assert.equal(h.calls.fleet,1);assert(h.get('report').valid);
+  h.find(h.render(),n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();
+  assert.equal(h.get('mapRoute'),'');assert.deepEqual(h.get('routeDrafts'),{});assert(h.get('slots').every(s=>!s));
+});
+
+test('a valid saved route stays selectable when another fleet cannot satisfy it',async()=>{
+  const h=harness(),options=W.mapOverview('3-2').options,first=options.find(o=>o.id==='3-2-03'),second=options.find(o=>o.id==='3-2-01');
+  h.set('area','3-2');h.set('mapRoute',first.key);h.set('slots',[1,2,3,4,5,6].map(id=>W.entry(h.store,id)));
+  const settings={kind:'normal',fleet:1,area:'3-2',target:'boss',phase:'',missionId:1,revision:0};
+  const report=W.inspect(h.service,h.store,h.get('slots'),settings);assert(report.valid);assert.equal(W.draftRouteIssue(report,first,true),null);
+  h.set('report',report);h.set('draftContext',JSON.stringify(['normal','3-2','boss','','clear','lower',1,'great',null]));
+  h.service.recommendNormalFleet=()=>({routeResults:[{...first,status:'notFound',recommendationIndex:null},{...second,status:'available',chance:{probability:1},recommendationIndex:0}],
+    recommendations:[{routeKey:second.key,scheme:W.scheme([1,2,3,4,5,6].map(id=>W.entry(h.store,id)),1)}]});
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:second.key}});
+  const picker=h.find(h.render(),n=>n.type?.name==='RoutePicker');assert.equal(picker.props.options.find(o=>o.key===first.key).status,'available');
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:first.key}});assert.equal(h.get('mapRoute'),first.key);
+});
+
+test('restored preselection and failed completion do not activate fitting',async()=>{
+  const h=harness();h.set('slots',[{...W.entry(h.store,2),pin:true,preselected:true},null,null,null,null,null]);
+  h.set('choices',[]);h.service.recommendNormalFleet=()=>{throw Error('没有可用编成');};
+  assert(h.find(h.render(),n=>n.props.className==='paa-wb-preselected'));
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert.match(h.get('error'),/没有可用编成/);assert(h.get('slots')[0].preselected);
+  h.set('popup',{index:1});const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+  await list.children.find(n=>n?.type==='button'&&n.props.key===3).props.onClick();
+  assert.equal(h.calls.equipment,0);assert(h.get('slots')[1].preselected);
+});
+
+test('ship picker filters by fleet and broad ship groups and sorts without changing the game',async()=>{
   const h=harness('normal',{minLevel:90});
   h.store.const.$ships[2].api_name='朝潮改二丁';h.store.info.ships[2].api_cond=20;
   h.store.info.fleets[0].api_ship=[2,4];h.store.info.ships[4].api_lv=70;
-  const before=JSON.stringify(h.store);
-  h.set('popup',{index:0});
+  h.store.info.ships[1].api_lv=99;h.store.info.ships[2].api_lv=50;
+  const before=JSON.stringify(h.store);h.set('popup',{index:0});
   const list=()=>h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
   const ids=()=>list().children.filter(n=>n?.type==='button').map(n=>n.props.key);
-  assert.deepEqual(ids().slice(0,2),[4,2]);
-  assert.equal(h.control(h.render(),'舰种').props.value,'all');
-  h.control(h.render(),'舰种').props.onChange({target:{value:'2'}});
-  assert(ids().every(id=>h.store.const.$ships[h.store.info.ships[id].api_ship_id].api_stype===2));
-  h.control(h.render(),'搜索候选').props.onChange({target:{value:'朝潮'}});
-  assert.deepEqual(ids(),[2]);
-  const choice=list().children.find(n=>n?.props?.key===2);
-  assert.equal(choice.props.disabled,false,'automatic level and morale filters cannot hide explicit choices');
+  const group=label=>h.control(h.render(),label);
+  const button=(label,text)=>h.find(group(label),n=>n.type==='button'&&n.children.includes(text));
+  assert.equal(h.get('shipFleet'),'all');assert.equal(h.get('shipType'),'all');
+  assert.equal(h.control(h.render(),'排序方式').props.value,'level-desc');assert.equal(ids()[0],1);
+  button('舰队筛选','第一舰队').props.onClick();assert.deepEqual(ids(),[4,2]);
+  button('舰队筛选','全部').props.onClick();button('舰种筛选','驱逐／海防').props.onClick();
+  assert(ids().every(id=>[1,2].includes(h.store.const.$ships[h.store.info.ships[id].api_ship_id].api_stype)));
+  h.control(h.render(),'排序方式').props.onChange({target:{value:'level-asc'}});
+  const levels=ids().map(id=>h.store.info.ships[id].api_lv);assert.deepEqual(levels,levels.slice().sort((a,b)=>a-b));
+  h.control(h.render(),'搜索候选').props.onChange({target:{value:'朝潮'}});assert.deepEqual(ids(),[2]);
+  const choice=list().children.find(n=>n?.props?.key===2);assert.equal(choice.props.disabled,false);
   assert(h.find(choice,n=>n.type==='small'&&n.children.some(s=>typeof s==='string'&&s.includes('士气低于 40'))));
   await choice.props.onClick();assert.equal(h.get('slots')[0].id,2);assert.equal(h.calls.equipment,0);
   h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
-  assert.equal(h.control(h.render(),'舰种').props.value,'all','opening a new picker resets hidden type filters');
-  h.control(h.render(),'舰种').props.onChange({target:{value:'3'}});
-  assert.deepEqual(ids(),[1]);
-  h.control(h.render(),'搜索候选').props.onChange({target:{value:'朝潮'}});
-  assert.deepEqual(ids(),[],'an explicit ship-type filter also applies to search');
-  assert.equal(h.calls.equipment+h.calls.fleet,0);
-  assert.equal(JSON.stringify(h.store),before);
+  assert.equal(h.get('shipType'),'all');assert.equal(h.get('shipFleet'),'all');assert.equal(h.get('shipSort'),'level-desc');
+  button('舰种筛选','巡洋舰').props.onClick();assert.deepEqual(ids(),[1]);
+  h.control(h.render(),'搜索候选').props.onChange({target:{value:'朝潮'}});assert.deepEqual(ids(),[]);
+  assert.equal(h.calls.equipment+h.calls.fleet,0);assert.equal(JSON.stringify(h.store),before);
+});
+
+test('ship picker defaults to all fleets and groups for replacements and empty slots',()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind);h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
+    h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
+    const dialog=h.find(h.render(),n=>n.props.className==='paa-wb-popup');
+    assert.equal(dialog.props['data-picker'],'ship');assert.equal(h.get('shipType'),'all');assert.equal(h.get('shipFleet'),'all');
+    h.find(h.render(),n=>n.props.className==='paa-wb-empty').props.onClick();
+    assert.equal(h.get('shipType'),'all');assert.equal(h.calls.equipment+h.calls.fleet,0);
+  }
+});
+
+test('broad ship filters include related types and retain unknown types under auxiliary ships',()=>{
+  const h=harness();for(const [id,type] of [[1,1],[2,2],[3,6],[4,10],[5,18],[6,14],[7,22],[8,99]])h.store.const.$ships[id].api_stype=type;
+  h.set('popup',{index:0});const ids=()=>h.find(h.render(),n=>n.props.className==='paa-wb-popup-list').children.filter(n=>n?.type==='button').map(n=>n.props.key).sort((a,b)=>a-b);
+  const filter=label=>h.find(h.control(h.render(),'舰种筛选'),n=>n.type==='button'&&n.children.includes(label)).props.onClick();
+  for(const [label,expected] of [['驱逐／海防',[1,2]],['巡洋舰',[3]],['战舰',[4]],['空母',[5]],['潜艇',[6]],['辅助舰',[7,8]],['全部',[1,2,3,4,5,6,7,8]]]){
+    filter(label);assert.deepEqual(ids(),expected,label);
+  }
 });
 
 test('related tasks occupy the bottom of the correct left workbench and follow the draft context',()=>{
@@ -343,6 +838,32 @@ test('task observations refresh on resume without running route inspection or ch
     assert.equal(h.get('questState'),h.store.questState);
     assert.equal(h.get('revision'),revision);assert.equal(h.calls.fleet+h.calls.equipment,0);
     cleanup();
+  }finally{global.setInterval=oldInterval;global.clearInterval=oldClear;}
+});
+
+test('in-place gauge progress changes refresh the route and boss even when the fleet is unchanged',async()=>{
+  const h=harness(),oldInterval=global.setInterval,oldClear=global.clearInterval,callbacks=[];
+  global.setInterval=fn=>{callbacks.push(fn);return 1;};global.clearInterval=()=>{};
+  try{
+    h.store.info.maps={45:{api_gauge_type:1,api_required_defeat_count:5,api_defeat_count:0}};
+    h.set('area','4-5');const slots=[W.entry(h.store,2)];h.set('slots',slots);
+    h.set('mapRoute',W.mapOverview('4-5').options[0].key);
+    const settings={kind:'normal',fleet:1,area:'4-5',target:'boss',phase:'',missionId:1,revision:0};
+    h.set('report',W.inspect(h.service,h.store,slots,settings));h.render();
+    assert.equal(h.get('report').route.encounterStage,'before');
+    const poll=h.effects.filter(e=>String(e.fn).includes('let previousStage=')).at(-1),cleanup=poll.fn();
+    h.store.info.maps[45].api_defeat_count=4;callbacks.at(-1)();
+    assert.equal(h.get('revision'),1,'a mutable progress update must not leave the old report active');
+    h.render();let inspect=h.effects.filter(e=>String(e.fn).includes('resumePending.current=false;setReport(next)')).at(-1);
+    let stop=inspect.fn();await new Promise(resolve=>setTimeout(resolve,110));stop?.();
+    assert.equal(h.get('report').route.encounterStage,'final');
+    assert.equal(W.displayBossFlagship(h.get('report').profile,'T').enemies[0].apiId,1613);
+    h.store.info.maps[45].api_defeat_count=5;callbacks.at(-1)();
+    assert.equal(h.get('revision'),2);
+    h.render();inspect=h.effects.filter(e=>String(e.fn).includes('resumePending.current=false;setReport(next)')).at(-1);
+    stop=inspect.fn();await new Promise(resolve=>setTimeout(resolve,110));stop?.();
+    assert.equal(h.get('report').route.encounterStage,'after');
+    assert.deepEqual(h.get('slots').map(ship=>ship.id),[2]);cleanup();
   }finally{global.setInterval=oldInterval;global.clearInterval=oldClear;}
 });
 
@@ -1231,33 +1752,26 @@ test('fleet air thresholds follow the selected map path while fleet power keeps 
   assert(h.find(cleared,n=>n.type==='small').children[0].includes('请选择路线'));
 });
 
-test('complete follows the selected non-first route and cached switches retain unavailable choices',async()=>{
-  const h=harness();h.set('area','2-2');
-  const options=W.mapOverview('2-2').options;
-  h.service.recommendNormalFleet=args=>{
-    assert.equal(args.airGoal,'superiority');h.calls.fleet++;
-    return {routeResults:options.map((o,i)=>({...o,status:i===1?'notFound':'available',chance:i===1?null:{min:1,max:1,probability:1},recommendationIndex:i===1?null:i===0?0:1,message:i===1?'缺少符合此路线的船':'',diagnostics:i===1?{briefWarnings:['C → E：带路条件未满足'],warnings:['冗长的带路规则重复说明']}:null})),
-      recommendations:[0,2].map((i,j)=>({routeKey:options[i].key,selectedPath:options[i].nodes,scheme:W.scheme([W.entry(h.store,j+2)],1)}))};
-  };
-  let tree=h.render();await h.control(tree,'参考路线').props.onChange({target:{value:options[2].key}});
-  assert.equal(h.calls.fleet,0);
-  tree=h.render();await h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
-  assert.equal(h.get('slots')[0].id,3);assert.equal(h.get('mapRoute'),options[2].key);
-  tree=h.render();await h.control(tree,'参考路线').props.onChange({target:{value:options[0].key}});
-  assert.equal(h.get('slots')[0].id,2);assert.equal(h.calls.fleet,1);
-  tree=h.render();await h.control(tree,'参考路线').props.onChange({target:{value:options[1].key}});
-  assert.equal(h.get('error'),'');assert.equal(h.get('slots')[0].id,2);
-  h.set('report',W.inspect(h.service,h.store,h.get('slots'),{kind:'normal',fleet:1,area:'2-2',target:'boss',phase:'',missionId:1,revision:0}));
-  tree=h.render();assert.equal(h.control(tree,'参考路线').children.length,options.length+1,'unavailable route remains visible');
-  const warning=h.find(tree,n=>n.props['aria-label']==='推荐路线受阻条件');
+test('unavailable routes cannot be selected until clear, which also clears the route selection',async()=>{
+  const h=harness();h.set('area','2-2');const options=W.mapOverview('2-2').options;
+  h.service.recommendNormalFleet=args=>{h.calls.fleet++;return {routeResults:options.map((o,i)=>({...o,status:i===1?'notFound':'available',
+    chance:i===1?null:{min:1,max:1,probability:1},recommendationIndex:i===1?null:i===0?0:1,diagnostics:i===1?{briefWarnings:['C → E：带路条件未满足']}:null})),
+    recommendations:[0,2].map((i,j)=>({routeKey:options[i].key,scheme:W.scheme([W.entry(h.store,j+2)],1)}))};};
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:options[2].key}});
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();assert.equal(h.get('mapRoute'),options[2].key);
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:options[1].key}});
+  assert.equal(h.get('mapRoute'),options[2].key);assert.equal(h.calls.fleet,1);
+  h.set('excluded',[8]);h.set('nodeId','A');h.set('pathIndex',1);
+  h.find(h.render(),n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();
+  assert.equal(h.get('mapRoute'),'');assert(h.get('slots').every(s=>!s));assert.deepEqual(h.get('choices'),[]);
+  assert.deepEqual(h.get('excluded'),[]);assert.equal(h.get('nodeId'),null);assert.equal(h.get('pathIndex'),0);
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:options[1].key}});
+  assert.equal(h.get('mapRoute'),options[1].key);assert.equal(h.calls.fleet,1,'preselection does not calculate');
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert.equal(h.get('mapRoute'),options[1].key);assert.equal(h.get('error'),'');
+  const warning=h.find(h.render(),n=>n.props['aria-label']==='推荐路线受阻条件');
   assert.deepEqual(warning.children.map(n=>n.children.join('')),['C → E：带路条件未满足']);
-  assert(!h.find(tree,n=>n.props['aria-label']==='路线条件'),'failed search has one concise warning region');
-  assert.equal(h.calls.fleet,1);
-  await h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
-  assert.equal(h.get('error'),'','explicit retry also keeps the expected route failure out of the top error panel');
-  assert.equal(h.get('slots')[0].id,2);
 });
-
 
 test('same-scheme route switches and pin or keep changes retain inspected probabilities',async()=>{
   const h=harness(),settings={kind:'normal',fleet:1,area:'2-3',target:'boss',phase:'',missionId:1,revision:0};
@@ -1360,12 +1874,12 @@ test('pending or stale fleet inspections do not preview full styles until the fl
   assert(!h.find(h.render(),n=>n.props.className==='paa-real-route'),'old map results cannot highlight the new map');
   h.set('area','1-4');h.set('mapRoute',option.key);h.set('report',{valid:false});
   h.find(h.render(),n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();
-  tree=h.render();assert(highlighted(tree,'A>D'));assert(highlighted(tree,'B>D'),'empty fleet previews both starts merging at D');
+  assert.equal(h.get('mapRoute'),'');h.set('mapRoute',option.key);tree=h.render();assert(highlighted(tree,'A>D'));assert(highlighted(tree,'B>D'),'empty fleet previews both starts merging at D');
   assert(!highlighted(tree,'B>C'));assert(!highlighted(tree,'D>G'));
   assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
 });
 
-test('phase changes refresh immediately while cleared or genuinely stale contexts never reuse old probabilities',async()=>{
+test('phase changes clear inspection without automatic recommendation while stale probabilities are discarded',async()=>{
   const h=harness(),slots=[W.entry(h.store,2)],base={kind:'normal',fleet:1,area:'7-3',target:'boss',phase:'gauge1',missionId:1,revision:0};
   const options=require('../../src/domain/routes/route_plans').routeOptions('7-3','boss'),first=options.find(o=>o.phase==='gauge1'),second=options.find(o=>o.phase==='gauge2');
   assert(first&&second);h.set('area','7-3');h.set('slots',slots);h.set('mapRoute',first.key);
@@ -1374,11 +1888,12 @@ test('phase changes refresh immediately while cleared or genuinely stale context
   h.service.recommendNormalFleet=args=>{h.calls.fleet++;assert.equal(args.phase,'gauge2');return {
     recommendations:[{routeKey:second.key,scheme:W.scheme(slots,1)}]};};
   await h.control(h.render(),'参考路线').props.onChange({target:{value:second.key}});
-  const report=h.get('report');assert(report.valid);assert.notEqual(report,original);
-  assert.equal(JSON.parse(report.settingsKey).phase,'gauge2');assert.equal(report.route.phase,'gauge2');
-  assert.equal(h.calls.fleet,1,'selecting another phase requests that phase before committing the inspected draft');
+  const report=h.get('report');assert(!report.valid);assert.notEqual(report,original);assert(h.get('slots').every(s=>s===null));
+  assert.equal(h.get('mapRoute'),second.key);
+  assert.equal(h.calls.fleet,0,'selecting another phase does not automatically request a new recommendation');
+  assert.equal(h.get('combatDeferredPhase'),'gauge2','the new phase battle assessment waits for explicit completion');
 
-  h.set('area','1-1');h.set('mapRoute',W.mapOverview('1-1').options[0].key);
+  h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
   const settings={...base,area:'1-1',phase:''},fresh=W.inspect(h.service,h.store,slots,settings);
   h.set('report',fresh);
   const hasProbability=tree=>!!h.find(tree,n=>n.props.className==='paa-map-probability');
@@ -1555,7 +2070,7 @@ test('1-4 route selector letters follow the inspected draft and reset to the cat
   const select=h.control(tree,'参考路线');
   assert(select.children.some(n=>n.type==='option'&&n.props.value===option.key&&n.children.includes(option.name+label(tree))));
   h.find(tree,n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();
-  assert.equal(label(h.render()),`（${option.pathLabel}）`);
+  assert.equal(h.get('mapRoute'),'');h.set('mapRoute',option.key);assert.equal(label(h.render()),`（${option.pathLabel}）`);
   assert.equal(h.calls.fleet,0);assert.equal(h.calls.equipment,0);
 });
 

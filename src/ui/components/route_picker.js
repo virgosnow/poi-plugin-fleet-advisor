@@ -1,5 +1,21 @@
 'use strict';
 const {routeFormula}=require('../models/route_presentation');
+const renderCombatBalance=require('./combat_balance');
+const routeBlocked=option=>['notFound','unconfirmed'].includes(option?.status);
+const combatScore=option=>{
+  const {status,balance}=option?.combat||{};
+  if(routeBlocked(option)||!['estimated','ready'].includes(status)||
+    !Number.isInteger(balance?.rank)||balance.rank<0||balance.rank>4||
+    !Number.isFinite(balance.ratio)||balance.ratio<0||
+    !Number.isFinite(balance.blueShare)||balance.blueShare<0||balance.blueShare>1||
+    !['完胜','优势','均势','劣势','完败'].includes(balance.label))return null;
+  return balance;
+};
+const compareCombat=(a,b)=>{
+  const left=combatScore(a),right=combatScore(b);
+  if(!left||!right)return Number(!!right)-Number(!!left);
+  return right.rank-left.rank||right.ratio-left.ratio;
+};
 function routeGroups(options,currentPhase){
   const groups=new Map();
   for(const option of options){
@@ -8,6 +24,7 @@ function routeGroups(options,currentPhase){
       (phase.startsWith('gauge')?`第 ${phase.slice(5)} 阶段`:'推荐路线'),options:[]});
     groups.get(phase).options.push(option);
   }
+  for(const group of groups.values())group.options.sort(compareCombat);
   return [...groups.values()].sort((a,b)=>Number(b.phase===currentPhase)-Number(a.phase===currentPhase));
 }
 module.exports=function createRoutePicker(React){
@@ -30,7 +47,7 @@ module.exports=function createRoutePicker(React){
       };
       const outside=e=>{if(!root.contains(e.target))setOpen(false);};
       place();
-      const selected=dialog.querySelector('[aria-selected=true]')||dialog.querySelector('[role=option]');
+      const selected=dialog.querySelector('[aria-selected=true]:not(:disabled)')||dialog.querySelector('[role=option]:not(:disabled)');
       selected?.focus({preventScroll:true});
       const list=dialog.querySelector('.paa-route-list');
       if(selected&&list)list.scrollTop+=selected.getBoundingClientRect().top-list.getBoundingClientRect().top-30;
@@ -42,12 +59,12 @@ module.exports=function createRoutePicker(React){
       if(!['ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
       e.preventDefault();if(!open){show();return;}
       const buttons=[...panel.current.querySelectorAll('[role=option], .paa-route-phase-toggle')]
-        .filter(button=>!button.closest('[aria-hidden=true]')),i=buttons.indexOf(e.target);
+        .filter(button=>!button.disabled&&!button.closest('[aria-hidden=true]')),i=buttons.indexOf(e.target);
       const direction=['ArrowDown','ArrowRight'].includes(e.key)?1:-1;
       let next=e.key==='Home'?0:e.key==='End'?buttons.length-1:i+direction;
       const grid=e.target.closest?.('.paa-route-options');
       if(grid&&['ArrowDown','ArrowUp'].includes(e.key)){
-        const siblings=[...grid.querySelectorAll('[role=option]')],at=siblings.indexOf(e.target);
+        const siblings=[...grid.querySelectorAll('[role=option]')].filter(button=>!button.disabled),at=siblings.indexOf(e.target);
         const columns=grid.ownerDocument.defaultView.getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length;
         const target=siblings[at+direction*columns];
         next=target?buttons.indexOf(target):direction>0?i+siblings.length-at:i-at-1;
@@ -56,7 +73,7 @@ module.exports=function createRoutePicker(React){
     };
     const selected=options.find(o=>o.key===value),groups=routeGroups(options,currentPhase);
     const cycleGroup=groups.find(group=>group.phase===(selected?.phase||currentPhase||''))||groups[0];
-    const cycle=cycleGroup?.options||[],cycleIndex=cycle.findIndex(option=>option.key===value);
+    const cycle=(cycleGroup?.options||[]).filter(option=>!routeBlocked(option)),cycleIndex=cycle.findIndex(option=>option.key===value);
     const nextRoute=cycle.length?cycle[(cycleIndex+1)%cycle.length]:null;
     const context=[area,currentPhase,selected?.phase].join(':');
     const isExpanded=group=>groups.length===1||(expanded.context===context&&Object.hasOwn(expanded.phases,group.phase)?
@@ -79,8 +96,10 @@ module.exports=function createRoutePicker(React){
             h('button',{className:'paa-route-clear',type:'button',role:'option','aria-selected':!selected,onClick:()=>choose('')},'选择路线',h('small',null,'取消路线预选')),
             ...groups.map(group=>{
               const expanded=isExpanded(group),id=`paa-routes-${area}-${group.phase}`;
-              const rows=group.options.map(option=>h('button',{key:option.key,type:'button',className:'paa-route-option',role:'option',tabIndex:expanded?0:-1,'aria-selected':option.key===value,onClick:()=>{if(expanded)choose(option.key);}},
-                h('span',{className:'paa-route-option-head'},h('span',null,option.name),h('small',null,option.status==='notFound'?'条件未满足':option.priority==='优先'?'优先':'')),
+              const rows=group.options.map(option=>h('button',{key:option.key,type:'button',className:'paa-route-option',role:'option',disabled:routeBlocked(option),tabIndex:expanded&&!routeBlocked(option)?0:-1,'aria-selected':option.key===value,onClick:()=>{if(expanded&&!routeBlocked(option))choose(option.key);}},
+                h('span',{className:'paa-route-option-head'},h('span',null,option.name),
+                  combatScore(option)?renderCombatBalance.renderTier(h,option.combat):
+                    h('small',null,option.status==='notFound'?'上次未找到方案':option.status==='unconfirmed'?'方案待确认':option.combat?.status==='pending'?'计算中':option.combat?'暂不可评估':'')),
                 h('span',{className:'paa-route-option-path'},path(option))));
               return h('section',{key:group.phase,role:'group','aria-label':group.label,className:'paa-route-group'},
                 groups.length>1?h('button',{type:'button',className:'paa-route-phase-toggle','aria-expanded':expanded,'aria-controls':id,onClick:()=>toggle(group)},
@@ -91,11 +110,11 @@ module.exports=function createRoutePicker(React){
                   h('div',{className:'paa-collapse-clip'},h('div',{className:'paa-route-options'},...rows))));
             })),
           !options.length?h('p',{className:'paa-muted'},'当前没有推荐路线'):null):null),
-      showNext?h('button',{type:'button',className:'paa-route-next',disabled:disabled||hidden||!nextRoute||nextRoute.key===value,
+      showNext&&nextRoute&&nextRoute.key!==value?h('button',{type:'button',className:'paa-route-next',disabled:disabled||hidden,
         'aria-label':'下一条路线','data-tooltip':nextRoute?`下一条：${nextRoute.name}${cycleGroup.phase?'\n仅在'+cycleGroup.label+'内切换':''}`:'没有可切换的路线',
         onClick:()=>{if(disabled||hidden||!nextRoute||nextRoute.key===value)return;setOpen(false);onChange(nextRoute.key);}},
-        h('svg',{width:16,height:16,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
-          h('path',{d:'M3 8h10M9 4l4 4-4 4'}))):null);
+        h('svg',{width:16,height:16,viewBox:'-18 -10 296 320',fill:'currentColor','aria-hidden':true},
+          h('path',{d:'M108 9 0 139h69v152h39zM152 9h39v152h68L152 291z'}))):null);
   };
 };
 module.exports.routeGroups=routeGroups;

@@ -11,15 +11,22 @@ function harness(props){
   const find=fn=>all(tree,fn)[0];render();
   return {render,find,all:fn=>all(tree,fn),open:()=>{find(n=>n.props['aria-label']===(props.kind==='expedition'?'远征':'海域')).props.onClick();render();}};
 }
-test('map panel groups the full catalog numerically without omitting or mutating maps',()=>{
+test('map panel groups maps in game region order without omitting or mutating them',()=>{
   const maps=require('../../src/domain/routes/normal_routes').listNormalMaps().maps;
   const before=JSON.stringify(maps),rows=create.groups(maps.slice().reverse());
   assert.equal(rows.length,7);assert.equal(rows.flatMap(r=>r.maps).length,37);
-  assert.deepEqual(rows.map(r=>r.world),[1,2,3,4,5,6,7]);
+  assert.deepEqual(rows.map(r=>r.world),[1,2,3,7,4,5,6]);
   assert.deepEqual(rows[0].maps.map(m=>m.area),['1-1','1-2','1-3','1-4','1-5','1-6']);
   assert.equal(new Set(rows.flatMap(r=>r.maps.map(m=>m.area))).size,37);
   assert.equal(JSON.stringify(maps),before);
 });
+test('unknown future regions follow known regions and maps remain in numeric order',()=>{
+  const maps=['9-10','7-3','4-2','8-2','7-1','9-2','1-2','1-1'].map(area=>({area}));
+  const rows=create.groups(maps);assert.deepEqual(rows.map(r=>r.world),[1,7,4,8,9]);
+  assert.deepEqual(rows.find(r=>r.world===7).maps.map(m=>m.area),['7-1','7-3']);
+  assert.deepEqual(rows.find(r=>r.world===9).maps.map(m=>m.area),['9-2','9-10']);
+});
+
 test('panel selects directly, highlights current map, and closing leaves selection untouched',()=>{
   const calls=[],props={maps:[{area:'1-1',name:'近海'},{area:'3-5',name:'北方海域'}],value:'3-5',onChange:id=>calls.push(id)};
   const ui=harness(props);ui.open();

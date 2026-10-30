@@ -68,7 +68,7 @@ function mapDetail(store,{area,target='boss',phase,routeKey,nodeId},settings){
   const overview=W.mapOverview(area,target,phase,settings,store);
   if(selected&&!overview.options.some(o=>o.key===selected.key))overview.options.push(selected);
   const displayPhase=phase||plans.currentPhase(area,store);
-  const profile=routeKey?W.selectedMapProfile(overview,routeKey):
+  const profile=routeKey?W.selectedMapProfile(overview,routeKey,null,null,false,store):
     phase?overview.profile:W.mapOverview(area,target,displayPhase,settings,store).profile;
   if(nodeId!==undefined&&!profile.mapPreview.nodes.some(n=>n.id===nodeId))throw error('INVALID_QUERY','Unknown nodeId for this map');
   return {area,target,phase:displayPhase||null,routes:overview.options,selectedRoute:selected||null,
@@ -83,7 +83,7 @@ function evaluateRoute(store,args,settings){
   const candidate=args.scheme?resolveCandidate(store,args.scheme):null;
   const metrics=candidate?evaluateCandidate(store,candidate.plan):F.inspect(store,fleet).metrics;
   const selected=plans.fleetPathOption(route,detail.selectedRoute);
-  const profile=selected?W.selectedMapProfile({profile:detail.profile,options:[selected]},selected.key,null,route):detail.profile;
+  const profile=selected?W.selectedMapProfile({profile:detail.profile,options:[selected]},selected.key,null,route,undefined,store):detail.profile;
   const report={route,metrics,profile};
   return {...route,profile,metrics,progress:detail.progress,
     ...(selected?{selectedRoute:selected,planning:plans.optionPlanning(route,selected),
