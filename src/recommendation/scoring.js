@@ -326,6 +326,16 @@ function scoreRouteCore(result,profile,rows,airGoal,area,store,scheme){
   const air=result.airControl?.fleetAirPower;
   const airMin=air?.status==='range'?air.min:0;
   const airScore=airGoalScore(result,airGoal,area,profile);
+  // On 2-3 a six-submarine fleet cannot be hit by ordinary opening air
+  // strikes or use daytime spotting. Do not trade several torpedoes for the
+  // default air-superiority preference; explicit supremacy remains honored.
+  // Keep the measured air state and threshold in the returned score.
+  const submarineCombatPriority=area==='2-3'&&airGoal==='superiority'&&rows.length===6&&
+    rows.every(row=>[13,14].includes(Number(row.stype)));
+  const airRankingTier=submarineCombatPriority?0:airScore.airGoalTier;
+  const protectedTorpedoes=!submarineCombatPriority||scheme.ships.every(entry=>
+    (entry.slots||usableSlots(store,entry.id)).filter(id=>[5,32].includes(Number(store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_type?.[2]))).length>=2);
+  const airUtility=airGoal==='ignore'||!protectedTorpedoes?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5;
   const antiAir=combatValue.antiAirScore(store,scheme,profile,airScore.routeAirReference);
   const combat=combatCapability(rows,result,profile,store,scheme,antiAir.exposure);
   const nightSupport=profile?.counts?.night?.maximum?nightReadiness(store,scheme):null;
@@ -344,7 +354,7 @@ function scoreRouteCore(result,profile,rows,airGoal,area,store,scheme){
   const supremacyPreference=airGoal==='superiority'&&healthySupremacy(store,scheme,air,airScore.routeAirEstimate)&&
     supportedAirGoal(air,airScore.routeAirReference,'supremacy')?carrier*0.3:0;
   const strength=combat.strength+(pureAsw?0:strike*0.7+(jet?.adjustment||0)*0.7)+
-    supremacyPreference-aircraftRisk.penalty+(airGoal==='ignore'?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5);
+    supremacyPreference-aircraftRisk.penalty+airUtility;
   const difficulty=area!=='1-1'?routeDifficulty(profile):{tier:'combat',enabled:false};
   const largeAirAttacks=difficulty.enabled?rows.reduce((sum,row)=>{
     if(![7,11,18].includes(row.stype))return sum;
@@ -361,7 +371,7 @@ function scoreRouteCore(result,profile,rows,airGoal,area,store,scheme){
     // Extra damage can saturate; separate pre-shelling attack opportunities
     // still prevent return fire. Keep their quality value outside that cap.
     largeAirAttacks*25+combat.openingTorpedoCount*25-aircraftRisk.penalty+
-    (airGoal==='ignore'?0:Math.min(airMin,airScore.airGoalRequired??airMin)*0.5):strength;
+    airUtility:strength;
   const specialBonus=difficulty.enabled?Math.min(specialAttack.bonus,difficulty.specialCeiling)+
     Math.max(0,specialAttack.bonus-difficulty.specialCeiling)*difficulty.excessWeight*0.1:specialAttack.bonus;
   const cost=rows.reduce((sum,row)=>sum+shipCost(row),0);
@@ -394,11 +404,11 @@ function scoreRouteCore(result,profile,rows,airGoal,area,store,scheme){
   const combatScore=area==='1-1'?oneOneEffective*100-sortieCost*15-
     oneOneHeavy*2000-oneOneSubRisk*5000:
     effectiveStrength*20-sortieCost*(difficulty.enabled?difficulty.costWeight:0.01)-readinessPenalty;
-  return {rank:airScore.airGoalTier*1e10+routePriority*1e8+
+  return {rank:airRankingTier*1e10+routePriority*1e8+
       (nightSupport?.supportTier||0)*1e7+specialBonus+groundAttack.bonus*100+
       (profile?.counts?.night?.maximum>=2&&!nightSupport?.zuiunEquipped?Math.max(0,Math.min(2,nightSupport?.flareCarriers||0)-1)*1000:0)+combatScore+probability-
-      airScore.airGoalShortfall*10000+antiAir.value*20,
-    ...airScore,...jet?{jetAviation:jet}:{},antiAirDefense:antiAir,aircraftRisk,opportunisticSupremacy:supremacyPreference>0,nightSupport,specialAttack,groundAttack,
+      (submarineCombatPriority?0:airScore.airGoalShortfall*10000)+antiAir.value*20,
+    ...airScore,airRankingTier,...submarineCombatPriority?{airPriority:'combat'}:{},...jet?{jetAviation:jet}:{},antiAirDefense:antiAir,aircraftRisk,opportunisticSupremacy:supremacyPreference>0,nightSupport,specialAttack,groundAttack,
     routePriority,routeChance:chance,assumedChance:assumed,
     graphHops:result.reachableHops||null,strengthProxy:strength,
     routeEconomy:{...difficulty,effectiveStrength,specialBonus,largeAirAttacks},

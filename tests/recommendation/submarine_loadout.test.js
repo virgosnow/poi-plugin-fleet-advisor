@@ -118,12 +118,14 @@ test('2-3 all-submarine recommendation selects six SS/SSV and fits their torpedo
   for(const id of [7,8])delete store.info.ships[id];
   for(let id=1;id<=6;id++){
     const masterId=6100+id,stype=id%2?13:14;
-    store.const.$ships[masterId]={...store.const.$ships[6001],api_id:masterId,api_name:`测试潜水舰${id}改`,api_stype:stype};
-    store.info.ships[id]={...structuredClone(base),api_id:id,api_ship_id:masterId};
-    store.const.$shipTypes[stype]={api_equip_type:{5:1,32:1,51:1}};
+    store.const.$ships[masterId]={...store.const.$ships[6001],api_id:masterId,api_name:`测试潜水舰${id}改`,api_stype:stype,api_maxeq:stype===14?[3,3]:[0,0]};
+    store.info.ships[id]={...structuredClone(base),api_id:id,api_ship_id:masterId,api_onslot:stype===14?[3,3]:[0,0]};
+    store.const.$shipTypes[stype]={api_equip_type:{5:1,32:1,45:stype===14?1:0,51:1}};
   }
+  store.const.$equips[9005]={api_id:9005,api_name:'强力水战',api_type:[0,0,45,45],api_tyku:8};
+  for(let n=0;n<6;n++)store.info.equips[401+n]={api_id:401+n,api_slotitem_id:9005,api_level:0,api_alv:7};
   const before=JSON.stringify(store),result=require('../../src/recommendation').recommendNormalFleet(store,
-    {area:'2-3',routeKey:'guide:2-3-submarines'});
+    {area:'2-3',routeKey:'guide:2-3-submarines',airGoal:'superiority'});
   assert.equal(result.recommendations.length,1);assert.equal(result.routeResults[0].status,'available');
   const row=result.recommendations[0];assert.equal(row.route.ships.length,6);
   assert(row.route.ships.every(s=>[13,14].includes(s.stype)));
@@ -131,7 +133,29 @@ test('2-3 all-submarine recommendation selects six SS/SSV and fits their torpedo
   const assigned=row.scheme.ships.flatMap(s=>s.slots);
   assert.equal(assigned.length,12);assert.equal(new Set(assigned).size,12);
   assert(assigned.every(id=>store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_type[2]===32));
+  assert.equal(row.scores.airPriority,'combat');
+  assert.equal(row.scores.airGoalRequired,81,'the real Boss air threshold remains visible');
+  assert.notEqual(row.scores.airGoalStatus,'meetsAlongRoute','a combat-first result must not pretend to have air superiority');
+  const manual={id:2,slots:[401,-1],ex:0,keep:{0:true}};
+  const held=require('../../src/recommendation').recommendNormalFleet(store,{area:'2-3',routeKey:'guide:2-3-submarines',airGoal:'superiority',fixedShipIds:[2],heldSlots:[manual]});
+  assert.equal(held.recommendations[0].scheme.ships[0].slots[0],401,'manually held aircraft remains in place');
+  const refit=require('../../src/recommendation').recommendNormalEquipment(store,{area:'2-3',routeKey:'guide:2-3-submarines',scheme:row.scheme});
+  assert(refit.scheme.ships.every(entry=>types(store,entry).every(type=>type===32)),JSON.stringify(refit.scheme.ships.map(entry=>types(store,entry))));
+  const explicit=require('../../src/recommendation').recommendNormalFleet(store,{area:'2-3',routeKey:'guide:2-3-submarines',airGoal:'supremacy'});
+  assert.equal(explicit.recommendations[0].scores.airPriority,undefined,'an explicit supremacy request remains effective');
+  assert.equal(explicit.recommendations[0].scores.airGoalRequired,162);
+  const all=require('../../src/recommendation').recommendNormalFleet(store,{area:'2-3',airGoal:'superiority'});
+  const unfiltered=all.recommendations.find(entry=>entry.routeKey==='guide:2-3-submarines');
+  assert(unfiltered);assert(unfiltered.scheme.ships.every(entry=>types(store,entry).every(type=>type===32)),
+    'the complete map search applies the same combat-first policy');
   assert.equal(JSON.stringify(store),before);
+  const roomy=structuredClone(store),ship=roomy.info.ships[2],master=roomy.const.$ships[ship.api_ship_id];
+  master.api_slot_num=3;master.api_maxeq=[2,1,0];ship.api_slot=[-1,-1,-1];ship.api_onslot=[2,1,0];
+  const spareScheme={fleet:1,ships:[...row.scheme.ships.filter(entry=>entry.id!==2),{id:2,slots:[-1,101,102],ex:0}]};
+  const spare=recommendNormalEquipment(roomy,{area:'2-3',routeKey:'guide:2-3-submarines',scheme:spareScheme,
+    heldSlots:[{id:2,slots:[-1,101,102],ex:0,keep:{1:true,2:true}}]});
+  const fitted=spare.scheme.ships.find(entry=>entry.id===2);
+  assert.deepEqual(types(roomy,fitted),[45,32,32],'a genuinely spare aircraft slot can support air control while both torpedoes remain');
 });
 
 test('submarine explanations distinguish inherent opening torpedoes, torpedoes and submarine radar',()=>{

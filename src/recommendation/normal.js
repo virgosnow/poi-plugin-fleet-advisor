@@ -35,6 +35,28 @@ const {routeDifficulty}=require('./route_economy');
 const {fleetOrderChoices}=require('./fleet_order');
 const {guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,specialFleetSeeds,specialPositionLocks}=require('./strategies');
 
+// Combat-first submarine fleets may use spare aircraft slots, but an air
+// trial cannot consume either of the first two available torpedo positions.
+function fitAirForPriority(store,scheme,inventory,required,reference,goal,heldSlots,score){
+  const count=entry=>(entry.slots||usableSlots(store,entry.id)).filter(id=>
+    [5,32].includes(Number(store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_type?.[2]))).length;
+  const protectedAttackSlots=new Set();
+  if(score?.airPriority==='combat')for(const entry of scheme.ships){
+    const ship=store.info.ships[entry.id],master=store.const.$ships[ship.api_ship_id];
+    (entry.slots||usableSlots(store,entry.id)).map((id,slot)=>({id,slot}))
+      .filter(({id})=>[5,32].includes(Number(store.const.$equips[store.info.equips[id]?.api_slotitem_id]?.api_type?.[2])))
+      .sort((a,b)=>(Number(master.api_maxeq?.[a.slot]||0)-Number(master.api_maxeq?.[b.slot]||0))||a.slot-b.slot)
+      .slice(0,2).forEach(({slot})=>protectedAttackSlots.add(entry.id+':'+slot));
+  }
+  const result=airLoadout(store,scheme,inventory,required,reference,goal,heldSlots,
+    protectedAttackSlots.size?{protectedAttackSlots}:undefined);
+  if(!result||score?.airPriority!=='combat')return result;
+  return scheme.ships.every(before=>{
+    const after=result.ships.find(entry=>entry.id===before.id);
+    return after&&count(after)>=Math.min(2,count(before));
+  })?result:null;
+}
+
 function confirmedRouteEvidence(route,profile){
   const paths=(profile?.routePaths||[]).map(path=>({selectedPath:path.nodes,
     pathChance:routePlans.planningPath(route,path.nodes,{allowTentative:false}).chance}));
@@ -173,7 +195,7 @@ function calculateBatch(store,batch){
     }
     if(fitted!==trial.scheme){trial=evaluate(rows,fitted);if(!trial)return result(null);}
     const air=candidatePathScores(store,trial,option,airGoal,area,trial.scheme.ships.map(s=>ctx.byId.get(s.id)));
-    if(airGoal!=='ignore'){const v=airLoadout(store,fitted,inventory,air.airGoalRequired,air.routeAirReference,airGoal,held);if(v)fitted=v;}
+    if(airGoal!=='ignore'){const v=fitAirForPriority(store,fitted,inventory,air.airGoalRequired,air.routeAirReference,airGoal,held,air);if(v)fitted=v;}
     if(base.profile?.counts?.night?.maximum){const v=nightLoadout(store,fitted,inventory,{normalizeGuns:true,nightBattles:base.profile.counts.night.maximum,heldSlots:held});if(v)fitted=v;}
     trial=evaluate(rows,fitted);attempts++;
     if(!trial)return result(null);
@@ -207,7 +229,7 @@ function calculateBatch(store,batch){
     }else if(kind==='speed-refit'){
       const held=speedHolds(store,item.scheme,args.heldSlots),score=item.score;
       let fitted=airGoal==='ignore'?item.scheme:
-        airLoadout(store,item.scheme,inventory,score.airGoalRequired,score.routeAirReference,airGoal,held)||item.scheme;
+        fitAirForPriority(store,item.scheme,inventory,score.airGoalRequired,score.routeAirReference,airGoal,held,score)||item.scheme;
       const route=routes.evaluateSearchRoute(store,{area,target:args.target||'boss',phase,fleet:ctx.fleet,scheme:fitted});
       fitted=fitRouteLoS(store,fitted,inventory,{route,nodes:batch.option.nodes,heldSlots:held})||fitted;
       if(fitted!==item.scheme)evaluateFit(fitted);
@@ -218,7 +240,7 @@ function calculateBatch(store,batch){
     }else{
       const {option}=batch;let fitted=item.scheme;
       if(airGoal!=='ignore'){
-        const next=airLoadout(store,fitted,inventory,item.score.airGoalRequired,item.score.routeAirReference,airGoal,args.heldSlots);
+        const next=fitAirForPriority(store,fitted,inventory,item.score.airGoalRequired,item.score.routeAirReference,airGoal,args.heldSlots,item.score);
         if(next)fitted=holdDraftEquipment(store,next,args.heldSlots);
       }
       for(const need of routePlans.routingNeeds(item.route,item.nodes)){
@@ -233,7 +255,7 @@ function calculateBatch(store,batch){
       if(airGoal!=='ignore'){
         const profile=profileForRoute(area,preparedRoute,routePlans.optionPaths(option));
         const reference=routeAirReference(preparedRoute,area,profile);
-        const air=airLoadout(store,fitted,inventory,reference[airGoal],reference,airGoal,args.heldSlots);
+        const air=fitAirForPriority(store,fitted,inventory,reference[airGoal],reference,airGoal,args.heldSlots,item.score);
         if(air)evaluateFit(air);
       }
       if(routePlans.optionPlanning(preparedRoute,option).losShortfall){
@@ -268,7 +290,7 @@ function calculateBatch(store,batch){
         for(const variant of variants){
           attempts++;singles.push(evaluate(rows,variant));
           if(airGoal!=='ignore'){
-            const fitted=airLoadout(store,variant,inventory,seed.scores.airGoalRequired,reference,airGoal,args.heldSlots);
+            const fitted=fitAirForPriority(store,variant,inventory,seed.scores.airGoalRequired,reference,airGoal,args.heldSlots,seed.scores);
             if(fitted){attempts++;singles.push(evaluate(rows,fitted));}
           }
         }
@@ -297,7 +319,7 @@ function calculateBatch(store,batch){
         continue;
       }
       const variant=kind==='air'?
-        airLoadout(store,seed.scheme,inventory,seed.scores.airGoalRequired,reference,airGoal,args.heldSlots):
+        fitAirForPriority(store,seed.scheme,inventory,seed.scores.airGoalRequired,reference,airGoal,args.heldSlots,seed.scores):
         kind==='opening'?oneOneOpeningLoadout(store,seed.scheme,inventory):
         kind==='surface'?surfaceLoadout(store,seed.scheme,inventory,area,phase,seed.profile,args.heldSlots):
         kind==='night'?seed.profile?.counts?.night?.maximum?
@@ -312,7 +334,7 @@ function calculateBatch(store,batch){
       let combined=seed.scheme,changes=0;
       for(const kind of ['surface','asw','ground','opening','air','los','routing','night'].filter(k=>gearKinds.includes(k))){
         const variant=kind==='air'?
-          airLoadout(store,combined,inventory,seed.scores.airGoalRequired,reference,airGoal,args.heldSlots):
+          fitAirForPriority(store,combined,inventory,seed.scores.airGoalRequired,reference,airGoal,args.heldSlots,seed.scores):
           kind==='opening'?oneOneOpeningLoadout(store,combined,inventory):
           kind==='ground'?groundLoadout(store,combined,inventory,{profile:seed.profile,heldSlots:args.heldSlots,airReference:reference,packages:batch.finalGround===true}):
           kind==='surface'?surfaceLoadout(store,combined,inventory,area,phase,seed.profile,args.heldSlots):
@@ -605,7 +627,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     for(const result of ordered)for(const row of result.combined)collectCandidate(row);
   };
   const gearItems=rows=>rows.map(({scheme,profile,scores})=>
-    ({scheme,profile,scores:{airGoalRequired:scores.airGoalRequired,routeAirReference:scores.routeAirReference}}));
+    ({scheme,profile,scores:{airGoalRequired:scores.airGoalRequired,routeAirReference:scores.routeAirReference,airPriority:scores.airPriority}}));
   const gearResults=yield {kind:'gear',args,routes:requestedRoutes,gearKinds,items:gearItems(shortlist.primary)};
   gearResults.forEach((result,i)=>{variantAttempts+=result.attempts;gearByKey.set(gearKey(shortlist.primary[i]),result);});
   collectGear();
@@ -615,7 +637,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       if(option.strategy)return false;
       const ready=candidates.filter(row=>routePlans.fleetRequirementAssessment(row.route,option).eligible&&
         strictChance(row,option).probability>0&&planning(row,option).losShortfall===0&&
-        (airGoal==='ignore'||pathScores(row,option).airGoalTier===3))
+        (airGoal==='ignore'||pathScores(row,option).airPriority==='combat'||pathScores(row,option).airGoalTier===3))
         .sort((a,b)=>pathRank(b,option)-pathRank(a,option)).find(executable);
       if(!ready)return true;
       const arrival=row=>option.arrivalMode==='boss'?(row.route.probability??row.route.chanceRange?.[0]??0):strictChance(row,option).min;
@@ -694,7 +716,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       nodes:option.nodes,key:row=>idsKey(row.scheme.ships),
       rank:row=>pathRank(row,option,true),
       quality:row=>[Number(guideHull(policy,row.scheme.ships.map(s=>ctx.byId.get(s.id)))),
-        pathScores(row,option).airGoalTier,row.scores.strengthProxy]});
+        pathScores(row,option).airRankingTier,row.scores.strengthProxy]});
     const fitted=yield {kind:'los-fit',args,routes:requestedRoutes,option,items:finalists.map(seed=>({scheme:seed.scheme,route:seed.route}))};
     for(const result of fitted){variantAttempts+=result.attempts;for(const row of result.candidates)collectCandidate(row);}
   }
@@ -768,7 +790,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       const current=base;
       if(!validFor(trial,option)||strictChance(trial,option).probability<strictChance(current,option).probability||
         planning(trial,option).losShortfall>planning(current,option).losShortfall||
-        pathScores(trial,option).airGoalTier<pathScores(current,option).airGoalTier||
+        pathScores(trial,option).airRankingTier<pathScores(current,option).airRankingTier||
         current.guideSuitable&&!trial.guideSuitable||
         pathScores(trial,option).openingAswCount<Math.min(pathScores(current,option).openingAswCount,
           aswEscortLimit(profileForRoute(area,current.route,routePlans.optionPaths(option)),store))||
@@ -813,7 +835,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       const trial=orderedCandidates.get(key);if(!trial)continue;
       if(!validFor(trial,option)||strictChance(trial,option).probability<strictChance(base,option).probability||
         planning(trial,option).losShortfall>planning(base,option).losShortfall||
-        base.guideSuitable&&!trial.guideSuitable||score(trial).airGoalTier<score(base).airGoalTier||
+        base.guideSuitable&&!trial.guideSuitable||score(trial).airRankingTier<score(base).airRankingTier||
         score(trial).specialAttack.bonus<=score(base).specialAttack.bonus||rank(trial)<=rank(base)||!executable(trial))continue;
       if(!candidates.includes(trial)){candidates.push(trial);positioning.improved++;}
     }
@@ -870,9 +892,9 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       if(!trial)continue;preparedPaths.set(trial,new Map(paths));
       const old=pathScores(base,option),next=pathScores(trial,option);
       const arrival=row=>option.arrivalMode==='boss'?(row.route.probability??row.route.chanceRange?.[0]??0):strictChance(row,option).min;
-      if(!validFor(trial,option)||arrival(trial)<arrival(base)||next.airGoalTier<old.airGoalTier||
+      if(!validFor(trial,option)||arrival(trial)<arrival(base)||next.airRankingTier<old.airRankingTier||
         planning(trial,option).losShortfall>planning(base,option).losShortfall||
-        old.routeAirEstimate?.margins?.supremacy?.min>=0&&!(next.routeAirEstimate?.margins?.supremacy?.min>=0)||
+        old.airPriority!=='combat'&&old.routeAirEstimate?.margins?.supremacy?.min>=0&&!(next.routeAirEstimate?.margins?.supremacy?.min>=0)||
         base.guideSuitable&&!trial.guideSuitable||pathRank(trial,option)<=pathRank(base,option)||!executable(trial))continue;
       candidates.push(trial);lightening.improved++;
     }
@@ -916,13 +938,15 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   const guideWarnings=routeResults.filter(r=>!r.item).map(r=>`${r.title||r.key}未找到满足路线和装备要求的编成`);
   const options=picked;
   const confirmedCount=options.filter(item=>item.scores.airGoalTier===3).length;
+  const combatPriorityCount=options.filter(item=>item.scores.airPriority==='combat').length;
   const fleetOrdering={tried:0,improved:0,protected:0};
   const auxiliaryRefinement={tried:0,improved:0};
   return {area,target,phase:phase||null,airGoal,fleet:ctx.fleet,
     routeResults:routeResults.map(({item,...result})=>({...result,recommendationIndex:item?options.findIndex(o=>o.routeKey===result.key):null})),
-    airGoalSummary:{confirmedCount,returnedCount:options.length,
+    airGoalSummary:{confirmedCount,combatPriorityCount,returnedCount:options.length,
       status:airGoal==='ignore'?'notRequested':confirmedCount?'confirmedOptions':'noConfirmedOption',
-      basis:'逐槽估算所选路线的道中飞机损耗，按各战制空判定前的保守制空下限配装；不采用固定百分比余量'},
+      basis:'逐槽估算所选路线的道中飞机损耗，按各战制空判定前的保守制空下限配装；不采用固定百分比余量'+
+        (combatPriorityCount?'；2-3 六潜艇默认优先雷击输出，制空状态仍按实际配装计算':'')},
     recommendations:options.map((item,i)=>{
       let scheme=orderEquipment(store,item.scheme,args.heldSlots);
       if(scheme!==item.scheme)ctx.preview.preview('fleet',scheme);
@@ -946,7 +970,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
         if(!validFor(trial,option)||planning(trial,option).losShortfall>oldPlan.losShortfall||
           Math.abs(chance.min-oldChance.min)>1e-9||Math.abs(chance.max-oldChance.max)>1e-9||
           Math.abs((trial.route.probability??trial.route.chanceRange?.[0]??0)-(route.probability??route.chanceRange?.[0]??0))>1e-9||
-          next.airGoalTier<scores.airGoalTier||scores.routeAirEstimate?.margins?.supremacy?.min>=0&&!(next.routeAirEstimate?.margins?.supremacy?.min>=0)||
+          next.airRankingTier<scores.airRankingTier||scores.airPriority!=='combat'&&scores.routeAirEstimate?.margins?.supremacy?.min>=0&&!(next.routeAirEstimate?.margins?.supremacy?.min>=0)||
           next.specialAttack.bonus<scores.specialAttack.bonus||(next.aswCombat?.readiness??1)<(scores.aswCombat?.readiness??1)||
           base.guideSuitable&&!trial.guideSuitable||next.rank<=scores.rank||!executable(trial))continue;
         scheme=trial.scheme;route=trial.route;profile=profileForRoute(area,route,routePlans.optionPaths(option));scores=next;
@@ -962,7 +986,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
         if(!validFor(trial,option)||planning(trial,option).losShortfall>oldPlan.losShortfall||
           chance.min<oldChance.min||chance.max<oldChance.max||
           (trial.route.probability??trial.route.chanceRange?.[0]??0)<(route.probability??route.chanceRange?.[0]??0)||
-          next.airGoalTier<scores.airGoalTier||scores.routeAirEstimate?.margins?.supremacy?.min>=0&&!(next.routeAirEstimate?.margins?.supremacy?.min>=0)||
+          next.airRankingTier<scores.airRankingTier||scores.airPriority!=='combat'&&scores.routeAirEstimate?.margins?.supremacy?.min>=0&&!(next.routeAirEstimate?.margins?.supremacy?.min>=0)||
           next.specialAttack.bonus<scores.specialAttack.bonus||base.guideSuitable&&!trial.guideSuitable||!executable(trial))continue;
         scheme=trial.scheme;route=trial.route;profile=profileForRoute(area,route,routePlans.optionPaths(option));scores=next;
         orderReason=choice.reason;fleetOrdering.improved++;if(choice.protection)fleetOrdering.protected++;break;
@@ -1029,7 +1053,10 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
       const fullProfile=profileForRoute(area,route);
       const selectedPaths=selectedRoute?routePlans.optionPaths(selectedRoute):null;
       const profile=selectedRoute?profileForRoute(area,route,selectedPaths):fullProfile;
-      const scores=scoreRoute(route,profile,rows,'superiority',area,store,candidate);
+      // For this combat-first policy, do not accumulate the equipment-only
+      // bonus on a cached score when the same candidate is evaluated again.
+      const scored=scoreRoute(route,profile,rows,'superiority',area,store,candidate);
+      const scores=scored.airPriority==='combat'?{...scored}:scored;
       const pathChance=selectedRoute?routePlans.optionPlanning(route,selectedRoute).chance:null;
       // Fleet ranking mostly uses observed hull stats. For a fixed set of
       // hulls, also compare the actual weapon changes in surface encounters.
@@ -1046,7 +1073,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   const safeRecon=reconSurvivalLoadout(store,base,inventory,initial.scores.aircraftRisk,heldSlots);
   for(const fitted of [...aviationBattleshipLoadouts(store,base,inventory,{area,profile:initial.profile,heldSlots}),...(safeRecon?[safeRecon]:[])]){
     evaluate(fitted);
-    const air=airLoadout(store,fitted,inventory,initial.scores.airGoalRequired,initial.scores.routeAirReference,'superiority',heldSlots);
+    const air=fitAirForPriority(store,fitted,inventory,initial.scores.airGoalRequired,initial.scores.routeAirReference,'superiority',heldSlots,initial.scores);
     if(air)evaluate(air);
   }
   if(fittingOptions.asw&&aswCombat.requiresAswPackages(initial.profile))for(const fitted of fitAswLoadouts(store,base,inventory,{profile:initial.profile,
@@ -1065,7 +1092,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
     ...(routeGroundTargets(initial.profile).length?['ground']:[]),
     ...(area==='1-1'?['opening']:[]),'air','los','routing',...(initial.profile?.counts?.night?.maximum?['night']:[])];
   const variant=(current,kind)=>kind==='surface'?surfaceLoadout(store,current,inventory,area,phase,initial.profile,heldSlots):
-    kind==='air'?airLoadout(store,current,inventory,initial.scores.airGoalRequired,initial.scores.routeAirReference,'superiority',heldSlots):
+    kind==='air'?fitAirForPriority(store,current,inventory,initial.scores.airGoalRequired,initial.scores.routeAirReference,'superiority',heldSlots,initial.scores):
     kind==='ground'?groundLoadout(store,current,inventory,{profile:initial.profile,heldSlots,airReference:initial.scores.routeAirReference}):
     kind==='opening'?oneOneOpeningLoadout(store,current,inventory):
     kind==='night'?nightLoadout(store,current,inventory,{normalizeGuns:area==='5-3',nightBattles:initial.profile.counts.night.maximum,heldSlots}):
@@ -1079,14 +1106,14 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   if(inventory.some(i=>[56,57].includes(Number(i.master.api_type[2]))))for(const seed of [base,combined]){
     for(const fitted of jetLoadouts(store,seed,inventory,{heldSlots})){
       evaluate(fitted);
-      const air=airLoadout(store,fitted,inventory,initial.scores.airGoalRequired,initial.scores.routeAirReference,'superiority',heldSlots);
+      const air=fitAirForPriority(store,fitted,inventory,initial.scores.airGoalRequired,initial.scores.routeAirReference,'superiority',heldSlots,initial.scores);
       if(air)evaluate(air);
     }
   }
   if(selectedRoute?.strategy)for(const row of candidates.filter(r=>routePlans.strategyAssessment(r.route,selectedRoute).speedMet)
     .sort((a,b)=>b.scores.rank-a.scores.rank).slice(0,4)){
     const held=speedHolds(store,row.scheme,heldSlots);
-    const fitted=airLoadout(store,row.scheme,inventory,row.scores.airGoalRequired,row.scores.routeAirReference,'superiority',held);
+    const fitted=fitAirForPriority(store,row.scheme,inventory,row.scores.airGoalRequired,row.scores.routeAirReference,'superiority',held,row.scores);
     if(fitted)evaluate(fitted);
   }
   if(selectedRoute)for(const seed of candidates.slice()){
@@ -1098,7 +1125,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
     const preparedRoute=routes.evaluateSearchRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:fitted});
     const preparedProfile=profileForRoute(area,preparedRoute,routePlans.optionPaths(selectedRoute));
     const reference=routeAirReference(preparedRoute,area,preparedProfile);
-    const air=airLoadout(store,fitted,inventory,reference.superiority,reference,'superiority',heldSlots);
+    const air=fitAirForPriority(store,fitted,inventory,reference.superiority,reference,'superiority',heldSlots,seed.scores);
     if(air)evaluate(air);
     const fit=gearVariant(store,fitted,inventory,'los',seed.profile,area,phase,{heldSlots,maxPlacements:24,allowCombatLoss:true,
       stopWhen:value=>{const route=routes.evaluateSearchRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:normalize(value)});
@@ -1109,7 +1136,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   for(const nodes of intervalPaths){
     const finalists=selectLoSFinalists(candidates,{
       nodes,key:row=>JSON.stringify(row.scheme),rank:row=>row.scores.rank,
-      quality:row=>[row.scores.airGoalTier,row.scores.strengthProxy]});
+      quality:row=>[row.scores.airRankingTier,row.scores.strengthProxy]});
     for(const seed of finalists){
       const held=selectedRoute?.strategy?speedHolds(store,seed.scheme,heldSlots):heldSlots;
       const fitted=fitRouteLoS(store,seed.scheme,inventory,{route:seed.route,nodes,heldSlots:held});
@@ -1146,7 +1173,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
     if(!after||after.min<before.min||after.max<before.max||
       (trial.route.probability??trial.route.chanceRange?.[0]??0)<(chosen.route.probability??chosen.route.chanceRange?.[0]??0)||
       selectedRoute&&trial.planning.losShortfall>chosen.planning.losShortfall||
-      trial.scores.airGoalTier<chosen.scores.airGoalTier||chosen.scores.routeAirEstimate?.margins?.supremacy?.min>=0&&!(trial.scores.routeAirEstimate?.margins?.supremacy?.min>=0)||
+      trial.scores.airRankingTier<chosen.scores.airRankingTier||chosen.scores.airPriority!=='combat'&&chosen.scores.routeAirEstimate?.margins?.supremacy?.min>=0&&!(trial.scores.routeAirEstimate?.margins?.supremacy?.min>=0)||
       trial.scores.specialAttack.bonus<chosen.scores.specialAttack.bonus||(trial.scores.aswCombat?.readiness??1)<(chosen.scores.aswCombat?.readiness??1)||
       rank(trial)<=rank(chosen))continue;
     chosen=trial;perf.count('loadout.auxiliary.accepted');

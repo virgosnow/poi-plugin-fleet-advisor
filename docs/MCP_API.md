@@ -454,11 +454,11 @@ Effect: **read-only**.
 | `fixedShipIds` | array<integer> | no | Owned ship INSTANCE IDs, not catalog IDs. maxItems=6 |
 | `excludedShipIds` | array<integer> | no | — |
 | `heldSlots` | array<null or object> | no | Position-indexed draft with null holes. pin or keep retains the hull and, by default, its position. Set holdPosition=false to allow fleet sorting. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty. maxItems=6 |
-| `airGoal` | `ignore` / `superiority` / `supremacy` | no | MCP default superiority. Conservative aircraft-loss estimates are not combat guarantees. |
+| `airGoal` | `ignore` / `superiority` / `supremacy` | no | MCP default superiority. A six-submarine 2-3 fleet prioritizes torpedo combat over the default superiority preference; its actual air status is still reported. Explicit supremacy remains prioritized. Conservative aircraft-loss estimates are not combat guarantees. |
 
 #### `fleet_advisor_recommend_normal_equipment`
 
-Refit only equipment for supplied hulls/order and map/route. Starts unlocked slots empty, retains heldSlots.keep. Honors the saved sortie equipment-borrowing setting: when disabled, only unequipped inventory and equipment owned by the supplied hulls can be used. A held item from another ship is a conflict; do not silently discard it. Returns full scheme and route assessment; can fail if hulls cannot meet the route. No game change.
+Refit only equipment for supplied hulls/order and map/route. Starts unlocked slots empty, retains heldSlots.keep. On 2-3 a six-submarine fleet prioritizes torpedo combat over air superiority. Honors the saved sortie equipment-borrowing setting: when disabled, only unequipped inventory and equipment owned by the supplied hulls can be used. A held item from another ship is a conflict; do not silently discard it. Returns full scheme and route assessment; can fail if hulls cannot meet the route. No game change.
 
 Effect: **read-only**.
 
