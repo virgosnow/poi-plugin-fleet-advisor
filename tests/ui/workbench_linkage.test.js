@@ -166,6 +166,19 @@ function harness(kind='normal',automaticFilters){
   return {render,find,control,chooseGoal,get,set,service,calls,store,effects};
 }
 
+test('map node selection never replaces route-level combat assessment or its two threat cards',()=>{
+  const h=harness(),slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
+  h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
+  h.set('report',W.inspect(h.service,h.store,slots,settings));
+  const section=()=>h.find(h.render(),n=>n.props.className==='paa-wb-threat');
+  const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
+  const before=text(section());assert.match(before,/战力预估/);assert.match(before,/目标点最大威胁/);assert.match(before,/道中最大威胁/);
+  h.set('nodeId','A');assert.equal(text(section()),before);
+  h.set('nodeId','C');assert.equal(text(section()),before);
+  h.set('nodeId',null);assert.equal(text(section()),before);
+  assert.equal(h.calls.fleet+h.calls.equipment,0);
+});
+
 test('route selection uses a grouped anchored component and keeps names separate from path letters',()=>{
   const h=harness(),options=W.mapOverview('1-4').options;
   h.set('area','1-4');

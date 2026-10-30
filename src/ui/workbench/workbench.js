@@ -293,7 +293,9 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const mapProfile=overview?W.selectedMapProfile(overview,mapRoute,dirty?null:report.profile,!dirty&&report.valid?report.route:null,rows.length>0):null;
       const speedReading=kind==='expedition'?null:fleetSpeed(store,slots);
       const mechanisms=kind==='expedition'?E.shipBadges(expeditionStatus):fleetMechanisms(store,slots,speedReading,mapProfile);
-      const threat=mapProfile?W.displayThreat(mapProfile,nodeId):null;
+      const threat=mapProfile&&mapRoute?W.displayThreat(mapProfile,null):null;
+      const targetNodes=mapRoute?mapProfile?.targetNodes||[]:[],targetNode=targetNodes.length===1?mapProfile.mapPreview?.nodes.find(n=>n.id===targetNodes[0]):null;
+      const targetThreat=targetNode?W.displayThreat(mapProfile,targetNode.id):null;
       const progress=kind==='normal'?W.mapProgress(store,area):null;
       const routeOptions=kind==='normal'?overview.options.map(o=>{
         const saved=choices.find(c=>c.key===o.key);
@@ -328,9 +330,9 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         summary.los.tooltipContent=JSON.stringify(T.los(dirty?null:report.metrics?.lineOfSight,summary.los));
       }
       const changeSummary=rows.length&&!dirty&&report.valid?W.changeSummary(store,slots,fleet):'';
-      return {contextKey:conditionKey,effectivePhase,changeSummary,rows,rowById,expeditionStatus,mission,map,expedition,rate,income,dirty,overview,mapProfile,speedReading,speedRequirement,mechanisms,threat,progress,routeOptions,selectedRoute,arrival,routeRequirements,routeSearchFailed,reasons,checks,summary};
+      return {contextKey:conditionKey,effectivePhase,changeSummary,rows,rowById,expeditionStatus,mission,map,expedition,rate,income,dirty,overview,mapProfile,speedReading,speedRequirement,mechanisms,threat,targetThreat,progress,routeOptions,selectedRoute,arrival,routeRequirements,routeSearchFailed,reasons,checks,summary};
     });
-    const {changeSummary,rows,rowById,expeditionStatus,mission,map,expedition,rate,income,dirty,overview,mapProfile,speedReading,speedRequirement,mechanisms,threat,progress,routeOptions,selectedRoute,arrival,routeRequirements,routeSearchFailed,reasons,checks,summary}=data||{rows:[],dirty:false,routeOptions:[]};
+    const {changeSummary,rows,rowById,expeditionStatus,mission,map,expedition,rate,income,dirty,overview,mapProfile,speedReading,speedRequirement,mechanisms,threat,targetThreat,progress,routeOptions,selectedRoute,arrival,routeRequirements,routeSearchFailed,reasons,checks,summary}=data||{rows:[],dirty:false,routeOptions:[]};
     React.useEffect(()=>{
       if(!paused&&!resumePending.current&&kind==='normal'&&mapRoute&&!routeOptions.some(o=>o.key===mapRoute))setMapRoute('');
     },[paused,kind,area,target,phase,mapRoute,store.info?.maps]);
@@ -427,7 +429,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         h('section',{className:'paa-wb-left'},contextControls,
           kind==='expedition'?stableResult('expedition',expeditionView.overview({mission,master:store.const.$missions?.[missionId],missionMasters:store.const.$missions,missionProgress:store.expeditionProgress,fleets:store.info.fleets,useItems:store.const.$useitems,expedition,rate,income,goal,hasShips:rows.length>0,incomeUnit,onIncomeUnitChange:setIncomeUnit,onMissionChange:changeMission,disabled})):
           h(React.Fragment,null,h('section',{className:'paa-wb-map-section','aria-label':'海域地图与攻略进度'},
-            routePreview(h,{profile:mapProfile,mapAsset,pathIndex:0,nodeId,onPath:setPathIndex,onNode:setNodeId,onBackground:()=>setNodeId(null),onExpand:e=>{e?.currentTarget?.focus({preventScroll:true});setMapExpanded(true);},disabled,compact:true,showDetails:false,showPaths:false}),
+            routePreview(h,{profile:mapProfile,mapAsset,pathIndex:0,nodeId,onPath:setPathIndex,onNode:setNodeId,onBackground:()=>setNodeId(null),onExpand:e=>{e?.currentTarget?.focus({preventScroll:true});setMapExpanded(true);},disabled,compact:true,showDetails:!!nodeId,nodePopup:true,textOnly:true,showPaths:false}),
             progress?h('div',{className:'paa-wb-progress-list','aria-label':'海域攻略进度','data-has-current':progress.some(gauge=>gauge.isCurrent)},
               ...progress.map(gauge=>h('div',{key:gauge.node,className:'paa-wb-progress','data-state':gauge.state,'aria-current':gauge.isCurrent?'step':undefined,'data-tooltip':gauge.title},
                 h('span',{className:'paa-wb-progress-heading'},routePreview.bossIcon(h,{width:15,height:15}),gauge.label),
@@ -464,9 +466,15 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
                     Number.isFinite(r.chance)?`（${Math.round(r.chance*10000)/100}%，否则继续判断）`:null),
                     h('span',null,({matched:'当前命中',estimated:'按配装估算命中',pending:'条件待确认'})[r.state]||'',r.offRoute?' · 不走所选出口':'')),
                   conditionView(r.conditionTree,r.active,String(i+1))))))))):null),
-            h('div',{className:'paa-wb-threat','aria-live':'polite'},h('div',{className:'paa-wb-section-head'},h('h4',null,threat.title)),
-              threat?.enemies?.length?h('div',{className:'paa-wb-enemies'},...threat.enemies.slice(0,2).map((e,i)=>h('div',{key:i},portrait({name:e.name,portrait:V.portraitUrl(store,e.apiId)}),h('span',null,e.name,h('small',null,`${(e.nodes||[]).join(' / ')} 点`))))):h('span',null,threat?.status==='none'?'此处没有记录到战斗敌舰':'敌情资料不足，暂不能比较'),
-              ...(threat.warnings||[]).map((warning,i)=>h('small',{key:i,className:'paa-muted'},warning))))),
+            h('div',{className:'paa-wb-threat','aria-live':'polite'},h('div',{className:'paa-wb-section-head'},h('h4',null,'战力预估'),h('span',{className:'paa-muted'},!mapRoute?'选择路线':!rows.length?'选择舰娘':'待评估')),
+              h('div',{className:'paa-balance-pending',role:'status'},'战力对比待确认'),
+              h('div',{className:'paa-threat-cards'},...[['目标点最大威胁',targetThreat],['道中最大威胁',threat]].map(([title,item])=>{
+                const enemy=item?.enemies?.[0],unknown=['unknown','incomplete'].includes(item?.status)||!!item?.warnings?.length;
+                return h('div',{key:title,className:'paa-threat-card'},h('strong',null,title),
+                  enemy?h('div',{className:'paa-threat-enemy'},portrait({name:enemy.name,portrait:V.portraitUrl(store,enemy.apiId)}),
+                    h('span',null,enemy.name,h('small',null,`${(enemy.nodes||[]).join(' / ')} 点${unknown?' · 资料待确认':''}`))):
+                    h('span',{className:'paa-muted'},!mapRoute?'请选择路线':item?.status==='none'?'无战斗':'敌情待确认'));
+              }))))),
           h(QuestSection,{state:store,slots,deckId:fleet,kind,mapId:kind==='normal'?area:undefined,
             missionId:kind==='expedition'?missionId:undefined,questState,paused})),
         h('section',{className:'paa-wb-right','aria-busy':working},commandControls,

@@ -139,7 +139,7 @@ const nodePopoverRef=focus=>{
 };
 
 module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,disabled,
-  mapMode='actual',zoomed=false,onMode,onZoom,onExpand,idSuffix='',onAssetError,assetError,mapAsset,compact=false,fixedNodes=false,showDetails=true,nodePopup=false,enemyPortrait,showPaths=true,onBackground}){
+  mapMode='actual',zoomed=false,onMode,onZoom,onExpand,idSuffix='',onAssetError,assetError,mapAsset,compact=false,fixedNodes=false,showDetails=true,nodePopup=false,enemyPortrait,showPaths=true,onBackground,textOnly=false}){
   const compactColors={battle:'#ff767b',nightBattle:'#b180ed',asw:'#ff767b',aerialCombat:'#ff767b',aerialRaid:'#ff767b',airRecon:'#b8d16b',resources:'#9bd65c',whirlpool:'#d2baff',noBattle:'#53c9ee',activeBranch:'#53c9ee',start:'#53c9ee',unknown:'#d9e1ea'};
   const compactBackgrounds={battle:'#482d38',asw:'#482d38',nightBattle:'#3e2d5c',whirlpool:'#443c5b',aerialCombat:'#253646',aerialRaid:'#3f2d38',resources:'#30472e',airRecon:'#354329',noBattle:'#203e50',activeBranch:'#203e50',start:'#203e50'};
   const nodeColor=(kind,type)=>compact?(compactColors[canonicalKind(kind)]||type.color):type.color;
@@ -172,14 +172,20 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
       filter:highlight?`url(#${highlight==='muted'?mutedTint:tint})`:undefined,onError:onAssetError})));
   };
   const approximate=layout.real&&layout.edges.some(e=>activeEdges.has(`${e.from}>${e.to}`)&&!e.sprite);
+  const formations=nodePopup&&!textOnly&&nodeId?require('./node_formations').nodeFormations(profile.area,nodeId):[];
   const detail=showDetails&&focus?[
     h('strong',{key:'name'},focus.id.startsWith('start')?'出发':`${focus.id} 点 · ${V.nodeKind[focus.kind]||'资料不足'}${focus.target?' · 目标点':''}`),
+    textOnly?null:formations.length&&enemyPortrait?h('div',{key:'formations',className:'paa-map-formations','aria-label':'敌方编成例'},
+      ...formations.map((formation,i)=>h('details',{key:`${formation.phase}-${formation.pattern}-${i}`,open:i===0},
+        h('summary',null,`编成例 ${i+1}${formation.formation.length?' · '+formation.formation.join(' / '):''}${formation.availability?' · '+formation.availability:''}${formation.hqLevelRange?.raw?' · '+formation.hqLevelRange.raw:''}`),
+        formation.ships.length?h('div',{className:'paa-map-enemies'},...formation.ships.map((enemy,k)=>h('div',{key:k},enemyPortrait(enemy),h('span',null,enemy.name)))):h('span',{className:'paa-muted'},'敌舰编成待确认'),
+        formation.escort.length?h('div',{className:'paa-map-enemies'},h('small',null,'护卫舰队'),...formation.escort.map((enemy,k)=>h('div',{key:k},enemyPortrait(enemy),h('span',null,enemy.name)))):null))):
     nodePopup&&enemyPortrait&&focusEnemies.length?h('div',{key:'enemies',className:'paa-map-enemies','aria-label':'可能遇到的敌舰'},
       ...focusEnemies.map((enemy,i)=>h('div',{key:`${enemy.apiId||enemy.name}-${i}`},enemyPortrait(enemy),h('span',null,enemy.name)))):
     h('span',{key:'enemies',className:'paa-muted'},focusEnemies.length?
       `可能遇到：${focusEnemies.slice(0,4).map(e=>e.name).join('、')}${focusEnemies.length>4?'等':''}`:
-      focus.threatStatus==='unknown'?'该点敌情资料不足':'无敌舰记录'),
-    focus.dataWarnings?.length?h('span',{key:'warnings',className:'paa-result-warning'},focus.dataWarnings.join('；')):null]:null;
+      focus.threatStatus==='unknown'?'该点敌情资料不足':focus.threatStatus==='none'?'无战斗':'无敌舰记录'),
+    !textOnly&&focus.dataWarnings?.length?h('span',{key:'warnings',className:'paa-result-warning'},focus.dataWarnings.join('；')):null]:null;
   return h('div',{className:'paa-route-preview'},
     (showPaths&&paths.length>1||onMode||layout.real&&onZoom)?h('div',{className:'paa-route-toolbar'},
       showPaths&&paths.length>1?h('select',{'aria-label':'预览路线',value:pathIndex,disabled,
