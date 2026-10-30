@@ -911,7 +911,7 @@ test('expanded map keeps the selected route and node without changing the fleet 
   walk(tree);assert.equal(maps.length,2);
   const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
   const routeLabels=map=>{const labels=[];const visit=n=>{if(!n||typeof n!=='object')return;
-    if(n.props.role==='button'&&n.props.className?.split(' ').includes('active'))labels.push(n.props['aria-label']);
+    if(['button','img'].includes(n.props.role)&&n.props.className?.split(' ').includes('active'))labels.push(n.props['aria-label']);
     (n.children||[]).forEach(visit);};visit(map);return labels;};
   assert.deepEqual(routeLabels(maps[0]),routeLabels(maps[1]));assert(routeLabels(maps[0]).length>1);
   const ids=n=>{const result=[];const visit=x=>{if(!x||typeof x!=='object')return;if(x.props.id)result.push(x.props.id);(x.children||[]).forEach(visit);};visit(n);return result;};

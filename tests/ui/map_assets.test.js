@@ -117,6 +117,12 @@ test('unselected departure wheels stay cropped and clickable while the selected 
   }
   starts[1].props.onKeyDown({key:'Enter',preventDefault(){}});tree=draw({fixedNodes:true,idSuffix:'-expanded'});
   assert.equal(collect(tree,n=>n.props.className==='paa-map-selection')[0].props['data-node-id'],nodeId);
+  const largeStarts=collect(tree,n=>n.props.role==='button'&&n.props['aria-label']?.startsWith('出发'));
+  assert.equal(largeStarts.length,2);assert(largeStarts.every(n=>n.props['data-marker-pixels']===22.5));
+  const largeBoss=collect(tree,n=>n.props.role==='button'&&n.props['data-boss'])[0];
+  assert.equal(largeBoss.props['data-marker-pixels'],18);
+  const regular=collect(tree,n=>n.props.role==='button'&&!n.props['data-boss']&&!n.props['aria-label']?.startsWith('出发'))[0];
+  assert.equal(regular.props['data-marker-pixels'],8);
   const departure=Object.keys(data.maps['6-4'].lines).find(key=>key.startsWith('1>')).split('>')[1];
   profile.routePaths=[{nodes:[departure]}];tree=draw();
   const active=collect(tree,n=>n.props.className?.includes('paa-map-node active')&&n.props['aria-label']?.startsWith('出发'));
@@ -125,6 +131,19 @@ test('unselected departure wheels stay cropped and clickable while the selected 
   assert.equal(collect(active[0],n=>n.props.className==='paa-map-node-label').length,1);
   assert.equal(collect(active[0],n=>n.props.className?.split(' ').includes('paa-map-node-body'))[0].props.r,44);
   assert.equal(collect(tree,n=>n.props.className==='paa-map-start-icon').length,1);
+  tree=draw({fixedNodes:true,idSuffix:'-expanded'});
+  const largeActive=collect(tree,n=>n.props.className?.includes('paa-map-node active')&&n.props['aria-label']?.startsWith('出发'))[0];
+  assert.equal(largeActive.props['data-marker-pixels'],24,'selected start is 50% larger');
+});
+
+test('enlarged map highlights Boss markers 50% larger without affecting ordinary nodes',()=>{
+  const h=(type,props,...children)=>({type,props:props||{},children});
+  const collect=(tree,p)=>!tree||typeof tree!=='object'?[]:[...(p(tree)?[tree]:[]),...(tree.children||[]).flatMap(n=>collect(n,p))];
+  const profile=require('../../src/domain/routes/sortie_profile').previewForMap('1-1');
+  const tree=require('../../src/ui/maps/route_preview')(h,{profile:{...profile,routePaths:[{nodes:['A','C']}],highlightPaths:[['A','C']]},compact:true,fixedNodes:true,showDetails:false,onNode(){}});
+  const boss=collect(tree,n=>n.props.role==='button'&&n.props['data-boss'])[0];
+  assert(boss.props.className.includes('active'));assert.equal(boss.props['data-marker-pixels'],24);
+  const node=collect(tree,n=>n.props.role==='button'&&n.props['aria-label']?.startsWith('A 点'))[0];assert.equal(node.props['data-marker-pixels'],16);
 });
 
 test('air reconnaissance remains noncombat in the map legend and markers',()=>{

@@ -1,5 +1,13 @@
 'use strict';
 let nextId=0;
+// An SVG group can include a clipped, full-size game texture atlas. Browsers
+// include that image in its client bounds despite the visible clip, so map
+// tooltip placement must use the node's own circular hit/marker geometry.
+function anchorRect(anchor){
+  const marker=anchor?.classList?.contains('paa-map-node')?
+    anchor.querySelector('.paa-map-boss-hit,.paa-map-start-hit,.paa-map-node-body'):null;
+  return (marker||anchor).getBoundingClientRect();
+}
 function tableColumns(labels,{numeric=[],compact=false,indexed=false}={}){
   const centered=new Set(['位置','槽位','节点','系数','速力','预计结果','类型','阵型','攻击阶段']);
   let widths=labels.map(()=>100/labels.length);
@@ -199,7 +207,7 @@ module.exports=function useTooltip(React,root,scope){
       // A popover also stays above native modal dialogs, without taking focus.
       if(typeof tip.showPopover==='function'){tip.setAttribute('popover','manual');doc.body.appendChild(tip);tip.showPopover();}
       else (anchor.closest('dialog[open]')||doc.body).appendChild(tip);
-      const xy=position(anchor.getBoundingClientRect(),tip.getBoundingClientRect(),{width:win.innerWidth,height:win.innerHeight});
+      const xy=position(anchorRect(anchor),tip.getBoundingClientRect(),{width:win.innerWidth,height:win.innerHeight});
       tip.style.left=xy.left+'px';tip.style.top=xy.top+'px';
       previousDescription=anchor.getAttribute('aria-describedby');anchor.setAttribute('aria-describedby',[previousDescription,tip.id].filter(Boolean).join(' '));descriptionAdded=true;
     };
@@ -232,5 +240,6 @@ module.exports=function useTooltip(React,root,scope){
   },[scope]);
 };
 module.exports.position=position;
+module.exports.anchorRect=anchorRect;
 module.exports.renderContent=renderContent;
 module.exports.renderStructured=renderStructured;

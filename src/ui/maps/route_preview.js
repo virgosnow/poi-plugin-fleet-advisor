@@ -151,14 +151,17 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
   const active=new Set(travels.flat()),activeEdges=new Set(travels.flatMap(travel=>travel.slice(1).map((to,i)=>`${travel[i]}>${to}`)));
   const positions=new Map(layout.nodes.map(n=>[n.id,n]));
   const threat=profile.highlightPaths?.length>1?profile.threat:paths[pathIndex]?.threat||profile.threat;
-  const focus=positions.get(nodeId)||(showDetails?(positions.get(threat?.node)||positions.get(path.at(-1))):null);
+  // The small workbench map is hover-only, even when the enlarged map still
+  // has a selected node. Keep that selection confined to the enlarged map.
+  const focus=textOnly?null:positions.get(nodeId)||(showDetails?(positions.get(threat?.node)||positions.get(path.at(-1))):null);
   const focusEnemies=focus?.enemyFamilies||focus?.enemies||[];
   const tint=`paa-route-tint-${profile.area||'schematic'}${idSuffix}`;
   const mutedTint=`${tint}-muted`;
   const nodeMask=`${tint}-node-mask`;
   const markerSize=node=>compact&&fixedNodes?{'data-marker-x':node.x,'data-marker-y':node.y,
     'data-marker-radius':compactRadius(active.has(node.id),layout.real,node.boss||node.id.startsWith('start')),
-    'data-marker-pixels':active.has(node.id)?16:node.boss||node.id.startsWith('start')?12:8}:{};
+    'data-marker-pixels':node.id.startsWith('start')&&!active.has(node.id)?22.5:
+      node.boss||node.id.startsWith('start')?(active.has(node.id)?24:18):active.has(node.id)?16:8}:{};
   let spriteIndex=0;
   const sprite=(frame,x=0,y=0,highlight=false)=>{
     const part=layout.images?.find(image=>frame.frame.y>=image.offsetY&&frame.frame.y+frame.frame.h<=image.offsetY+image.height);
@@ -232,15 +235,15 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
         start=node.id.startsWith('start'),smallStart=compact&&start&&!onRoute,smallBoss=compact&&boss&&!onRoute,
         radius=compact?compactRadius(onRoute,layout.real,boss||start):layout.real?19:14,
         symbol=smallStart?startSymbol:bossSymbol,symbolWidth=radius*2*symbol.frame.w/symbol.frame.h;
-        return h('g',{key:node.id,role:'button',tabIndex:disabled?-1:0,
+        return h('g',{key:node.id,role:textOnly?'img':'button',tabIndex:disabled?-1:0,
         ...markerSize(node),
         'data-kind':node.kind||'unknown','data-boss':boss||undefined,
-        style:{'--paa-node-color':compact?nodeColor(node.kind,type):!onRoute?'#8593a5':boss?'#ff7f90':type.color,
+        style:{cursor:textOnly?'pointer':undefined,'--paa-node-color':compact?nodeColor(node.kind,type):!onRoute?'#8593a5':boss?'#ff7f90':type.color,
           '--paa-node-background':compact?(compactBackgrounds[canonicalKind(node.kind)]||'#303b4b'):!onRoute?'#253345':boss?'#293a4b':type.background},
         'aria-label':`${node.id.startsWith('start')?'出发':node.id+' 点'} · ${V.nodeKind[node.kind]||'资料不足'}${boss?' · Boss':''}${node.target?' · 目标点':''}`,
-        'aria-pressed':focus?.id===node.id,'data-tooltip':`${node.id} · ${V.nodeKind[node.kind]||'资料不足'}`,
+        'aria-pressed':textOnly?undefined:focus?.id===node.id,'data-tooltip':`${node.id.startsWith('start')?'出发点':node.id+' 点'} · ${boss?'Boss 战 · ':''}${V.nodeKind[node.kind]||'资料不足'}`,
         className:`paa-map-node${onRoute?' active':' inactive'}${node.target?' target':''}${focus?.id===node.id?' focused':''}`,
-        onClick:e=>{e.stopPropagation();if(!disabled)onNode(node.id);},onKeyDown:e=>{if(!disabled&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onNode(node.id);}}},
+        onClick:e=>{e.stopPropagation();if(!disabled&&!textOnly)onNode(node.id);},onKeyDown:e=>{if(!disabled&&!textOnly&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onNode(node.id);}}},
         node.target&&!compact?h('circle',{cx:node.x,cy:node.y,r:radius+3,className:'paa-map-target-ring'}):null,
         active.has(node.id)&&!compact?h('circle',{cx:node.x,cy:node.y,r:radius+7,className:'paa-map-route-ring'}):null,
         ...(smallBoss||smallStart?[

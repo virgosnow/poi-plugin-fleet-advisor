@@ -13,13 +13,21 @@ test('node formations preserve each alternative, inherited rows, ship order and 
   assert.deepEqual(nodeFormations('1-6','N'),[]);
   assert.deepEqual(nodeFormations('../outside','H'),[]);
 });
-test('small map node popover contains text only; large map contains separate formations',()=>{
+test('small map uses hover-only node hints; large map contains selectable formations',()=>{
   const profile=previewForMap('1-4'),shared={profile,nodeId:'H',onNode(){},onBackground(){},compact:true,nodePopup:true,showDetails:true};
-  const small=preview(h,{...shared,textOnly:true,enemyPortrait:e=>h('img',{alt:e.name})});
-  const pop=all(small,n=>n.props['aria-label']==='节点详情')[0];assert(pop);
-  assert.equal(all(pop,n=>n.type==='img').length,0);assert.equal(all(pop,n=>n.type==='details').length,0);
+  let selected=null;const small=preview(h,{...shared,textOnly:true,onNode:id=>{selected=id;},enemyPortrait:e=>h('img',{alt:e.name})});
+  assert.equal(all(small,n=>n.props['aria-label']==='节点详情').length,0);
+  assert.equal(all(small,n=>n.props.className==='paa-map-selection').length,0);
+  const node=all(small,n=>n.props.role==='img'&&n.props['aria-label']?.startsWith('H 点'))[0];assert(node);
+  assert.equal(node.props.style.cursor,'pointer','hover hints use the hand cursor');
+  assert.match(node.props['data-tooltip'],/^H 点 ·/);assert.equal(node.props['aria-pressed'],undefined);
+  const boss=all(small,n=>n.props.role==='img'&&n.props['data-boss'])[0];assert(boss);
+  assert.match(boss.props['data-tooltip'],/Boss 战/);
+  assert.doesNotMatch(node.props['data-tooltip'],/Boss 战/);
+  node.props.onClick({stopPropagation(){}});node.props.onKeyDown({key:'Enter',preventDefault(){}});assert.equal(selected,null);
   const large=preview(h,{...shared,enemyPortrait:e=>h('img',{alt:e.name})});
   const modal=all(large,n=>n.props['aria-label']==='节点详情')[0];
   assert.equal(all(modal,n=>n.type==='details').length,nodeFormations('1-4','H').length);
   assert(all(modal,n=>n.type==='img').length>0);
+  assert(all(large,n=>n.props.role==='button'&&n.props['aria-pressed']===true).length>0);
 });
