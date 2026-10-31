@@ -1,7 +1,10 @@
 {
   "name": "poi-plugin-fleet-advisor",
   "version": "1.0.8",
-  "author": "virgosnow",
+  "author": {
+    "name": "virgosnow",
+    "url": "https://github.com/virgosnow"
+  },
   "license": "MIT",
   "bundledDependencies": true,
   "description": "poi 舰队参谋，提供常规海域与远征的编成建议、配装规划和本地 MCP 接口。",
