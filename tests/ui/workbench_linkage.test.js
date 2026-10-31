@@ -525,6 +525,31 @@ test('resuming a hidden page clears completed battle results from an older snaps
   assert(effect);effect.fn();assert.deepEqual(h.get('routeCombatResults'),{});assert.deepEqual(h.get('batchRouteChoices'),{});
 });
 
+test('automatic 1-5 completion selects the first reachable recommended route',async()=>{
+  const h=harness();h.set('area','1-5');
+  const result=require('../../src/recommendation').recommendNormalFleet(h.store,{area:'1-5'});
+  assert.equal(result.routeResults[0].key,'guide:1-5-01');
+  assert.equal(result.routeResults[0].status,'notFound');
+  const reachable=result.routeResults.find(route=>route.chance&&result.recommendations.some(row=>row.routeKey===route.key));
+  assert(reachable,'the search fixture must include a later reachable route');
+  h.service.recommendNormalFleet=()=>result;
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert.equal(h.get('mapRoute'),reachable.key);
+  assert.deepEqual(h.get('slots').filter(Boolean).map(row=>row.id),
+    result.recommendations.find(row=>row.routeKey===reachable.key).scheme.ships.map(row=>row.id));
+  assert.equal(h.get('error'),'');
+});
+
+test('automatic completion leaves the route unset when no route has a reachable recommendation',async()=>{
+  const h=harness();h.set('area','1-5');
+  const options=require('../../src/domain/routes/route_plans').recommendedOptions('1-5');
+  h.service.recommendNormalFleet=()=>({routeResults:options.map(option=>({...option,status:'notFound',chance:null})),recommendations:[]});
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert.equal(h.get('mapRoute'),'');
+  assert.match(h.get('error'),/没有可到达的路线方案/);
+  assert(h.get('slots').every(slot=>!slot));
+});
+
 test('a route missing from a completed recommendation is marked unknown instead of pending',async()=>{
   const h=harness(),plans=require('../../src/domain/routes/route_plans');h.set('area','1-4');
   h.set('slots',[{...W.entry(h.store,2),pin:true},null,null,null,null,null]);

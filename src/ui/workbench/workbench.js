@@ -385,9 +385,17 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         while(routeCache.current.size>8)routeCache.current.delete(routeCache.current.keys().next().value);
         const options=W.routeChoices(found);setChoices(previous=>previous.filter(c=>['notFound','unconfirmed'].includes(c.status)&&!options.some(o=>o.key===c.key)).concat(options));
         if(kind==='normal'&&!automatic){setCombatDeferredPhase('');startRouteCombat(found,requestedPhase,initialStore,combatSignature);}
-        const selectedKey=requestedRoute||found.routeResults?.[0]?.key;
+        // Without an explicit selection, the route catalogue can begin with a
+        // route for which the search found no fleet (for example 1-5's
+        // coastal-defence route). Select the first result that has both an
+        // arrival chance and a matching recommendation instead.
+        const selectedKey=requestedRoute||found.routeResults?.find(result=>result.chance&&
+          found.recommendations?.some(row=>row.routeKey===result.key))?.key||
+          (!found.routeResults?.length?found.recommendations?.[0]?.routeKey:undefined);
         const routeResult=found.routeResults?.find(r=>r.key===selectedKey);
         if(routeResult&&!routeResult.chance){setMapRoute(selectedKey);return;}
+        if(kind==='normal'&&!selectedKey&&found.routeResults?.length)
+          throw Error(found.reason||found.message||'当前条件下没有可到达的路线方案，请调整固定舰娘或目标');
         if(!found.recommendations?.length&&!(kind==='expedition'&&found.closestRecommendation))throw Error(found.reason||found.message||'当前条件下没有可用方案，请调整固定舰娘或目标');
         const row=kind==='normal'?found.recommendations.find(r=>r.routeKey===(selectedKey||found.recommendations[0]?.routeKey)):
           found.recommendations[0]||found.closestRecommendation;
