@@ -786,20 +786,33 @@ test('ship picker filters by fleet and broad ship groups and sorts without chang
   assert(h.find(choice,n=>n.type==='small'&&n.children.some(s=>typeof s==='string'&&s.includes('士气低于 40'))));
   await choice.props.onClick();assert.equal(h.get('slots')[0].id,2);assert.equal(h.calls.equipment,0);
   h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
-  assert.equal(h.get('shipType'),'all');assert.equal(h.get('shipFleet'),'all');assert.equal(h.get('shipSort'),'level-desc');
+  assert.equal(h.get('shipType'),'type:2');assert.equal(h.get('shipFleet'),'all');assert.equal(h.get('shipSort'),'level-desc');
+  assert(!ids().includes(7),'same ship type does not include other ships in the broad group');
   button('舰种筛选','巡洋舰').props.onClick();assert.deepEqual(ids(),[1]);
   h.control(h.render(),'搜索候选').props.onChange({target:{value:'朝潮'}});assert.deepEqual(ids(),[]);
   assert.equal(h.calls.equipment+h.calls.fleet,0);assert.equal(JSON.stringify(h.store),before);
 });
 
-test('ship picker defaults to all fleets and groups for replacements and empty slots',()=>{
+test('ship picker defaults to first fleet for empty slots and the exact type across all fleets for replacements',()=>{
   for(const kind of ['normal','expedition']){
-    const h=harness(kind);h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
+    const h=harness(kind);h.store.info.fleets.forEach((fleet,i)=>{fleet.api_ship=[[2,4],[3],[7],[8]][i];});
+    h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
+    const ids=()=>h.find(h.render(),n=>n.props.className==='paa-wb-popup-list').children.filter(n=>n?.type==='button').map(n=>n.props.key);
+    const button=(group,label)=>h.find(h.control(h.render(),group),n=>n.type==='button'&&n.children.includes(label));
     h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
     const dialog=h.find(h.render(),n=>n.props.className==='paa-wb-popup');
-    assert.equal(dialog.props['data-picker'],'ship');assert.equal(h.get('shipType'),'all');assert.equal(h.get('shipFleet'),'all');
+    assert.equal(dialog.props['data-picker'],'ship');assert.equal(h.get('shipType'),'type:2');assert.equal(h.get('shipFleet'),'all');
+    assert.equal(button('舰种筛选','同舰种：驱逐').props['aria-pressed'],true);
+    assert(ids().includes(3));assert(ids().includes(8));assert(!ids().includes(7));
+    button('舰种筛选','驱逐／海防').props.onClick();assert(ids().includes(7));
     h.find(h.render(),n=>n.props.className==='paa-wb-empty').props.onClick();
-    assert.equal(h.get('shipType'),'all');assert.equal(h.calls.equipment+h.calls.fleet,0);
+    assert.equal(h.get('shipType'),'all');assert.equal(h.get('shipFleet'),'1');assert.deepEqual(ids(),[2,4]);
+    for(const [label,expected] of [['第一舰队',[2,4]],['第二舰队',[3]],['第三舰队',[7]],['第四舰队',[8]]]){
+      button('舰队筛选',label).props.onClick();assert.deepEqual(ids(),expected,label);
+    }
+    button('舰队筛选','全部').props.onClick();assert.equal(ids().length,8);
+    h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
+    assert.equal(h.get('shipType'),'type:2');assert.equal(h.get('shipFleet'),'all');assert.equal(h.calls.equipment+h.calls.fleet,0);
   }
 });
 

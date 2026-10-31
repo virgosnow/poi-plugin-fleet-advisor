@@ -245,8 +245,10 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       observed.current=getStore();
       const current=slot==='ex'?slots[index]?.ex:slots[index]?.slots[slot];
       const category=slot!==undefined&&current>0?W.equipmentOptions(observed.current,slots,index,slot).find(row=>row.id===current)?.categoryId:null;
+      const ship=slot===undefined&&slots[index]?observed.current.info?.ships?.[slots[index].id]:null;
+      const type=ship&&observed.current.const?.$ships?.[ship.api_ship_id]?.api_stype;
       setSearch('');setEquipmentCategory(category===null||category===undefined?'all':String(category));
-      setShipType('all');setShipFleet('all');setShipSort('level-desc');setPopup({index,slot});
+      setShipType(type!=null?`type:${type}`:'all');setShipFleet(slot===undefined&&!slots[index]?'1':'all');setShipSort('level-desc');setPopup({index,slot});
     };
     React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;},[popup,search,equipmentCategory,shipType,shipFleet,shipSort]);
     const choosePlan=(row,key=conditionKey,selectedRoute='')=>{
@@ -521,10 +523,13 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         h(ExecutionCard,{running:!!(busy&&!hidden&&executionPlan?.fleet===fleet&&executionPlan.targets?.[i]===s.id),stopping,fleet,index:i,ship:s.id}));
     };
     const popupRows=popup&&!paused&&!resumePending.current?(popup.slot===undefined?W.replacementCandidates(store,slots,popup.index,search,'all',{kind,filters:selectionSettings})
-      .filter(row=>(shipType==='all'||shipGroup(row.typeId)===shipType)&&(shipFleet==='all'||row.fleet===1))
+      .filter(row=>(shipType==='all'||(shipType.startsWith('type:')?String(row.typeId)===shipType.slice(5):shipGroup(row.typeId)===shipType))&&(shipFleet==='all'||row.fleet===Number(shipFleet)))
       .sort((a,b)=>shipSort==='level-asc'?a.level-b.level||a.id-b.id:shipSort==='morale-desc'?b.cond-a.cond||b.level-a.level||a.id-b.id:
         shipSort==='name'?a.name.localeCompare(b.name,'ja')||b.level-a.level||a.id-b.id:b.level-a.level||a.id-b.id):W.equipmentOptions(store,slots,popup.index,popup.slot,search)):[];
     const currentEquipment=popup?.slot!==undefined?(popup.slot==='ex'?slots[popup.index]?.ex:slots[popup.index]?.slots[popup.slot]):null;
+    const replacementShip=popup?.slot===undefined&&slots[popup?.index]?store.info?.ships?.[slots[popup.index].id]:null;
+    const replacementType=replacementShip&&store.const?.$ships?.[replacementShip.api_ship_id]?.api_stype;
+    const replacementTypeLabel=W.TYPES[replacementType]||store.const?.$shipTypes?.[replacementType]?.api_name||'未知舰种';
     const equipmentGroups=new Map();
     if(popup?.slot!==undefined)for(const row of popupRows){
       if(!equipmentGroups.has(String(row.categoryId)))equipmentGroups.set(String(row.categoryId),{name:row.category,rows:[]});
@@ -696,9 +701,9 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
               h('option',{value:'morale-desc'},'士气从高到低'),h('option',{value:'name'},'舰名排序'))),
         popup.slot===undefined?h('div',{className:'paa-wb-ship-filters'},
           h('div',{className:'paa-wb-ship-filter-row',role:'group','aria-label':'舰队筛选'},h('span',null,'舰队'),
-            h('div',{className:'paa-wb-ship-filter-options'},... [['all','全部'],['first','第一舰队']].map(([key,label])=>h('button',{key,type:'button','aria-pressed':shipFleet===key,onClick:()=>setShipFleet(key)},label)))),
+            h('div',{className:'paa-wb-ship-filter-options'},... [['all','全部'],['1','第一舰队'],['2','第二舰队'],['3','第三舰队'],['4','第四舰队']].map(([key,label])=>h('button',{key,type:'button','aria-pressed':shipFleet===key,onClick:()=>setShipFleet(key)},label)))),
           h('div',{className:'paa-wb-ship-filter-row',role:'group','aria-label':'舰种筛选'},h('span',null,'舰种'),
-            h('div',{className:'paa-wb-ship-filter-options'},... [['all','全部'],...SHIP_GROUPS].map(([key,label])=>h('button',{key,type:'button','aria-pressed':shipType===key,onClick:()=>setShipType(key)},label))))):null,
+            h('div',{className:'paa-wb-ship-filter-options'},... [['all','全部'],...(replacementType!=null?[[`type:${replacementType}`,`同舰种：${replacementTypeLabel}`]]:[]),...SHIP_GROUPS].map(([key,label])=>h('button',{key,type:'button','aria-pressed':shipType===key,onClick:()=>setShipType(key)},label))))):null,
         popup.slot===undefined?h('p',{className:'paa-muted'},kind==='expedition'?'换入后自动推荐远征装备':kind==='normal'&&!prepared.current?'先预选舰娘，一键补全后统一配装':'换入后自动推荐装备'):null,
         h('div',{className:'paa-wb-popup-list',ref:popupList},...visiblePopupRows.flatMap((row,i)=>[
           popup.slot!==undefined&&(i===0||row.categoryId!==visiblePopupRows[i-1].categoryId)?h('h4',{key:`category-${row.categoryId}`,className:'paa-wb-equipment-group'},row.category):null,
