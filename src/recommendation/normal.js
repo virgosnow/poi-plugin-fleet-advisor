@@ -399,6 +399,9 @@ function recommendNormalFleet(store,args){
 async function recommendNormalFleetParallel(store,args,runBatch,scope=run=>run(),onProgress){
   const indexes=new Map(),rules=new Map(),steps=normalFleetSteps(store,args);
   const advance=value=>scope(()=>routePlans.withPlanningCache(()=>withEquipmentIndexCache(store,()=>steps.next(value),indexes),rules));
+  // Initial seed selection happens before the generator yields its first batch
+  // and can take substantial time on large inventories.
+  onProgress?.({stage:'hulls'});
   let step=perf.stage('selection.initial',()=>advance());
   while(!step.done){
     const kind=step.value.kind;

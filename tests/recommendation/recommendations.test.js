@@ -37,6 +37,20 @@ function armSurfaceDestroyers(store){
   }
 }
 
+test('normal parallel search reports hull selection before the initial search starts',async()=>{
+  const {recommendNormalFleetParallel}=require('../../src/recommendation/normal');
+  const store=fixture(),args={area:'1-1',target:'boss'},progress=[];let enteredInitialSearch=false;
+  const result=await recommendNormalFleetParallel(store,args,(_batch,fallback)=>fallback(),run=>{
+    if(!enteredInitialSearch){
+      enteredInitialSearch=true;
+      assert.deepEqual(progress,[{stage:'hulls'}]);
+    }
+    return run();
+  },event=>progress.push(event));
+  assert(enteredInitialSearch);assert.equal(progress.at(-1).stage,'finalize');
+  assert.deepEqual(result,recommendNormalFleet(store,args));
+});
+
 test('normal search defaults to the observed gauge in serial and parallel drivers without dropping its routes',async()=>{
   const plans=require('../../src/domain/routes/route_plans');
   const {recommendNormalFleetParallel}=require('../../src/recommendation/normal');

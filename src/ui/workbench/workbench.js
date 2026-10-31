@@ -14,15 +14,42 @@ const {runRouteCombatBatch}=require('./route_combat_batch');
 const SHIP_GROUPS=[['small','驱逐／海防',[1,2]],['cruiser','巡洋舰',[3,4,5,6,21]],['battleship','战舰',[8,9,10,12]],['carrier','空母',[7,11,18]],['submarine','潜艇',[13,14]],['other','辅助舰',[16,17,19,20,22]]];
 const shipGroup=type=>SHIP_GROUPS.find(group=>group[2].includes(Number(type)))?.[0]||'other';
 const blank=()=>Array(6).fill(null),pad=rows=>rows.concat(Array(Math.max(0,6-rows.length)).fill(null));
-const progressLabels={prepare:'准备舰队资料',hulls:'筛选舰娘',seeds:'评估候选编成',gear:'规划装备',
+const progressLabels={prepare:'准备舰队资料与计算环境',hulls:'筛选舰娘',seeds:'评估候选编成',gear:'规划装备',
   'path-fit':'核对路线配装','speed-fit':'调整舰队航速','speed-refit':'复核航速与配装','los-fit':'调整索敌装备',
   combat:'评估战力',refinement:'优化编成',expedition:'准备远征计算','expedition-candidates':'筛选远征编成',
   'expedition-fit':'规划远征装备与收益','expedition-rescue':'补充搜索远征编成','expedition-wait':'核对另一种远征目标',
-  equipment:'计算装备',finalize:'核对结果'};
-function calculationProgress(value){
-  const label=progressLabels[value?.stage]||'正在计算';
-  const done=Number(value?.completed),total=Number(value?.total);
-  return total>0&&Number.isFinite(done)?`${label} · 本步骤 ${Math.floor(Math.min(total,Math.max(0,done))/total*100)}%`:label;
+  prepareEquipment:'准备装备资料',equipment:'计算装备',finalize:'核对结果',verify:'核对结果',complete:'计算完成'};
+function createCalculationProgress(){
+  // Search branches and fitting passes are decided as the calculation runs,
+  // so these stage weights estimate overall progress rather than count a
+  // fixed total. Repeated stages and fallback searches must never go backward.
+  // Between worker updates, elapsed time advances the estimate conservatively;
+  // it cannot reach completion until the actual result has been accepted.
+  let percent=0,lastStage='',expeditionPass=0;
+  const ranges={prepare:[1,1],prepareEquipment:[1,1],hulls:[4,18],seeds:[18,48],gear:[48,64],
+    'path-fit':[64,78],'speed-fit':[64,78],'speed-refit':[68,80],'los-fit':[72,82],
+    combat:[80,87],refinement:[87,93],expedition:[3,3],'expedition-wait':[88,88],
+    equipment:[5,5],finalize:[95,95],verify:[97,97]};
+  return {
+    update(value){
+      const stage=value?.stage||'prepare';
+      if(stage==='expedition-candidates'&&lastStage!==stage)expeditionPass++;
+      lastStage=stage;
+      const pass=expeditionPass>1;
+      const range=stage==='expedition-candidates'?(pass?[55,55]:[8,8]):
+        stage==='expedition-fit'?(pass?[78,78]:[42,42]):stage==='expedition-rescue'?(pass?[86,86]:[52,52]):ranges[stage]||[percent,percent];
+      const done=Number(value?.completed),total=Number(value?.total);
+      const fraction=total>0&&Number.isFinite(done)?Math.max(0,Math.min(1,done/total)):0;
+      percent=Math.max(percent,Math.min(97,Math.floor(range[0]+(range[1]-range[0])*fraction)));
+      return `${progressLabels[stage]||'正在计算'} · 预计总进度 ${percent}%`;
+    },
+    tick(){
+      if(percent>=94)return null;
+      percent=Math.min(94,percent+Math.max(1,Math.floor((94-percent)*0.04)));
+      return `${progressLabels[lastStage]||'正在计算'} · 预计总进度 ${percent}%`;
+    },
+    complete(){percent=100;return `${progressLabels.complete} · 预计总进度 100%`;}
+  };
 }
 function draftDataKey(store,slots,{area,fleet,missionId}){
   // Host snapshots can be mutated in place. Check only the six displayed hulls
@@ -51,7 +78,14 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
   function CalculationProgress({channel}){
     const [value,setValue]=React.useState(channel.value);
     React.useEffect(()=>{channel.listeners.add(setValue);setValue(channel.value);return()=>channel.listeners.delete(setValue);},[channel]);
-    return value?h('small',{className:'paa-wb-calculation-detail'},value):null;
+    if(!value)return null;
+    const match=/^(.*?)\s*·\s*预计总进度\s+(\d+%)$/.exec(value);
+    return h('span',{className:'paa-wb-calculation-detail'},match?
+      [h('strong',{key:'percentage',className:'paa-wb-calculation-percent'},match[2]),
+        h('span',{key:'track',className:'paa-wb-calculation-track','aria-hidden':true},
+          h('span',{className:'paa-wb-calculation-fill',style:{width:match[2]}})),
+        h('small',{key:'stage',className:'paa-wb-calculation-stage'},match[1])]:
+      h('small',{className:'paa-wb-calculation-stage'},value));
   }
   const summaryMetric=(reading,kind)=>{
     const good=kind==='air'?/^全程空/.test(reading.state):['索敌达标','无需索敌'].includes(reading.state);
@@ -297,6 +331,13 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const normalHolds=rows=>W.recommendationHolds(rows,{preservePositions:false}).filter(Boolean).map(hold=>
       ({...hold,keep:Object.fromEntries(Object.entries(hold.keep).sort(([a],[b])=>a.localeCompare(b)))})).sort((a,b)=>a.id-b.id);
     const publishCalculation=value=>{const channel=calculationChannel.current;channel.value=value;for(const listener of channel.listeners)listener(value);};
+    const startProgressTimer=(progress,isActive)=>{
+      const timer=setInterval(()=>{
+        if(!isActive()){clearInterval(timer);return;}
+        const value=progress.tick();if(value)publishCalculation(value);
+      },1000);
+      return timer;
+    };
     const requestNormalRoute=(service,query,signature,initialStore,onProgress)=>{
       const pending=routeRequests.current.get(signature);
       if(pending&&pending.info===initialStore.info&&pending.master===initialStore.const)return pending.promise;
@@ -339,6 +380,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const complete=async(requestedStyle=style,automatic=false,requestedRoute=mapRoute,requestedGoal=goal)=>{
       if(disabled)return;
       const token=++operation.current,key=JSON.stringify([kind,area,target,phase,'clear',requestedStyle,missionId,requestedGoal,filterKey,...(selectedQuests.length?[selectedQuests]:[])]);
+      const progress=createCalculationProgress();let progressActive=true,completed=false;
       const origin=conditionKey,initialStore=getStore(),requestedPhase=phaseForRoute(requestedRoute,initialStore);
       const initialInfo=initialStore.info,initialMaster=initialStore.const;
       const holds=normalHolds(slots);
@@ -346,7 +388,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const previousCombat=routeCombatSnapshot.current;
       if(kind==='normal'&&!automatic&&previousCombat&&(previousCombat.info!==initialInfo||previousCombat.master!==initialMaster||previousCombat.signature!==combatSignature))invalidateRouteCombat();
       const signature=kind==='expedition'?JSON.stringify([cacheKey('both'),revision]):cacheKey(requestedGoal,requestedPhase);
-      publishCalculation('准备舰队资料');
+      publishCalculation(progress.update({stage:'prepare'}));
+      const progressTimer=startProgressTimer(progress,()=>progressActive&&alive.current&&token===operation.current);
       setWorking(true);setActivity(automatic?'route':'complete');setNotice('');setError('');setPopup(null);
       await new Promise(resolve=>setTimeout(resolve,20));
       try{
@@ -365,13 +408,14 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           const service=getController();
           const query={fleet,fixedShipIds:slots.filter(s=>s&&(s.pin||Object.keys(s.keep).length)).map(s=>s.id),excludedShipIds:excluded,
             ...(selectedQuests.length?{questCodes:selectedQuests}: {})};
-          const onProgress=value=>{if(alive.current&&token===operation.current)publishCalculation(calculationProgress(value));};
+          const onProgress=value=>{if(progressActive&&alive.current&&token===operation.current)publishCalculation(progress.update(value));};
           if(kind==='normal')found=await requestNormalRoute(service,{...query,area,target,phase:requestedPhase||undefined,
             airGoal:'superiority',heldSlots:W.recommendationHolds(slots,{preservePositions:false})},signature,initialStore,onProgress);
           else {const {snapshotId}=service.createSnapshot();found=await service.recommendExpeditionFleet({...query,snapshotId,limit:3,missionId,goal:requestedGoal,heldSlots:W.recommendationHolds(slots),
               ...(slots[0]&&(slots[0].pin||Object.keys(slots[0].keep).length)?{fixedFlagshipId:slots[0].id}:{})},onProgress);}
         }
         if(!alive.current||token!==operation.current||![origin,key].includes(latest.current))return;
+        publishCalculation(progress.update({stage:'verify'}));
         if(getStore().info!==initialInfo||getStore().const!==initialMaster||kind==='expedition'&&require('../../application/snapshots').fingerprint(getStore())!==stamp)throw Error('舰队资料已变化，请重新补全');
         if(selectedQuests.length){
           const current=getStore(),related=require('../../domain/quests/quest_requirements').listRelatedQuests({state:current,slots,deckId:fleet,
@@ -401,8 +445,16 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           found.recommendations[0]||found.closestRecommendation;
         if(!row)throw Error('所选路线没有可用方案，当前编成已保留，请调整固定舰娘或装备');
         choosePlan(row,key,requestedRoute);
+        completed=true;
       }catch(e){if(alive.current&&token===operation.current&&[origin,key].includes(latest.current))setError(e.message);}
-      finally{if(alive.current&&token===operation.current){setWorking(false);setActivity('');}}
+      finally{
+        progressActive=false;
+        clearInterval(progressTimer);
+        if(alive.current&&token===operation.current){
+          if(completed){publishCalculation(progress.complete());await new Promise(resolve=>setTimeout(resolve,120));}
+          if(alive.current&&token===operation.current){setWorking(false);setActivity('');}
+        }
+      }
     };
     const changeGoal=value=>{
       if(disabled||value===goal)return;
@@ -416,15 +468,18 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         prepared.current=true;return items.map(s=>s?.preselectionComplete===false?{...s,preselectionComplete:true}:s);
       };
       const token=++operation.current,key=conditionKey,initialStore=getStore();
-      publishCalculation('准备装备资料');
+      const progress=createCalculationProgress();let progressActive=true,completed=false;
+      publishCalculation(progress.update({stage:'prepareEquipment'}));
+      const progressTimer=startProgressTimer(progress,()=>progressActive&&alive.current&&token===operation.current);
       setWorking(true);setActivity('equipment');setNotice('');
       await new Promise(resolve=>setTimeout(resolve,20));
       try{
         const service=getController(),{snapshotId}=service.createSnapshot();
-        const onProgress=value=>{if(alive.current&&token===operation.current)publishCalculation(calculationProgress(value));};
+        const onProgress=value=>{if(progressActive&&alive.current&&token===operation.current)publishCalculation(progress.update(value));};
         const result=await (kind==='expedition'?service.recommendExpeditionEquipment({snapshotId,scheme:W.scheme(next,fleet),missionId,goal,heldSlots:next.filter(Boolean)},onProgress):
           service.recommendNormalEquipment({snapshotId,scheme:W.scheme(next,fleet),area,target,phase:effectivePhase||undefined,heldSlots:next.filter(Boolean),routeKey:mapRoute},onProgress));
         if(!alive.current||token!==operation.current||latest.current!==key)return;
+        publishCalculation(progress.update({stage:'verify'}));
         if(getStore().info!==initialStore.info||getStore().const!==initialStore.const)throw Error('舰队资料已变化，已保留换船结果，请重新补全');
         const updated=activateDraft(W.withEquipment(next,result.scheme));service.preview('fleet',W.scheme(updated,fleet));
         const unchanged=report.valid&&report.settingsKey===JSON.stringify(settings)&&JSON.stringify(report.scheme)===JSON.stringify(W.scheme(updated,fleet));
@@ -432,6 +487,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         const option=kind==='normal'?W.mapOverview(area,target,phase,selectionSettings,initialStore).options.find(o=>o.key===mapRoute):null;
         const issue=kind==='normal'?W.draftRouteIssue(inspection,option,inspection?.valid):null;
         commit(updated,inspection);setDraftContext(key);if(kind==='expedition')setChoices([]);routeCache.current=null;
+        completed=true;
         if(!issue&&result.warnings?.length)setError(result.warnings.join('；'));
         else if(!issue)setNotice('装备推荐已更新 · 手动装备已保留');
       }catch(e){if(alive.current&&token===operation.current){
@@ -442,7 +498,14 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         if(issue){observed.current=current;setReport(inspection);setError('');}
         else setError('自动配装未完成：'+e.message);
       }}
-      finally{if(alive.current&&token===operation.current){setWorking(false);setActivity('');}}
+      finally{
+        progressActive=false;
+        clearInterval(progressTimer);
+        if(alive.current&&token===operation.current){
+          if(completed){publishCalculation(progress.complete());await new Promise(resolve=>setTimeout(resolve,120));}
+          if(alive.current&&token===operation.current){setWorking(false);setActivity('');}
+        }
+      }
     };
     if(!paused&&resumePending.current&&view.current&&view.current.value.contextKey!==conditionKey)resumePending.current=false;
     // Picker typing, map-node focus and disclosure changes do not alter the
@@ -748,7 +811,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
             summaryMetric(summary.air,'air'),summaryMetric(summary.los,'los'))):null,
           h('div',{className:'paa-wb-ships',ref:grid},...slots.map(shipCard),
             cardActivity?h('div',{className:'paa-wb-calculating paa-wb-fleet-overlay',role:'status','data-activity':activity},
-              h('span',{className:'paa-wb-calculation-label'},h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),cardActivity,
+              h('span',{className:'paa-wb-calculation-label'},h('span',{className:'paa-wb-calculation-heading'},
+                h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),cardActivity),
                 h(CalculationProgress,{channel:calculationChannel.current}))):null),
         )),
       kind==='normal'&&mapExpanded?h('dialog',{ref:mapDialog,className:'paa-wb-map-dialog','aria-label':`${area} 海域地图`,

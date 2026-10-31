@@ -68,8 +68,14 @@ module.exports=`
 .paa-workbench h4{font-size:12px;color:var(--paa-muted);margin:0 0 9px}.paa-workbench p{margin:5px 0}.paa-workbench pre{white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;font-size:11px}.paa-workbench details{font-size:12px}.paa-workbench summary{cursor:pointer;padding:8px 0}
 .paa-wb-ships{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .paa-wb-ships>.paa-wb-fleet-overlay{top:-8px}
-.paa-wb-calculation-detail{font-size:12px;font-weight:400;color:var(--paa-muted)}
-.paa-wb-fleet-overlay .paa-wb-calculation-label{max-width:100%;flex-wrap:wrap;justify-content:center;white-space:normal;text-align:center}
+.paa-wb-fleet-overlay .paa-wb-calculation-label{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;width:208px;max-width:100%;gap:8px;padding:16px 20px;white-space:normal;text-align:center}
+.paa-wb-fleet-overlay .paa-wb-calculation-heading{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;font-size:13px;font-weight:600;line-height:18px}
+.paa-wb-fleet-overlay .paa-wb-calculation-heading .paa-wb-calculation-spinner{width:13px;height:13px;border-width:2px}
+.paa-wb-fleet-overlay .paa-wb-calculation-detail{display:flex;flex-direction:column;align-items:center;width:100%;min-width:0;gap:7px}
+.paa-wb-fleet-overlay .paa-wb-calculation-percent{font-size:32px;line-height:36px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--paa-text)}
+.paa-wb-fleet-overlay .paa-wb-calculation-track{display:block;width:100%;height:4px;overflow:hidden;border-radius:4px;background:var(--paa-soft)}
+.paa-wb-fleet-overlay .paa-wb-calculation-fill{display:block;height:100%;border-radius:inherit;background:var(--paa-accent);transition:width .2s ease-out}
+.paa-wb-fleet-overlay .paa-wb-calculation-stage{font-size:12px;line-height:16px;font-weight:400;color:var(--paa-muted);overflow-wrap:anywhere}
 .paa-wb-ship,.paa-drag-ghost{border:1px solid var(--paa-line);border-radius:10px;background:var(--paa-bg);color:var(--paa-text);padding:14px 10px 12px;min-width:0;cursor:grab;user-select:none;touch-action:pan-y;transition:border-color .16s,box-shadow .16s,opacity .16s;box-shadow:0 2px 6px #00000009;font-size:12px;box-sizing:border-box}
 .paa-wb-ship[data-preselected=true]{border-color:#d6ae50}.paa-wb-preselected{position:absolute;top:-8px;right:63px;transform:translateX(50%);padding:0 4px;background:var(--paa-bg);color:#d6ae50;font-size:12px;font-weight:600;line-height:16px}
 .paa-wb-ship[data-preselected=true] button.paa-wb-gear:disabled{opacity:1}
@@ -108,7 +114,7 @@ module.exports=`
 .paa-workbench[data-kind=manual] .paa-wb-context-controls{display:flex;align-items:center;flex-wrap:wrap}
 .paa-wb-calculation-region{position:relative;min-width:0}.paa-wb-calculation-content{display:flex;flex-direction:column;gap:12px;min-width:0}.paa-wb-calculation-content[aria-hidden=true]{opacity:.45;pointer-events:none;user-select:none}.paa-wb-calculating{position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;padding:12px;background:color-mix(in srgb,var(--paa-card) 55%,transparent);border-radius:8px;cursor:progress}.paa-wb-calculation-label{display:inline-flex;align-items:center;gap:10px;padding:10px 16px;border:1px solid var(--paa-line);border-radius:8px;background:var(--paa-card);box-shadow:0 3px 12px #0002;color:var(--paa-text);font-size:15px;font-weight:600;line-height:22px;white-space:nowrap}.paa-wb-calculation-spinner{width:17px;height:17px;flex:none;border:2px solid var(--paa-line);border-top-color:var(--paa-accent);border-radius:50%;animation:paa-calculation-turn .85s linear infinite}.paa-wb-calculation-region[data-result-region=metrics] .paa-wb-calculation-label{padding:4px 10px;font-size:12px;line-height:20px;gap:7px}.paa-wb-calculation-region[data-result-region=metrics] .paa-wb-calculation-spinner{width:14px;height:14px}.paa button.paa-wb-complete{width:104px;flex:none}
 
-@media(prefers-reduced-motion:reduce){.paa-wb-calculation-spinner{animation:none}}
+@media(prefers-reduced-motion:reduce){.paa-wb-calculation-spinner{animation:none}.paa-wb-calculation-fill{transition:none}}
 @container(max-width:780px){.paa-wb-context-controls{padding:0;grid-template-columns:minmax(100px,1fr) minmax(108px,.65fr) auto}.paa-wb-context-controls>.paa-wb-field{flex-direction:column;align-items:stretch}.paa-wb-context-controls>.paa-wb-field select{width:100%;flex:auto}.paa-wb-command-area{border-left:0;padding:10px 0 0;border-top:1px solid var(--paa-line)}.paa-wb-command-row{flex-wrap:nowrap}}
 @container(max-width:420px){.paa-wb-context-controls{gap:7px;grid-template-columns:minmax(75px,1fr) minmax(95px,.85fr) auto}.paa-wb-context-controls>.paa-wb-complete{padding-inline:7px;font-size:12px}.paa-wb-complete svg{display:none}}
 /* Each column owns its controls and content. */

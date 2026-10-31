@@ -2167,7 +2167,10 @@ test('fleet cards share activity-specific overlays without replacing ship slots'
     for(const [activity,label] of [['complete','补全中'],['route','切换路线中'],['equipment','调整装备中']]){
       h.set('activity',activity);const pending=h.render(),mask=overlay(pending);
       assert.equal(mask.props.role,'status');assert.equal(mask.props['data-activity'],activity);
-      assert.equal(mask.children[0].children[1],label);
+      const heading=h.find(mask,n=>n.props.className==='paa-wb-calculation-heading');
+      assert(heading);assert(heading.children.includes(label));
+      assert(h.find(heading,n=>n.props.className==='paa-wb-calculation-spinner'));
+      assert(h.find(mask,n=>n.type?.name==='CalculationProgress'));
       assert.deepEqual(cards(pending),before,'calculations keep the original cards and empty positions mounted');
     }
     h.set('working',false);h.set('activity','');assert(!overlay(h.render()));
@@ -2175,19 +2178,150 @@ test('fleet cards share activity-specific overlays without replacing ship slots'
   }
 });
 
-test('calculation progress updates the overlay independently and identifies batch percentages',async()=>{
+const progressDelay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function progressChannel(h){
+  const mask=h.find(h.render(),n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay');
+  assert(mask,'the existing fleet overlay remains mounted during calculation');
+  return h.find(mask,n=>n.type?.name==='CalculationProgress').props.channel;
+}
+
+test('calculation overlay presents the estimated percentage separately from the current stage',()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind);h.set('working',true);h.set('activity','complete');
+    const mask=h.find(h.render(),n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay');
+    const component=h.find(mask,n=>n.type?.name==='CalculationProgress');
+    for(const [value,step] of [['0%','准备舰队资料与计算环境'],['42%','评估候选编成'],['100%','计算完成']]){
+      const display=component.type({channel:{value:`${step} · 预计总进度 ${value}`,listeners:new Set()}});
+      const percent=h.find(display,n=>n.props.className==='paa-wb-calculation-percent');
+      const track=h.find(display,n=>n.props.className==='paa-wb-calculation-track');
+      const fill=h.find(display,n=>n.props.className==='paa-wb-calculation-fill');
+      const stage=h.find(display,n=>n.props.className==='paa-wb-calculation-stage');
+      assert.equal(percent.type,'strong');assert.deepEqual(percent.children,[value]);
+      assert.equal(track.props['aria-hidden'],true);assert.equal(fill.props.style.width,value);
+      assert.equal(stage.type,'small');assert.deepEqual(stage.children,[step]);
+      assert.deepEqual(display.children.map(node=>node.props.className),[
+        'paa-wb-calculation-percent','paa-wb-calculation-track','paa-wb-calculation-stage']);
+    }
+  }
+});
+
+function totalPercentage(value){
+  const match=String(value).match(/预计总进度\s+(\d+)%/);
+  assert(match,`missing total progress: ${value}`);return Number(match[1]);
+}
+function recommendationResult(h,kind='normal'){
+  return {recommendations:[{...(kind==='normal'?{routeKey:'guide:3-5-01'}:{}),
+    scheme:W.scheme([W.entry(h.store,2)],kind==='normal'?1:2)}],routeResults:[]};
+}
+
+test('slow calculations advance the estimated total without inventing a stage or completing early',async()=>{
+  const h=harness(),oldInterval=global.setInterval,oldClear=global.clearInterval,cleared=[];
+  let timer,finish,report;
+  global.setInterval=(fn,ms)=>{assert.equal(ms,1000);timer={fn};return timer;};
+  global.clearInterval=value=>cleared.push(value);
+  try{
+    h.service.recommendNormalFleet=(_query,onProgress)=>{report=onProgress;return new Promise(resolve=>{finish=resolve;});};
+    const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();await progressDelay(40);
+    const channel=progressChannel(h),initial=totalPercentage(channel.value);
+    timer.fn();const advanced=totalPercentage(channel.value);
+    assert(advanced>initial);assert.match(channel.value,/准备舰队资料与计算环境/);
+    report({stage:'gear',completed:1,total:4});
+    const gearProgress=totalPercentage(channel.value);timer.fn();
+    assert(totalPercentage(channel.value)>=gearProgress);assert.match(channel.value,/规划装备/);
+    for(let i=0;i<200;i++)timer.fn();
+    assert.equal(totalPercentage(channel.value),94,'elapsed time cannot finish the calculation');
+    finish(recommendationResult(h));await pending;
+    assert.equal(totalPercentage(channel.value),100);assert(cleared.includes(timer));
+    const completed=channel.value;timer.fn();assert.equal(channel.value,completed,'a cleared timer cannot publish stale progress');
+  }finally{global.setInterval=oldInterval;global.clearInterval=oldClear;}
+});
+
+test('normal completion shows monotonic total progress across repeated stages and reaches 100% only after success',async()=>{
   const h=harness();let report,finish;
   h.service.recommendNormalFleet=(_query,onProgress)=>{report=onProgress;return new Promise(resolve=>{finish=resolve;});};
   const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
-  await new Promise(resolve=>setTimeout(resolve,40));
-  const mask=h.find(h.render(),n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay');
-  const progress=mask.children[0].children[2],channel=progress.props.channel,received=[];
-  channel.listeners.add(value=>received.push(value));
-  report({stage:'gear',completed:2,total:4});
-  assert.equal(channel.value,'规划装备 · 本步骤 50%');assert.deepEqual(received,['规划装备 · 本步骤 50%']);
-  report({stage:'finalize'});assert.equal(channel.value,'核对结果');
-  finish({recommendations:[],routeResults:[],reason:'没有方案'});await pending;
-  report({stage:'gear',completed:4,total:4});
+  await progressDelay(40);
+  const channel=progressChannel(h),received=[];channel.listeners.add(value=>received.push(value));
+  const messages=[channel.value];
+  for(const event of [{stage:'prepare'},{stage:'hulls'},{stage:'seeds',completed:1,total:2},
+    {stage:'gear',completed:2,total:4},{stage:'gear',completed:4,total:4},
+    {stage:'path-fit',completed:1,total:2},{stage:'gear',completed:1,total:4},
+    {stage:'refinement',completed:1,total:2},{stage:'finalize'}]){
+    report(event);messages.push(channel.value);
+  }
+  assert.match(messages.find(value=>value.includes('规划装备')),/预计总进度/);
+  assert.match(messages.at(-1),/核对结果/);
+  const percentages=messages.map(totalPercentage);
+  assert(percentages.every((value,index)=>value>=0&&value<100&&(!index||value>=percentages[index-1])),messages.join('\n'));
+  assert(received.length>0,'progress updates are delivered through the small overlay component');
+  finish(recommendationResult(h));await progressDelay(20);
+  assert.match(channel.value,/计算完成.*预计总进度\s+100%/);
+  assert.equal(h.get('working'),true,'100% remains visible before the overlay is removed');
+  await pending;assert.equal(h.get('working'),false);
+  const completed=channel.value;report({stage:'gear',completed:1,total:4});assert.equal(channel.value,completed,'late worker messages cannot change finished progress');
+});
+
+test('failed or stale completion never reports 100% and the next operation starts fresh',async()=>{
+  const h=harness(),requests=[];
+  h.service.recommendNormalFleet=(_query,onProgress)=>new Promise((resolve,reject)=>requests.push({onProgress,resolve,reject}));
+  const first=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();await progressDelay(40);
+  const channel=progressChannel(h),old=requests[0];old.onProgress({stage:'gear',completed:4,total:4});
+  const firstProgress=totalPercentage(channel.value);assert(firstProgress>0&&firstProgress<100);
+  old.reject(Error('测试失败'));await first;assert.match(h.get('error'),/测试失败/);assert.doesNotMatch(channel.value,/100%/);
+  const afterFailure=channel.value;old.onProgress({stage:'finalize'});assert.equal(channel.value,afterFailure);
+  const second=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();await progressDelay(40);
+  const next=requests[1],initial=channel.value;assert(totalPercentage(initial)<firstProgress,'a new calculation resets the estimated total');
+  old.onProgress({stage:'gear',completed:4,total:4});assert.equal(channel.value,initial,'an old request cannot alter new progress');
+  next.onProgress({stage:'seeds',completed:1,total:2});assert(totalPercentage(channel.value)>=totalPercentage(initial));
+  next.resolve(recommendationResult(h));await second;assert.match(channel.value,/预计总进度\s+100%/);
+});
+
+test('an empty result or unmounted workbench never publishes completed progress',async()=>{
+  for(const scenario of ['empty','unmounted']){
+    const h=harness();let report,finish;
+    const cleanup=h.effects.find(e=>String(e.fn).includes('alive.current=true')).fn();
+    h.service.recommendNormalFleet=(_query,onProgress)=>{report=onProgress;return new Promise(resolve=>{finish=resolve;});};
+    const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();await progressDelay(40);
+    const channel=progressChannel(h),received=[];channel.listeners.add(value=>received.push(value));
+    report({stage:'gear',completed:2,total:4});
+    if(scenario==='unmounted')cleanup();
+    finish(scenario==='empty'?{recommendations:[],routeResults:[],reason:'没有方案'}:recommendationResult(h));
+    await pending;
+    assert(received.every(value=>totalPercentage(value)<100),scenario);
+    assert.doesNotMatch(channel.value,/100%/);
+    if(scenario==='empty')assert.match(h.get('error'),/没有方案/);
+    else{const previous=channel.value;report({stage:'finalize'});assert.equal(channel.value,previous);}
+  }
+});
+
+test('expedition completion keeps a total percentage while its stage labels change',async()=>{
+  const h=harness('expedition');let report,finish;
+  h.service.recommendExpeditionFleet=(_query,onProgress)=>{report=onProgress;return new Promise(resolve=>{finish=resolve;});};
+  const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();await progressDelay(40);
+  const channel=progressChannel(h),messages=[channel.value];
+  for(const event of [{stage:'expedition'},{stage:'expedition-candidates'},{stage:'expedition-fit'},
+    {stage:'expedition-wait'},{stage:'expedition-candidates'},{stage:'finalize'}]){report(event);messages.push(channel.value);}
+  assert(messages.some(value=>value.includes('筛选远征编成')));assert(messages.some(value=>value.includes('规划远征装备与收益')));
+  const percentages=messages.map(totalPercentage);
+  assert(percentages.every((value,index)=>value<100&&(!index||value>=percentages[index-1])),messages.join('\n'));
+  finish(recommendationResult(h,'expedition'));await pending;assert.match(channel.value,/预计总进度\s+100%/);
+});
+
+test('equipment-only adjustments in both workbenches report total progress and finish at 100%',async()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind);h.set('slots',[W.entry(h.store,1),W.entry(h.store,2),null,null,null,null]);
+    if(kind==='normal')h.set('mapRoute','guide:3-5-05');
+    let report,finish,query;
+    h.service[kind==='normal'?'recommendNormalEquipment':'recommendExpeditionEquipment']=(args,onProgress)=>{
+      query=args;report=onProgress;return new Promise(resolve=>{finish=resolve;});
+    };
+    const card=h.find(h.render(),n=>n.props['data-ship-id']===2);
+    const pending=h.find(card,n=>n.props.className==='paa-wb-remove').props.onClick();await progressDelay(40);
+    const channel=progressChannel(h),initial=totalPercentage(channel.value);
+    report({stage:'equipment'});assert.match(channel.value,/计算装备/);
+    assert(totalPercentage(channel.value)>=initial&&totalPercentage(channel.value)<100);
+    finish({scheme:query.scheme});await pending;assert.match(channel.value,/预计总进度\s+100%/);
+  }
 });
 
 test('1-4 route selector letters follow the inspected draft and reset to the catalog when cleared',()=>{
