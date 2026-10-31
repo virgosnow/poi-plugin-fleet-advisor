@@ -37,6 +37,8 @@ MCP 服务采用 Node.js 内置 HTTP 实现，不捆绑协议 SDK 或客户端�
 
 `data/quests/requirements.json` 的常驻出击与远征要求来自[日文 Wiki 任务](https://wikiwiki.jp/kancolle/任務)，结合[舰娘百科任务](https://zh.kcwiki.cn/wiki/任务)及[英文 Wiki Quests](https://en.kancollewiki.net/Quests)核对。各项保留原任务编号、来源链接、编成与行动要求；用户确认的保守口径另记于数据来源说明。结构化转换不改变原资料的权利归属，原始网页和完整审计输入不随插件分发。
 
+`data/quests/limited/` 中的 2026 南瓜节任务依据[日文 Wiki 新任务](https://wikiwiki.jp/kancolle/任務/新着任務)整理，游戏内部 ID 和名称对照 [KC3Kai 任务数据](https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json)。活动结束时间未确认时保留为空。
+
 任务是否当前可受领或进行中，以游戏实际返回为准；Wiki 前置关系不用于推断账号的解锁状态。
 
 ## 海域、攻略与敌情

@@ -1,0 +1,1225 @@
+{
+  "schemaVersion": 1,
+  "event": "2026 Fleet Halloween 南瓜祭り",
+  "startDate": "2026-10-14",
+  "endDate": null,
+  "timeZone": "Asia/Tokyo",
+  "notes": [
+    "结束时间未公布；仅关联游戏实际返回的可受领或进行中任务。",
+    "限时任务内部 ID 可复用，必须同时匹配任务名称。",
+    "演习及工厂任务只记录数据，不关联海域或远征。"
+  ],
+  "quests": [
+    {
+      "code": "2610B1",
+      "category": "B",
+      "period": "限时单次",
+      "title": "【期間限定任務】14年目実りの秋、南瓜始め！",
+      "ids": [
+        984
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "鈴谷",
+                  "masterIds": [
+                    124,
+                    508
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "村雨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "夕立"
+                },
+                {
+                  "kind": "ship",
+                  "name": "曙"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朝潮"
+                },
+                {
+                  "kind": "ship",
+                  "name": "野分"
+                },
+                {
+                  "kind": "ship",
+                  "name": "迅鯨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "長鯨"
+                }
+              ]
+            },
+            "min": 1,
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "鈴谷",
+                  "masterIds": [
+                    124,
+                    508
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "村雨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "夕立"
+                },
+                {
+                  "kind": "ship",
+                  "name": "曙"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朝潮"
+                },
+                {
+                  "kind": "ship",
+                  "name": "野分"
+                },
+                {
+                  "kind": "ship",
+                  "name": "迅鯨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "長鯨"
+                }
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "bossWin",
+          "map": "1-3",
+          "rankMin": "S",
+          "count": 2
+        },
+        {
+          "kind": "bossWin",
+          "map": "1-4",
+          "rankMin": "S",
+          "count": 2
+        },
+        {
+          "kind": "bossWin",
+          "map": "2-1",
+          "rankMin": "S",
+          "count": 2
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json"
+      }
+    },
+    {
+      "code": "2610B2",
+      "category": "B",
+      "period": "限时周常",
+      "title": "【期間限定任務】特務護衛戦隊、抜錨せよ！",
+      "ids": [
+        985
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "対馬"
+                },
+                {
+                  "kind": "ship",
+                  "name": "鵜来"
+                },
+                {
+                  "kind": "ship",
+                  "name": "稲木"
+                },
+                {
+                  "kind": "ship",
+                  "name": "大泊"
+                },
+                {
+                  "kind": "ship",
+                  "name": "迅鯨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "長鯨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朝日"
+                },
+                {
+                  "kind": "ship",
+                  "name": "村雨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "巻波"
+                },
+                {
+                  "kind": "ship",
+                  "name": "早波"
+                },
+                {
+                  "kind": "ship",
+                  "name": "浜波"
+                },
+                {
+                  "kind": "ship",
+                  "name": "樫"
+                }
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "bossWin",
+          "map": "1-2",
+          "rankMin": "S",
+          "count": 1
+        },
+        {
+          "kind": "bossWin",
+          "map": "1-5",
+          "rankMin": "S",
+          "count": 1
+        },
+        {
+          "kind": "bossWin",
+          "map": "2-2",
+          "rankMin": "S",
+          "count": 1
+        },
+        {
+          "kind": "bossWin",
+          "map": "2-3",
+          "rankMin": "S",
+          "count": 1
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json"
+      }
+    },
+    {
+      "code": "2610B3",
+      "category": "B",
+      "period": "限时单次",
+      "title": "【期間限定任務】USS Trick or Treat！",
+      "ids": [
+        986
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "Minneapolis"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Tuscaloosa"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Gambier Bay",
+                  "masterIds": [
+                    544,
+                    707
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "Brooklyn"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Johnston"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Richard P.Leary"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Indiana"
+                }
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "bossWin",
+          "map": "2-1",
+          "rankMin": "S",
+          "count": 2
+        },
+        {
+          "kind": "bossWin",
+          "map": "2-5",
+          "rankMin": "S",
+          "count": 2
+        },
+        {
+          "kind": "bossWin",
+          "map": "3-1",
+          "rankMin": "S",
+          "count": 2
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json"
+      }
+    },
+    {
+      "code": "2610B4",
+      "category": "B",
+      "period": "限时月常",
+      "title": "【期間限定任務】西方南瓜祭り!  Buono!",
+      "ids": [
+        987
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "Roma"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Luigi Torelli",
+                  "masterIds": [
+                    535,
+                    605,
+                    539,
+                    530
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "Maestrale"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Grecale"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Libeccio"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Scirocco"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Jervis"
+                },
+                {
+                  "kind": "ship",
+                  "name": "伊47"
+                },
+                {
+                  "kind": "ship",
+                  "name": "伊201"
+                },
+                {
+                  "kind": "ship",
+                  "name": "鈴谷",
+                  "masterIds": [
+                    124,
+                    508
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "村雨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "曙"
+                }
+              ]
+            },
+            "min": 1,
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "Roma"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Luigi Torelli",
+                  "masterIds": [
+                    535,
+                    605,
+                    539,
+                    530
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "Maestrale"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Grecale"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Libeccio"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Scirocco"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Jervis"
+                },
+                {
+                  "kind": "ship",
+                  "name": "伊47"
+                },
+                {
+                  "kind": "ship",
+                  "name": "伊201"
+                },
+                {
+                  "kind": "ship",
+                  "name": "鈴谷",
+                  "masterIds": [
+                    124,
+                    508
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "村雨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "曙"
+                }
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "bossWin",
+          "map": "4-2",
+          "rankMin": "S",
+          "count": 1
+        },
+        {
+          "kind": "bossWin",
+          "map": "4-3",
+          "rankMin": "S",
+          "count": 1
+        },
+        {
+          "kind": "bossWin",
+          "map": "4-4",
+          "rankMin": "S",
+          "count": 1
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json",
+        "remodelSource": "https://leoleo-sport.com/2026/10/%E3%80%90%E6%9C%9F%E9%96%93%E9%99%90%E5%AE%9A%E4%BB%BB%E5%8B%99%E3%80%91%E8%A5%BF%E6%96%B9%E5%8D%97%E7%93%9C%E7%A5%AD%E3%82%8A-buono%EF%BC%88%E3%83%9E%E3%83%B3%E3%82%B9%E3%83%AA%E3%83%BC%E4%BB%BB/"
+      }
+    },
+    {
+      "code": "2610B5",
+      "category": "B",
+      "period": "限时单次",
+      "title": "【限定拡張作戦】Halloween、おかわり開始！",
+      "ids": [
+        1038
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "鈴谷",
+                  "masterIds": [
+                    124,
+                    508
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "曙"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "樫"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朝日"
+                },
+                {
+                  "kind": "ship",
+                  "name": "迅鯨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "長鯨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "瑞穂"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Johnston"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Richard P.Leary"
+                }
+              ]
+            },
+            "min": 1,
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "鈴谷",
+                  "masterIds": [
+                    124,
+                    508
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "曙"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "樫"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朝日"
+                },
+                {
+                  "kind": "ship",
+                  "name": "迅鯨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "長鯨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "瑞穂"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Johnston"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Richard P.Leary"
+                }
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "bossWin",
+          "map": "1-1",
+          "rankMin": "S",
+          "count": 4
+        },
+        {
+          "kind": "bossWin",
+          "map": "1-3",
+          "rankMin": "S",
+          "count": 4
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json"
+      }
+    },
+    {
+      "code": "2610B6",
+      "category": "B",
+      "period": "限时周常",
+      "title": "【限定拡張作戦】Halloween海上護衛隊出撃！",
+      "ids": [
+        1039
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "対馬"
+                },
+                {
+                  "kind": "ship",
+                  "name": "樫"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朝潮"
+                },
+                {
+                  "kind": "ship",
+                  "name": "巻波"
+                },
+                {
+                  "kind": "ship",
+                  "name": "浜波"
+                },
+                {
+                  "kind": "ship",
+                  "name": "阿武隈"
+                },
+                {
+                  "kind": "ship",
+                  "name": "鵜来"
+                },
+                {
+                  "kind": "ship",
+                  "name": "稲木"
+                },
+                {
+                  "kind": "ship",
+                  "name": "能美"
+                },
+                {
+                  "kind": "shipClass",
+                  "name": "丁型海防艦",
+                  "ctypeIds": [
+                    104
+                  ]
+                }
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "bossWin",
+          "map": "1-2",
+          "rankMin": "S",
+          "count": 1
+        },
+        {
+          "kind": "bossWin",
+          "map": "1-4",
+          "rankMin": "S",
+          "count": 1
+        },
+        {
+          "kind": "bossWin",
+          "map": "1-5",
+          "rankMin": "S",
+          "count": 1
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json"
+      }
+    },
+    {
+      "code": "2610B7",
+      "category": "B",
+      "period": "限时月常",
+      "title": "【限定拡張作戦】Halloween狼隊、夜の襲撃！",
+      "ids": [
+        1040
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "朧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "夕立"
+                },
+                {
+                  "kind": "ship",
+                  "name": "野分"
+                },
+                {
+                  "kind": "ship",
+                  "name": "早波"
+                },
+                {
+                  "kind": "ship",
+                  "name": "熊野丸"
+                },
+                {
+                  "kind": "ship",
+                  "name": "迅鯨改"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Tuscaloosa"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Indiana"
+                }
+              ]
+            },
+            "min": 1,
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "朧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "夕立"
+                },
+                {
+                  "kind": "ship",
+                  "name": "野分"
+                },
+                {
+                  "kind": "ship",
+                  "name": "早波"
+                },
+                {
+                  "kind": "ship",
+                  "name": "熊野丸"
+                },
+                {
+                  "kind": "ship",
+                  "name": "迅鯨改"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Tuscaloosa"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Indiana"
+                }
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "bossWin",
+          "map": "2-1",
+          "rankMin": "S",
+          "count": 2
+        },
+        {
+          "kind": "bossWin",
+          "map": "2-2",
+          "rankMin": "S",
+          "count": 2
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json"
+      }
+    },
+    {
+      "code": "2610B8",
+      "category": "B",
+      "period": "限时单次",
+      "title": "【限定拡張作戦】南瓜祭り2026、北方作戦！",
+      "ids": [
+        1002
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "Minneapolis"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Tuscaloosa"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Gambier Bay",
+                  "masterIds": [
+                    544,
+                    707
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "Johnston"
+                },
+                {
+                  "kind": "ship",
+                  "name": "鈴谷",
+                  "masterIds": [
+                    124,
+                    508
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "阿武隈"
+                },
+                {
+                  "kind": "ship",
+                  "name": "曙"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "清霜"
+                },
+                {
+                  "kind": "ship",
+                  "name": "樫"
+                }
+              ]
+            },
+            "min": 1,
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "Minneapolis"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Tuscaloosa"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Gambier Bay",
+                  "masterIds": [
+                    544,
+                    707
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "Johnston"
+                },
+                {
+                  "kind": "ship",
+                  "name": "鈴谷",
+                  "masterIds": [
+                    124,
+                    508
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "阿武隈"
+                },
+                {
+                  "kind": "ship",
+                  "name": "曙"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "清霜"
+                },
+                {
+                  "kind": "ship",
+                  "name": "樫"
+                }
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "bossWin",
+          "map": "3-2",
+          "rankMin": "S",
+          "count": 1
+        },
+        {
+          "kind": "bossWin",
+          "map": "3-4",
+          "rankMin": "S",
+          "count": 1
+        },
+        {
+          "kind": "bossWin",
+          "map": "3-5",
+          "rankMin": "S",
+          "count": 1
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json"
+      }
+    },
+    {
+      "code": "2610C1",
+      "category": "C",
+      "period": "限时周常",
+      "title": "Halloween艦隊 実りの秋、最新演習！",
+      "ids": [
+        359
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "鈴谷",
+                  "masterIds": [
+                    124,
+                    508
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "阿武隈"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "曙"
+                },
+                {
+                  "kind": "ship",
+                  "name": "村雨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "夕立"
+                },
+                {
+                  "kind": "ship",
+                  "name": "野分"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朝潮"
+                },
+                {
+                  "kind": "ship",
+                  "name": "早波"
+                },
+                {
+                  "kind": "ship",
+                  "name": "浜波"
+                },
+                {
+                  "kind": "ship",
+                  "name": "伊201"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Jervis"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Minneapolis"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Johnston"
+                }
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practiceWin",
+          "rankMin": "A",
+          "count": 5,
+          "within": "sameDay"
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json"
+      }
+    },
+    {
+      "code": "2610F1",
+      "category": "F",
+      "period": "限时月常",
+      "title": "【期間限定】Halloweenの南瓜、食べりゅ?",
+      "ids": [
+        1119
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "discardEquipmentCategories",
+          "items": [
+            {
+              "name": "小口径主砲",
+              "count": 9
+            },
+            {
+              "name": "中口径主砲",
+              "count": 9
+            },
+            {
+              "name": "水上偵察機",
+              "count": 9
+            }
+          ]
+        },
+        {
+          "kind": "consumeOnClaim",
+          "items": [
+            {
+              "name": "九九式艦爆",
+              "count": 10
+            },
+            {
+              "name": "九七式艦攻",
+              "count": 10
+            },
+            {
+              "name": "家具コイン",
+              "count": 1031
+            }
+          ]
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json"
+      }
+    },
+    {
+      "code": "2610F2",
+      "category": "F",
+      "period": "限时单次",
+      "title": "【限定拡張作戦】対潜装備の整理整頓！2026",
+      "ids": [
+        1171
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "discardEquipment",
+          "items": [
+            {
+              "name": "九四式爆雷投射機",
+              "count": 12
+            },
+            {
+              "name": "九五式爆雷",
+              "count": 8
+            },
+            {
+              "name": "九三式水中聴音機",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "kind": "consumeOnClaim",
+          "items": [
+            {
+              "name": "南瓜",
+              "count": 2
+            },
+            {
+              "name": "三式爆雷投射機",
+              "count": 5
+            },
+            {
+              "name": "開発資材",
+              "count": 30
+            }
+          ]
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json"
+      }
+    }
+  ]
+}

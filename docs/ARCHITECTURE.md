@@ -13,7 +13,7 @@ src/
     combat/                   战斗机制、参考攻击力与标签数据
     routes/                   分岐、路线规划、索敌与制空损耗
     expeditions/              远征条件、收益与配装规则
-    quests/                   常驻任务关联与草稿条件核对
+    quests/                   任务关联与草稿条件核对
   recommendation/             候选、流派、评分与搜索
     loadout/                  通用、对地、对潜与夜战配装
   execution/                  游戏操作、会话、请求及最终核对
@@ -469,7 +469,7 @@ python tools/data/import-expedition-wiki.py --source-dir <项目外目录> --fet
 
 不传 `--write` 时仅查看差异。导入更新奖励、基础等级／舰数／合计属性和大成功参数；舰种组合与解锁关系按 Wiki 单独维护。
 
-`data/quests/requirements.json` 保存常驻出击、远征任务的必要条件、目标和来源；`tools/data/import-quest-audit.py` 从项目外核对结果生成，不分发原始网页。`domain/quests` 按当前海域或远征关联实际可受领、进行中的任务，并核对舰娘、舰种、位置、整组任选和资源条件；无法确认的条件保持未知。
+`data/quests/requirements.json` 保存常驻出击、远征任务的必要条件、目标和来源；`tools/data/import-quest-audit.py` 从项目外核对结果生成，不分发原始网页。限时任务按活动保存在 `data/quests/limited/`，登记开始日期、已知结束日期与日本时区，并在该目录的 `index.js` 注册；结束日期未知时不猜测，仅根据实际收到的任务和准确标题匹配。活动文件也记录演习及工厂任务，但当前页面只关联出击、远征。`domain/quests` 按当前海域或远征关联实际可受领、进行中的任务，并核对舰娘、舰种、位置、整组任选和资源条件；无法确认的条件保持未知。限时任务的游戏 ID 可能复用，必须同时匹配任务名称。
 
 `infrastructure/quests/quest_observer.js` 观察自然发生的任务列表及接取、停止、领奖响应，也接收首次读取实际返回的列表；按账号隔离并在任务日切换后保守过期。列表缺项不代表任务已完成或未解锁。`index.js` 在顶层只读状态中注入 `questState`，任务同步不进入推荐快照或执行指纹；工作台单独刷新任务状态，折叠时不载入任务规则或评估草稿。该功能不记录战斗细项进度，也不改变推荐条件。
 

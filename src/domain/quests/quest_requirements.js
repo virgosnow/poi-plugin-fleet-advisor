@@ -1,13 +1,15 @@
 'use strict';
 
 const DATA=require('../../../data/quests/requirements.json');
+const LIMITED_EVENTS=require('../../../data/quests/limited');
 const MISSIONS=require('../../../data/expedition_rewards.json').missions;
 const {normalizeName}=require('../../shared/name_matching');
 const {evaluateFleetRequirements}=require('./fleet_requirements');
 const INDEX=new Map();
-for(const quest of DATA.quests)for(const id of quest.ids){
-  if(!INDEX.has(id))INDEX.set(id,[]);INDEX.get(id).push(quest);
-}
+for(const [quests,event] of [[DATA.quests,null],...LIMITED_EVENTS.map(event=>[event.quests.filter(q=>['B','D'].includes(q.category)),event])])
+  for(const quest of quests)for(const id of quest.ids){
+    if(!INDEX.has(id))INDEX.set(id,[]);INDEX.get(id).push({quest,event});
+  }
 const titleKey=value=>normalizeName(String(value||'')).replace(/\s/g,'');
 const enemyLabel={carrier:'空母',submarine:'潜水舰',transport:'运输舰'};
 const statusOf=checks=>checks.some(c=>c.status==='unmet')?'unmet':checks.some(c=>c.status==='unknown')?'unknown':'met';
@@ -23,11 +25,14 @@ function taskSnapshot(state,provided){
   }
   return {known:false,tasks:[]};
 }
-function findDefinition(task){
+function findDefinition(task,now){
   const candidates=INDEX.get(Number(task.api_no))||[];
   const title=titleKey(task.api_title);
-  const allowed=candidates.filter(q=>!q.requireTitleMatch||titleKey(q.title)===title);
-  return allowed.length===1?allowed[0]:null;
+  const day=new Date(now+9*60*60*1000).toISOString().slice(0,10);
+  const allowed=candidates.filter(({quest,event})=>
+    (!event||day>=event.startDate&&(!event.endDate||day<=event.endDate))&&
+    (!(quest.requireTitleMatch||candidates.length>1)||titleKey(quest.title)===title));
+  return allowed.length===1?allowed[0].quest:null;
 }
 function missionNumber(id){
   const raw=String(id??'').toUpperCase();return String(MISSIONS[raw]?.wikiId||raw);
@@ -90,13 +95,13 @@ function resourcesChecks(quest,state){
 
 // This function checks a draft against requirements. It neither tracks quest
 // completion nor promises that the next sortie/expedition will succeed.
-function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState}={}){
+function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState,now=Date.now()}={}){
   const snapshot=taskSnapshot(state,questState);
   if(!snapshot.known)return {status:'unknown',tasks:[]};
   const tasks=[],seen=new Set();
   for(const live of snapshot.tasks){
     if(!live||![1,2].includes(Number(live.api_state))||seen.has(Number(live.api_no)))continue;
-    const definition=findDefinition(live);
+    const definition=findDefinition(live,now);
     if(!definition)continue;
     const related=definition.goals.map(goal=>({goal,relation:relation(goal,{mapId,missionId})})).filter(entry=>entry.relation!==false);
     if(!related.length)continue;
