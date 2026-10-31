@@ -316,7 +316,7 @@ class FleetAdvisorService {
     args=pageQueries.recommendationArgs(snapshot.store,args);
     const input=selectionFilters.planningStore(snapshot.store,filters);
     const result=await this.recommendations.run(method,input,{...args,automaticFilters:filters});
-    pageQueries.verifyConstraints(result,args);
+    pageQueries.verifyConstraints(result,args,false,snapshot.store);
     const reason=selectionFilters.evaluator(snapshot.store,kind,filters),counts={};
     let excluded=0;
     for(const id of Object.keys(snapshot.store.info.ships)){

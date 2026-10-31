@@ -9,12 +9,16 @@ module.exports=`
 .paa-quest-section[open]>summary::after{transform:rotate(225deg)}
 .paa-quest-count{color:var(--paa-muted);font-size:12px;font-weight:400}
 .paa-quest-content{margin-top:12px;min-width:0;cursor:auto}
-.paa-quest-list{max-height:320px;overflow-y:auto;scrollbar-gutter:stable;min-width:0;padding-right:3px;overscroll-behavior:contain}
+.paa-quest-selection{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;color:var(--paa-muted);font-size:12px}.paa .paa-quest-selection button{min-height:26px;padding:2px 7px;font-size:11px;white-space:nowrap}
+.paa-quest-list{display:flex;flex-direction:column;gap:16px;max-height:320px;overflow-y:auto;scrollbar-gutter:stable;min-width:0;padding:10px 3px 3px;overscroll-behavior:contain}
 .paa-quest-list:focus-visible{outline:2px solid var(--paa-accent);outline-offset:2px;border-radius:3px}
-.paa-quest-item{padding:0 0 12px;min-width:0}
-.paa-quest-item+.paa-quest-item{padding-top:12px;border-top:1px solid var(--paa-line)}
-.paa-quest-item:last-child{padding-bottom:0}
-.paa-quest-heading{min-width:0;margin-bottom:4px}
+.paa-quest-item{position:relative;padding:8px;min-width:0;border:1px solid transparent;border-radius:7px;cursor:pointer}
+.paa-quest-item+.paa-quest-item{border-top:1px solid var(--paa-line)}
+.paa-quest-item:focus-visible{outline:2px solid var(--paa-accent);outline-offset:2px}
+.paa-quest-item[data-selected=true],.paa-quest-item+.paa-quest-item[data-selected=true]{border:1px solid #d6ae50}
+.paa-quest-preselected{position:absolute;top:-8px;right:12px;padding:0 4px;background:var(--paa-card);color:#d6ae50;font-size:12px;font-weight:600;line-height:16px}
+.paa-quest-heading{display:flex;align-items:flex-start;gap:8px;min-width:0;margin-bottom:4px}
+.paa-quest-heading h4{flex:1}
 .paa .paa-workbench .paa-wb-left .paa-quest-heading h4{min-width:0;margin:0;font-size:14px;font-weight:600;line-height:22px;color:var(--paa-text);overflow-wrap:anywhere}
 .paa-quest-meta{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 8px;margin-bottom:8px;min-width:0}
 .paa-quest-period,.paa-quest-state{font-size:12px;font-weight:400;line-height:18px;color:var(--paa-muted);white-space:nowrap}

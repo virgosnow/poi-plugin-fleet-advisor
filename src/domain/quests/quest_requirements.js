@@ -34,6 +34,16 @@ function findDefinition(task,now){
     (!(quest.requireTitleMatch||candidates.length>1)||titleKey(quest.title)===title));
   return allowed.length===1?allowed[0].quest:null;
 }
+function resolveQuestCodes(codes){
+  if(!Array.isArray(codes)||codes.some(code=>typeof code!=='string')||new Set(codes).size!==codes.length)
+    throw Error('任务选择无效，请重新选择');
+  const definitions=[...DATA.quests,...LIMITED_EVENTS.flatMap(event=>event.quests)];
+  return codes.map(code=>{
+    const matches=definitions.filter(q=>q.code===code&&['B','D'].includes(q.category));
+    if(matches.length!==1)throw Error('所选任务资料不可用，请重新选择');
+    return matches[0];
+  });
+}
 function missionNumber(id){
   const raw=String(id??'').toUpperCase();return String(MISSIONS[raw]?.wikiId||raw);
 }
@@ -122,4 +132,4 @@ function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState,now
   return {status:'ready',tasks};
 }
 
-module.exports={listRelatedQuests,evaluateFleetRequirements};
+module.exports={listRelatedQuests,evaluateFleetRequirements,resolveQuestCodes};

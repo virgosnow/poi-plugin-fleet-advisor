@@ -81,6 +81,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const [combatDetailsOpen,setCombatDetailsOpen]=React.useState(false);
     const [shipFleet,setShipFleet]=React.useState('all'),[shipSort,setShipSort]=React.useState('level-desc');
     const [routeDrafts,setRouteDrafts]=React.useState({});
+    const [selectedQuests,setSelectedQuests]=React.useState([]);
     const grid=React.useRef(null),alive=React.useRef(true),positions=React.useRef(new Map()),popupList=React.useRef(null);
     const resultViews=React.useRef(new Map());
     const previousDefaultGoal=React.useRef(defaultGoal);
@@ -120,7 +121,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const effectivePhase=retain(routeSelection,paused,[kind,area,target,phase,mapRoute,routePhaseAnchor,store.info?.maps],()=>phaseForRoute(mapRoute));
     const settings={kind,fleet,area,target,phase:effectivePhase,missionId,revision};
     const filterKey=selectionSettings?JSON.stringify(selectionSettings):null;
-    const conditionKey=JSON.stringify([kind,area,target,phase,'clear',style,missionId,goal,filterKey]);
+    const conditionKey=JSON.stringify([kind,area,target,phase,'clear',style,missionId,goal,filterKey,...(selectedQuests.length?[selectedQuests]:[])]);
     latest.current=conditionKey;
     routeCombatContext.current=JSON.stringify([conditionKey,fleet,excluded]);
     React.useEffect(()=>{
@@ -155,7 +156,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       // Retire pending recommendations before clearing the old map's draft.
       operation.current++;routeCache.current=null;prepared.current=false;
       invalidateRouteCombat();
-      commit(blank());setChoices([]);setRouteDrafts({});setExcluded([]);setPopup(null);setSearch('');
+      commit(blank());setChoices([]);setRouteDrafts({});setSelectedQuests([]);setExcluded([]);setPopup(null);setSearch('');
       setWorking(false);setActivity('');
       setArea(value);const selected=catalog.find(m=>m.area===value);
       setTarget(selected?.bossNodes?.length?'boss':selected?.terminalNodes?.[0]||'boss');
@@ -164,7 +165,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const changeMission=value=>{
       value=Number(value);if(value===missionId)return;
       operation.current++;routeCache.current=null;prepared.current=false;resultViews.current.clear();
-      commit(blank());setChoices([]);setExcluded([]);setPopup(null);setSearch('');
+      commit(blank());setChoices([]);setSelectedQuests([]);setExcluded([]);setPopup(null);setSearch('');
       setWorking(false);setActivity('');
       setShipType('all');setEquipmentCategory('all');setMissionId(value);setGoal(defaultGoal);
     };
@@ -260,7 +261,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       setMapRoute(nextRoute);
     };
     const cacheKey=(requestedGoal=goal,requestedPhase=phase)=>JSON.stringify([kind,area,target,requestedPhase,purpose,missionId,requestedGoal,fleet,excluded,filterKey,
-      slots.map((s,i)=>s&&(s.pin||Object.keys(s.keep).length)?[i,s.id,s.pin,Object.keys(s.keep).map(k=>[k,k==='ex'?s.ex:s.slots[k]])]:null)]);
+      slots.map((s,i)=>s&&(s.pin||Object.keys(s.keep).length)?[i,s.id,s.pin,Object.keys(s.keep).map(k=>[k,k==='ex'?s.ex:s.slots[k]])]:null),...(selectedQuests.length?[selectedQuests]:[])]);
     const normalHolds=rows=>W.recommendationHolds(rows,{preservePositions:false}).filter(Boolean).map(hold=>
       ({...hold,keep:Object.fromEntries(Object.entries(hold.keep).sort(([a],[b])=>a.localeCompare(b)))})).sort((a,b)=>a.id-b.id);
     const requestNormalRoute=(service,query,signature,initialStore)=>{
@@ -304,17 +305,23 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     };
     const complete=async(requestedStyle=style,automatic=false,requestedRoute=mapRoute,requestedGoal=goal)=>{
       if(disabled)return;
-      const token=++operation.current,key=JSON.stringify([kind,area,target,phase,'clear',requestedStyle,missionId,requestedGoal,filterKey]);
+      const token=++operation.current,key=JSON.stringify([kind,area,target,phase,'clear',requestedStyle,missionId,requestedGoal,filterKey,...(selectedQuests.length?[selectedQuests]:[])]);
       const origin=conditionKey,initialStore=getStore(),requestedPhase=phaseForRoute(requestedRoute,initialStore);
       const initialInfo=initialStore.info,initialMaster=initialStore.const;
       const holds=normalHolds(slots);
-      const combatSignature=JSON.stringify([kind,area,target,purpose,missionId,requestedGoal,fleet,excluded,filterKey,holds]);
+      const combatSignature=JSON.stringify([kind,area,target,purpose,missionId,requestedGoal,fleet,excluded,filterKey,holds,selectedQuests]);
       const previousCombat=routeCombatSnapshot.current;
       if(kind==='normal'&&!automatic&&previousCombat&&(previousCombat.info!==initialInfo||previousCombat.master!==initialMaster||previousCombat.signature!==combatSignature))invalidateRouteCombat();
       const signature=kind==='expedition'?JSON.stringify([cacheKey('both'),revision]):cacheKey(requestedGoal,requestedPhase);
       setWorking(true);setActivity(automatic?'route':'complete');setNotice('');setError('');setPopup(null);
       await new Promise(resolve=>setTimeout(resolve,20));
       try{
+        if(selectedQuests.length){
+          const related=require('../../domain/quests/quest_requirements').listRelatedQuests({state:initialStore,slots,deckId:fleet,
+            mapId:kind==='normal'?area:undefined,missionId:kind==='expedition'?missionId:undefined,questState:initialStore.questState});
+          if(related.status!=='ready'||selectedQuests.some(code=>!related.tasks.some(task=>task.code===code)))
+            throw Error('所选任务已变化或未同步，请重新选择任务');
+        }
         const stamp=kind==='expedition'?require('../../application/snapshots').fingerprint(initialStore):null;
         const cached=routeCache.current?.get(signature);
         let found;
@@ -322,7 +329,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           (kind!=='expedition'||cached.stamp===stamp&&cached.found.goals?.[requestedGoal]))found=kind==='expedition'?{...cached.found,...cached.found.goals[requestedGoal]}:cached.found;
         else{
           const service=getController();
-          const query={fleet,fixedShipIds:slots.filter(s=>s&&(s.pin||Object.keys(s.keep).length)).map(s=>s.id),excludedShipIds:excluded};
+          const query={fleet,fixedShipIds:slots.filter(s=>s&&(s.pin||Object.keys(s.keep).length)).map(s=>s.id),excludedShipIds:excluded,
+            ...(selectedQuests.length?{questCodes:selectedQuests}: {})};
           if(kind==='normal')found=await requestNormalRoute(service,{...query,area,target,phase:requestedPhase||undefined,
             airGoal:'superiority',heldSlots:W.recommendationHolds(slots,{preservePositions:false})},signature,initialStore);
           else {const {snapshotId}=service.createSnapshot();found=await service.recommendExpeditionFleet({...query,snapshotId,limit:3,missionId,goal:requestedGoal,heldSlots:W.recommendationHolds(slots),
@@ -330,6 +338,11 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         }
         if(!alive.current||token!==operation.current||![origin,key].includes(latest.current))return;
         if(getStore().info!==initialInfo||getStore().const!==initialMaster||kind==='expedition'&&require('../../application/snapshots').fingerprint(getStore())!==stamp)throw Error('舰队资料已变化，请重新补全');
+        if(selectedQuests.length){
+          const current=getStore(),related=require('../../domain/quests/quest_requirements').listRelatedQuests({state:current,slots,deckId:fleet,
+            mapId:kind==='normal'?area:undefined,missionId:kind==='expedition'?missionId:undefined,questState:current.questState});
+          if(related.status!=='ready'||selectedQuests.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化，请重新选择任务');
+        }
         if(!routeCache.current)routeCache.current=new Map();
         routeCache.current.set(signature,{key:signature,info:initialInfo,master:initialMaster,stamp,found});
         // Keep recent gauges available when switching back, with the same
@@ -667,7 +680,10 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
                       h('span',null,enemy.name,h('small',null,`${(enemy.nodes||[]).join(' / ')} 点`))):
                       h('span',{className:'paa-muted'},!mapRoute?'请选择路线':item?.status==='none'?'无战斗':'敌情暂不可用'))))))),
           h(QuestSection,{state:store,slots,deckId:fleet,kind,mapId:kind==='normal'?area:undefined,
-            missionId:kind==='expedition'?missionId:undefined,questState,paused})),
+            missionId:kind==='expedition'?missionId:undefined,questState,paused,disabled,selectedQuests,onToggleQuest:code=>{
+              if(disabled)return;operation.current++;routeCache.current=null;setRouteDrafts({});setChoices([]);invalidateRouteCombat();
+              setSelectedQuests(current=>current.includes(code)?current.filter(item=>item!==code):[...current,code].sort());setError('');
+            },onClearQuests:()=>{if(disabled)return;operation.current++;routeCache.current=null;setRouteDrafts({});setChoices([]);invalidateRouteCombat();setSelectedQuests([]);setError('');}})),
         h('section',{className:'paa-wb-right','aria-busy':working},commandControls,
           error?h('p',{className:'paa-operation-feedback','data-state':'error',role:'alert'},error):null,
           operationFeedback,

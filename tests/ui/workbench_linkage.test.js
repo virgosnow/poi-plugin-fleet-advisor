@@ -839,6 +839,34 @@ test('related tasks occupy the bottom of the correct left workbench and follow t
   }
 });
 
+test('selected task codes reach both workbench searches and reset on destination changes',async()=>{
+  const catalog=require('../../data/quests/limited/2026-halloween.json').quests;
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind),quest=kind==='normal'?catalog.find(q=>q.code==='2610B1'):require('../../data/quests/requirements.json').quests.find(q=>q.code==='D1');
+    h.store.questState={known:true,tasks:[{api_no:quest.ids[0],api_title:quest.title,api_state:2}]};h.set('questState',h.store.questState);
+    if(kind==='normal')h.set('area','1-3');
+    const section=()=>h.find(h.render(),n=>n.type?.name==='QuestSection');
+    section().props.onToggleQuest(quest.code);assert.deepEqual(h.get('selectedQuests'),[quest.code]);
+    let args;
+    h.service[kind==='normal'?'recommendNormalFleet':'recommendExpeditionFleet']=query=>{args=query;throw Error('测试结束');};
+    await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+    assert.deepEqual(args.questCodes,[quest.code]);
+    h.find(h.render(),n=>n.type?.name==='AreaPicker').props.onChange(kind==='normal'?'1-1':2);
+    assert.deepEqual(h.get('selectedQuests'),[]);
+  }
+});
+
+test('a selected task that disappears blocks search and can still be cleared',async()=>{
+  const h=harness(),quest=require('../../data/quests/limited/2026-halloween.json').quests.find(q=>q.code==='2610B1');
+  h.set('area','1-3');h.store.questState={known:true,tasks:[{api_no:quest.ids[0],api_title:quest.title,api_state:2}]};
+  h.set('questState',h.store.questState);
+  const section=()=>h.find(h.render(),n=>n.type?.name==='QuestSection');
+  section().props.onToggleQuest(quest.code);h.store.questState={known:true,tasks:[]};
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert.equal(h.calls.fleet,0);assert.match(h.get('error'),/任务已变化或未同步/);
+  section().props.onClearQuests();assert.deepEqual(h.get('selectedQuests'),[]);assert.equal(h.get('error'),'');
+});
+
 test('task observations refresh on resume without running route inspection or changing draft revision',()=>{
   const h=harness(),revision=h.get('revision'),oldInterval=global.setInterval,oldClear=global.clearInterval;
   const callbacks=[];global.setInterval=fn=>{callbacks.push(fn);return 1;};global.clearInterval=()=>{};

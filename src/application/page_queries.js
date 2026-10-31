@@ -141,12 +141,15 @@ function recommendationArgs(store,args){
   if(args.scheme&&[...ids].some(id=>!args.scheme.ships.some(s=>s.id===id)))throw error('INVALID_QUERY','Held ships must exist in scheme');
   return {...args,fixedShipIds:[...fixed],heldSlots:args.heldSlots.map(h=>h&&(h.pin||Object.keys(h.keep||{}).length)?h:null)};
 }
-function verifyConstraints(result,args,equipmentOnly=false){
+function verifyConstraints(result,args,equipmentOnly=false,store){
   const variants=[...(result.scheme?[result]:[]),...(result.recommendations||[]),
     ...(result.closestRecommendation?[result.closestRecommendation]:[]),
     ...Object.values(result.goals||{}).flatMap(g=>[...(g.recommendations||[]),...(g.closestRecommendation?[g.closestRecommendation]:[])])];
+  const quests=args.questCodes?.length?require('../domain/quests/quest_requirements').resolveQuestCodes(args.questCodes):[];
   for(const row of variants){
     const ships=row.scheme.ships;
+    if(quests.length&&(!store||quests.some(quest=>require('../domain/quests/fleet_requirements').evaluateFleetRequirements(quest.fleet,store,ships,row.scheme.fleet).status!=='met')))
+      throw error('INVALID_QUERY','推荐结果未能确认满足所有已选任务，未应用编成');
     if(equipmentOnly&&JSON.stringify(ships.map(s=>s.id))!==JSON.stringify(args.scheme.ships.map(s=>s.id)))
       throw error('INVALID_QUERY','Equipment recommendation changed hulls/order; no result applied');
     if(args.fixedShipIds?.some(id=>!ships.some(s=>s.id===id)))throw error('INVALID_QUERY','Recommendation did not preserve every fixed hull');

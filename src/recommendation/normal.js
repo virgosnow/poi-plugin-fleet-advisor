@@ -34,6 +34,7 @@ const {combatHullRanker,plannedCombatStat,plannedTorpedoStat,scoreRoute}=require
 const {positionUpgrades,combineUpgrades,finalHullUpgrades}=require('./refinement');
 const {routeDifficulty}=require('./route_economy');
 const {fleetOrderChoices}=require('./fleet_order');
+const {questRequirements,createQuestChecker,questSeeds}=require('./quest_constraints');
 const {guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,specialFleetSeeds,specialPositionLocks}=require('./strategies');
 const previewForSnapshot=(store,area,options={})=>previewForMap(area,{...options,encounterStage:encounterStage(store,area,options.phase)});
 
@@ -82,6 +83,8 @@ function candidateEvaluator(store,args,ctx,inventory){
 }
 function prepareCandidateEvaluator(store,args,ctx,inventory){
   const {area,target='boss',phase,airGoal='superiority'}=args;
+  const quests=questRequirements(args.questCodes||[]);
+  const questMatches=createQuestChecker(store,quests);
   const policy=guidePolicy(area,target,phase);
   const available=new Map(inventory.map(i=>[i.id,i]));
   const fittingProfile=previewForSnapshot(store,area,{target,phase});
@@ -101,6 +104,7 @@ function prepareCandidateEvaluator(store,args,ctx,inventory){
       if(inputs.has(inputKey)){perf.count('candidate.inputHit');return {...inputs.get(inputKey),donorShipIds:[]};}
       const scheme=orderAircraftSlots(store,preserveLoadout?heldScheme:completeCombatLoadout(store,heldScheme,ownedInventory,{area,asw:initialWantsAsw,profile:fittingProfile,heldSlots:args.heldSlots}),args.heldSlots);
       assertFleetEquipment(scheme,ownedInventory,args.automaticFilters);
+      if(!questMatches(scheme))return null;
       const signature=JSON.stringify(scheme);
       if(cache.has(signature)){perf.count('candidate.hit');rememberInput(inputKey,cache.get(signature));return {...cache.get(signature),donorShipIds:[]};}
       perf.count('candidate.miss');
@@ -399,6 +403,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   // submarine escorts in otherwise surface formations, before sampling hulls.
   const initialWantsAsw=aswEscortLimit(previewForSnapshot(store,area,{target,phase}),store)>0;
   const ctx=context(store,args,1);
+  const quests=questRequirements(args.questCodes||[]);
   ctx.combatScore=combatHullRanker(store,previewForSnapshot(store,area,{target,phase}));
   const pool=ctx.roster,fixed=ctx.fixed.map(id=>ctx.byId.get(id));
   const allSizes=[1,2,3,4,5,6].filter(n=>n>=fixed.length);
@@ -406,7 +411,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   // Keep the existing closest-candidate diagnostics for impossible manual
   // fleets, so diagnostics can still explain the conflicting route conditions.
   const compatibleSizes=allSizes.filter(n=>viableSizes.includes(n));
-  const compact=allowCompact&&area==='1-1'&&target==='boss'&&fixed.length<=2&&
+  const compact=!quests.length&&allowCompact&&area==='1-1'&&target==='boss'&&fixed.length<=2&&
     fixed.every(row=>![1,19,20,22].includes(row.stype));
   const sizes=(compatibleSizes.length?compatibleSizes:allSizes).filter(n=>!compact||n<=2);
   const allowedSizes=new Set(sizes);
@@ -446,6 +451,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     return collect?collectCandidate(candidate,!schemeOverride||asSeed):candidate;
   };
 
+  if(quests.length)for(const rows of questSeeds(store,ctx,args,quests,{templates:requestedRoutes.flatMap(option=>option.templates||[])}))evaluate(rows);
   if(area==='1-1'&&target==='boss')for(const rows of oneOneSeeds(ctx)){
     evaluate(rows);guideSeedKeys.add(idsKey(rows));
   }
@@ -925,7 +931,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     const unmet=closest?planning(closest,option).losRequirements.filter(r=>r.shortfall>0||r.shortfall===null):[];
     return {...(item?routePlans.fleetPathOption(item.route,option):option),status:item?'available':unconfirmed?'unconfirmed':'notFound',chance,diagnostics,
       requirements:[...new Map(routePlans.optionPaths(option).flatMap(nodes=>routePlans.requirements(area,nodes,phase)).map(r=>[r.from+'>'+r.to,r])).values()],
-      message:item?'':(missingShips.length?'所选路线缺少可用的带路船，持有情况与排除原因如下。':option.strategy?strategyFailure(store,ctx,option,inventory,args.heldSlots):
+      message:item?'':(quests.length?'本轮未找到同时满足已选任务及路线条件的编成；请调整勾选任务或固定舰娘。':missingShips.length?'所选路线缺少可用的带路船，持有情况与排除原因如下。':option.strategy?strategyFailure(store,ctx,option,inventory,args.heldSlots):
         unconfirmed?'尚无到达率可确认的方案，以下分岐资料或条件需核实。':
         '本轮未找到可沿此路线抵达的配置；以下按候选编成列出全部受阻条件，不代表所有编成都无法通过。')+
         (diagnostics.warnings.length?'\n'+diagnostics.warnings.join('\n'):'')+
@@ -1009,7 +1015,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       guideWarnings}:area==='1-5'&&target==='boss'?{guide:{source:guideSource(area),
         note:'1-5 沿用四舰以内的对潜专用推荐，优先能先制对潜的舰娘与声呐／爆雷；此处没有额外设置练度线，战斗结果仍需实战确认。'},
       guideWarnings:[]}:{}),
-    ...(picked.length?{}:{reason:(policy?
+    ...(picked.length?{}:{reason:quests.length?'本轮未找到同时满足已选任务及路线条件的编成，请调整勾选任务或固定舰娘。':(policy?
       '本轮未找到同时满足攻略舰种、练度、关键装备和可达路线的编成；可调整固定舰娘、装备或制空目标':
       '在本轮有界搜索中未找到到达率可确认的可用编成；不等于不存在解') })};
 }

@@ -47,7 +47,7 @@ module.exports=function createQuestSection(React,options={}){
   };
   // Loading the quest catalog and evaluating a draft are both deferred until opened.
   const listRelatedQuests=options.listRelatedQuests||((input)=>require('../../domain/quests/quest_requirements').listRelatedQuests(input));
-  return function QuestSection({state,slots,deckId,kind='normal',mapId,missionId,questState}){
+  return function QuestSection({state,slots,deckId,kind='normal',mapId,missionId,questState,selectedQuests=[],onToggleQuest,onClearQuests,disabled=false}){
     const [open,setOpen]=React.useState(false);
     const last=React.useRef(null);
     const related=React.useMemo(()=>open?listRelatedQuests({state,slots,deckId,kind,mapId,missionId,questState}):last.current,
@@ -56,8 +56,15 @@ module.exports=function createQuestSection(React,options={}){
     const ready=related?.status==='ready';
     const tasks=ready&&(Array.isArray(related.tasks))?related.tasks.filter(task=>task&&(Number(task.state)===1||Number(task.state)===2)):[];
     const taskView=task=>{
-      const conditionStatus=status(task.status),checks=Array.isArray(task.checks)?task.checks:[],period=text(task.period);
-      return h('article',{key:task.id??task.code,className:'paa-quest-item','data-quest-id':task.id,'data-condition-status':conditionStatus},
+      const conditionStatus=status(task.status),checks=Array.isArray(task.checks)?task.checks:[],period=text(task.period),selected=selectedQuests.includes(task.code);
+      const toggle=()=>{if(!disabled&&task.code)onToggleQuest?.(task.code);};
+      return h('article',{key:task.id??task.code,className:'paa-quest-item',role:'checkbox',tabIndex:disabled||!task.code?-1:0,
+        'aria-checked':selected,'aria-disabled':disabled||!task.code||undefined,'aria-label':`选择任务：${text(task.title)||text(task.code)}`,
+        'data-quest-id':task.id,'data-condition-status':conditionStatus,'data-selected':selected||undefined,
+        onClick:event=>{if(event.defaultPrevented||event.button!==undefined&&event.button!==0||event.target?.closest?.('button,a'))return;
+          if(event.currentTarget.ownerDocument?.getSelection?.()?.isCollapsed===false)return;toggle();},
+        onKeyDown:event=>{if((event.key===' '||event.key==='Enter')&&!event.repeat){event.preventDefault();toggle();}}},
+        selected?h('span',{className:'paa-quest-preselected'},'预选'):null,
         h('div',{className:'paa-quest-heading'},
           h('h4',null,text(task.title)||text(task.code)||`任务 ${task.id}`)),
         h('div',{className:'paa-quest-meta'},
@@ -77,8 +84,10 @@ module.exports=function createQuestSection(React,options={}){
         }))):task.summary&&text(task.summary)!==goalText(task)?h('div',{className:'paa-quest-requirements'},h('span',{className:'paa-quest-row-label'},'编成'),h('p',{className:'paa-quest-requirement-summary'},text(task.summary))):null);
     };
     return h('details',{className:'paa-quest-section',open,'aria-label':'相关任务',onClick:toggleCardSpace,onToggle:event=>setOpen(Boolean(event.currentTarget.open))},
-      h('summary',null,h('span',null,'相关任务'),open&&ready?h('span',{className:'paa-quest-count'},`${tasks.length} 项`):null),
+      h('summary',null,h('span',null,'相关任务'),selectedQuests.length?h('span',{className:'paa-quest-count'},`已选 ${selectedQuests.length}`):open&&ready?h('span',{className:'paa-quest-count'},`${tasks.length} 项`):null),
       open||related?h('div',{className:'paa-quest-content','aria-hidden':!open,inert:open?undefined:''},
+        selectedQuests.length?h('div',{className:'paa-quest-selection'},h('span',null,`已选 ${selectedQuests.length} 项，补全时同时满足编成要求`),
+          h('button',{type:'button',disabled,onClick:()=>onClearQuests?.()},'清除选择')):null,
         !ready?h('p',{className:'paa-quest-empty'},'请在游戏中打开任务列表以同步'):
           !tasks.length?h('p',{className:'paa-quest-empty'},'暂无可受领或进行中的相关任务'):
             h('div',{className:'paa-quest-list',role:'region','aria-label':'相关任务要求',tabIndex:0},...tasks.map(taskView))):null);

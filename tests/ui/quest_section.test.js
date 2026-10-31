@@ -22,6 +22,21 @@ function task(overrides={}){
     checks:[{label:'夕张改二系旗舰',status:'met'},{label:'六水战驱逐舰',status:'met',actual:3,required:3}],
     goals:[{label:'1-5 Boss S胜 1 回'}],...overrides};
 }
+
+test('quest cards toggle selection by click and keyboard without a separate button',()=>{
+  const selected=[];
+  const props={selectedQuests:selected,onToggleQuest:code=>{const at=selected.indexOf(code);if(at<0)selected.push(code);else selected.splice(at,1);}};
+  const ui=harness(props,{status:'ready',tasks:[task(),task({id:1002,code:'B142',title:'第二任务'})]});ui.toggle(true);
+  const article=()=>ui.find(n=>n.props['data-quest-id']===1001);
+  article().props.onClick({button:0,target:{closest:()=>null},currentTarget:{ownerDocument:{getSelection:()=>({isCollapsed:true})}}});ui.render();
+  assert.deepEqual(selected,['B141']);assert.equal(article().props['data-selected'],true);
+  assert.equal(article().props.role,'checkbox');assert.equal(article().props['aria-checked'],true);
+  assert(!ui.find(n=>n.type==='button'&&n.props.className==='paa-quest-select'));
+  let prevented=false;article().props.onKeyDown({key:' ',repeat:false,preventDefault(){prevented=true;}});ui.render();
+  assert(prevented);assert.deepEqual(selected,[]);assert.equal(ui.find(n=>n.type==='details').props.open,true);
+  props.disabled=true;ui.render();assert.equal(article().props['aria-disabled'],true);assert.equal(article().props.tabIndex,-1);
+  article().props.onKeyDown({key:'Enter',repeat:false,preventDefault(){}});assert.deepEqual(selected,[]);
+});
 function cardClicks(ui){
   let forwarded=0,selection={isCollapsed:true};
   const root={ownerDocument:{getSelection:()=>selection},closest:()=>null,

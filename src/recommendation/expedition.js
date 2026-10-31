@@ -1,4 +1,5 @@
 'use strict';
+const {questRequirements,createQuestChecker,questSeeds}=require('./quest_constraints');
 // Expedition goal search, drum fitting and net-income ranking.
 const {withEquipmentIndexCache}=require('../domain/fleet/equipment_planner');
 const {error}=require('../shared/errors');
@@ -207,6 +208,9 @@ function searchExpeditionFleet(store,args,shared={}){
   }
   if(!shared.prepared)shared.prepared=prepareExpeditionSearch(store,args,spec,missionId);
   const prepared=shared.prepared,{ctx,rates,pool,inventory,incomeSearch,metadata,members,pools,all,incomeGroups,rankings,fits}=prepared;
+  const quests=questRequirements(args.questCodes||[]);
+  const questMatches=createQuestChecker(store,quests);
+  const questSeedRows=quests.length?questSeeds(store,ctx,args,quests):[];
   const options=spec.fleetCompos||[{}],compositions=options.map(compo=>Object.entries(compo).map(([type,count])=>[type,count,prepared.typeKeys.get(type)])),seen=new Set(),valid=[],rejected=[];
   const family=row=>metadata.get(row.id).family,cost=row=>metadata.get(row.id).cost;
   const weights=EXPEDITION_WEIGHTS;
@@ -248,6 +252,17 @@ function searchExpeditionFleet(store,args,shared={}){
   const variants=spec.totals||spec.levelSum?weights.map((_,i)=>i):[0];
   const collect=(candidateVariants,candidateFlags,onRow)=>{
     const passSeen=new Set();
+    for(const ordered of questSeedRows){
+      if(ordered.length<spec.shipCount||!flagshipEligible(ordered[0]))continue;
+      const key=idsKey(ordered);if(passSeen.has(key))continue;passSeen.add(key);seen.add(key);
+      let scheme=schemeOf(ctx.fleet,ordered);
+      try{
+        if(args.heldSlots?.some(Boolean))scheme=holdDraftEquipment(store,scheme,args.heldSlots);
+        if(!spec.totals)scheme=addDrums(store,scheme,spec,inventory);
+        if(!scheme||!questMatches(scheme))continue;
+        const result=prepared.evaluate(scheme);evaluated++;onRow(candidateRow(scheme,result,ordered),0);
+      }catch(_){/* unavailable or incompatible seed */}
+    }
     for(const incomeMode of incomeSearch.active?[false,true]:[false])
       for(const parts of compositions)for(let count=Math.max(spec.shipCount,ctx.fixed.length);count<=6;count++)
       for(const sparkleTarget of sparkleTargets)for(const variant of candidateVariants)for(const selectedFlagship of candidateFlags){
@@ -257,6 +272,10 @@ function searchExpeditionFleet(store,args,shared={}){
         const ordered=[selectedFlagship,...rows.filter(row=>row.id!==selectedFlagship.id)];
         const key=idsKey(ordered);if(passSeen.has(key))continue;passSeen.add(key);seen.add(key);
         const basicScheme=schemeOf(ctx.fleet,ordered);
+        if(quests.length){
+          try{if(!questMatches(args.heldSlots?.some(Boolean)?holdDraftEquipment(store,basicScheme,args.heldSlots):basicScheme))continue;}
+          catch(_){continue;}
+        }
         // Both tiers must survive: once probability is capped, extra drums
         // provide no benefit and should not consume slots or borrowed equipment.
         // Monthly outfits are refitted later, including making room for drums.
@@ -330,6 +349,7 @@ function searchExpeditionFleet(store,args,shared={}){
         const fitKey=JSON.stringify([scheme,tier,goal]);
         let fitted=fits.get(fitKey);
         if(!fitted){fitted=fitExpeditionEquipment(store,{missionId,goal,scheme,heldSlots:args.heldSlots},{ctx,inventory,readStats:prepared.readStats});fits.set(fitKey,fitted);}
+        if(!questMatches(fitted.scheme))continue;
         row={...row,scheme:fitted.scheme,evaluation:fitted.evaluation,income:fitted.income,gap:gapScore(fitted.evaluation)};
       }
     }catch(_){continue;}
@@ -377,7 +397,7 @@ function searchExpeditionFleet(store,args,shared={}){
     search:{kind:'boundedHeuristic',evaluated,compositions:options.length,globalOptimal:false,
       ...(spec.totals?{fitted:distinct.length,rescue:rescueAttempted}:{}),
       reason:'满足出航与大成功目标后，比较至20%加成为止的净收益；优先大发并节省装备，不追逐额外收益'},
-    ...(available.length?{}:{reason:closest?'未找到达标方案，已提供最接近的参考编成；请调整未满足的出航条件':'未找到可预览的参考编成；请检查可用舰娘、排除设置与固定舰娘'})};
+    ...(available.length?{}:{reason:quests.length?'本轮未找到同时满足已选任务和远征条件的编成，请调整勾选任务或固定舰娘。':closest?'未找到达标方案，已提供最接近的参考编成；请调整未满足的出航条件':'未找到可预览的参考编成；请检查可用舰娘、排除设置与固定舰娘'})};
 }
 // Fit only the chosen hulls. Mandatory drums and the selected probability
 // tier take precedence; reward equipment uses the remaining automatic slots.

@@ -52,7 +52,7 @@
   const statusFields=['sourceFleet','shipDetails','sourcePreset','presetsOpen'];
   // Capture only live fields, including when reloading an older mounted version
   // that still has the retired JSON editor and local-library state hooks.
-  const draftFields=['slots','fleet','area','purpose','target','phase','missionId','goal','incomeUnit','style','choices','excluded','sourceFleet','shipType','draftContext','pathIndex','nodeId','mapRoute','routeDrafts','routeRulesOpen','combatDeferredPhase','routePhaseAnchor','shipDetails','sourcePreset','presetsOpen'];
+  const draftFields=['slots','fleet','area','purpose','target','phase','missionId','goal','incomeUnit','style','choices','excluded','sourceFleet','shipType','draftContext','pathIndex','nodeId','mapRoute','routeDrafts','routeRulesOpen','combatDeferredPhase','routePhaseAnchor','shipDetails','sourcePreset','presetsOpen','selectedQuests'];
   function workbenchHooks() {
     const el=panel();let root=el?.[Object.keys(el||{}).find(k=>k.startsWith('__reactFiber$'))];
     if(!root)return [];

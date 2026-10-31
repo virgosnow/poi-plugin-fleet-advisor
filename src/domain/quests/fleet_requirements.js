@@ -49,8 +49,8 @@ function familyIndex(masters){
   }
   return find;
 }
-function context(state,slots){
-  const masters=state?.const?.$ships||{},find=familyIndex(masters);
+function context(state,slots,shared){
+  const masters=shared?.masters||state?.const?.$ships||{},find=shared?.find||familyIndex(masters);
   const rows=(slots||[]).map((entry,index)=>{
     const id=Number(entry?.id??entry?.shipId??entry),ship=state?.info?.ships?.[id];
     if(!(id>0))return null;
@@ -142,8 +142,8 @@ function planStatus(plan,ctx,distinct){
   }
   return all(statuses);
 }
-function evaluateFleetRequirements(fleet,state,slots,deckId){
-  const ctx=context(state,slots),checks=[];
+function evaluateFleetRequirements(fleet,state,slots,deckId,shared){
+  const ctx=context(state,slots,shared),checks=[];
   const add=(label,status,actual,required)=>checks.push({label,status,...actual!==undefined?{actual}:{},...required!==undefined?{required}:{}});
   const size=ctx.rows.length;
   if(!size)add('请先选择舰娘',UNKNOWN);
@@ -173,4 +173,8 @@ function evaluateFleetRequirements(fleet,state,slots,deckId){
   return {status:all([total,...checks.map(check=>check.status)]),checks};
 }
 
-module.exports={evaluateFleetRequirements,selectorLabel,ruleLabel};
+function createFleetRequirementEvaluator(state){
+  const masters=state?.const?.$ships||{},shared={masters,find:familyIndex(masters)};
+  return (fleet,slots,deckId)=>evaluateFleetRequirements(fleet,state,slots,deckId,shared);
+}
+module.exports={evaluateFleetRequirements,createFleetRequirementEvaluator,selectorLabel,ruleLabel};
