@@ -920,6 +920,22 @@ test('related tasks occupy the bottom of the correct left workbench and follow t
   }
 });
 
+test('left-side calculation veils stay inside result regions and leave related tasks outside',()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind);h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
+    h.set('working',true);h.set('activity','complete');
+    const tree=h.render(),left=h.find(tree,n=>n.props.className==='paa-wb-left');
+    const tasks=h.find(left,n=>n.type?.name==='QuestSection');
+    const result=h.find(left,n=>n.props['data-result-region']===(kind==='normal'?'route':'expedition'));
+    const veil=h.find(result,n=>n.props.className==='paa-wb-calculating');
+    assert(tasks&&result&&veil,kind);
+    assert.equal(left.children.at(-1),tasks,'related tasks remain a sibling of the calculation result');
+    assert(!h.find(result,n=>n===tasks),'the veil cannot extend into the task result subtree');
+    assert.equal(result.props['aria-busy'],true);assert.equal(veil.props.role,'status');
+    assert.equal(tasks.props['aria-hidden'],undefined);assert.equal(tasks.props.inert,undefined);
+  }
+});
+
 test('selected task codes reach both workbench searches and reset on destination changes',async()=>{
   const catalog=require('../../data/quests/limited/2026-halloween.json').quests;
   for(const kind of ['normal','expedition']){
@@ -1747,10 +1763,15 @@ test('pending calculations keep result subtrees mounted under an inert loading o
     assert.equal(block.children[0].props['aria-hidden'],true);
     assert.deepEqual(block.children[0].children,content,'the result geometry must not be replaced by empty placeholders');
     assert.equal(block.children[0].props.inert,'','stale content cannot be clicked or focused under the overlay');
-    const overlay=block.children[1];assert.equal(overlay.props.role,'status');
-    assert.equal(overlay.children[0].props.className,'paa-wb-calculation-label');
-    assert.equal(overlay.children[0].children[1],'计算中…');
+    if(key==='route'){
+      const overlay=block.children[1];assert.equal(overlay.props.role,'status');
+      assert.equal(overlay.children[0].props.className,'paa-wb-calculation-label');
+      assert.equal(overlay.children[0].children[1],'计算中…');
+    }else assert(!block.children[1],'the right-side metrics do not render a second veil');
   }
+  const right=h.find(pending,n=>n.props.className==='paa-wb-right');
+  const rightOverlay=h.find(right,n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay');
+  assert(rightOverlay,'the right-side result area has a single shared veil');
   assert.equal(h.find(pending,n=>n.props.className==='paa-primary paa-wb-apply').props.disabled,true);
   h.set('working',false);h.set('activity','');h.set('report',W.inspect(h.service,h.store,h.get('slots'),settings));
   const finished=h.render();assert.equal(region(finished,'metrics').props['aria-busy'],false);
@@ -2156,7 +2177,7 @@ test('expedition goal switches reuse the prepared pair and changed manual constr
   await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();assert.equal(calls,5,'another mission requires a new pair');
 });
 
-test('fleet cards share activity-specific overlays without replacing ship slots',()=>{
+test('one right-side calculation overlay covers metrics and fleet cards without replacing ship slots',()=>{
   for(const kind of ['normal','expedition']){
     const h=harness(kind);h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
     const grid=tree=>h.find(tree,n=>n.props.className==='paa-wb-ships');
@@ -2164,18 +2185,36 @@ test('fleet cards share activity-specific overlays without replacing ship slots'
     const cards=tree=>grid(tree).children.filter(n=>n?.props?.['data-fleet-slot']!==undefined).map(n=>[n.props.key,n.props['data-fleet-slot'],n.props['data-ship-id']]);
     const before=cards(h.render());
     h.set('working',true);
-    for(const [activity,label] of [['complete','补全中'],['route','切换路线中'],['equipment','调整装备中']]){
+    for(const activity of ['complete','route','equipment']){
       h.set('activity',activity);const pending=h.render(),mask=overlay(pending);
       assert.equal(mask.props.role,'status');assert.equal(mask.props['data-activity'],activity);
       const heading=h.find(mask,n=>n.props.className==='paa-wb-calculation-heading');
-      assert(heading);assert(heading.children.includes(label));
+      assert(heading);assert(heading.children.includes('计算中'));
       assert(h.find(heading,n=>n.props.className==='paa-wb-calculation-spinner'));
       assert(h.find(mask,n=>n.type?.name==='CalculationProgress'));
+      const right=h.find(pending,n=>n.props.className==='paa-wb-right');
+      const results=h.find(right,n=>n.props.className==='paa-wb-fleet-results');
+      const all=(node,predicate)=>!node||typeof node!=='object'?[]:[...(predicate(node)?[node]:[]),...(node.children||[]).flatMap(child=>all(child,predicate))];
+      assert(results.children.includes(mask),'the veil is scoped to the common result area');
+      assert(h.find(results,n=>n.props.className==='paa-wb-ships'));
+      assert(h.find(results,n=>n.props['data-result-region']===(kind==='normal'?'metrics':'expedition-metrics')));
+      assert.equal(all(right,n=>String(n.props.className||'').split(' ').includes('paa-wb-calculating')).length,1,'no duplicate right-side veil');
       assert.deepEqual(cards(pending),before,'calculations keep the original cards and empty positions mounted');
     }
-    h.set('working',false);h.set('activity','');assert(!overlay(h.render()));
+    h.set('working',false);h.set('activity','');h.set('slots',[]);assert(!overlay(h.render()));
     h.set('working',true);h.set('activity','');assert(!overlay(h.render()),'unknown activity must not get an incorrect status');
   }
+});
+
+test('a pending expedition inspection uses the unified veil without stale completion progress',()=>{
+  const h=harness('expedition');h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
+  h.set('report',{valid:false});h.set('working',false);h.set('activity','');
+  const tree=h.render(),right=h.find(tree,n=>n.props.className==='paa-wb-right');
+  const mask=h.find(right,n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay');
+  assert(mask);assert(!h.find(mask,n=>n.type?.name==='CalculationProgress'));
+  assert(h.find(mask,n=>n.props.className==='paa-wb-calculation-heading').children.includes('计算中'));
+  const content=h.find(right,n=>n.props.className==='paa-wb-fleet-results-content');
+  assert.equal(content.props['aria-hidden'],true);assert.equal(content.props.inert,'');
 });
 
 const progressDelay=ms=>new Promise(resolve=>setTimeout(resolve,ms));

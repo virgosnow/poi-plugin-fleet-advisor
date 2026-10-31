@@ -596,7 +596,6 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     },[paused,kind,area,target,phase,mapRoute,store.info?.maps]);
     const preselecting=kind==='normal'&&!prepared.current&&slots.some(Boolean);
     const calculating=working||(!hidden&&!preselecting&&dirty&&rows.length>0);
-    const cardActivity=working?({complete:'补全中',route:'切换路线中',equipment:'调整装备中'})[activity]:null;
     const resultsPending=!busy&&(working&&['complete','route','equipment'].includes(activity)||!preselecting&&dirty&&rows.length>0);
     // Keep the previous result's geometry under a veil, marked as stale.
     // Its DOM remains mounted (including expanded details and scroll position).
@@ -604,7 +603,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       if(!resultsPending||!resultViews.current.has(key))resultViews.current.set(key,children);
       return h('div',{className:'paa-wb-calculation-region','data-result-region':key,'aria-busy':!!resultsPending},
         h('div',{className:'paa-wb-calculation-content','aria-hidden':resultsPending||undefined,inert:resultsPending?'':undefined},...resultViews.current.get(key)),
-        resultsPending?h('div',{className:'paa-wb-calculating',role:'status'},
+        resultsPending&&!['metrics','expedition-metrics'].includes(key)?h('div',{className:'paa-wb-calculating',role:'status'},
           h('span',{className:'paa-wb-calculation-label'},h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),'计算中…')):null);
     };
     React.useEffect(()=>{onActivity?.(previous=>previous[kind]===calculating?previous:{...previous,[kind]:calculating});},[calculating,kind,onActivity]);
@@ -802,6 +801,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         h('section',{className:'paa-wb-right','aria-busy':working},commandControls,
           error?h('p',{className:'paa-operation-feedback','data-state':'error',role:'alert'},error):null,
           operationFeedback,
+          h('div',{className:'paa-wb-fleet-results','aria-busy':!!resultsPending},
+            h('div',{className:'paa-wb-fleet-results-content','aria-hidden':resultsPending||undefined,inert:resultsPending?'':undefined},
           kind==='expedition'?stableResult('expedition-metrics',expeditionView.metrics({status:expeditionStatus,mission,income})):null,
           kind==='normal'?stableResult('metrics',h('div',{className:'paa-wb-metrics','data-columns':3,'aria-label':'舰队速力、制空与索敌','aria-live':'polite'},
             h('div',{className:'paa-wb-metric speed','data-tier':speedReading.tier,'data-has-requirement':speedRequirement.hint?'true':undefined,...T.attributes(T.speed(speedReading,speedRequirement)),tabIndex:0,'aria-label':`舰队速力：${speedReading.ships.length?speedReading.label:'—'}`},
@@ -809,11 +810,11 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
               h('strong',null,speedReading.ships.length?speedReading.label:'—'),
               speedRequirement.hint?h('small',null,speedRequirement.hint):null),
             summaryMetric(summary.air,'air'),summaryMetric(summary.los,'los'))):null,
-          h('div',{className:'paa-wb-ships',ref:grid},...slots.map(shipCard),
-            cardActivity?h('div',{className:'paa-wb-calculating paa-wb-fleet-overlay',role:'status','data-activity':activity},
+          h('div',{className:'paa-wb-ships',ref:grid},...slots.map(shipCard))),
+            resultsPending?h('div',{className:'paa-wb-calculating paa-wb-fleet-overlay',role:'status','data-activity':activity},
               h('span',{className:'paa-wb-calculation-label'},h('span',{className:'paa-wb-calculation-heading'},
-                h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),cardActivity),
-                h(CalculationProgress,{channel:calculationChannel.current}))):null),
+                h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),'计算中'),
+                working?h(CalculationProgress,{channel:calculationChannel.current}):null)):null),
         )),
       kind==='normal'&&mapExpanded?h('dialog',{ref:mapDialog,className:'paa-wb-map-dialog','aria-label':`${area} 海域地图`,
         onCancel:e=>{e.preventDefault();setMapExpanded(false);},

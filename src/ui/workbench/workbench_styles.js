@@ -67,7 +67,8 @@ module.exports=`
 .paa-wb-section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px}.paa-wb-section-head h3{font-size:14px;margin:0}.paa-wb-section-head button{font-size:11px;padding:4px 7px}.paa-wb-section-head .paa-wb-field>span{display:none}
 .paa-workbench h4{font-size:12px;color:var(--paa-muted);margin:0 0 9px}.paa-workbench p{margin:5px 0}.paa-workbench pre{white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;font-size:11px}.paa-workbench details{font-size:12px}.paa-workbench summary{cursor:pointer;padding:8px 0}
 .paa-wb-ships{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.paa-wb-ships>.paa-wb-fleet-overlay{top:-8px}
+.paa-wb-fleet-results{position:relative;min-width:0}.paa-wb-fleet-results-content{display:flex;flex-direction:column;gap:12px;min-width:0}.paa-wb-fleet-results-content[aria-hidden=true]{pointer-events:none;user-select:none}
+.paa-wb-left>.paa-wb-calculation-region[aria-busy=true]{overflow:clip;isolation:isolate}
 .paa-wb-fleet-overlay .paa-wb-calculation-label{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;width:208px;max-width:100%;gap:8px;padding:16px 20px;white-space:normal;text-align:center}
 .paa-wb-fleet-overlay .paa-wb-calculation-heading{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;font-size:13px;font-weight:600;line-height:18px}
 .paa-wb-fleet-overlay .paa-wb-calculation-heading .paa-wb-calculation-spinner{width:13px;height:13px;border-width:2px}
@@ -202,6 +203,7 @@ module.exports=`
  .paa-workbench[data-kind=expedition] .paa-wb-right>.paa-operation-feedback{order:1}
  .paa-workbench[data-kind=expedition] [data-result-region=expedition-metrics]{order:3}
  .paa-workbench[data-kind=expedition] [data-result-region=expedition]{order:2;border:1px solid var(--paa-line);border-radius:12px;background:var(--paa-card);padding:12px}
+ .paa-workbench[data-kind=expedition] .paa-wb-fleet-results{order:3}
  .paa-workbench[data-kind=expedition] .paa-wb-ships{order:4}
  .paa-workbench[data-kind=expedition] .paa-wb-command-row,.paa-workbench[data-kind=expedition] .paa-wb-apply-controls{gap:8px}
 }
