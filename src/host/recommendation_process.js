@@ -79,7 +79,7 @@ function createRecommendationProcess(options,ownerId,{electron=require('electron
     if(stopping||exited)return;
     if(message?.ready){
       if(ready)return;ready=true;clearTimeout(startTimer);resolveReady(message);send();
-    }else {reaping?.mark('resultReceived');handle.emit('message',message);}
+    }else {if(!message?.progress)reaping?.mark('resultReceived');handle.emit('message',message);}
   });
   child.once('error',type=>fail(`推荐计算进程异常（${typeof type==='string'?type:'启动失败'}）`));
   child.once('exit',code=>{

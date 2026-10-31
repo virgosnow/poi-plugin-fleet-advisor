@@ -53,12 +53,12 @@ function expeditionRows(store,ctx,spec,rates){
     (spec.minMorale===undefined||Number(row.ship.api_cond)>=spec.minMorale))
     .sort((a,b)=>shipCost(a,rates.fuel,rates.ammo)-shipCost(b,rates.fuel,rates.ammo)||a.id-b.id);
 }
-function recommendExpeditionFleet(store,args){
-  return withEquipmentIndexCache(store,()=>searchExpeditionFleet(store,args));
+function recommendExpeditionFleet(store,args,onProgress){
+  return withEquipmentIndexCache(store,()=>searchExpeditionFleet(store,args,{onProgress}));
 }
-function recommendExpeditionGoals(store,args){
+function recommendExpeditionGoals(store,args,onProgress){
   return withEquipmentIndexCache(store,()=>{
-    const shared={};
+    const shared={onProgress};
     return {success:searchExpeditionFleet(store,{...args,goal:'success'},shared),
       great:searchExpeditionFleet(store,{...args,goal:'great'},shared)};
   });
@@ -197,6 +197,7 @@ function expeditionCandidate(prepared,parts,selectedFlagship,count,goal,variant,
   return rows;
 }
 function searchExpeditionFleet(store,args,shared={}){
+  shared.onProgress?.({stage:'expedition-candidates'});
   const {missionId,limit=3,goal='success'}=args,spec=expeditions.DATA.missions[missionId];
   if(!['success','great'].includes(goal))throw error('INVALID_QUERY','goal 须为 success 或 great');
   if(!Number.isInteger(missionId)||!spec)throw error('INVALID_QUERY','未知远征编号');
@@ -297,6 +298,7 @@ function searchExpeditionFleet(store,args,shared={}){
     }
   };
   collect(variants,flagships,row=>{if(!row.evaluation.eligible)retainRejected(row);else valid.push(row);});
+  shared.onProgress?.({stage:'expedition-fit'});
   // Only when hard constraints prevented the normal generator from producing
   // any candidate, assemble a bounded reference fleet without relaxing
   // ownership, availability, user exclusions or manually retained hulls.
@@ -360,6 +362,7 @@ function searchExpeditionFleet(store,args,shared={}){
   // failed. Retry independent bare/refit rankings, including stronger flagships
   // and all eligible hulls hidden by current-panel dominance. Work stays bounded.
   if(spec.totals&&!distinct.some(row=>row.evaluation.eligible)){
+    shared.onProgress?.({stage:'expedition-rescue'});
     rescueAttempted=true;
     if(!prepared.monthlyProfiles)prepared.monthlyProfiles=require('./expedition_candidates').monthlyProfiles(store,pool,inventory,args.heldSlots,prepared.readStats);
     const profiles=prepared.monthlyProfiles,beams={bare:new Map(),refit:new Map()};

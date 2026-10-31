@@ -13,7 +13,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
   const experimentalControls=require('../settings/experimental_settings')(React);
   const useTooltip=require('../components/tooltip');
   const ComputationSettings=require('../settings/computation_settings')(React,{getController});
-  return function FleetAdvisorPanel(){
+  function PanelContents(){
     const [mode,setMode]=React.useState('manual');
     const [busy,setBusy]=React.useState(false);
     const [status,setStatus]=React.useState({state:'idle',title:'准备方案',text:'读取当前配置作为起点，或粘贴已有方案。'});
@@ -240,5 +240,10 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
                   h('button',{type:'button',onClick:()=>{void copyMcpAddress(mcpHttp.address);}},mcpCopied?'已复制':'复制地址')):
                 h('span',{className:mcpEnabled&&mcpHttp?.error?'paa-error paa-agent-connection-error':'paa-muted','data-tooltip':mcpEnabled?mcpHttp?.error:undefined,role:mcpEnabled&&mcpHttp?.error?'alert':undefined},mcpEnabled?(mcpHttp?.error||'正在准备连接…'):'开启后显示连接地址'))))):null}))),
       running?h('div',{className:'paa-run-mask','aria-hidden':true}):null));
-  };
+  }
+  // poi can render its plugin host after every game response. This panel does
+  // not consume host props; its own subscriptions update the relevant data.
+  if(!React.memo)return PanelContents;
+  const StablePanel=React.memo(PanelContents);
+  return function FleetAdvisorPanel(){return h(StablePanel);};
 };

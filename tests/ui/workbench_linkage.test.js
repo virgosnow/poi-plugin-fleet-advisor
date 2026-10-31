@@ -2094,6 +2094,21 @@ test('fleet cards share activity-specific overlays without replacing ship slots'
   }
 });
 
+test('calculation progress updates the overlay independently and identifies batch percentages',async()=>{
+  const h=harness();let report,finish;
+  h.service.recommendNormalFleet=(_query,onProgress)=>{report=onProgress;return new Promise(resolve=>{finish=resolve;});};
+  const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  await new Promise(resolve=>setTimeout(resolve,40));
+  const mask=h.find(h.render(),n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay');
+  const progress=mask.children[0].children[2],channel=progress.props.channel,received=[];
+  channel.listeners.add(value=>received.push(value));
+  report({stage:'gear',completed:2,total:4});
+  assert.equal(channel.value,'规划装备 · 本步骤 50%');assert.deepEqual(received,['规划装备 · 本步骤 50%']);
+  report({stage:'finalize'});assert.equal(channel.value,'核对结果');
+  finish({recommendations:[],routeResults:[],reason:'没有方案'});await pending;
+  report({stage:'gear',completed:4,total:4});
+});
+
 test('1-4 route selector letters follow the inspected draft and reset to the catalog when cleared',()=>{
   const h=harness(),option=W.mapOverview('1-4').options.find(o=>o.id==='1-4-06');
   [16,3,2,2,2,2].forEach((type,i)=>{h.store.const.$ships[i+1].api_stype=type;});

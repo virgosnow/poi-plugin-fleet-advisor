@@ -296,8 +296,8 @@ class FleetAdvisorService {
     return {snapshotId,...expeditions.evaluateExpedition(snapshot.store,fleet,missionId,resolved),
       income:require('../domain/expeditions/expedition_income').missionIncome(snapshot.store,resolved.ships,missionId)};
   }
-  async recommendExpeditionFleet(args){
-    return this.recommendWithFilters('recommendExpeditionFleet','expedition',args);
+  async recommendExpeditionFleet(args,onProgress){
+    return this.recommendWithFilters('recommendExpeditionFleet','expedition',args,onProgress);
   }
   listNormalMaps({snapshotId}){
     this.snapshots.get(snapshotId);
@@ -308,14 +308,14 @@ class FleetAdvisorService {
     if(args.scheme!==undefined||args.schemeName!==undefined)args={...args,scheme:this.resolveSchemeSource(args)};
     return {snapshotId,...pageQueries.evaluateRoute(snapshot.store,{...args,fleet:args.fleet??args.scheme?.fleet??1},this.getRecommendationFilters().normal)};
   }
-  async recommendNormalFleet(args){
-    return this.recommendWithFilters('recommendNormalFleet','normal',args);
+  async recommendNormalFleet(args,onProgress){
+    return this.recommendWithFilters('recommendNormalFleet','normal',args,onProgress);
   }
-  async recommendWithFilters(method,kind,args){
+  async recommendWithFilters(method,kind,args,onProgress){
     const snapshot=this.snapshots.get(args.snapshotId),filters=this.getRecommendationFilters()[kind];
     args=pageQueries.recommendationArgs(snapshot.store,args);
     const input=selectionFilters.planningStore(snapshot.store,filters);
-    const result=await this.recommendations.run(method,input,{...args,automaticFilters:filters});
+    const result=await this.recommendations.run(method,input,{...args,automaticFilters:filters},onProgress);
     pageQueries.verifyConstraints(result,args,false,snapshot.store);
     const reason=selectionFilters.evaluator(snapshot.store,kind,filters),counts={};
     let excluded=0;
@@ -339,17 +339,17 @@ class FleetAdvisorService {
       selectionFilters:output.selectionFilters}]));
     return output;
   }
-  async recommendNormalEquipment(args){
+  async recommendNormalEquipment(args,onProgress){
     const snapshot=this.snapshots.get(args.snapshotId);
     args={...this.equipmentRecommendationArgs(snapshot.store,args),automaticFilters:this.getRecommendationFilters().normal};
-    const result=pageQueries.verifyConstraints(await this.recommendations.run('recommendNormalEquipment',snapshot.store,args),args,true);
+    const result=pageQueries.verifyConstraints(await this.recommendations.run('recommendNormalEquipment',snapshot.store,args,onProgress),args,true);
     return {snapshotId:args.snapshotId,...result,evaluation:pageQueries.evaluateRoute(snapshot.store,
       {...args,scheme:result.scheme,fleet:result.scheme.fleet},this.getRecommendationFilters().normal)};
   }
-  async recommendExpeditionEquipment(args){
+  async recommendExpeditionEquipment(args,onProgress){
     const snapshot=this.snapshots.get(args.snapshotId);
     args=this.equipmentRecommendationArgs(snapshot.store,args);
-    return {snapshotId:args.snapshotId,...pageQueries.verifyConstraints(await this.recommendations.run('recommendExpeditionEquipment',snapshot.store,args),args,true)};
+    return {snapshotId:args.snapshotId,...pageQueries.verifyConstraints(await this.recommendations.run('recommendExpeditionEquipment',snapshot.store,args,onProgress),args,true)};
   }
   equipmentRecommendationArgs(store,args){
     const scheme=this.resolveSchemeSource(args);validateSchemeShape(scheme);

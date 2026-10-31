@@ -99,7 +99,7 @@ class RecommendationPool {
       }catch(e){slot.pending=null;reject(e);}
     });
   }
-  async run(batch,fallback){
+  async run(batch,fallback,onProgress=()=>{}){
     if(this.closed)throw Error('候选计算线程池已关闭');
     // Tiny inputs cost less to calculate locally than to clone/start workers.
     const hulls=batch.kind==='hulls',fitting=['path-fit','los-fit','combat','refinement','speed-fit','speed-refit'].includes(batch.kind);
@@ -120,7 +120,7 @@ class RecommendationPool {
     // context for every two fleets; each task takes at least two fleets.
     const chunkSize=hulls?1:batch.kind==='combat'?Math.max(2,Math.min(12,Math.ceil(batch.items.length/(count*2)))):
       fitting||batch.kind==='gear'?2:batch.kind==='seeds'?24:6,results=new Array(batch.items.length);
-    let next=0;
+    let next=0,completed=0,lastReport=0;
     try{
       while(this.workers.length<count)this.spawn();
       await Promise.all(this.workers.slice(0,count).map(async slot=>{
@@ -128,6 +128,9 @@ class RecommendationPool {
           const start=next;next+=chunkSize;
           const rows=await this.execute(slot,batch,batch.items.slice(start,start+chunkSize));
           for(let i=0;i<rows.length;i++)results[start+i]=rows[i];
+          completed+=Math.min(chunkSize,batch.items.length-start);
+          const now=Date.now();
+          if(completed===batch.items.length||now-lastReport>=200){lastReport=now;onProgress({stage:batch.kind,completed,total:batch.items.length});}
         }
       }));
       return results;

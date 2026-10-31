@@ -8,7 +8,7 @@ const cancelled=()=>Object.assign(Error('推荐计算已取消'),{code:'RECOMMEN
 
 // The existing worker computes success while ONE child computes great success.
 // No idle third coordinator, and only the owner persists shared cache tables.
-async function parallelExpeditionGoals(store,args,{scope=fn=>fn(),cache={},createWorker=(file,options)=>new Worker(file,options)}={}){
+async function parallelExpeditionGoals(store,args,{scope=fn=>fn(),cache={},onProgress=()=>{},createWorker=(file,options)=>new Worker(file,options)}={}){
   const worker=createWorker(__filename,{workerData:{kind:'expedition-goal',store,args:{...args,goal:'great'},
     cacheDirectory:cache.cacheDirectory,version:cache.version,cacheMaxBytes:cache.cacheMaxBytes}});
   const pending=new Promise((resolve,reject)=>{
@@ -21,7 +21,8 @@ async function parallelExpeditionGoals(store,args,{scope=fn=>fn(),cache={},creat
   // A local failure must still stop/drain the child without an unhandled rejection.
   pending.catch(()=>{});
   try{
-    const success=scope(()=>require('../../recommendation/index').recommendExpeditionFleet(store,{...args,goal:'success'}));
+    const success=scope(()=>require('../../recommendation/index').recommendExpeditionFleet(store,{...args,goal:'success'},onProgress));
+    onProgress({stage:'expedition-wait'});
     const message=await pending;
     cache.mergeEquipmentEntries?.(message.equipment||[]);
     cache.mergeHullEntries?.(message.hulls||[]);
@@ -44,7 +45,8 @@ if(!isMainThread&&workerData?.kind==='expedition-goal'){
 
 // Pure calculations only: snapshots cross the thread boundary, never the live
 // controller, game bridge or account-storage service.
-async function runRecommendation(workerData,started=workerStarted){
+async function runRecommendation(workerData,started=workerStarted,onProgress=()=>{}){
+  const progress=value=>{try{onProgress(value);}catch(_){/* Progress must not interrupt a calculation. */}};
   const trace=workerData.diagnostics?new perf.PerformanceTrace(workerData.diagnostics):null;
   if(trace)trace.stages.push({name:'worker.load',ms:performance.now()-started});
   const report=status=>trace?{version:1,status,level:trace.level,method:workerData.method,
@@ -57,6 +59,7 @@ async function runRecommendation(workerData,started=workerStarted){
   const execute=async()=>{
   try{
     if(!METHODS.has(workerData.method))throw Error('Unsupported recommendation method');
+    progress({stage:workerData.method.includes('Equipment')?'equipment':workerData.method==='recommendExpeditionFleet'?'expedition':'prepare'});
     const result=workerData.method==='recommendNormalFleet'?await require('../cache/recommendation_cache').cachedRecommendationAsync(
       workerData.cacheDir,workerData.method,workerData.store,workerData.args,async(scope,cache)=>{
         const {pool,recommend}=perf.stage('search.setup',()=>{
@@ -67,25 +70,26 @@ async function runRecommendation(workerData,started=workerStarted){
         });
         try{
           const result=await recommend(workerData.store,workerData.args,
-            (batch,fallback)=>pool.run(batch,fallback),scope);
+            (batch,fallback)=>pool.run(batch,fallback,progress),scope,progress);
           await perf.stageAsync('workers.flush',()=>pool.flush());return result;
         }
         finally{await perf.stageAsync('workers.dispose',()=>pool.dispose());}
       },workerData.settings):workerData.method==='recommendExpeditionFleet'?
       await require('../cache/recommendation_cache').cachedExpeditionRecommendationAsync(workerData.cacheDir,workerData.store,workerData.args,
         (args,scope,cache)=>perf.stageAsync('batch.expedition',()=>require('../../config/computation_settings').resources(workerData.settings).effectiveExpeditionThreads===1?
-          scope(()=>require('../../recommendation/index').recommendExpeditionGoals(workerData.store,args)):
-          parallelExpeditionGoals(workerData.store,args,{scope,cache})),workerData.settings):
+          scope(()=>require('../../recommendation/index').recommendExpeditionGoals(workerData.store,args,progress)):
+          parallelExpeditionGoals(workerData.store,args,{scope,cache,onProgress:progress})),workerData.settings):
       require('../cache/recommendation_cache').cachedRecommendation(workerData.cacheDir,
       workerData.method,workerData.store,workerData.args,
       ()=>perf.stage('search.sync',()=>require('../../recommendation/index')[workerData.method](workerData.store,workerData.args)),workerData.settings);
+    progress({stage:'finalize'});
     return {ok:true,result,profile:report('success')};
   }catch(e){return {ok:false,error:{message:e.message,code:e.code,stack:e.stack},profile:report('error')};}
   };
   return trace?trace.run(execute):execute();
 }
 if(!isMainThread&&workerData?.kind==='fleet-recommendation')
-  void runRecommendation(workerData).then(message=>parentPort.postMessage(message));
+  void runRecommendation(workerData,workerStarted,progress=>parentPort.postMessage({progress})).then(message=>parentPort.postMessage(message));
 
 class RecommendationWorker {
   constructor({createWorker=(filename,options)=>new Worker(filename,options),cacheDir,getSettings=()=>undefined,
@@ -113,7 +117,7 @@ class RecommendationWorker {
     const tracked=task.finally(()=>{this.queued--;this.prepare();});
     this.pending=tracked.catch(()=>{});return tracked;
   }
-  run(method,store,args){
+  run(method,store,args,onProgress){
     if(this.closed)return Promise.reject(cancelled());
     if(!METHODS.has(method))return Promise.reject(Error('Unsupported recommendation method'));
     const requested=this.getDiagnostics(),diagnostics=requested?{level:requested.level==='modules'?'modules':'stages'}:null;
@@ -167,7 +171,8 @@ class RecommendationWorker {
           return completion;
         };
         this.active=active;
-        worker.once('message',message=>{
+        worker.on('message',message=>{
+          if(message?.progress){if(!finishing)try{onProgress?.(message.progress);}catch(_){}return;}
           received=true;
           if(!message||typeof message.ok!=='boolean')return void finish(Error('推荐进程返回了无效结果'));
           void finish(message.ok?null:message.error||Error('推荐计算失败'),message.result,message);

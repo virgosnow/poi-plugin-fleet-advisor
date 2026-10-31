@@ -143,12 +143,19 @@
     await pause(100);
   }
   async function previewSmoke() {
-    const state=window.getStore(),index=state.info.fleets.findIndex(f=>f.api_ship.some(id=>id>0)&&f.api_mission[0]===0);
-    if(index<0)throw Error('No idle fleet available for read-only preview');
-    const scheme={fleet:index+1,ships:state.info.fleets[index].api_ship.filter(id=>id>0)};
+    const state=window.getStore(),root=find().pluginPath,observed=require(path.join(root,'src/host/store')).readStore(window);
+    const controller=new (require(path.join(root,'src/application/controller')).Controller)({getStore:()=>observed});
+    const docks=new Set((state.info.repairs||[]).map(d=>Number(typeof d==='object'?d.api_ship_id:d)));
+    let scheme,plan;
+    for(const [index,fleet] of state.info.fleets.entries()){
+      if(Number(fleet.api_mission?.[0])!==0)continue;
+      const ships=fleet.api_ship.filter(id=>id>0&&state.info.ships[id]?.api_situation!==2&&!docks.has(Number(id)));
+      if(!ships.length)continue;
+      const candidate={fleet:index+1,ships};
+      try{const preview=controller.preview('fleet',candidate);scheme=candidate;plan=preview;break;}catch(_){/* Try another idle fleet. */}
+    }
+    if(!scheme)throw Error('No available idle fleet for read-only preview');
     if(panel().querySelector('.paa-current-status')){
-      const root=find().pluginPath,observed=require(path.join(root,'src/host/store')).readStore(window);
-      const plan=new (require(path.join(root,'src/application/controller')).Controller)({getStore:()=>observed}).preview('fleet',scheme);
       if(plan.organization.targets.join(',')!==scheme.ships.join(','))throw Error('Read-only fleet preview mismatch');
       const current=workbenchHooks().find(w=>w.kind==='manual'),fleet=current?.hooks.sourceFleet?.value||1;
       const preset=current?.hooks.sourcePreset?.value,ids=(preset!=null?state.info.presets?.api_deck?.[preset]?.api_ship||[]:state.info.fleets[fleet-1]?.api_ship||[]).filter(id=>id>0).slice(0,6);
@@ -160,7 +167,7 @@
     if(manual)manual.click();
     await until(()=>panel()?.querySelector('textarea'),'Manual JSON editor did not mount for preview smoke');
     const destination=panel().querySelector('.paa-workbench:not([hidden]) .paa-wb-apply-controls select');
-    if(destination)setValue(destination,String(index+1),HTMLSelectElement.prototype,'change');
+    if(destination)setValue(destination,String(scheme.fleet),HTMLSelectElement.prototype,'change');
     await pause(50);
     setValue(panel().querySelector('textarea'),JSON.stringify(scheme),HTMLTextAreaElement.prototype,'input');
     await pause(100);

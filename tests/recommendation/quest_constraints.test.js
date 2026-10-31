@@ -68,9 +68,11 @@ test('the recommendation worker retains selected quests across worker boundaries
   const {RecommendationWorker}=require('../../src/infrastructure/workers/recommendation_worker');
   const worker=new RecommendationWorker({getDiagnostics:()=>null});
   try{
-    const result=await worker.run('recommendNormalFleet',store,{area:'1-3',fleet:1,questCodes:['2610B1','2610B5']});
+    const progress=[];
+    const result=await worker.run('recommendNormalFleet',store,{area:'1-3',fleet:1,questCodes:['2610B1','2610B5']},event=>progress.push(event));
     assert(result.recommendations.length,result.reason);
     assert(result.recommendations.every(row=>satisfiesQuests(store,row.scheme,quests)));
+    assert(progress.some(event=>event.stage==='prepare'));assert(progress.some(event=>event.stage==='finalize'));
   }finally{await worker.dispose();}
 });
 

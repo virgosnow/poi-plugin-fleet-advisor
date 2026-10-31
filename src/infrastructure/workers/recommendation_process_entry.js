@@ -8,7 +8,7 @@ const port=process.parentPort;
 if(!port)throw Error('Recommendation process requires an Electron parent port');
 port.once('message',async({data})=>{
   try{
-    const message=await runRecommendation(data,performance.now());
+    const message=await runRecommendation(data,performance.now(),progress=>port.postMessage({progress}));
     if(message.profile)Object.assign(message.profile.runtime,{prewarmed:data.prewarmed===true,preloadMs});
     port.postMessage(message);
   }

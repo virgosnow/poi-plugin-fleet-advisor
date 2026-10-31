@@ -1,5 +1,13 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),M=require('../../src/ui/shell/model');
+test('host renders do not forward changing game props into the memoized panel',()=>{
+  let inner;
+  const React={createElement:(type,props)=>({type,props}),memo:component=>{inner=component;return {memoized:component};}};
+  const Panel=require('../../src/ui/shell/panel')(React,{getController:()=>null,getStore:()=>({}),subscribe:()=>()=>{}});
+  const first=Panel({gameResponse:1}),next=Panel({gameResponse:2});
+  assert.equal(first.type,next.type);assert.equal(first.type.memoized,inner);
+  assert.equal(first.props,undefined);assert.equal(next.props,undefined);
+});
 test('scheme parser rejects array/null and accepts a valid empty document',()=>{
   for(const value of ['null','[]','{fleet:1}'])assert(M.parse(value).error);
   assert.deepEqual(M.parse(M.format({fleet:2,ships:[]})).value,{fleet:2,ships:[]});

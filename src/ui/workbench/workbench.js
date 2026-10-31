@@ -14,6 +14,16 @@ const {runRouteCombatBatch}=require('./route_combat_batch');
 const SHIP_GROUPS=[['small','驱逐／海防',[1,2]],['cruiser','巡洋舰',[3,4,5,6,21]],['battleship','战舰',[8,9,10,12]],['carrier','空母',[7,11,18]],['submarine','潜艇',[13,14]],['other','辅助舰',[16,17,19,20,22]]];
 const shipGroup=type=>SHIP_GROUPS.find(group=>group[2].includes(Number(type)))?.[0]||'other';
 const blank=()=>Array(6).fill(null),pad=rows=>rows.concat(Array(Math.max(0,6-rows.length)).fill(null));
+const progressLabels={prepare:'准备舰队资料',hulls:'筛选舰娘',seeds:'评估候选编成',gear:'规划装备',
+  'path-fit':'核对路线配装','speed-fit':'调整舰队航速','speed-refit':'复核航速与配装','los-fit':'调整索敌装备',
+  combat:'评估战力',refinement:'优化编成',expedition:'准备远征计算','expedition-candidates':'筛选远征编成',
+  'expedition-fit':'规划远征装备与收益','expedition-rescue':'补充搜索远征编成','expedition-wait':'核对另一种远征目标',
+  equipment:'计算装备',finalize:'核对结果'};
+function calculationProgress(value){
+  const label=progressLabels[value?.stage]||'正在计算';
+  const done=Number(value?.completed),total=Number(value?.total);
+  return total>0&&Number.isFinite(done)?`${label} · 本步骤 ${Math.floor(Math.min(total,Math.max(0,done))/total*100)}%`:label;
+}
 module.exports=function createWorkbench(React,{getController,getStore,subscribe,setQuestPageActive}){
   const expeditionView=require('../expedition/expedition_view')(React);
   const h=React.createElement,EquipmentIcon=require('../components/equipment_icon')(React);
@@ -23,6 +33,11 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
   const AreaPicker=require('../components/area_picker')(React);
   const RoutePicker=require('../components/route_picker')(React);
   const useMapLoading=require('../maps/map_loading')(React,{getStore});
+  function CalculationProgress({channel}){
+    const [value,setValue]=React.useState(channel.value);
+    React.useEffect(()=>{channel.listeners.add(setValue);setValue(channel.value);return()=>channel.listeners.delete(setValue);},[channel]);
+    return value?h('small',{className:'paa-wb-calculation-detail'},value):null;
+  }
   const summaryMetric=(reading,kind)=>{
     const good=kind==='air'?/^全程空/.test(reading.state):['索敌达标','无需索敌'].includes(reading.state);
     const warning=reading.bad||reading.uncertain||reading.state==='估算达标';
@@ -84,6 +99,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const [selectedQuests,setSelectedQuests]=React.useState([]);
     const grid=React.useRef(null),alive=React.useRef(true),positions=React.useRef(new Map()),popupList=React.useRef(null);
     const resultViews=React.useRef(new Map());
+    const calculationChannel=React.useRef({value:'',listeners:new Set()});
     const previousDefaultGoal=React.useRef(defaultGoal);
     const mapDialog=React.useRef(null);
     const operation=React.useRef(0),routeCache=React.useRef(null),latest=React.useRef(null),prepared=React.useRef(false);
@@ -264,10 +280,11 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       slots.map((s,i)=>s&&(s.pin||Object.keys(s.keep).length)?[i,s.id,s.pin,Object.keys(s.keep).map(k=>[k,k==='ex'?s.ex:s.slots[k]])]:null),...(selectedQuests.length?[selectedQuests]:[])]);
     const normalHolds=rows=>W.recommendationHolds(rows,{preservePositions:false}).filter(Boolean).map(hold=>
       ({...hold,keep:Object.fromEntries(Object.entries(hold.keep).sort(([a],[b])=>a.localeCompare(b)))})).sort((a,b)=>a.id-b.id);
-    const requestNormalRoute=(service,query,signature,initialStore)=>{
+    const publishCalculation=value=>{const channel=calculationChannel.current;channel.value=value;for(const listener of channel.listeners)listener(value);};
+    const requestNormalRoute=(service,query,signature,initialStore,onProgress)=>{
       const pending=routeRequests.current.get(signature);
       if(pending&&pending.info===initialStore.info&&pending.master===initialStore.const)return pending.promise;
-      const promise=(async()=>{const {snapshotId}=service.createSnapshot();return service.recommendNormalFleet({...query,snapshotId});})();
+      const promise=(async()=>{const {snapshotId}=service.createSnapshot();return service.recommendNormalFleet({...query,snapshotId},onProgress);})();
       const entry={info:initialStore.info,master:initialStore.const,promise};routeRequests.current.set(signature,entry);
       const clear=()=>{if(routeRequests.current.get(signature)===entry)routeRequests.current.delete(signature);};
       promise.then(clear,clear);return promise;
@@ -313,6 +330,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const previousCombat=routeCombatSnapshot.current;
       if(kind==='normal'&&!automatic&&previousCombat&&(previousCombat.info!==initialInfo||previousCombat.master!==initialMaster||previousCombat.signature!==combatSignature))invalidateRouteCombat();
       const signature=kind==='expedition'?JSON.stringify([cacheKey('both'),revision]):cacheKey(requestedGoal,requestedPhase);
+      publishCalculation('准备舰队资料');
       setWorking(true);setActivity(automatic?'route':'complete');setNotice('');setError('');setPopup(null);
       await new Promise(resolve=>setTimeout(resolve,20));
       try{
@@ -331,10 +349,11 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           const service=getController();
           const query={fleet,fixedShipIds:slots.filter(s=>s&&(s.pin||Object.keys(s.keep).length)).map(s=>s.id),excludedShipIds:excluded,
             ...(selectedQuests.length?{questCodes:selectedQuests}: {})};
+          const onProgress=value=>{if(alive.current&&token===operation.current)publishCalculation(calculationProgress(value));};
           if(kind==='normal')found=await requestNormalRoute(service,{...query,area,target,phase:requestedPhase||undefined,
-            airGoal:'superiority',heldSlots:W.recommendationHolds(slots,{preservePositions:false})},signature,initialStore);
+            airGoal:'superiority',heldSlots:W.recommendationHolds(slots,{preservePositions:false})},signature,initialStore,onProgress);
           else {const {snapshotId}=service.createSnapshot();found=await service.recommendExpeditionFleet({...query,snapshotId,limit:3,missionId,goal:requestedGoal,heldSlots:W.recommendationHolds(slots),
-              ...(slots[0]&&(slots[0].pin||Object.keys(slots[0].keep).length)?{fixedFlagshipId:slots[0].id}:{})});}
+              ...(slots[0]&&(slots[0].pin||Object.keys(slots[0].keep).length)?{fixedFlagshipId:slots[0].id}:{})},onProgress);}
         }
         if(!alive.current||token!==operation.current||![origin,key].includes(latest.current))return;
         if(getStore().info!==initialInfo||getStore().const!==initialMaster||kind==='expedition'&&require('../../application/snapshots').fingerprint(getStore())!==stamp)throw Error('舰队资料已变化，请重新补全');
@@ -373,12 +392,14 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         prepared.current=true;return items.map(s=>s?.preselectionComplete===false?{...s,preselectionComplete:true}:s);
       };
       const token=++operation.current,key=conditionKey,initialStore=getStore();
+      publishCalculation('准备装备资料');
       setWorking(true);setActivity('equipment');setNotice('');
       await new Promise(resolve=>setTimeout(resolve,20));
       try{
         const service=getController(),{snapshotId}=service.createSnapshot();
-        const result=await (kind==='expedition'?service.recommendExpeditionEquipment({snapshotId,scheme:W.scheme(next,fleet),missionId,goal,heldSlots:next.filter(Boolean)}):
-          service.recommendNormalEquipment({snapshotId,scheme:W.scheme(next,fleet),area,target,phase:effectivePhase||undefined,heldSlots:next.filter(Boolean),routeKey:mapRoute}));
+        const onProgress=value=>{if(alive.current&&token===operation.current)publishCalculation(calculationProgress(value));};
+        const result=await (kind==='expedition'?service.recommendExpeditionEquipment({snapshotId,scheme:W.scheme(next,fleet),missionId,goal,heldSlots:next.filter(Boolean)},onProgress):
+          service.recommendNormalEquipment({snapshotId,scheme:W.scheme(next,fleet),area,target,phase:effectivePhase||undefined,heldSlots:next.filter(Boolean),routeKey:mapRoute},onProgress));
         if(!alive.current||token!==operation.current||latest.current!==key)return;
         if(getStore().info!==initialStore.info||getStore().const!==initialStore.const)throw Error('舰队资料已变化，已保留换船结果，请重新补全');
         const updated=activateDraft(W.withEquipment(next,result.scheme));service.preview('fleet',W.scheme(updated,fleet));
@@ -696,7 +717,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
             summaryMetric(summary.air,'air'),summaryMetric(summary.los,'los'))):null,
           h('div',{className:'paa-wb-ships',ref:grid},...slots.map(shipCard),
             cardActivity?h('div',{className:'paa-wb-calculating paa-wb-fleet-overlay',role:'status','data-activity':activity},
-              h('span',{className:'paa-wb-calculation-label'},h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),cardActivity)):null),
+              h('span',{className:'paa-wb-calculation-label'},h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),cardActivity,
+                h(CalculationProgress,{channel:calculationChannel.current}))):null),
         )),
       kind==='normal'&&mapExpanded?h('dialog',{ref:mapDialog,className:'paa-wb-map-dialog','aria-label':`${area} 海域地图`,
         onCancel:e=>{e.preventDefault();setMapExpanded(false);},

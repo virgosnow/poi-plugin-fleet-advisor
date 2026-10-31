@@ -28,6 +28,14 @@ test('utility handshake sends exactly one snapshot, reaps before results/mainten
   child.emit('exit',0);assert.deepEqual(await result,{ships:[1,2]});await maintenance;
   assert.equal(f.owner.eventNames().length,0);assert.equal(f.app.eventNames().length,0);await runner.dispose();
 });
+test('progress messages reach the caller without finishing or reaping the running process',async()=>{
+  const f=fixture(),runner=new RecommendationWorker({createWorker:f.createWorker}),progress=[];
+  const result=runner.run('recommendNormalFleet',{},{},event=>progress.push(event));await tick();
+  const child=f.children[0];child.emit('message',{ready:true});
+  child.emit('message',{progress:{stage:'gear',completed:2,total:4}});
+  assert.deepEqual(progress,[{stage:'gear',completed:2,total:4}]);assert.equal(child.kills,0);
+  child.emit('message',{ok:true,result:42});assert.equal(await result,42);await runner.dispose();
+});
 test('cancel drains the process, rejects old queued searches and permits a fresh search',async()=>{
   const f=fixture(),runner=new RecommendationWorker({createWorker:f.createWorker});
   const first=runner.run('recommendNormalFleet',{},{}),second=runner.run('recommendNormalFleet',{},{});

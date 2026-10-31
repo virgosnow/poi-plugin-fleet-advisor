@@ -158,12 +158,18 @@ function candidatePathFacts(store,candidate,options,args,ctx){
     return [option.key,{eligible,hullPossible,planning,chance,scores}];
   });
 }
-function recommendationBatch(store,batch){
+function recommendationBatch(store,batch,onProgress){
   return perf.withDetails({batch:batch.finalGround?'gear-final-ground':batch.finalAsw?'gear-final-asw':batch.kind},()=>
-    routePlans.withPlanningCache(()=>calculateBatch(store,batch)));
+    routePlans.withPlanningCache(()=>calculateBatch(store,batch,onProgress)));
 }
-function calculateBatch(store,batch){
+function calculateBatch(store,batch,onProgress){
   const {args,items,kind}=batch,{area,phase,airGoal='superiority'}=args;
+  let lastReport=0;
+  const mapItems=fn=>items.map((item,index)=>{
+    const result=fn(item),now=onProgress?Date.now():0;
+    if(onProgress&&(index+1===items.length||now-lastReport>=200)){lastReport=now;onProgress({stage:kind,completed:index+1,total:items.length});}
+    return result;
+  });
   const ctx=context(store,args,1),allInventory=availableEquipment(store);
   if(kind==='hulls'){
     ctx.combatScore=combatHullRanker(store,previewForSnapshot(store,area,{target:args.target||'boss',phase}));
@@ -177,11 +183,11 @@ function calculateBatch(store,batch){
       candidate.preparedPaths=candidatePathFacts(store,candidate,batch.routes,args,ctx);
     return candidate;
   };
-  if(kind==='seeds')return items.map(ids=>{
+  if(kind==='seeds')return mapItems(ids=>{
     const candidate=evaluate(ids.map(id=>ctx.byId.get(id)));
     return batch.routes?{candidate,paths:candidatePathFacts(store,candidate,batch.routes,args,ctx)}:candidate;
   });
-  if(kind==='refinement')return items.map(({ids,base,option})=>{
+  if(kind==='refinement')return mapItems(({ids,base,option})=>{
     const rows=ids.map(id=>ctx.byId.get(id));let attempts=0;
     const inventory=equipmentForFleet(allInventory,ids,args.automaticFilters);
     const result=candidate=>({candidate,attempts,paths:candidatePathFacts(store,candidate,[option],args,ctx)});
@@ -216,7 +222,7 @@ function calculateBatch(store,batch){
     if(los){trial=evaluate(rows,los)||trial;attempts++;}
     return result(trial);
   });
-  if(['path-fit','los-fit','combat','speed-fit','speed-refit'].includes(kind))return items.map(item=>{
+  if(['path-fit','los-fit','combat','speed-fit','speed-refit'].includes(kind))return mapItems(item=>{
     const rows=(['combat','speed-fit'].includes(kind)?item:item.scheme.ships.map(s=>s.id)).map(id=>ctx.byId.get(id));
     const inventory=equipmentForFleet(allInventory,rows,args.automaticFilters);
     const candidates=[];let attempts=0;
@@ -277,7 +283,7 @@ function calculateBatch(store,batch){
   });
   if(kind!=='gear')throw Error('Unknown recommendation batch');
   const {gearKinds}=batch;
-  return items.map(seed=>{
+  return mapItems(seed=>{
     const rows=seed.scheme.ships.map(s=>ctx.byId.get(s.id)),singles=[],combinedRows=[];
     const inventory=equipmentForFleet(allInventory,rows,args.automaticFilters);
     // Worker messages clone references. Reuse this worker's static reference
@@ -378,16 +384,18 @@ function recommendNormalFleet(store,args){
     return step.value;
   }));
 }
-async function recommendNormalFleetParallel(store,args,runBatch,scope=run=>run()){
+async function recommendNormalFleetParallel(store,args,runBatch,scope=run=>run(),onProgress=()=>{}){
   const indexes=new Map(),rules=new Map(),steps=normalFleetSteps(store,args);
   const advance=value=>scope(()=>routePlans.withPlanningCache(()=>withEquipmentIndexCache(store,()=>steps.next(value),indexes),rules));
   let step=perf.stage('selection.initial',()=>advance());
   while(!step.done){
     const kind=step.value.kind;
+    onProgress({stage:kind});
     const result=await perf.stageAsync('batch.'+kind,()=>runBatch(step.value,
-      ()=>scope(()=>withEquipmentIndexCache(store,()=>recommendationBatch(store,{...step.value,serial:true}),indexes))));
+      ()=>scope(()=>withEquipmentIndexCache(store,()=>recommendationBatch(store,{...step.value,serial:true},onProgress),indexes))));
     step=perf.stage('selection.after.'+kind,()=>advance(result));
   }
+  onProgress({stage:'finalize'});
   return step.value;
 }
 function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
