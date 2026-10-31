@@ -58,7 +58,7 @@ function context(state,slots,shared){
     return {id,ship,master,position:index+1,entry:typeof entry==='object'?entry:{id},
       family:master?find(Number(ship.api_ship_id)):null};
   }).filter(Boolean);
-  return {state,rows,masters,find,speed:new Map()};
+  return {state,rows,masters,find,speed:new Map(),counts:new Map(),staticOnly:shared?.staticOnly===true};
 }
 function selectorStatus(selector,row,ctx){
   if(selector?.not)return negate(selectorStatus(selector.not,row,ctx));
@@ -90,6 +90,9 @@ function selectorStatus(selector,row,ctx){
     case 'remodelName':return master.api_name?result(normalizeName(master.api_name).includes(normalizeName(selector.contains))):UNKNOWN;
     case 'level':return row.ship.api_lv===undefined?UNKNOWN:result(Number(row.ship.api_lv)>=selector.min);
     case 'speed':{
+      // Engine/boiler fitting can change speed; a precheck must never reject
+      // a candidate based on its current or unfilled equipment.
+      if(ctx.staticOnly)return UNKNOWN;
       if(!ctx.speed.has(row.id)){
         try{
           const before={slots:row.ship.api_slot||[],ex:row.ship.api_slot_ex??-1};
@@ -104,11 +107,12 @@ function selectorStatus(selector,row,ctx){
 }
 
 function countReading(rule,ctx){
+  const cached=ctx.counts.get(rule);if(cached)return cached;
   const readings=ctx.rows.filter(row=>!rule.positions||rule.positions.includes(row.position)).map(row=>({row,status:selectorStatus(rule.selector,row,ctx)}));
   const yes=readings.filter(r=>r.status===MET).map(r=>r.row.position),maybe=readings.filter(r=>r.status!==UNMET).map(r=>r.row.position);
   const low=yes.length,high=maybe.length,min=Number(rule.min||0),max=rule.max??Infinity;
   const status=low>max||high<min?UNMET:low>=min&&high<=max?MET:UNKNOWN;
-  return {status,low,high,yes,maybe};
+  const reading={status,low,high,yes,maybe};ctx.counts.set(rule,reading);return reading;
 }
 
 // A complete anyOf branch is chosen before assigning roles. A flagship or
@@ -177,4 +181,19 @@ function createFleetRequirementEvaluator(state){
   const masters=state?.const?.$ships||{},shared={masters,find:familyIndex(masters)};
   return (fleet,slots,deckId)=>evaluateFleetRequirements(fleet,state,slots,deckId,shared);
 }
-module.exports={evaluateFleetRequirements,createFleetRequirementEvaluator,selectorLabel,ruleLabel};
+function createFleetRequirementPrecheck(state){
+  const masters=state?.const?.$ships||{},shared={masters,find:familyIndex(masters),staticOnly:true};
+  return (fleet,slots,deckId)=>{
+    const ctx=context(state,slots,shared),size=ctx.rows.length;
+    if((fleet.sizeMin!==undefined&&size<fleet.sizeMin)||(fleet.sizeMax!==undefined&&size>fleet.sizeMax)||
+      (fleet.sizeExact!==undefined&&size!==fleet.sizeExact)||
+      (fleet.fleetIndex!==undefined&&deckId!==undefined&&Number(deckId)!==fleet.fleetIndex))return UNMET;
+    if(fleet.uniqueShipFamilies){
+      const known=ctx.rows.filter(row=>row.family!==null).map(row=>row.family);
+      if(new Set(known).size!==known.length)return UNMET;
+    }
+    const top=fleet.anyOf?{anyOf:fleet.anyOf}:{allOf:fleet.allOf||[]};
+    return any(plans(top).map(plan=>planStatus(plan,ctx,!!fleet.distinctCompositionGroups)));
+  };
+}
+module.exports={evaluateFleetRequirements,createFleetRequirementEvaluator,createFleetRequirementPrecheck,selectorLabel,ruleLabel};

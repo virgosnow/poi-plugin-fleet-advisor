@@ -149,6 +149,19 @@ test('counts include negatives, max counts, class, nationality, level and exclus
   assert.equal(evaluateFleetRequirements(fleet,state,[a,b],1).status,'unmet');
 });
 
+test('reused evaluator observes new slots, rule values and changed ship data',()=>{
+  const {state,add}=fixture(),a=add(1,1,'甲',2),b=add(2,2,'乙',3);
+  const rule={kind:'count',selector:{kind:'shipType',stypeIds:[2]},min:1};
+  const fleet={allOf:[rule]},evaluate=require('../../../src/domain/quests/fleet_requirements').createFleetRequirementEvaluator(state);
+  assert.equal(evaluate(fleet,[a],1).status,'met');
+  assert.equal(evaluate(fleet,[b],1).status,'unmet');
+  state.const.$ships[2].api_stype=2;
+  assert.equal(evaluate(fleet,[b],1).status,'met');
+  rule.min=2;
+  assert.equal(evaluate(fleet,[b],1).status,'unmet');
+  assert.equal(evaluate(fleet,[a,b],1).status,'met');
+});
+
 test('duplicate hull instances/remodel families do not satisfy unique-family rules',()=>{
   const {state,add}=fixture();const a=add(1,1,'甲',2,{api_aftershipid:'2'}),b=add(2,2,'甲改',2);
   assert.equal(evaluateFleetRequirements({uniqueShipFamilies:true,allOf:[]},state,[a,b],1).status,'unmet');

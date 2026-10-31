@@ -94,10 +94,10 @@ function utilityRoles(store,entry){
   return {radars:items.filter(m=>[12,13,93].includes(type(m))).length,
     aaCore:items.some(m=>Number(m?.api_type?.[3])===16||[21,36].includes(type(m)))};
 }
-function equipmentValue(store,entry,item,slot,{air=0,los=false,auxiliary=false}={}){
+function equipmentValue(store,entry,item,slot,{air=0,los=false,auxiliary=false}={},roles){
     const m=item.master,t=type(m),blueValue=equipmentAffinity(store,entry,item,air);
     if(!auxiliary)return rawAttack(m)+blueValue+.2*air*Number(m.api_tyku||0);
-    const radar=[12,13,93].includes(t),{radars,aaCore}=utilityRoles(store,entry);
+    const radar=[12,13,93].includes(t),{radars,aaCore}=roles||utilityRoles(store,entry);
     // Prefer a complementary role once a ship already has a radar. This is a
     // bounded loadout preference; radar accuracy still stacks in the game.
     const hitWeight=radar&&radars?(radars===1 ? .2:.05):1;
@@ -114,7 +114,10 @@ function rankEquipment(store,entry,items,slot,options){
   // Score a master/improvement group once, then use its real instances in the
   // original deterministic tie order. No extra whole-fleet search is added.
   const cache=snapshotMemo(store,'combatValue.equipmentOrders',items,()=>new Map());
-  const key=JSON.stringify([entry.id,slot,options,options.auxiliary?utilityRoles(store,entry):null]);
+  // The current outfit cannot change during this synchronous ranking. Read its
+  // complementary radar/AA roles once, instead of once per equipment group.
+  const roles=options.auxiliary?utilityRoles(store,entry):null;
+  const key=JSON.stringify([entry.id,slot,options,roles]);
   if(cache.has(key)){perf.count('loadout.rank.hit');return cache.get(key);}
   perf.count('loadout.rank.build');
   const groups=new Map(),scores=new Map(),legal=[];
@@ -124,7 +127,7 @@ function rankEquipment(store,entry,items,slot,options){
     if(!groups.has(key)){
       let eligible=false,borrow=false;
       try{eligible=canEquip(store,entry.id,item.id,slot);borrow=eligible&&acceptsOtherSlot(store,entry.id,item.id,slot);}catch(_){/* Missing legality data is never accepted. */}
-      groups.set(key,{eligible,borrow,value:eligible?equipmentValue(store,entry,item,slot,options):0});
+      groups.set(key,{eligible,borrow,value:eligible?equipmentValue(store,entry,item,slot,options,roles):0});
     }
     const group=groups.get(key);
     if(!group.eligible||item.sourceShipId&&item.sourceShipId!==entry.id&&!group.borrow)continue;

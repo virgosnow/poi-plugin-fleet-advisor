@@ -122,6 +122,23 @@ test('numerical grouping never bypasses instance ownership or the stricter other
   assert.deepEqual(ranked.map(i=>i.id),[201]);
 });
 
+test('auxiliary ranking preserves per-item scores when outfit radar and anti-air roles change',()=>{
+  const store=combatFixture(),options={air:1,los:true,auxiliary:true};
+  const items=[103,104,105,301,401].map(id=>({id,sourceShipId:null,
+    master:store.const.$equips[store.info.equips[id].api_slotitem_id]}));
+  const entry={id:1,slots:[-1,-1,-1,-1],ex:-1};
+  const expected=()=>items.filter(item=>canEquip(store,entry.id,item.id,1))
+    .map(item=>({item,score:value.equipmentValue(store,entry,item,1,options)})).filter(row=>row.score>0)
+    .sort((a,b)=>b.score-a.score||a.item.id-b.item.id).map(row=>row.item);
+  withEquipmentIndexCache(store,()=>{
+    assert.deepEqual(value.rankEquipment(store,entry,items,1,options),expected());
+    entry.slots[0]=201;
+    assert.deepEqual(value.rankEquipment(store,entry,items,1,options),expected());
+    entry.slots[2]=103;
+    assert.deepEqual(value.rankEquipment(store,entry,items,1,options),expected());
+  });
+});
+
 function auxiliaryFixture(name='初月改二',id=968){
   const store=combatFixture(name,id);
   store.const.$equips[410]={api_id:410,api_name:'21号対空電探改二',api_type:[0,0,13,11],api_tyku:7,api_saku:7,api_houm:4,api_houk:4};

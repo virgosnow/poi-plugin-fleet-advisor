@@ -22,7 +22,7 @@ test('utility handshake sends exactly one snapshot, reaps before results/mainten
   const maintenance=runner.maintain(()=>{maintained=true;});await tick();
   const child=f.children[0];assert.equal(child.sent.length,0);
   child.emit('message',{ready:true});child.emit('message',{ready:true});assert.equal(child.sent.length,1);
-  assert.equal(child.sent[0].store.immutable,true);
+  assert.equal(child.sent[0].store.immutable,true);assert.equal(child.sent[0].emitProgress,false);
   child.emit('message',{ok:true,result:{ships:[1,2]}});await tick();
   assert.equal(child.kills,1);assert(!resultDelivered);assert(!maintained);
   child.emit('exit',0);assert.deepEqual(await result,{ships:[1,2]});await maintenance;
@@ -32,9 +32,26 @@ test('progress messages reach the caller without finishing or reaping the runnin
   const f=fixture(),runner=new RecommendationWorker({createWorker:f.createWorker}),progress=[];
   const result=runner.run('recommendNormalFleet',{},{},event=>progress.push(event));await tick();
   const child=f.children[0];child.emit('message',{ready:true});
+  assert.equal(child.sent[0].emitProgress,true);
   child.emit('message',{progress:{stage:'gear',completed:2,total:4}});
   assert.deepEqual(progress,[{stage:'gear',completed:2,total:4}]);assert.equal(child.kills,0);
   child.emit('message',{ok:true,result:42});assert.equal(await result,42);await runner.dispose();
+});
+test('real recommendation workers send progress only to subscribed callers',async()=>{
+  const {Worker}=require('node:worker_threads'),store=require('../helpers/workbench_fixture')();
+  const model=require('../../src/ui/workbench/workbench_model');
+  const args={area:'1-1',target:'boss',scheme:model.scheme([model.entry(store,2)],1)},results=[];
+  for(const subscribed of [false,true]){
+    const messages=[],updates=[],runner=new RecommendationWorker({getDiagnostics:()=>null,createWorker:(filename,options)=>{
+      const worker=new Worker(filename,options);worker.on('message',message=>{if(message?.progress)messages.push(message.progress);});return worker;
+    }});
+    try{
+      results.push(await runner.run('recommendNormalEquipment',store,args,subscribed?value=>updates.push(value):undefined));
+      if(subscribed){assert(messages.length>0);assert.deepEqual(updates,messages);}
+      else assert.deepEqual(messages,[]);
+    }finally{await runner.dispose();}
+  }
+  assert.deepEqual(results[0],results[1]);
 });
 test('cancel drains the process, rejects old queued searches and permits a fresh search',async()=>{
   const f=fixture(),runner=new RecommendationWorker({createWorker:f.createWorker});

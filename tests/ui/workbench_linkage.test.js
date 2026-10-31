@@ -166,6 +166,62 @@ function harness(kind='normal',automaticFilters){
   return {render,find,control,chooseGoal,get,set,service,calls,store,effects,refs};
 }
 
+test('picker typing and disclosures reuse fleet and route derivations until the draft changes',()=>{
+  const h=harness(),original=W.mapOverview;let calculations=0;
+  W.mapOverview=(...args)=>{calculations++;return original(...args);};
+  try{
+    h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);h.render();
+    assert.equal(calculations,1);
+    h.set('popup',{index:1});h.render();
+    h.set('search','村');h.render();
+    h.set('shipSort','name');h.render();
+    h.set('routeRulesOpen',true);h.render();
+    h.set('nodeId','A');h.render();
+    assert.equal(calculations,1,'ordinary controls must not recompute map and fleet derivations');
+    h.set('slots',[W.entry(h.store,3),null,null,null,null,null]);h.render();
+    assert.equal(calculations,2,'changing the draft must recompute derived values');
+  }finally{W.mapOverview=original;}
+});
+
+test('in-place game, map and draft equipment changes invalidate retained derivations',()=>{
+  const h=harness(),original=W.mapOverview;let calculations=0;
+  h.set('area','3-5');h.store.info.maps={35:{api_gauge_type:1,api_required_defeat_count:5,api_defeat_count:1}};
+  h.store.info.useitems={95:{api_count:2}};h.store.info.resources={api_fuel:10};
+  h.store.const.$equips[600]={api_id:600,api_name:'装备',api_type:[0,0,1,1]};
+  h.store.info.equips[600]={api_id:600,api_slotitem_id:600,api_level:0};
+  h.set('slots',[{...W.entry(h.store,2),slots:[600,-1]}]);
+  W.mapOverview=(...args)=>{calculations++;return original(...args);};
+  try{
+    const readProgress=()=>h.find(h.render(),n=>n.props.className==='paa-wb-progress-value').children.join('');
+    assert.match(readProgress(),/剩余 4/);assert.equal(calculations,1);
+    h.store.info.maps[35].api_defeat_count=2;assert.match(readProgress(),/剩余 3/);
+    h.store.info.useitems[95].api_count=3;h.render();
+    h.store.info.resources.api_fuel=11;h.render();
+    h.store.info.fleets[0].api_ship[0]=2;h.render();
+    h.store.info.ships[2].api_cond=32;h.render();
+    h.store.const.$ships[2].api_soku=5;h.render();
+    h.store.info.equips[600].api_level=2;h.render();
+    h.store.const.$equips[600].api_name='变化的装备';h.render();
+    assert.equal(calculations,9);
+  }finally{W.mapOverview=original;}
+});
+
+test('in-place mission master updates invalidate expedition income without a new draft',()=>{
+  const h=harness('expedition'),original=W.income;let calculations=0;
+  h.set('slots',[W.entry(h.store,2)]);const mission=h.store.const.$missions[h.get('missionId')];
+  W.income=(...args)=>{calculations++;return original(...args);};
+  try{h.render();assert.equal(calculations,1);mission.api_use_fuel=0.9;h.render();assert.equal(calculations,2);}
+  finally{W.income=original;}
+});
+
+test('in-place selected map gauge changes invalidate the derived current phase',()=>{
+  const h=harness();h.set('area','7-3');h.store.info.maps={73:{api_gauge_num:1}};h.render();
+  const phase=()=>h.refs.find(ref=>ref.current?.dependencies?.[1]==='7-3'&&ref.current?.dependencies?.[0]==='normal');
+  assert.equal(phase().current.value,'gauge1');
+  h.store.info.maps[73].api_gauge_num=2;h.render();
+  assert.equal(phase().current.value,'gauge2');
+});
+
 test('map node selection never replaces route-level combat assessment or its two threat cards',()=>{
   const h=harness(),slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
   h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);

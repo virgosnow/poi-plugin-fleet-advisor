@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fixture=require('../helpers/workbench_fixture');
 const {context}=require('../../src/recommendation/context');
-const {questRequirements,satisfiesQuests,questSeeds}=require('../../src/recommendation/quest_constraints');
+const {questRequirements,satisfiesQuests,questSeeds,createQuestPrecheck}=require('../../src/recommendation/quest_constraints');
 const {recommendNormalFleet,recommendNormalFleetParallel,recommendExpeditionFleet}=require('../../src/recommendation');
 
 function storeWithShips(){
@@ -12,6 +12,45 @@ function storeWithShips(){
   }
   return store;
 }
+
+test('static quest precheck prunes only definite failures, preserving equipment-dependent and unknown alternatives',()=>{
+  const store=storeWithShips(),scheme=(...ids)=>({fleet:1,ships:ids.map(id=>({id}))});
+  const count=(selector,min=1,extra={})=>({kind:'count',selector,min,...extra});
+  const types=stypeIds=>({kind:'shipType',stypeIds});
+  const possible=fleet=>createQuestPrecheck(store,[{fleet}]);
+  assert.equal(possible({allOf:[count(types([3]))]})(scheme(2,3)),false);
+  assert.equal(possible({fleetIndex:2,allOf:[]})(scheme(2,3)),false);
+  assert.equal(possible({allOf:[count(types([7]),1,{positions:[1]})]})(scheme(2,1)),false);
+  assert.equal(possible({allOf:[count(types([7]),1,{positions:[1]})]})(scheme(1,2)),true);
+  const speed={kind:'speed',min:20};
+  assert.equal(possible({allOf:[count(speed)]})(scheme(2)),true,'fitting can improve speed');
+  assert.equal(possible({allOf:[count({not:speed})]})(scheme(2)),true,'negating an unknown speed must remain unknown');
+  assert.equal(possible({anyOf:[{allOf:[count(types([3]))]},{allOf:[count(speed)]}]})(scheme(2)),true);
+  assert.equal(possible({anyOf:[{allOf:[count(types([3]))]},{allOf:[count(types([7]))]}]})(scheme(2)),false);
+  const unknown=scheme(999);assert.equal(possible({allOf:[count(types([3]))]})(unknown),true,'missing master data cannot be declared impossible');
+});
+
+test('precheck never rules out a fully satisfied fleet across the quest catalog',()=>{
+  const store=storeWithShips(),all=[...require('../../data/quests/requirements.json').quests,
+    ...require('../../data/quests/limited/2026-halloween.json').quests].filter(q=>q.fleet);
+  const candidates=[[1],[2,3],[1,2,3,4,5],[1,2,3,4,5,6],[7,2,3,4,5,6]];
+  for(const quest of all){
+    const possible=createQuestPrecheck(store,[quest]);
+    for(const ids of candidates){const scheme={fleet:1,ships:ids.map(id=>({id}))};
+      if(satisfiesQuests(store,scheme,[quest]))assert(possible(scheme),`${quest.code} must not be rejected`);
+    }
+  }
+});
+
+test('normal search skips fitting candidates that cannot meet the selected quest',()=>{
+  const store=fixture(),trace=new (require('../../src/shared/performance_trace').PerformanceTrace)({level:'stages'});
+  const codes=['By6'],quests=questRequirements(codes);
+  const result=trace.run(()=>recommendNormalFleet(store,{area:'1-2',fleet:1,questCodes:codes,
+    automaticFilters:{minLevel:0,excludeUnremodeled:false,excludeFatigued:false}}));
+  assert(result.recommendations.length,result.reason);
+  assert(trace.counters['candidate.questStaticRejected']>0,'unsuitable fleets are rejected before fitting');
+  assert(result.recommendations.every(row=>satisfiesQuests(store,row.scheme,quests)));
+});
 
 test('seed search combines multiple quests, flagship rules and fixed positions',()=>{
   const store=storeWithShips(),quests=questRequirements(['2610B1','2610B5']);
@@ -30,6 +69,18 @@ test('seed search assigns separate named roles plus a free fast ship',()=>{
   const quests=questRequirements(['B11']),ctx=context(store,{fleet:1},1),seeds=questSeeds(store,ctx,{},quests);
   assert(seeds.length,'six separate roles can be filled');
   assert(seeds.every(rows=>rows.length===6&&satisfiesQuests(store,{fleet:1,ships:rows.map(row=>({id:row.id}))},quests)));
+});
+
+test('route type templates allow reordered ships while alternative task roles and held positions remain exact',()=>{
+  const store=fixture(),args={fleet:1,fixedShipIds:[7],heldSlots:[null,{id:7,pin:true,keep:{}}]};
+  const quests=[{fleet:{sizeExact:2,anyOf:[
+    {allOf:[{kind:'count',positions:[1],selector:{kind:'shipType',stypeIds:[3]},min:1},
+      {kind:'count',positions:[2],selector:{kind:'shipType',stypeIds:[1]},min:1}]},
+    {allOf:[{kind:'count',positions:[1],selector:{kind:'shipType',stypeIds:[1]},min:1},
+      {kind:'count',positions:[2],selector:{kind:'shipType',stypeIds:[3]},min:1}]}]}}];
+  const ctx=context(store,args,1),seeds=questSeeds(store,ctx,args,quests,{templates:[[[1],[3]]]});
+  assert(seeds.some(rows=>rows.map(row=>row.id).join(',')==='1,7'));
+  assert(seeds.every(rows=>rows.length===2&&rows[1].id===7&&satisfiesQuests(store,{fleet:1,ships:rows.map(row=>({id:row.id}))},quests)));
 });
 
 test('normal recommendations meet every selected quest after fitting and fleet reordering',()=>{

@@ -5,6 +5,10 @@
 function gearShortlist(seeds,{routes,key,rank,scores,hullPower,airPotential,protectedKeys=new Set(),reserveKeys,enabled=true}){
   if(!enabled||!routes.length||seeds.length<=32)return {primary:seeds,reserve:[]};
   const selected=new Set(),eligible=new Map();
+  // Hull and aircraft potential depend on the candidate, not on the route.
+  // One search may compare the same candidate against several route presets.
+  const hullValues=new Map(),airValues=new Map();
+  const once=(cache,read,row)=>{if(!cache.has(row))cache.set(row,read(row));return cache.get(row);};
   const take=(rows,read,count,positive=false)=>{
     const values=rows.map((row,index)=>({row,index,value:read(row)}))
       .filter(r=>Number.isFinite(r.value)&&(!positive||r.value>0))
@@ -17,9 +21,9 @@ function gearShortlist(seeds,{routes,key,rank,scores,hullPower,airPotential,prot
     take(rows,row=>rank(row,option),6);
     // Raw hull power preserves strong ships with an initially poor air/LoS
     // outfit. Ground, ASW and special roles must not compete on firepower alone.
-    take(rows,hullPower,3);
+    take(rows,row=>once(hullValues,hullPower,row),3);
     take(rows,row=>scores(row,option).strengthProxy,3);
-    take(rows,airPotential,3,true);
+    take(rows,row=>once(airValues,airPotential,row),3,true);
     take(rows,row=>scores(row,option).groundAttack?.bonus||0,3,true);
     take(rows,row=>scores(row,option).specialAttack?.bonus||0,3,true);
     take(rows,row=>scores(row,option).aswCombat?.readiness||0,3,true);

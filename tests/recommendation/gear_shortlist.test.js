@@ -33,6 +33,13 @@ test('shortlist keeps each route covered, and restores only the reserve relevant
   assert.deepEqual(reserveForRoutes(result,[],options.key),[]);
   assert.deepEqual(reserveForRoutes(result,routes,options.key),result.reserve);
 });
+test('route-independent hull and aircraft readings are reused without changing shortlisted fleets',()=>{
+  const rows=seeds(),calls={hull:0,air:0};
+  const baseline=gearShortlist(rows,options);
+  const result=gearShortlist(rows,{...options,
+    hullPower:row=>{calls.hull++;return row.hull;},airPotential:row=>{calls.air++;return row.air;}});
+  assert.deepEqual(result,baseline);assert.equal(calls.hull,rows.length);assert.equal(calls.air,rows.length);
+});
 test('a guide seed cannot bypass a proven hull failure, while equipment-repairable rows stay eligible',()=>{
   const rows=seeds(),result=gearShortlist(rows,{...options,protectedKeys:new Set([98,99]),
     rank:r=>r.id===99?-Infinity:r.rank});

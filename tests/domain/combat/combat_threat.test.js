@@ -14,6 +14,17 @@ function node(area,id,target=false){
   const raw=require(`../../../data/sortie/encounters/${area}.json`).nodes[id];
   return {id,kind:raw.kind,target,...formationRecords(raw)};
 }
+test('node readings can be reused within the same assessment without changing the ranking',()=>{
+  const nodes=[node('5-5','P'),node('1-1','C',true)],evidence={status:'known',nodes},rankedNodes=new Map();
+  const normal=rankThreats(fleet,evidence,{equipmentMasters:equipment});
+  const reused=rankThreats(fleet,evidence,{equipmentMasters:equipment,rankedNodes});
+  assert.deepEqual(reused,normal);
+  const lookup=equipmentLookup(equipment),cache=new Map();
+  for(const item of nodes)assert.deepEqual(rankedNodes.get(item.id),nodeThreat(item,fleet,lookup,cache));
+  const stronger=[surface(99,120)],next=new Map();
+  rankThreats(stronger,evidence,{equipmentMasters:equipment,rankedNodes:next});
+  assert.notEqual(next.get('P').score,rankedNodes.get('P').score);
+});
 test('5-5 P identifies Re-class elite as the conditional threat, not Ru-class',()=>{
   const r=rankThreats(fleet,{status:'known',nodes:[node('5-5','P')]},{equipmentMasters:equipment});
   assert.equal(r.status,'partial');assert.equal(r.enroute.enemies[0].node,'P');

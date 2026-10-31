@@ -99,7 +99,7 @@ class RecommendationPool {
       }catch(e){slot.pending=null;reject(e);}
     });
   }
-  async run(batch,fallback,onProgress=()=>{}){
+  async run(batch,fallback,onProgress){
     if(this.closed)throw Error('候选计算线程池已关闭');
     // Tiny inputs cost less to calculate locally than to clone/start workers.
     const hulls=batch.kind==='hulls',fitting=['path-fit','los-fit','combat','refinement','speed-fit','speed-refit'].includes(batch.kind);
@@ -128,9 +128,11 @@ class RecommendationPool {
           const start=next;next+=chunkSize;
           const rows=await this.execute(slot,batch,batch.items.slice(start,start+chunkSize));
           for(let i=0;i<rows.length;i++)results[start+i]=rows[i];
-          completed+=Math.min(chunkSize,batch.items.length-start);
-          const now=Date.now();
-          if(completed===batch.items.length||now-lastReport>=200){lastReport=now;onProgress({stage:batch.kind,completed,total:batch.items.length});}
+          if(onProgress){
+            completed+=Math.min(chunkSize,batch.items.length-start);
+            const now=Date.now();
+            if(completed===batch.items.length||now-lastReport>=200){lastReport=now;onProgress({stage:batch.kind,completed,total:batch.items.length});}
+          }
         }
       }));
       return results;

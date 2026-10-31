@@ -24,6 +24,21 @@ function calculationProgress(value){
   const done=Number(value?.completed),total=Number(value?.total);
   return total>0&&Number.isFinite(done)?`${label} · 本步骤 ${Math.floor(Math.min(total,Math.max(0,done))/total*100)}%`:label;
 }
+function draftDataKey(store,slots,{area,fleet,missionId}){
+  // Host snapshots can be mutated in place. Check only the six displayed hulls
+  // and their equipment rather than serializing the entire player inventory.
+  const mapId=Number(String(area).replace('-',''));
+  return JSON.stringify([store.info?.basic,store.info?.resources,store.info?.useitems,store.info?.server,
+    store.info?.fleets?.[fleet-1],store.info?.repairs,store.info?.maps?.[mapId],store.info?.maps?.[11],
+    store.const?.$maps?.[mapId],store.const?.$missions?.[missionId],store.expeditionProgress,slots.map(slot=>{
+    if(!slot)return null;
+    const ship=store.info?.ships?.[slot.id],master=store.const?.$ships?.[ship?.api_ship_id];
+    const graphs=store.const?.$shipgraph,graph=Array.isArray(graphs)?graphs.find(row=>row.api_id===ship?.api_ship_id):graphs?.[ship?.api_ship_id];
+    const equipment=[...slot.slots||[],slot.ex,...ship?.api_slot||[],ship?.api_slot_ex].filter(id=>id>0)
+      .map(id=>{const item=store.info?.equips?.[id];return [item,store.const?.$equips?.[item?.api_slotitem_id]];});
+    return [slot,ship,master,store.const?.$shipTypes?.[master?.api_stype],graph,equipment];
+  })]);
+}
 module.exports=function createWorkbench(React,{getController,getStore,subscribe,setQuestPageActive}){
   const expeditionView=require('../expedition/expedition_view')(React);
   const h=React.createElement,EquipmentIcon=require('../components/equipment_icon')(React);
@@ -134,7 +149,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       require('../../domain/routes/route_plans').routeOptions(area,target).find(row=>row.key===value)?.phase||
       (!value?routePhaseAnchor:'')||
       (target==='boss'?require('../../domain/routes/route_plans').currentPhase(area,current):''):'')||'';
-    const effectivePhase=retain(routeSelection,paused,[kind,area,target,phase,mapRoute,routePhaseAnchor,store.info?.maps],()=>phaseForRoute(mapRoute));
+    const selectedMap=store.info?.maps?.[Number(String(area).replace('-',''))];
+    const effectivePhase=retain(routeSelection,paused,[kind,area,target,phase,mapRoute,routePhaseAnchor,store.info?.maps,selectedMap?.api_gauge_num],()=>phaseForRoute(mapRoute));
     const settings={kind,fleet,area,target,phase:effectivePhase,missionId,revision};
     const filterKey=selectionSettings?JSON.stringify(selectionSettings):null;
     const conditionKey=JSON.stringify([kind,area,target,phase,'clear',style,missionId,goal,filterKey,...(selectedQuests.length?[selectedQuests]:[])]);
@@ -421,7 +437,14 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       finally{if(alive.current&&token===operation.current){setWorking(false);setActivity('');}}
     };
     if(!paused&&resumePending.current&&view.current&&view.current.value.contextKey!==conditionKey)resumePending.current=false;
-    const data=retain(view,paused||resumePending.current,null,()=>{
+    // Picker typing, map-node focus and disclosure changes do not alter the
+    // fleet or route. Keep the expensive fleet/map derivation across those
+    // renders; revision and resume still invalidate mutable game snapshots.
+    const data=retain(view,paused||resumePending.current,[kind,slots,paused?'':draftDataKey(store,slots,{area,fleet,missionId}),fleet,catalog,area,target,phase,effectivePhase,missionId,revision,
+      filterKey,conditionKey,store.info,store.const,store.const?.$ships,store.const?.$equips,store.const?.$shipgraph,
+      store.const?.$equipShip,store.const?.$exslotEquips,store.const?.$exslotEquipShips,store.const?.$exslotEquipLimits,
+      store.selectorTables,store.expeditionProgress,report,mapRoute,choices,batchRouteChoices,
+      routeDrafts,routeCombatResults,combatDeferredPhase,working,prepared.current],()=>{
       const rows=V.fleetRows(store,W.scheme(slots,fleet));
       const rowById=new Map(rows.map(s=>[s.id,s]));
       const expeditionStatus=kind==='expedition'?E.fleetStatus(store,slots):null;

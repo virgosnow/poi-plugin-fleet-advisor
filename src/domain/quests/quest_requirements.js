@@ -4,7 +4,7 @@ const DATA=require('../../../data/quests/requirements.json');
 const LIMITED_EVENTS=require('../../../data/quests/limited');
 const MISSIONS=require('../../../data/expedition_rewards.json').missions;
 const {normalizeName}=require('../../shared/name_matching');
-const {evaluateFleetRequirements}=require('./fleet_requirements');
+const {evaluateFleetRequirements,createFleetRequirementEvaluator}=require('./fleet_requirements');
 const INDEX=new Map();
 for(const [quests,event] of [[DATA.quests,null],...LIMITED_EVENTS.map(event=>[event.quests.filter(q=>['B','D'].includes(q.category)),event])])
   for(const quest of quests)for(const id of quest.ids){
@@ -108,7 +108,7 @@ function resourcesChecks(quest,state){
 function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState,now=Date.now()}={}){
   const snapshot=taskSnapshot(state,questState);
   if(!snapshot.known)return {status:'unknown',tasks:[]};
-  const tasks=[],seen=new Set();
+  const tasks=[],seen=new Set();let evaluate;
   for(const live of snapshot.tasks){
     if(!live||![1,2].includes(Number(live.api_state))||seen.has(Number(live.api_no)))continue;
     const definition=findDefinition(live,now);
@@ -117,7 +117,8 @@ function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState,now
     const related=entries.filter(entry=>entry.relation!==false);
     if(!related.length)continue;
     seen.add(Number(live.api_no));
-    const evaluation=evaluateFleetRequirements(definition.fleet,state,slots,deckId);
+    if(!evaluate)evaluate=createFleetRequirementEvaluator(state);
+    const evaluation=evaluate(definition.fleet,slots,deckId);
     const checks=evaluation.checks.concat(resourcesChecks(definition,state));
     if(related.some(entry=>entry.relation==='unknown'))checks.push({label:'本海域目标敌舰资料待确认',status:'unknown'});
     const goals=entries.map(({goal,relation})=>({...goal,label:goalLabel(goal,{mapId,missionId}),relatedToCurrent:relation!==false}));

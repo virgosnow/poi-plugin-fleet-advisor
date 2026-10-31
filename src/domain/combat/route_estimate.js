@@ -90,13 +90,16 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
   if(evidence.status==='unknown')return unknown(evidence.reasons?.join('；')||'路线敌情待确认');
   const fleet=scheme.ships.map(entry=>projectedHull(store,entry));
   if(fleet.some(ship=>ship.status!=='known'))return unknown('舰娘战斗资料不足');
-  let threats=rankThreats(fleet,evidence,{equipmentMasters:store.const.$equips});
+  const ranked=new Map();
+  let threats=rankThreats(fleet,evidence,{equipmentMasters:store.const.$equips,rankedNodes:ranked});
   if(evidence.status!=='known')return unknown(evidence.reasons?.join('；')||'敌编成资料待确认',threats);
   if(evidence.paths.length>LIMITS.paths)return unknown('可达分支超过计算预算',threats);
   threats=refineThreats(fleet,evidence,store,scheme,threats,{now,start});
   const nodes=new Map(evidence.nodes.map(node=>[node.id,node]));
-  const lookup=equipmentLookup(store.const.$equips),cache=new Map();
-  const ranked=new Map(evidence.nodes.map(node=>[node.id,nodeThreat(node,fleet,lookup,cache)]));
+  if(ranked.size<evidence.nodes.length){
+    const lookup=equipmentLookup(store.const.$equips),cache=new Map();
+    for(const node of evidence.nodes)if(!ranked.has(node.id))ranked.set(node.id,nodeThreat(node,fleet,lookup,cache));
+  }
   const candidates=evidence.paths.map((path,index)=>({index,path,
     nodes:path.nodes.map(id=>nodes.get(id)).filter(Boolean)}));
   if(candidates.some(path=>path.nodes.length>LIMITS.battlesPerPath))return unknown('战斗节点超过计算预算',threats);

@@ -8,7 +8,7 @@ const cancelled=()=>Object.assign(Error('推荐计算已取消'),{code:'RECOMMEN
 
 // The existing worker computes success while ONE child computes great success.
 // No idle third coordinator, and only the owner persists shared cache tables.
-async function parallelExpeditionGoals(store,args,{scope=fn=>fn(),cache={},onProgress=()=>{},createWorker=(file,options)=>new Worker(file,options)}={}){
+async function parallelExpeditionGoals(store,args,{scope=fn=>fn(),cache={},onProgress,createWorker=(file,options)=>new Worker(file,options)}={}){
   const worker=createWorker(__filename,{workerData:{kind:'expedition-goal',store,args:{...args,goal:'great'},
     cacheDirectory:cache.cacheDirectory,version:cache.version,cacheMaxBytes:cache.cacheMaxBytes}});
   const pending=new Promise((resolve,reject)=>{
@@ -22,7 +22,7 @@ async function parallelExpeditionGoals(store,args,{scope=fn=>fn(),cache={},onPro
   pending.catch(()=>{});
   try{
     const success=scope(()=>require('../../recommendation/index').recommendExpeditionFleet(store,{...args,goal:'success'},onProgress));
-    onProgress({stage:'expedition-wait'});
+    onProgress?.({stage:'expedition-wait'});
     const message=await pending;
     cache.mergeEquipmentEntries?.(message.equipment||[]);
     cache.mergeHullEntries?.(message.hulls||[]);
@@ -45,8 +45,8 @@ if(!isMainThread&&workerData?.kind==='expedition-goal'){
 
 // Pure calculations only: snapshots cross the thread boundary, never the live
 // controller, game bridge or account-storage service.
-async function runRecommendation(workerData,started=workerStarted,onProgress=()=>{}){
-  const progress=value=>{try{onProgress(value);}catch(_){/* Progress must not interrupt a calculation. */}};
+async function runRecommendation(workerData,started=workerStarted,onProgress){
+  const progress=typeof onProgress==='function'?value=>{try{onProgress(value);}catch(_){/* Progress must not interrupt a calculation. */}}:undefined;
   const trace=workerData.diagnostics?new perf.PerformanceTrace(workerData.diagnostics):null;
   if(trace)trace.stages.push({name:'worker.load',ms:performance.now()-started});
   const report=status=>trace?{version:1,status,level:trace.level,method:workerData.method,
@@ -59,7 +59,7 @@ async function runRecommendation(workerData,started=workerStarted,onProgress=()=
   const execute=async()=>{
   try{
     if(!METHODS.has(workerData.method))throw Error('Unsupported recommendation method');
-    progress({stage:workerData.method.includes('Equipment')?'equipment':workerData.method==='recommendExpeditionFleet'?'expedition':'prepare'});
+    progress?.({stage:workerData.method.includes('Equipment')?'equipment':workerData.method==='recommendExpeditionFleet'?'expedition':'prepare'});
     const result=workerData.method==='recommendNormalFleet'?await require('../cache/recommendation_cache').cachedRecommendationAsync(
       workerData.cacheDir,workerData.method,workerData.store,workerData.args,async(scope,cache)=>{
         const {pool,recommend}=perf.stage('search.setup',()=>{
@@ -82,14 +82,14 @@ async function runRecommendation(workerData,started=workerStarted,onProgress=()=
       require('../cache/recommendation_cache').cachedRecommendation(workerData.cacheDir,
       workerData.method,workerData.store,workerData.args,
       ()=>perf.stage('search.sync',()=>require('../../recommendation/index')[workerData.method](workerData.store,workerData.args)),workerData.settings);
-    progress({stage:'finalize'});
+    progress?.({stage:'finalize'});
     return {ok:true,result,profile:report('success')};
   }catch(e){return {ok:false,error:{message:e.message,code:e.code,stack:e.stack},profile:report('error')};}
   };
   return trace?trace.run(execute):execute();
 }
 if(!isMainThread&&workerData?.kind==='fleet-recommendation')
-  void runRecommendation(workerData,workerStarted,progress=>parentPort.postMessage({progress})).then(message=>parentPort.postMessage(message));
+  void runRecommendation(workerData,workerStarted,workerData.emitProgress?progress=>parentPort.postMessage({progress}):undefined).then(message=>parentPort.postMessage(message));
 
 class RecommendationWorker {
   constructor({createWorker=(filename,options)=>new Worker(filename,options),cacheDir,getSettings=()=>undefined,
@@ -128,7 +128,7 @@ class RecommendationWorker {
       return new Promise((resolve,reject)=>{
         const settings=require('../../config/computation_settings').normalize(this.getSettings());
         const started=diagnostics?performance.now():0;
-        const worker=this.createWorker(__filename,{workerData:{kind:'fleet-recommendation',method,store,args,cacheDir:this.cacheDir,settings,diagnostics}});
+        const worker=this.createWorker(__filename,{workerData:{kind:'fleet-recommendation',method,store,args,cacheDir:this.cacheDir,settings,diagnostics,emitProgress:typeof onProgress==='function'}});
         let finishing=false,received=false,wasCancelled=false,completion;
         const active={worker,cancel:()=>{wasCancelled=true;return finish(cancelled());}};
         const finish=(reason,result,message)=>{

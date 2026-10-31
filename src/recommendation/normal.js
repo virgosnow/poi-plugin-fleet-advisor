@@ -34,7 +34,7 @@ const {combatHullRanker,plannedCombatStat,plannedTorpedoStat,scoreRoute}=require
 const {positionUpgrades,combineUpgrades,finalHullUpgrades}=require('./refinement');
 const {routeDifficulty}=require('./route_economy');
 const {fleetOrderChoices}=require('./fleet_order');
-const {questRequirements,createQuestChecker,questSeeds}=require('./quest_constraints');
+const {questRequirements,createQuestChecker,createQuestPrecheck,questSeeds}=require('./quest_constraints');
 const {guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,specialFleetSeeds,specialPositionLocks}=require('./strategies');
 const previewForSnapshot=(store,area,options={})=>previewForMap(area,{...options,encounterStage:encounterStage(store,area,options.phase)});
 
@@ -85,6 +85,8 @@ function prepareCandidateEvaluator(store,args,ctx,inventory){
   const {area,target='boss',phase,airGoal='superiority'}=args;
   const quests=questRequirements(args.questCodes||[]);
   const questMatches=createQuestChecker(store,quests);
+  const questPossible=quests.length?createQuestPrecheck(store,quests):null;
+  const questPossibility=quests.length?new Map():null;
   const policy=guidePolicy(area,target,phase);
   const available=new Map(inventory.map(i=>[i.id,i]));
   const fittingProfile=previewForSnapshot(store,area,{target,phase});
@@ -98,6 +100,16 @@ function prepareCandidateEvaluator(store,args,ctx,inventory){
   return (rows,schemeOverride,preserveLoadout=false)=>{
     try{
       const draft=holdDraftEquipment(store,schemeOverride||emptyLoadout(store,schemeOf(ctx.fleet,rows),args.heldSlots),args.heldSlots);
+      if(questPossible){
+        const key=JSON.stringify([draft.fleet,...draft.ships.map(ship=>ship.id)]);
+        let possible=questPossibility.get(key);
+        if(possible===undefined){
+          possible=questPossible(draft);
+          if(questPossibility.size>=4096)questPossibility.delete(questPossibility.keys().next().value);
+          questPossibility.set(key,possible);
+        }
+        if(!possible){perf.count('candidate.questStaticRejected');return null;}
+      }
       const ownedInventory=equipmentForFleet(inventory,draft.ships,args.automaticFilters);
       const heldScheme=preserveLoadout?draft:prepareFleetEquipment(draft,ownedInventory,args.automaticFilters,args.heldSlots);
       const inputKey=JSON.stringify([heldScheme,preserveLoadout]);
@@ -384,18 +396,18 @@ function recommendNormalFleet(store,args){
     return step.value;
   }));
 }
-async function recommendNormalFleetParallel(store,args,runBatch,scope=run=>run(),onProgress=()=>{}){
+async function recommendNormalFleetParallel(store,args,runBatch,scope=run=>run(),onProgress){
   const indexes=new Map(),rules=new Map(),steps=normalFleetSteps(store,args);
   const advance=value=>scope(()=>routePlans.withPlanningCache(()=>withEquipmentIndexCache(store,()=>steps.next(value),indexes),rules));
   let step=perf.stage('selection.initial',()=>advance());
   while(!step.done){
     const kind=step.value.kind;
-    onProgress({stage:kind});
+    onProgress?.({stage:kind});
     const result=await perf.stageAsync('batch.'+kind,()=>runBatch(step.value,
       ()=>scope(()=>withEquipmentIndexCache(store,()=>recommendationBatch(store,{...step.value,serial:true},onProgress),indexes))));
     step=perf.stage('selection.after.'+kind,()=>advance(result));
   }
-  onProgress({stage:'finalize'});
+  onProgress?.({stage:'finalize'});
   return step.value;
 }
 function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){

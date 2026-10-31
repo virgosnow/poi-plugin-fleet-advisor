@@ -240,7 +240,7 @@ function uniqueThreatCandidates(candidates,limit=2){
   }
   return [...byId.values()].sort((a,b)=>b.score-a.score).slice(0,limit).map(row=>row.enemy);
 }
-function rankThreats(friendly,evidence,{equipmentMasters}={}){
+function rankThreats(friendly,evidence,{equipmentMasters,rankedNodes}={}){
   if(!Array.isArray(friendly)||!friendly.length||friendly.length>MAX_SHIPS||!evidence||
     !Array.isArray(evidence.nodes)||evidence.nodes.length>MAX_NODES)
     return {status:'unknown',target:{status:'unknown',enemies:[]},enroute:{status:'unknown',enemies:[]},warnings:['舰队或路线资料待确认']};
@@ -255,7 +255,11 @@ function rankThreats(friendly,evidence,{equipmentMasters}={}){
   if(count>MAX_TOTAL_FORMATIONS)return {status:'unknown',target:{status:'unknown',enemies:[]},enroute:{status:'unknown',enemies:[]},warnings:['敌编成超过计算预算']};
   if(evidence.status==='unknown')return {status:'unknown',target:{status:'unknown',enemies:[]},enroute:{status:'unknown',enemies:[]},warnings:evidence.reasons||['敌情资料待确认']};
   const lookup=equipmentLookup(equipmentMasters),cache=new Map(),
-    evaluated=evidence.nodes.map(node=>({...nodeThreat(node,friendly,lookup,cache),target:node.target}));
+    evaluated=evidence.nodes.map(node=>{
+      const reading=nodeThreat(node,friendly,lookup,cache);
+      rankedNodes?.set(node.id,reading);
+      return {...reading,target:node.target};
+    });
   const result=target=>{
     const rows=evaluated.filter(n=>!!n.target===target);
     if(!rows.length)return {status:evidence.status==='known'?'none':'unknown',enemies:[],warnings:[]};
