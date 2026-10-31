@@ -8,11 +8,31 @@ function comparison(check){
   const actual=text(check.actual),required=text(check.required);
   return required?`${actual||'—'} / ${required}`:actual;
 }
-function goalLabels(task){
-  const labels=(Array.isArray(task.goals)?task.goals:[]).map(goal=>typeof goal==='string'?goal:text(goal?.label)).filter(Boolean);
-  return labels.length?[...new Set(labels)]:['目标条件待确认'];
+function goalRows(task){
+  const unique=new Map();
+  for(const goal of Array.isArray(task.goals)?task.goals:[]){
+    const label=typeof goal==='string'?goal:text(goal?.label);if(!label)continue;
+    const related=typeof goal!=='object'||goal?.relatedToCurrent!==false;
+    const previous=unique.get(label);
+    unique.set(label,{label,related:related||!!previous?.related,map:typeof goal==='object'&&goal?.map||previous?.map});
+  }
+  return unique.size?[...unique.values()]:[{label:'目标条件待确认',related:true}];
 }
-const goalText=task=>goalLabels(task).join('；');
+const goalText=task=>goalRows(task).map(row=>row.label).join('；');
+function displayGoalRows(task){
+  const rows=goalRows(task),groups=new Map();
+  for(const row of rows.filter(row=>!row.related)){
+    const map=typeof row.map==='string'&&row.map!=='any'?row.map:'';
+    if(map&&row.label.startsWith(`${map} `)){
+      const suffix=row.label.slice(map.length);
+      const key=`map:${suffix}`;
+      if(!groups.has(key))groups.set(key,{maps:[],suffix});
+      groups.get(key).maps.push(map);
+    }else groups.set(`label:${row.label}`,{label:row.label});
+  }
+  const other=[...groups.values()].map(group=>group.label||`${group.maps.join('、')}${group.suffix}`).join('；');
+  return [...rows.filter(row=>row.related),...(other?[{label:`其他：${other}`,related:false}]:[])];
+}
 
 module.exports=function createQuestSection(React,options={}){
   const h=React.createElement;
@@ -45,7 +65,7 @@ module.exports=function createQuestSection(React,options={}){
           h('span',{className:'paa-quest-state','data-active':Number(task.state)===2},Number(task.state)===2?'进行中':'可受领'),
           h('span',{className:'paa-quest-condition-status','data-status':conditionStatus},STATUS_TEXT[conditionStatus])),
         h('div',{className:'paa-quest-goals'},h('span',{className:'paa-quest-row-label'},'目标'),
-          h('ul',{'aria-label':'任务行动目标'},...goalLabels(task).map((label,index)=>h('li',{key:index},label)))),
+          h('ul',{'aria-label':'任务行动目标'},...displayGoalRows(task).map(({label,related},index)=>h('li',{key:index,'data-related':related?'true':'false'},label)))),
         checks.length?h('div',{className:'paa-quest-requirements'},h('span',{className:'paa-quest-row-label'},'编成'),
           h('ul',{className:'paa-quest-checks','aria-label':'当前编成要求'},...checks.map((check,index)=>{
           const checkStatus=status(check.status),value=comparison(check);

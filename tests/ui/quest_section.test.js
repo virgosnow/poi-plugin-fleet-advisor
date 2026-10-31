@@ -150,6 +150,28 @@ test('unrestricted task goals are not repeated as a second description',()=>{
   ui.toggle(true);assert.equal(ui.text().split(goal).length-1,1);
 });
 
+test('other map goals remain visible and are visually muted',()=>{
+  const ui=harness({}, {status:'ready',tasks:[task({checks:[],goals:[
+    {map:'1-2',label:'1-2 Boss S胜 1次',relatedToCurrent:true},{map:'1-5',label:'1-5 Boss S胜 1次',relatedToCurrent:false},
+    {map:'2-2',label:'2-2 Boss S胜 1次',relatedToCurrent:false}],summary:'1-2 Boss S胜 1次；1-5 Boss S胜 1次；2-2 Boss S胜 1次'})]});
+  ui.toggle(true);const goals=ui.find(n=>n.props['aria-label']==='任务行动目标');
+  assert.deepEqual(goals.children.map(row=>row.props['data-related']),['true','false']);
+  assert.match(ui.text(),/1-2 Boss S胜 1次/);assert.match(ui.text(),/其他：1-5、2-2 Boss S胜 1次/);
+  assert(!ui.find(n=>n.props.className==='paa-quest-requirement-summary'));
+});
+
+test('compact other goals retain different requirements and mapless labels',()=>{
+  const ui=harness({}, {status:'ready',tasks:[task({checks:[],goals:[
+    {map:'1-5',label:'1-5 Boss S胜 1次',relatedToCurrent:false},
+    {map:'2-2',label:'2-2 Boss A胜以上 2次',relatedToCurrent:false},
+    {label:'完成额外条件',relatedToCurrent:false},
+    {map:'1-2',label:'1-2 Boss S胜 1次',relatedToCurrent:true},
+    {map:'2-3',label:'2-3 Boss S胜 1次',relatedToCurrent:false}]})]});
+  ui.toggle(true);const goals=ui.find(n=>n.props['aria-label']==='任务行动目标');
+  assert.deepEqual(goals.children.map(row=>row.props['data-related']),['true','false']);
+  assert.match(ui.text(),/其他：1-5、2-3 Boss S胜 1次；2-2 Boss A胜以上 2次；完成额外条件/);
+});
+
 test('goals remain separate and condition results stay beside the task metadata in both pages',()=>{
   for(const kind of ['normal','expedition']){
     const ui=harness({kind},{status:'ready',tasks:[task({goals:[{label:'Boss S胜 1 回'},{label:'Boss S胜 1 回'},{label:'到达时保持指定编成'}]})]});

@@ -42,6 +42,11 @@ test('only active or available matching event tasks appear on their specified ma
   assert.equal(query([observed('2610C1'),observed('2610F1'),observed('2610F2')]).tasks.length,0);
 });
 
+test('pumpkin escort quest retains all map goals and highlights the current map',()=>{
+  const task=query([observed('2610B2')],'1-2').tasks[0];
+  assert.deepEqual(task.goals.map(goal=>[goal.map,goal.relatedToCurrent]),[['1-2',true],['1-5',false],['2-2',false],['2-3',false]]);
+});
+
 test('a confirmed end date is inclusive in Japan and hides an expired event',()=>{
   event.endDate='2026-10-31';
   try{

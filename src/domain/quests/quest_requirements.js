@@ -103,13 +103,14 @@ function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState,now
     if(!live||![1,2].includes(Number(live.api_state))||seen.has(Number(live.api_no)))continue;
     const definition=findDefinition(live,now);
     if(!definition)continue;
-    const related=definition.goals.map(goal=>({goal,relation:relation(goal,{mapId,missionId})})).filter(entry=>entry.relation!==false);
+    const entries=definition.goals.map(goal=>({goal,relation:relation(goal,{mapId,missionId})}));
+    const related=entries.filter(entry=>entry.relation!==false);
     if(!related.length)continue;
     seen.add(Number(live.api_no));
     const evaluation=evaluateFleetRequirements(definition.fleet,state,slots,deckId);
     const checks=evaluation.checks.concat(resourcesChecks(definition,state));
     if(related.some(entry=>entry.relation==='unknown'))checks.push({label:'本海域目标敌舰资料待确认',status:'unknown'});
-    const goals=related.map(({goal})=>({...goal,label:goalLabel(goal,{mapId,missionId})}));
+    const goals=entries.map(({goal,relation})=>({...goal,label:goalLabel(goal,{mapId,missionId}),relatedToCurrent:relation!==false}));
     const completion=definition.completionChecks||[];
     if(completion.some(check=>check.kind==='noRetreatedShips'))goals.push({kind:'noRetreatedShips',label:'到达目标时所需舰娘均未退避'});
     if(completion.some(check=>check.kind==='recheckFleetAtGoal'))goals.push({kind:'recheckFleetAtGoal',label:'到达目标时仍须保持指定编成'});

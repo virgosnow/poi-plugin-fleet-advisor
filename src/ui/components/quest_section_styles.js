@@ -23,6 +23,7 @@ module.exports=`
 .paa .paa-quest-requirements{margin-top:6px}
 .paa-quest-row-label{color:var(--paa-muted);font-size:12px;line-height:20px;white-space:nowrap}
 .paa-quest-goals>ul{display:flex;flex-direction:column;gap:2px;list-style:none;padding:0;margin:0;min-width:0}
+.paa-quest-goals li[data-related=false]{color:color-mix(in srgb,var(--paa-muted) 60%,var(--paa-card));font-size:11px;line-height:16px}
 .paa-quest-checks{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:4px}
 .paa-quest-checks>li{display:grid;grid-template-columns:12px minmax(0,1fr) fit-content(45%);align-items:baseline;gap:6px;font-size:13px;line-height:20px;color:var(--paa-muted)}
 .paa-quest-checks>li[data-status=met]{color:var(--paa-good)}

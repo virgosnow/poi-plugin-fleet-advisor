@@ -70,10 +70,12 @@ test('map-group cumulative goals associate each allowed map, without claiming re
   assert.match(query(state,slots,['Bd7'],{mapId:'2-5'}).tasks[0].goals[0].label,/合计B胜以上 5次/);
 });
 
-test('multi-map quest only displays goals belonging to selected map',()=>{
+test('multi-map quest keeps every goal and marks the selected map',()=>{
   const {state,add}=fixture(),slots=[add(1,100,'舰娘',2)];
   const quest=query(state,slots,['B209'],{mapId:'2-3'}).tasks[0];
-  assert.equal(quest.goals.length,1);assert.match(quest.goals[0].label,/2-3/);
+  assert.equal(quest.goals.length,4);
+  assert.deepEqual(quest.goals.map(goal=>[goal.map,goal.relatedToCurrent]),[['1-6',false],['2-2',false],['2-3',true],['2-4',false]]);
+  assert.match(quest.goals.find(goal=>goal.relatedToCurrent).label,/2-3/);
 });
 
 test('explicit ship missing is unmet; ordinary same-name remodels are accepted',()=>{
