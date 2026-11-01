@@ -168,12 +168,12 @@ test('recommendation worker failures release the queue and disposal cancels runn
 });
 
 test('home resets all draft instances and inline execution feedback preserves stop and errors',async()=>{
-  const state=[],refs=[];let index=0,refIndex=0,finish,stops=0;
+  const state=[],refs=[],diagnostics=[];let index=0,refIndex=0,finish,stops=0;
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
     useState(initial){const i=index++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;
       return [state[i],value=>{state[i]=typeof value==='function'?value(state[i]):value;}];},
     useRef:value=>{const i=refIndex++;return refs[i]||(refs[i]={current:value});},useEffect:()=>{}};
-  const controller={getExperimentalSettings:()=>({automaticOperations:true}),preview:()=>({done:false}),run:()=>new Promise(resolve=>{finish=resolve;}),stop:()=>{stops++;}};
+  const controller={getExperimentalSettings:()=>({automaticOperations:true}),preview:()=>({done:false}),run:()=>new Promise(resolve=>{finish=resolve;}),stop:()=>{stops++;},recordDiagnostic:value=>diagnostics.push(value)};
   const Panel=require('../../src/ui/shell/panel')(React,{getController:()=>controller,getStore:()=>({}),subscribe:()=>()=>{}});
   const find=(node,predicate)=>{if(!node||typeof node!=='object')return;return predicate(node)?node:node.children?.map(n=>find(n,predicate)).find(Boolean);};
   const render=()=>{index=0;refIndex=0;return Panel();};
@@ -205,8 +205,9 @@ test('home resets all draft instances and inline execution feedback preserves st
   finish({ok:true,done:true,changed:2});await success;tree=render();
   assert.equal(feedback(tree).props['data-state'],'success');
   const stopping=normal(tree).props.onApply({fleet:1,ships:[1]});
-  tree=render();normal(tree).props.onStop();tree=render();
+  tree=render();normal(tree).props.onStop({nativeEvent:{isTrusted:true,detail:0}});tree=render();
   assert.equal(stops,1);assert.equal(feedback(tree).props['data-state'],'stopping');
+  assert.deepEqual(diagnostics,[{phase:'execution',stage:'stop-request',source:'panel',page:'normal',trusted:true,detail:0,pointerType:null}]);
   assert(workbenches(tree).every(n=>n.props.stopping));
   finish({ok:false,done:false});await stopping;tree=render();
   assert.equal(feedback(tree).props['data-state'],'stopped');
@@ -215,6 +216,37 @@ test('home resets all draft instances and inline execution feedback preserves st
   assert.equal(workbenches(tree).find(n=>!n.props.hidden).props.kind,'manual');assert.equal(feedback(tree),null);
   assert(workbenches(tree).every((n,i)=>n.props.key!==original[i]),'all three drafts remount from their initial state');
   assert(find(tree,n=>n.props['aria-label']==='设置面板').props.hidden);
+});
+
+test('execution moves focus off the replaced stop button while keeping it keyboard reachable',async()=>{
+  const state=[],refs=[],effects=[];let index=0,refIndex=0,finish;
+  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
+    useState(initial){const i=index++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;
+      return [state[i],value=>{state[i]=typeof value==='function'?value(state[i]):value;}];},
+    useRef(value){const i=refIndex++;return refs[i]||(refs[i]={current:value});},useEffect:(fn,deps)=>effects.push({fn,deps})};
+  const controller={getExperimentalSettings:()=>({automaticOperations:true}),preview:()=>({done:false}),run:()=>new Promise(resolve=>{finish=resolve;})};
+  const Panel=require('../../src/ui/shell/panel')(React,{getController:()=>controller,getStore:()=>({}),subscribe:()=>()=>{}});
+  const find=(node,predicate)=>node&&typeof node==='object'?(predicate(node)?node:node.children?.map(child=>find(child,predicate)).find(Boolean)):null;
+  const render=()=>{index=0;refIndex=0;return Panel();};
+  let tree=render();find(tree,node=>node.type==='button'&&node.children.includes('常规海域')).props.onClick();tree=render();
+  const normal=workbenches(tree).find(node=>node.props.kind==='normal'),workspaceNode=find(tree,node=>node.props.className==='paa-workspace-content');
+  assert.equal(workspaceNode.props.tabIndex,-1);
+  const document={body:{},activeElement:null,defaultView:{MutationObserver:class{observe(){}disconnect(){}}}};
+  const sibling={inert:false},outside={inert:false};
+  const workspace={ownerDocument:document,children:[],focus(){document.activeElement=this;}};
+  const parent={children:[],parentElement:workspace,inert:false};
+  const stop={parentElement:parent,inert:false,isConnected:true,focus(){document.activeElement=this;}};
+  parent.children=[stop,sibling];workspace.children=[parent,outside];document.activeElement=stop;
+  workspaceNode.props.ref.current=workspace;normal.props.stopButtonRef.current=stop;
+  const pending=normal.props.onApply({fleet:1,ships:[1]});tree=render();
+  const effect=effects.filter(entry=>String(entry.fn).includes('const previous=new Map()')).at(-1),cleanup=effect.fn();
+  assert.equal(document.activeElement,workspace,'Enter or Space cannot activate the stop button without focusing it');
+  assert.equal(stop.inert,false,'the stop button remains reachable by Tab');assert(sibling.inert&&outside.inert);
+  stop.focus();assert.equal(document.activeElement,stop,'keyboard users can still deliberately focus stop');
+  cleanup();assert(!sibling.inert&&!outside.inert);
+  finish({ok:true,done:true,changed:1});await pending;render();
+  effects.filter(entry=>String(entry.fn).includes('const previous=new Map()')).at(-1).fn();
+  assert.equal(document.activeElement,stop,'the original focus is restored after execution');
 });
 
 test('home remounts every workbench while preserving all global settings and the computation settings instance',()=>{

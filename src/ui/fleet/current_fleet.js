@@ -64,7 +64,7 @@ module.exports=(React,{getStore})=>{
     });
     if(hidden)return hiddenPage(h,page.current,{className:'paa-workbench paa-current-status','data-kind':'manual',hidden,ref:content});
     if(!data)return h('div',{className:'paa-workbench paa-current-status','data-kind':'manual',ref:content},operationFeedback,
-      busy?h('button',{type:'button',ref:stopButtonRef,disabled:stopping,onClick:()=>{if(!stopping)onStop?.();}},stopping?'正在停止…':'停止操作'):null);
+      busy?h('button',{type:'button',ref:stopButtonRef,disabled:stopping,onClick:event=>{if(!stopping)onStop?.(event);}},stopping?'正在停止…':'停止操作'):null);
     const {store,reading,summaries,presets}=data,{fleets,current}=headings,air=reading.metrics.airPower,los=reading.metrics.lineOfSight;
     const losValue=c=>Number.isFinite(los?.scoresByCoefficient?.[c])?los.scoresByCoefficient[c].toFixed(1):'—';
     const losDetail=T.los(los,null,{current:true});
@@ -96,7 +96,7 @@ module.exports=(React,{getStore})=>{
         h('div',{className:'paa-fleet-heading'},h('div',null,h('h3',null,sourcePreset===null?`第 ${sourceFleet} 舰队`:`编成预设 ${sourcePreset}`),current.name?h('span',{className:'paa-muted'},current.name):null),
           h('div',{className:'paa-fleet-duty','data-state':current.state},h('span',{'data-tooltip':current.preset?'游戏编成记录保存舰娘名单；这里显示成员当前的装备与状态。':undefined,tabIndex:current.preset?0:undefined},current.status),current.mission?h('span',null,current.mission):null,current.remaining?h('time',{'data-tooltip':current.returnAt?new Date(current.returnAt).toLocaleString('zh-CN'):undefined},current.remaining):null)),
         h('div',{className:'paa-fleet-status-body'},
-        busy?h('div',{className:'paa-fleet-running'},h('span',null,'正在执行编成'),h('button',{type:'button',className:'paa-wb-apply',ref:stopButtonRef,disabled:stopping,onClick:()=>{if(!stopping)onStop?.();}},stopping?'正在停止…':'停止操作')):null,
+        busy?h('div',{className:'paa-fleet-running'},h('span',null,'正在执行编成'),h('button',{type:'button',className:'paa-wb-apply',ref:stopButtonRef,disabled:stopping,onClick:event=>{if(!stopping)onStop?.(event);}},stopping?'正在停止…':'停止操作')):null,
         operationFeedback,
         h('div',{className:'paa-fleet-metrics','aria-label':'舰队状态指标'},
           h('div',{className:'paa-fleet-metric combat'},h('div',{className:'paa-fleet-metric-heading'},h('span',null,'战斗')),

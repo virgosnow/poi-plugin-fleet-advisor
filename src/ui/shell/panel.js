@@ -76,7 +76,10 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
         };
         lock();const observer=new document.defaultView.MutationObserver(lock);
         if(workspace.current)observer.observe(workspace.current,{childList:true,subtree:true});
-        stopButton.current?.focus({preventScroll:true});
+        // The apply button becomes the stop button in place. Moving focus to
+        // the workspace prevents unrelated Enter/Space presses from stopping
+        // an operation; Tab still reaches the enabled stop button.
+        workspace.current?.focus({preventScroll:true});
         return()=>{observer.disconnect();for(const [node,inert] of previous)node.inert=inert;};
       }else if(returnFocus.current){
         if(returnFocus.current.isConnected)returnFocus.current.focus({preventScroll:true});
@@ -149,7 +152,12 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
         log({time:new Date().toISOString(),kind:'fleet',scheme:source.slice(0,4000),status:outcome.state+' · '+outcome.title+' · '+outcome.text,detail:diagnostic.slice(0,8000),progress:progressRef.current});
       }
     };
-    const stop=()=>{
+    const stop=event=>{
+      const native=event?.nativeEvent||event;
+      try{getController()?.recordDiagnostic?.({phase:'execution',stage:'stop-request',source:'panel',page:mode,
+        trusted:typeof native?.isTrusted==='boolean'?native.isTrusted:null,
+        detail:Number.isFinite(native?.detail)?native.detail:null,
+        pointerType:typeof native?.pointerType==='string'?native.pointerType:null});}catch(_){}
       if(!active.current&&externalJob?.source==='mcp'){
         if(externalJob.state==='stopping')return;
         try{getController()?.cancelJob({jobId:externalJob.jobId});setExternalJob(previous=>previous?{...previous,state:'stopping'}:previous);}catch(error){fail(error);}
@@ -195,7 +203,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
               h('path',{d:'M4 7a6 6 0 1 1 0 6M4 3v4h4'})),'恢复默认'),
           settingFeedback(React,settingsFeedbacks.reset))]:[])))),
       h('div',{className:'paa-workspace','aria-busy':running},
-      h('div',{className:'paa-workspace-content',ref:workspace},
+      h('div',{className:'paa-workspace-content',ref:workspace,tabIndex:-1},
       ...['normal','expedition','manual'].map(kind=>h(kind==='manual'?CurrentFleet:Workbench,{key:`${kind}:${draftEpoch}`,kind,automaticFilters:recommendationFilters[kind],automaticOperations:experimentalSettings.automaticOperations,hidden:mode!==kind,busy:running,stopping,onStop:stop,stopButtonRef:mode===kind?stopButton:undefined,operationFeedback:mode===kind?feedback:null,executionPlan:busy?executionPlan.current:null,...(kind!=='manual'?{onApply:candidate=>action(true,M.format(candidate))}:{})})),
       h('section',{className:'paa-settings-page',hidden:mode!=='settings','aria-label':'设置面板'},
       filterSettings({value:recommendationFilters,disabled:running||resettingSettings,feedbacks:settingsFeedbacks,onChange:(value,target)=>{

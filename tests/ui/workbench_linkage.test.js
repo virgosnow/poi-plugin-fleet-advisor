@@ -1702,13 +1702,13 @@ test('direct ship removal preserves remaining drafts and equipment clearing stay
 
 test('apply becomes the same-position stop action during execution even when the draft is invalid',()=>{
   for(const kind of ['normal','expedition']){
-    const h=harness(kind);let stops=0,applies=0;
-    const props={onStop:()=>stops++,onApply:()=>applies++};
+    const h=harness(kind);let stops=0,applies=0,stopEvent;
+    const props={onStop:event=>{stops++;stopEvent=event;},onApply:()=>applies++};
     const button=tree=>h.find(tree,n=>n.props.className==='paa-primary paa-wb-apply');
     let action=button(h.render(props));assert.equal(action.children[0],'应用编成');assert(action.props.disabled);
     action=button(h.render({...props,busy:true}));
-    assert.equal(action.children[0],'停止操作');assert.equal(action.props.disabled,false);action.props.onClick();
-    assert.equal(stops,1);assert.equal(applies,0);
+    assert.equal(action.children[0],'停止操作');assert.equal(action.props.disabled,false);const event={nativeEvent:{detail:0}};action.props.onClick(event);
+    assert.equal(stops,1);assert.equal(stopEvent,event);assert.equal(applies,0);
     action=button(h.render({...props,busy:true,stopping:true}));
     assert.equal(action.children[0],'正在停止…');assert(action.props.disabled);action.props.onClick();assert.equal(stops,1);
     action=button(h.render(props));assert.equal(action.children[0],'应用编成');assert(action.props.disabled);
