@@ -236,7 +236,9 @@ test('map node selection never replaces route-level combat assessment or its two
   assert.equal(h.calls.fleet+h.calls.equipment,0);
 });
 
-test('battle comparison result appears beside its heading without hover details',()=>{
+test('battle comparison result appears beside its heading without hover details',t=>{
+  // This is a rendering check, not a test of the simulation's wall-clock budget.
+  t.mock.method(performance,'now',()=>0);
   const h=harness(),ship=h.store.info.ships[1],master=h.store.const.$ships[1];
   Object.assign(ship,{api_nowhp:30,api_maxhp:30,api_soukou:[12,12],api_karyoku:[35,35],api_raisou:[30,30],api_kyouka:[0,0,0,0],api_lucky:[20,20]});
   Object.assign(master,{api_houg:[35,35],api_raig:[30,30],api_leng:2});
@@ -382,7 +384,7 @@ test('changing stages does not run a new stage battle simulation until explicit 
     assert(!phases.includes('gauge2'),'stage selection never invokes combat assessment for the new stage');
     assert.equal(h.calls.fleet,0);
     const pending=h.find(tree,n=>n.props.className==='paa-balance-pending');
-    assert(pending);assert.equal(pending.children[0],'一键补全后计算');
+    assert(pending);assert.equal(pending.children[0].children[1].children[0],'一键补全后计算');
   }finally{
     assessment.assessCombat=original;delete require.cache[workbenchPath];if(cached)require.cache[workbenchPath]=cached;
   }
@@ -468,7 +470,7 @@ test('changing stages clears saved fleets and battle results without operating t
     h.set('area','7-3');const first=plans.recommendedOptions('7-3','boss','gauge1')[0],second=plans.recommendedOptions('7-3','boss','gauge2')[0];
     const slots=[{...W.entry(h.store,2),pin:true,keep:{0:true}},null,null,null,null,null],settings={kind:'normal',fleet:1,area:'7-3',target:'boss',phase:'gauge2',missionId:1,revision:0};
     h.set('slots',slots);h.set('mapRoute',second.key);h.set('report',W.inspect(h.service,h.store,slots,settings));
-    const cachedCombat={status:'estimated',balance:{label:'优势',rank:3,ratio:2,blueShare:2/3}};
+    const cachedCombat={status:'estimated',balance:{label:'明显优势',rank:3,ratio:2,blueShare:2/3}};
     const draft={slots,excluded:[],prepared:true,usable:true,revision:0,fleet:1,combat:cachedCombat,choices:[]};
     const snapshots=h.refs.find(ref=>ref.current instanceof WeakMap)?.current;assert(snapshots);
     snapshots.set(draft,{info:h.store.info,master:h.store.const});h.set('routeDrafts',{[first.key]:draft});
@@ -617,8 +619,8 @@ test('a route missing from a completed recommendation is marked unknown instead 
 
 test('route picker prefers a matching saved draft battle result over a recommendation',()=>{
   const h=harness(),options=W.mapOverview('1-4').options;h.set('area','1-4');
-  const saved={status:'estimated',balance:{label:'完胜',rank:4,ratio:3,blueShare:.75}};
-  const recommended={status:'estimated',balance:{label:'劣势',rank:1,ratio:.5,blueShare:1/3}};
+  const saved={status:'estimated',balance:{label:'压倒性优势',rank:4,ratio:3,blueShare:.75}};
+  const recommended={status:'estimated',balance:{label:'明显劣势',rank:1,ratio:.5,blueShare:1/3}};
   h.set('routeCombatResults',{[options[0].key]:recommended});
   const draft={usable:true,revision:0,fleet:1,combat:saved};
   const snapshots=h.refs.find(ref=>ref.current instanceof WeakMap)?.current;assert(snapshots);

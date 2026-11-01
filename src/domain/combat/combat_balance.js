@@ -2,7 +2,7 @@
 // Presentation-scale policy only: inputs must already be comparable measures
 // for the same battle, not raw panel stats or recommendation ranking weights.
 const LIMITS=Object.freeze([1/3,2/3,1.5,3]);
-const LABELS=Object.freeze(['完败','劣势','均势','优势','完胜']);
+const LABELS=Object.freeze(['压倒性劣势','明显劣势','势均力敌','明显优势','压倒性优势']);
 function tier(ratio){
   if(!Number.isFinite(ratio)||ratio<0)return null;
   return ratio<=LIMITS[0]?0:ratio<=LIMITS[1]?1:ratio<LIMITS[2]?2:ratio<LIMITS[3]?3:4;

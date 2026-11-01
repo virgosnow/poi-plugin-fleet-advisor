@@ -1,6 +1,7 @@
 'use strict';
 const {routeFormula}=require('../models/route_presentation');
 const renderCombatBalance=require('./combat_balance');
+const {LABELS}=require('../../domain/combat/combat_balance');
 const routeBlocked=option=>['notFound','unconfirmed'].includes(option?.status);
 const combatScore=option=>{
   const {status,balance}=option?.combat||{};
@@ -8,7 +9,7 @@ const combatScore=option=>{
     !Number.isInteger(balance?.rank)||balance.rank<0||balance.rank>4||
     !Number.isFinite(balance.ratio)||balance.ratio<0||
     !Number.isFinite(balance.blueShare)||balance.blueShare<0||balance.blueShare>1||
-    !['完胜','优势','均势','劣势','完败'].includes(balance.label))return null;
+    !LABELS.includes(balance.label))return null;
   return balance;
 };
 const compareCombat=(a,b)=>{

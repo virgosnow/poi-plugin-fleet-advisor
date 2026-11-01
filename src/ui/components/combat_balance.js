@@ -1,35 +1,38 @@
 'use strict';
+const {LABELS}=require('../../domain/combat/combat_balance');
 // Missing evidence is not an even battle. An estimated comparison is a
 // model reference, not an empirically measured victory or retreat rate.
 const TIER_MARKS={
-  '完胜':['M2 2.5 5.5 6 2 9.5','M6 2.5 9.5 6 6 9.5'],
-  '优势':['M4 2.5 7.5 6 4 9.5'],
-  '均势':['M6 2 10 6 6 10 2 6Z'],
-  '劣势':['M8 2.5 4.5 6 8 9.5'],
-  '完败':['M10 2.5 6.5 6 10 9.5','M6 2.5 2.5 6 6 9.5']
+  '压倒性优势':['M2 2.5 5.5 6 2 9.5','M6 2.5 9.5 6 6 9.5'],
+  '明显优势':['M4 2.5 7.5 6 4 9.5'],
+  '势均力敌':['M6 2 10 6 6 10 2 6Z'],
+  '明显劣势':['M8 2.5 4.5 6 8 9.5'],
+  '压倒性劣势':['M10 2.5 6.5 6 10 9.5','M6 2.5 2.5 6 6 9.5']
 };
-const TIER_LABELS={'完胜':'压倒性优势','优势':'明显优势','均势':'僵持','劣势':'明显劣势','完败':'压倒性劣势'};
 function validBalance(assessment){
   return ['ready','estimated'].includes(assessment?.status)&&assessment?.balance&&
     Number.isFinite(assessment.balance.blueShare)&&assessment.balance.blueShare>=0&&assessment.balance.blueShare<=1&&
-    ['完胜','优势','均势','劣势','完败'].includes(assessment.balance.label);
+    LABELS.includes(assessment.balance.label);
 }
 function renderTier(h,assessment){
   if(!validBalance(assessment))return null;
   const {label}=assessment.balance;
   return h('strong',{className:'paa-balance-tier','data-tier':label,
-    'aria-label':`路线战况预测：${TIER_LABELS[label]}，参考对比，不代表胜率或通过率`},
+    'aria-label':`路线战况预测：${label}，参考对比，不代表胜率或通过率`},
     h('svg',{viewBox:'0 0 12 12','aria-hidden':true,focusable:false},
-      ...TIER_MARKS[label].map((d,i)=>h('path',{key:i,d}))),TIER_LABELS[label]);
+      ...TIER_MARKS[label].map((d,i)=>h('path',{key:i,d}))),label);
 }
 function renderCombatBalance(h,assessment){
   if(!validBalance(assessment)){
     const text=({partial:'部分待确认',unselected:'选择路线',empty:'选择舰娘',pending:'计算中',awaitingCompletion:'一键补全后计算',unreachable:'当前编成无法沿此路线到达'})[assessment?.status]||'战况预测待确认';
-    return h('div',{className:'paa-balance-pending',role:'status'},text);
+    return h('div',{className:'paa-balance-pending',role:'status','aria-label':`路线战况预测：${text}`},
+      h('div',{className:'paa-balance-labels','aria-hidden':true},h('span',null,'我方'),
+        h('span',{className:'paa-balance-placeholder-text'},text),h('span',null,'敌方')),
+      h('div',{className:'paa-balance-track','data-pending':true,'aria-hidden':true}));
   }
   const {blueShare,label}=assessment.balance;
   return h('div',{className:'paa-combat-balance','data-tier':label,
-    'aria-label':`路线战况预测：${TIER_LABELS[label]}，参考对比，不代表胜率或通过率`},
+    'aria-label':`路线战况预测：${label}，参考对比，不代表胜率或通过率`},
     h('div',{className:'paa-balance-labels'},h('span',null,'我方'),h('span',null,'敌方')),
     h('div',{className:'paa-balance-track','aria-hidden':true},
       h('span',{className:'paa-balance-blue',style:{width:`${blueShare*100}%`}}),

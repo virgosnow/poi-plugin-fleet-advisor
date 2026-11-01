@@ -327,18 +327,14 @@ module.exports=`
 .paa-route-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 @container paa-routes (max-width:340px){.paa-route-options{grid-template-columns:minmax(0,1fr)}}
 .paa .paa-route-option,.paa .paa-route-clear{display:flex;flex-direction:column;gap:3px;text-align:left;padding:7px 10px;min-height:44px;line-height:20px;white-space:normal}
-.paa-balance-pending{height:31px;display:flex;align-items:center;justify-content:center;border-radius:5px;background:var(--paa-soft);color:var(--paa-muted);font-size:11px}
+.paa-balance-pending{height:31px;display:flex;flex-direction:column;gap:4px;min-width:0;color:var(--paa-muted);font-size:11px}
 .paa-combat-balance{display:flex;flex-direction:column;gap:4px;min-width:0}
 .paa-balance-tier{--paa-balance-tone:#566b7e}
-.paa-balance-tier[data-tier=完胜]{--paa-balance-tone:#176ca9}
-.paa-balance-tier[data-tier=优势]{--paa-balance-tone:#397d9f}
-.paa-balance-tier[data-tier=劣势]{--paa-balance-tone:#b25e4b}
-.paa-balance-tier[data-tier=完败]{--paa-balance-tone:#b9404d}
 .bp5-dark .paa-balance-tier,.bp6-dark .paa-balance-tier{--paa-balance-tone:#d3dde6}
-.bp5-dark .paa-balance-tier[data-tier=完胜],.bp6-dark .paa-balance-tier[data-tier=完胜]{--paa-balance-tone:#8edaff}
-.bp5-dark .paa-balance-tier[data-tier=优势],.bp6-dark .paa-balance-tier[data-tier=优势]{--paa-balance-tone:#a1cde4}
-.bp5-dark .paa-balance-tier[data-tier=劣势],.bp6-dark .paa-balance-tier[data-tier=劣势]{--paa-balance-tone:#edb29c}
-.bp5-dark .paa-balance-tier[data-tier=完败],.bp6-dark .paa-balance-tier[data-tier=完败]{--paa-balance-tone:#ffabb0}
+.paa-balance-tier[data-tier=压倒性优势]{--paa-balance-tone:var(--paa-good)}
+.paa-balance-tier[data-tier=明显优势]{--paa-balance-tone:var(--paa-accent)}
+.paa-balance-tier[data-tier=明显劣势]{--paa-balance-tone:#ce934c}
+.paa-balance-tier[data-tier=压倒性劣势]{--paa-balance-tone:var(--paa-bad)}
 .paa-balance-labels{display:flex;justify-content:space-between;align-items:center;min-width:0;height:18px;font-size:11px;line-height:18px;color:var(--paa-muted)}
 .paa-balance-tier{display:inline-flex;align-items:center;gap:3px;line-height:24px;font-size:18px;font-weight:700;white-space:nowrap;color:var(--paa-balance-tone)}
 .paa-balance-tier svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:1.55;stroke-linecap:round;stroke-linejoin:round}
@@ -360,6 +356,8 @@ module.exports=`
 @media(prefers-reduced-motion:reduce){.paa .paa-wb-threat .paa-balance-toggle::after{transition:none}}
 
 .paa-balance-track{height:9px;border-radius:5px;overflow:hidden;position:relative;background:#d4757d}
+.paa-balance-track[data-pending=true]{border:1px solid var(--paa-line);background:linear-gradient(90deg,color-mix(in srgb,#65b3d9 24%,var(--paa-card)),var(--paa-card) 45%,var(--paa-card) 55%,color-mix(in srgb,#d4757d 24%,var(--paa-card)))}
+.paa-balance-placeholder-text{min-width:0;margin:0 5px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .paa-balance-blue{display:block;height:100%;background:#65b3d9;transition:width .3s ease}
 .paa-balance-divider{position:absolute;z-index:1;top:0;bottom:0;width:2px;background:#ffffffcc;transform:translateX(-50%);transition:left .3s ease}
 @media(prefers-reduced-motion:reduce){.paa-balance-blue,.paa-balance-divider{transition:none}}
