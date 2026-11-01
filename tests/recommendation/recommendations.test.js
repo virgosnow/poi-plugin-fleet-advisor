@@ -718,6 +718,22 @@ test('closest expedition fallback may expose missing ship types but never restor
 });
 const expeditionFit=(store,ships,missionId=5,extra={})=>require('../../src/recommendation/index').recommendExpeditionEquipment(store,{
   missionId,scheme:{fleet:2,ships:ships.map(id=>({id,slots:store.info.ships[id].api_slot.slice(),ex:-1}))},...extra});
+
+test('expedition recommendations clear unnecessary worn equipment, including expansion slots, but keep manual holds',()=>{
+  const store=incomeEquipmentFixture();
+  for(const id of [301,302,303,304])store.info.equips[id]={api_id:id,api_slotitem_id:500};
+  store.info.ships[2].api_slot=[301,302];store.info.ships[2].api_slot_ex=303;
+  store.info.ships[3].api_slot=[304,-1];
+  const ids=[1,2,3,4,5,6],scheme={fleet:2,ships:ids.map(id=>({id}))},before=JSON.stringify(store);
+  const fit=require('../../src/recommendation/index').recommendExpeditionEquipment(store,{scheme,missionId:1,goal:'success'});
+  assert(fit.evaluation.eligible);assert(fit.scheme.ships.every(ship=>ship.slots.every(id=>id===-1)&&ship.ex===-1));
+  const heldSlots=[{id:2,slots:[301,302],ex:303,keep:{0:true}}];
+  const held=require('../../src/recommendation/index').recommendExpeditionEquipment(store,{scheme,missionId:1,goal:'success',heldSlots});
+  assert.deepEqual(held.scheme.ships[1].slots,[301,-1]);assert.equal(held.scheme.ships[1].ex,-1);
+  const search=recommendExpeditionFleet(store,{fleet:2,missionId:1,goal:'success',fixedShipIds:ids,limit:1});
+  assert(search.recommendations.length);assert(search.recommendations[0].scheme.ships.every(ship=>ship.slots.every(id=>id===-1)&&ship.ex===-1));
+  assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',fit.scheme));assert.equal(JSON.stringify(store),before);
+});
 const addExpeditionItem=(store,id,master,level=0)=>{store.info.equips[id]={api_id:id,api_slotitem_id:master,api_level:level};};
 
 test('expedition fits reward gear after mandatory and great-success drums without wasting the only cargo carrier',()=>{

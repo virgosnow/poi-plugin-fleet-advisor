@@ -113,7 +113,7 @@ Normal search always uses route requirements and a single combat score; default 
 
 Arrival excludes retreat/battle outcomes. `arrival` describes selected/merged route or overall Boss arrival according to the strategy; do not add probabilities from different recommended fleets. `fleetSummary.air.reference/estimate` contains selected-route per-node thresholds and aircraft-loss estimates. The map catalog field `airControl` contains static reference information; use route evaluation for loss-adjusted results. LoS gates may have different coefficients: read `planning.losRequirements` / `fleetSummary.los`, not just coefficient 4. Missing data remains unknown. Search is bounded; `notFound` does not prove a solution is impossible.
 
-Expedition `eligible` and `greatSuccess` are separate. `income.rows[].net/greatNet` deduct fuel/ammo supply; catalog reference income is not the proposed fleet's income. Recommendation defaults to the plugin expedition goal setting; supply assumptions and uncertain probabilities remain explicit.
+Expedition `eligible` and `greatSuccess` are separate. `income.rows[].net/greatNet` deduct fuel/ammo supply; catalog reference income is not the proposed fleet's income. Recommendation defaults to the plugin expedition goal setting; supply assumptions and uncertain probabilities remain explicit. A recommendation may be prepared for an away destination fleet, but excludes ships and equipment currently on expedition; preview and execution still require the real destination fleet to be available.
 
 ### Workflows
 

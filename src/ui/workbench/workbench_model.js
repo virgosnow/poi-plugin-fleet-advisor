@@ -154,7 +154,9 @@ function inspect(service,store,slots,settings){
   const out={scheme:candidate,settingsKey:JSON.stringify(settings),valid:false,profile:null,route:null,metrics:null,expedition:null,error:''};
   try{
     if(!candidate.ships.length)throw Error('先选择要固定的舰娘，或一键补全');
-    const plan=service.preview('fleet',candidate);out.plan=plan;out.valid=true;
+    const planning=kind==='expedition'?require('../../domain/fleet/expedition_planning_store')(store,fleet):store;
+    const plan=planning===store?service.preview('fleet',candidate):require('../../domain/fleet/fleet_plan').createFleetPlanner(()=>planning).preview('fleet',candidate);
+    out.plan=plan;out.valid=true;
     if(kind==='normal'){
       const routes=require('../../domain/routes/normal_routes');
       out.route=routes.evaluateNormalRoute(store,{area,target,phase:phase||undefined,fleet,scheme:candidate});

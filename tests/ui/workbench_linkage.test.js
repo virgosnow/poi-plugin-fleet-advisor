@@ -1187,6 +1187,26 @@ test('expedition with no reference fleet shows a dismissible no-plan dialog with
   assert(!h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog'));
 });
 
+test('expedition completion works while its selected destination fleet is away',async()=>{
+  const h=harness('expedition'),actual=require('../../src/recommendation/expedition');
+  h.store.info.fleets[1]={api_ship:[8],api_mission:[1,1]};
+  const before=JSON.stringify(h.store);
+  h.service.recommendExpeditionFleet=args=>{
+    const planning=require('../../src/domain/fleet/expedition_planning_store')(h.store,args.fleet);
+    const result=actual.recommendExpeditionFleet(planning,args);
+    return {...result,recommendations:result.recommendations.map(row=>({...row,planningOnly:true}))};
+  };
+  const tree=h.render({automaticOperations:false});
+  await h.find(tree,n=>n.type==='button'&&n.props.className==='paa-wb-complete').props.onClick();
+  assert(h.get('slots').some(Boolean));assert(h.get('slots').filter(Boolean).every(ship=>ship.id!==8));
+  assert.equal(h.get('report').valid,true);assert.equal(h.get('report').expedition.fleetBusy,true);
+  const view=h.render({automaticOperations:true}),apply=h.find(view,n=>n.props.className==='paa-primary paa-wb-apply');
+  assert.equal(apply.props.disabled,true);assert.match(apply.props['data-tooltip'],/目标舰队正在远征/);
+  const destination=h.control(view,'编入'),away=destination.children.find(option=>option.props.value===2);
+  assert.equal(away.props.disabled,false);assert.match(away.children[0],/远征中/);
+  assert.equal(JSON.stringify(h.store),before);
+});
+
 test('a successful or obsolete expedition search does not open a no-plan dialog',async()=>{
   const h=harness('expedition');let finish;
   h.service.recommendExpeditionFleet=()=>({recommendations:[{scheme:W.scheme([W.entry(h.store,2)],2)}]});

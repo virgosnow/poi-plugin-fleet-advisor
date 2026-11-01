@@ -132,9 +132,9 @@ function incomeSearch(store,pool,inventory,spec,missionId,heldSlots=[]){
   const cargo=inventory.filter(i=>isAutomaticCargo(store,i.id)),held=new Map(heldSlots.filter(Boolean).map(s=>[s.id,s]));
   const capacity=new Map(pool.map(row=>{
     const ship=row.ship,count=Number(row.master?.api_slot_num??store.const.$ships[ship.api_ship_id]?.api_slot_num??ship.api_slot.length);
-    const lock=held.get(row.id);let slots=0;
-    for(let k=0;k<count;k++)if(!lock?.keep?.[k]&&!(spec.totals&&ship.api_slot[k]>0)&&cargo.some(item=>fits(store,item,row.id,k)))slots++;
-    if(ship.api_slot_ex!==0&&!lock?.keep?.ex&&!(spec.totals&&ship.api_slot_ex>0)&&cargo.some(item=>fits(store,item,row.id,'ex')))slots++;
+    const lock=held.get(row.id),limit=automaticSlotLimit({id:row.id,slots:Array(count).fill(-1)},held);let slots=0;
+    for(let k=0;k<limit;k++)if(!lock?.keep?.[k]&&cargo.some(item=>fits(store,item,row.id,k)))slots++;
+    if(ship.api_slot_ex!==0&&!lock?.keep?.ex&&cargo.some(item=>fits(store,item,row.id,'ex')))slots++;
     return [row.id,slots];
   }));
   const maxRate=Math.max(0,...cargo.map(i=>equipmentRewardRate(store.info.equips[i.id].api_slotitem_id)));

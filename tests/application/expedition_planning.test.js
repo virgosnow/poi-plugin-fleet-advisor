@@ -1,0 +1,35 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const fs=require('fs'),os=require('os'),path=require('path');
+const fixture=require('../helpers/workbench_fixture');
+const {FleetAdvisorService}=require('../../src/application/fleet_advisor_service');
+const {Controller}=require('../../src/application/controller');
+const planningStore=require('../../src/domain/fleet/expedition_planning_store');
+
+test('an expedition draft can be planned for an away fleet without borrowing its ships or equipment',async t=>{
+  const store=fixture(),dir=fs.mkdtempSync(path.join(os.tmpdir(),'paa-expedition-planning-'));
+  store.info.ships[8].api_slot=[801,-1];store.info.equips[801]={api_id:801,api_slotitem_id:75,api_level:0};
+  store.const.$equips[75]={api_id:75,api_name:'ドラム缶',api_type:[0,0,25,30]};
+  for(const type of [1,2,3])store.const.$shipTypes[type]={api_equip_type:{25:1}};
+  store.info.fleets[1]={api_ship:[8],api_mission:[1,1]};
+  store.info.fleets[2]={api_ship:[7],api_mission:[1,1]};
+  store.info.fleets[3]={api_ship:[6],api_mission:[1,1]};
+  const before=JSON.stringify(store),controller=new Controller({getStore:()=>store});
+  const service=new FleetAdvisorService({controller,getStore:()=>store,storageDir:dir});
+  t.after(async()=>{await service.dispose();fs.rmSync(dir,{recursive:true,force:true});});
+  const view=planningStore(store,2);
+  assert.equal(view.info.fleets[1].api_mission[0],0);assert.equal(store.info.fleets[1].api_mission[0],1);
+  const snapshotId=service.createSnapshot().snapshotId;
+  const result=await service.recommendExpeditionFleet({snapshotId,fleet:2,missionId:1,goal:'success',limit:1});
+  const row=result.recommendations[0];assert(row);assert.equal(row.scheme.fleet,2);assert.equal(row.planningOnly,true);
+  assert(row.scheme.ships.every(ship=>![6,7,8].includes(ship.id)));
+  assert(row.scheme.ships.every(ship=>!ship.slots?.includes(801)&&ship.ex!==801));
+  assert.throws(()=>controller.preview('fleet',row.scheme),/expedition|远征/);
+  const fitted=await service.recommendExpeditionEquipment({snapshotId,scheme:row.scheme,missionId:1,goal:'success'});
+  assert.deepEqual(fitted.scheme.ships.map(ship=>ship.id),row.scheme.ships.map(ship=>ship.id));
+  assert(fitted.scheme.ships.every(ship=>!ship.slots?.includes(801)&&ship.ex!==801));
+  await service.saveScheme({name:'expedition-draft',scheme:row.scheme});
+  const named=await service.recommendExpeditionEquipment({snapshotId,schemeName:'expedition-draft',missionId:1,goal:'success'});
+  assert.deepEqual(named.scheme.ships.map(ship=>ship.id),row.scheme.ships.map(ship=>ship.id));
+  assert.equal(JSON.stringify(store),before);
+});

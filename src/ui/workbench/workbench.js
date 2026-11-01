@@ -551,7 +551,10 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         if(!alive.current||token!==operation.current||latest.current!==key)return;
         publishCalculation(progress.update({stage:'verify'}));
         if(getStore().info!==initialStore.info||getStore().const!==initialStore.const)throw Error('舰队资料已变化，已保留换船结果，请重新补全');
-        const updated=activateDraft(W.withEquipment(next,result.scheme));service.preview('fleet',W.scheme(updated,fleet));
+        const updated=activateDraft(W.withEquipment(next,result.scheme));
+        if(kind==='expedition'&&Number(initialStore.info.fleets?.[fleet-1]?.api_mission?.[0])!==0){
+          const validated=W.inspect(service,initialStore,updated,settings);if(!validated.valid)throw Error(validated.error||'编成需要调整');
+        }else service.preview('fleet',W.scheme(updated,fleet));
         const unchanged=report.valid&&report.settingsKey===JSON.stringify(settings)&&JSON.stringify(report.scheme)===JSON.stringify(W.scheme(updated,fleet));
         const inspection=kind==='normal'?(unchanged?report:W.inspect(service,initialStore,updated,settings)):null;
         const option=kind==='normal'?W.mapOverview(area,target,phase,selectionSettings,initialStore).options.find(o=>o.key===mapRoute):null;
@@ -682,11 +685,12 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     if(hidden)return hiddenPage(h,page.current,{className:'paa-workbench','data-kind':kind,hidden});
     if(!data)return h('div',{className:'paa-workbench','data-kind':kind},operationFeedback,
       busy?h('button',{type:'button',ref:stopButtonRef,disabled:stopping,onClick:event=>{if(!stopping)onStop?.(event);}},stopping?'正在停止…':'停止操作'):null);
-    const applyDisabled=disabled||resumePending.current||!report.valid||dirty||!rows.length;
+    const targetFleet=store.info?.fleets?.[fleet-1],targetUnavailable=!targetFleet||!Array.isArray(targetFleet.api_mission)||Number(targetFleet.api_mission[0])!==0;
+    const applyDisabled=disabled||resumePending.current||targetUnavailable||!report.valid||dirty||!rows.length;
     const applyWarning=!busy&&!dirty&&rows.length?W.applicationWarning(kind,report,selectedRoute,target):null;
     const conditionsChanged=rows.length>0&&draftContext!==null&&draftContext!==conditionKey;
     const activityText=activity==='equipment'?'正在更新装备推荐…':activity==='route'?'正在同步路线与编成…':'正在补全…';
-    const applyHint=busy?'正在应用编成':working?activityText:!rows.length||preselecting?'可先选入任务舰娘，也可直接补全':dirty?'正在核对编成…':!report.valid?(report.error||'编成需要调整'):conditionsChanged?'条件已变更 · 当前编成已保留，请点击一键补全':checks.length?'远征条件未满足 · 可调整后再应用':notice||changeSummary+(reasons.length?' · 请留意路线条件':'');
+    const applyHint=busy?'正在应用编成':working?activityText:targetUnavailable?'目标舰队正在远征或状态未同步，请选择可用舰队':!rows.length||preselecting?'可先选入任务舰娘，也可直接补全':dirty?'正在核对编成…':!report.valid?(report.error||'编成需要调整'):conditionsChanged?'条件已变更 · 当前编成已保留，请点击一键补全':checks.length?'远征条件未满足 · 可调整后再应用':notice||changeSummary+(reasons.length?' · 请留意路线条件':'');
     const portrait=(row,lazy=false)=>h('div',{className:'paa-wb-portrait'},h('span',null,row.name.slice(0,2)),row.portrait?h('img',{src:row.portrait,alt:'',draggable:false,...(lazy?{loading:'lazy',decoding:'async'}:{}),onError:e=>{e.currentTarget.style.display='none';}}):null);
     const shipCard=(s,i)=>{
       const remove=()=>{
@@ -805,7 +809,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const commandControls=h('div',{className:'paa-wb-command-area','data-running':!!busy},h('div',{className:'paa-wb-command-row'},h('div',{className:'paa-wb-edit-controls'},h('button',{type:'button',className:'paa-wb-complete',disabled,onClick:()=>complete()},h('svg',{width:15,height:15,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'m4 16 9-9 3 3-9 9zM4 3v4M2 5h4M14 1v3M12.5 2.5h3'})),working&&activity==='complete'?'计算中…':'一键补全'),
           h('button',{type:'button',className:'paa-wb-quiet',disabled,onClick:()=>{if(kind==='normal'){operation.current++;routeCache.current=null;prepared.current=false;invalidateRouteCombat();resultViews.current.clear();setExcluded([]);setPopup(null);setSearch('');setWorking(false);setActivity('');setPhase('');setCombatDeferredPhase('');setRoutePhaseAnchor('');setPurpose('clear');setMapRoute('');setPathIndex(0);setNodeId(null);setRouteRulesOpen(false);setRouteDrafts({});}commit(blank());setChoices([]);}},'一键清空'),
         ),
-        automaticOperations||busy?h('div',{className:'paa-wb-apply-controls'},field('编入',fleet,value=>{const next=Number(value);setFleet(next);setReport({valid:false});},[1,2,3,4].filter(n=>kind!=='expedition'||n>1).map(n=>{const f=store.info?.fleets?.[n-1],unavailable=!f||Number(f.api_mission?.[0])!==0;return [n,`第 ${n} 舰队${unavailable?'（不可用）':''}`,unavailable];})),
+        automaticOperations||busy?h('div',{className:'paa-wb-apply-controls'},field('编入',fleet,value=>{const next=Number(value);setFleet(next);setReport({valid:false});},[1,2,3,4].filter(n=>kind!=='expedition'||n>1).map(n=>{const f=store.info?.fleets?.[n-1],unavailable=!f||!Array.isArray(f.api_mission),away=f&&!unavailable&&Number(f.api_mission[0])!==0;return [n,`第 ${n} 舰队${unavailable?'（未同步）':away?'（远征中）':''}`,unavailable||kind!=='expedition'&&away];})),
         h('button',{type:'button',className:'paa-primary paa-wb-apply',ref:stopButtonRef,'data-running':!!busy,'data-warning':!!applyWarning,disabled:busy?stopping:applyDisabled,'data-tooltip':busy?'停止后续操作，已发送的操作会正常完成':applyDisabled?applyHint:applyWarning?.hint||'将当前编成应用到所选舰队',onClick:event=>{if(busy){if(!stopping)return onStop?.(event);return;}if(automaticOperations&&!applyDisabled)return onApply(W.scheme(slots,fleet));}},busy?(stopping?'正在停止…':'停止操作'):applyWarning?.label||'应用编成')):null));
     const rendered=h('div',{className:'paa-workbench','data-kind':kind,hidden},
       h('div',{className:'paa-wb-columns'},

@@ -434,20 +434,17 @@ function fitExpeditionEquipment(store,{scheme,missionId,goal='success',heldSlots
   }
   const used=new Set(),entries=scheme.ships.map(s=>{
     const lock=held.get(s.id),count=usableSlots(store,s.id).length;
-    const slotLimit=expeditionLoadout.automaticSlotLimit({id:s.id,slots:Array(count).fill(-1)},held);
-    const normalize=(value,k)=>{
-      const pinned=!!lock?.keep?.[k],id=pinned?(k==='ex'?lock.ex:lock.slots[k]):value;
-      if(!pinned&&k!=='ex'&&k>=slotLimit)return -1;
+    const normalize=k=>{
+      const pinned=!!lock?.keep?.[k];if(!pinned)return -1;
+      const id=k==='ex'?lock.ex:lock.slots[k];
       if(!(id>0))return -1;
       const owner=reserved.get(id);
       let valid=available.has(id)&&!used.has(id)&&(!owner||owner===`${s.id}:${k}`);
       try{valid=valid&&canEquip(store,s.id,id,k);}catch(_){valid=false;}
-      if(!valid){if(pinned)throw error('INVALID_QUERY','手动装备当前不可用或不适配');return -1;}
-      if(!pinned&&(isDrum(id)||!spec.totals&&expeditionLoadout.isCargo(store,id)))return -1;
+      if(!valid)throw error('INVALID_QUERY','手动装备当前不可用或不适配');
       used.add(id);return id;
     };
-    return {id:s.id,slots:Array.from({length:count},(_,k)=>normalize(s.slots?.[k]??store.info.ships[s.id].api_slot[k],k)),
-      ex:normalize(s.ex??store.info.ships[s.id].api_slot_ex,'ex')};
+    return {id:s.id,slots:Array.from({length:count},(_,k)=>normalize(k)),ex:normalize('ex')};
   });
   const drums=inventory.filter(i=>i.master.api_id===75||store.info.equips[i.id]?.api_slotitem_id===75)
     .sort((a,b)=>Number(!ids.includes(a.sourceShipId))-Number(!ids.includes(b.sourceShipId))||Number(!!a.sourceShipId)-Number(!!b.sourceShipId)||a.id-b.id);

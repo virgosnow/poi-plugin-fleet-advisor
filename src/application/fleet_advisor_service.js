@@ -335,7 +335,8 @@ class FleetAdvisorService {
   async recommendWithFilters(method,kind,args,onProgress){
     const snapshot=this.snapshots.get(args.snapshotId),filters=this.getRecommendationFilters()[kind];
     args=pageQueries.recommendationArgs(snapshot.store,args);
-    const input=selectionFilters.planningStore(snapshot.store,filters);
+    const filtered=selectionFilters.planningStore(snapshot.store,filters);
+    const input=kind==='expedition'?require('../domain/fleet/expedition_planning_store')(filtered,args.fleet??2):filtered;
     const result=await this.recommendations.run(method,input,{...args,automaticFilters:filters},onProgress);
     pageQueries.verifyConstraints(result,args,false,snapshot.store);
     const reason=selectionFilters.evaluator(snapshot.store,kind,filters),counts={};
@@ -369,8 +370,10 @@ class FleetAdvisorService {
   }
   async recommendExpeditionEquipment(args,onProgress){
     const snapshot=this.snapshots.get(args.snapshotId);
-    args=this.equipmentRecommendationArgs(snapshot.store,args);
-    return {snapshotId:args.snapshotId,...pageQueries.verifyConstraints(await this.recommendations.run('recommendExpeditionEquipment',snapshot.store,args,onProgress),args,true)};
+    const scheme=this.resolveSchemeSource(args);
+    const input=require('../domain/fleet/expedition_planning_store')(snapshot.store,scheme?.fleet);
+    args=this.equipmentRecommendationArgs(input,{...args,scheme,schemeName:undefined});
+    return {snapshotId:args.snapshotId,...pageQueries.verifyConstraints(await this.recommendations.run('recommendExpeditionEquipment',input,args,onProgress),args,true)};
   }
   equipmentRecommendationArgs(store,args){
     const scheme=this.resolveSchemeSource(args);validateSchemeShape(scheme);
