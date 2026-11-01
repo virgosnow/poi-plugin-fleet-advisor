@@ -8,8 +8,8 @@ const {canFallback,recoverImageScreen}=require('../execution/recognition_fallbac
 
 
 class Controller {
-  constructor({getStore,createHost,createObserver,onProgress=()=>{}}) {
-    this.getStore=getStore;this.createHost=createHost;this.createObserver=createObserver;this.onProgress=onProgress;
+  constructor({getStore,createHost,createObserver,onProgress=()=>{},onDiagnostic=()=>{}}) {
+    this.getStore=getStore;this.createHost=createHost;this.createObserver=createObserver;this.onProgress=onProgress;this.onDiagnostic=onDiagnostic;
     this.planner=createFleetPlanner(getStore,{resolveOrganization:resolvePlan});
     this.running=false;this.disposed=false;
   }
@@ -65,7 +65,7 @@ class Controller {
     }
   }
   createSession({recognitionMode,...options}){
-    this.session=new Session(this.host,this.observer,{...options,onProgress:this.onProgress,allowControlFallback:this.observerMode==='controls'});
+    this.session=new Session(this.host,this.observer,{...options,onProgress:this.onProgress,onDiagnostic:this.onDiagnostic,allowControlFallback:this.observerMode==='controls'});
     Object.assign(this.session.metrics,{recognitionMode,finalRecognitionMode:this.observerMode,
       recognitionFallbacks:this.initialFallback?[this.initialFallback]:[]});
     if(this.initialFallback)this.session.resetImagePicker=true;

@@ -111,8 +111,9 @@ test('concrete projection preserves full planner acceptance across inventory all
 
 const {restoreEquipment}=require('../../src/execution/equipment');
 function runtime(options={}) {
-  const f=fixture(),inputs=[],snapshots=[],observations=[],progress=[];let now=0,primary=options.initialCategory??null,activePage=options.initialPage||1,pickerCount=0,menu=false,mode=options.initialMode||'stock',screen='home',filterCleared=!options.filterStuck,selectedShip=1,selectedSlot=0,lastPage,lastTotal;
+  const f=fixture(),inputs=[],snapshots=[],observations=[],progress=[],diagnostics=[];let now=0,primary=options.initialCategory??null,activePage=options.initialPage||1,pickerCount=0,menu=false,mode=options.initialMode||'stock',screen='home',filterCleared=!options.filterStuck,selectedShip=1,selectedSlot=0,lastPage,lastTotal;
   const session={host:{getStore:()=>f.data},now:()=>++now,onProgress(event){progress.push(event);},check(){if(this.validate)this.validate();},
+    onDiagnostic(event){diagnostics.push(event);},
     async observe(kind,arg={}){return this.until(kind,arg);},
     async until(kind,arg={},predicate=r=>r.valid){
       this.check();observations.push(kind);
@@ -175,7 +176,7 @@ function runtime(options={}) {
       }
       if(options.fleetDrift)f.data.info.fleets[0].api_ship=[2,1];
     }};
-  return {...f,session,inputs,snapshots,observations,progress};
+  return {...f,session,inputs,snapshots,observations,progress,diagnostics};
 }
 
 test('consecutive normal slots select a category once and reuse the retained selection',async()=>{
@@ -368,7 +369,7 @@ test('missing bulk-clear tooltip, fleet tab or button prevents all equipment mut
 
 test('partial clearing or unintended expansion removal never starts reinstallation',async()=>{
   for(const afterMutation of [s=>s.info.ships[1].api_slot[0]=101,s=>s.info.ships[1].api_slot_ex=-1]) {
-    const f=runtime({afterMutation});await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104]}]}),/no repeat/);
+    const f=runtime({afterMutation});await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104]}]}),/未重复提交/);
     assert.equal(f.inputs.filter(i=>i.mutation).length,1);
   }
 });
@@ -379,7 +380,73 @@ test('retained items do not need reinstallation when only removing an unwanted s
   assert.deepEqual(plan.ships[0].ops.map(op=>[op.kind,op.j,op.id]),[['remove',1,-1]]);
 });
 test('equipment store timeout never repeats a removal',async()=>{
-  const f=runtime({noStore:true});await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:['any','empty']}]}),/no repeat/);
+  const f=runtime({noStore:true});await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:['any','empty']}]}),/未重复提交/);
+  assert.equal(f.inputs.filter(i=>i.mutation).length,1);
+});
+test('equipment diagnostics retain the planned and observed target state when confirmation times out',async()=>{
+  const f=runtime({noStore:true});
+  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:['any','empty']}]}),/未重复提交/);
+  assert.deepEqual(f.diagnostics.map(e=>e.stage),['planned','request-observed','confirmation']);
+  const [planned,submitted,confirmation]=f.diagnostics;
+  assert.equal(planned.target.name,'ship1');assert.equal(planned.slot,2);
+  assert.equal(planned.requestPath,'api_req_kaisou/slotset');
+  assert.deepEqual(planned.target.before.slots,[101,102,-1]);
+  assert.deepEqual(planned.target.expected.slots,[101,-1,-1]);
+  assert.equal(submitted.requestPath,planned.requestPath);
+  assert.equal(confirmation.outcome,'timeout');assert(confirmation.elapsedMs>=30000);
+  assert.equal(confirmation.target.matched,false);assert.deepEqual(confirmation.target.observed.slots,[101,102,-1]);
+  assert.equal(f.inputs.filter(i=>i.mutation).length,1);
+});
+test('equipment diagnostics show whether a borrowed item and its source were confirmed',async()=>{
+  const f=runtime({noDonorUpdate:true});f.data.info.ships[1].api_slot=[-1,-1,-1];
+  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[201]}]}),/未重复提交/);
+  const planned=f.diagnostics.find(e=>e.stage==='planned'),result=f.diagnostics.find(e=>e.stage==='confirmation');
+  assert.equal(planned.requestPath,'api_req_kaisou/slot_deprive');assert.equal(planned.item.instanceId,201);
+  assert.equal(planned.item.name,'gun');assert.equal(planned.source.name,'ship2');assert.equal(planned.source.slot,1);
+  assert.deepEqual(planned.source.before.slots,[201,-1,-1]);assert.deepEqual(planned.source.expected.slots,[-1,-1,-1]);
+  assert.equal(result.outcome,'timeout');assert.equal(result.target.matched,true);assert.equal(result.source.matched,false);
+  assert.deepEqual(result.source.observed.slots,[201,-1,-1]);assert.equal(f.inputs.filter(i=>i.mutation).length,1);
+});
+test('a diagnostic callback failure cannot interrupt an otherwise successful equipment change',async()=>{
+  const f=runtime();f.session.onDiagnostic=()=>{throw Error('log unavailable');};
+  await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:['any','empty']}]});
+  assert.deepEqual(f.data.info.ships[1].api_slot,[101,-1,-1]);
+  assert.equal(f.inputs.filter(i=>i.mutation).length,1);
+});
+test('equipment timeout identifies the target ship, operation and mismatching slot without exposing item IDs',async()=>{
+  const f=runtime({noStore:true});
+  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:['any','empty']}]}),error=>{
+    assert.match(error.message,/ship1 第2槽 卸下装备/);
+    assert.match(error.message,/目标舰「ship1」第2槽未确认/);
+    assert.match(error.message,/已观察到游戏请求，但结果未确认/);
+    assert.match(error.message,/请先在游戏中核对装备状态，未重复提交/);
+    assert.doesNotMatch(error.message,/\b(?:101|102|103)\b/);
+    return true;
+  });
+  assert.equal(f.inputs.filter(i=>i.mutation).length,1);
+});
+test('borrow timeout distinguishes an unconfirmed donor from an unconfirmed target',async()=>{
+  for(const scenario of ['donor','both']){
+    const f=runtime(scenario==='donor'?{noDonorUpdate:true}:{noStore:true});
+    f.data.info.ships[1].api_slot=[-1,-1,-1];
+    await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[201]}]}),error=>{
+      assert.match(error.message,/ship1 第1槽 借用装备/);
+      assert.match(error.message,/来源舰「ship2」第1槽未确认/);
+      if(scenario==='both')assert.match(error.message,/目标舰「ship1」第1槽未确认/);
+      else assert.doesNotMatch(error.message,/目标舰「ship1」/);
+      assert.doesNotMatch(error.message,/\b201\b/);
+      return true;
+    });
+    assert.equal(f.inputs.filter(i=>i.mutation).length,1);
+  }
+});
+test('expansion-slot timeout identifies the expansion slot without a repeated submission',async()=>{
+  const f=runtime({noStore:true});
+  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,ex:'empty'}]}),error=>{
+    assert.match(error.message,/ship1 增设槽 卸下装备/);
+    assert.match(error.message,/目标舰「ship1」增设槽未确认/);
+    return true;
+  });
   assert.equal(f.inputs.filter(i=>i.mutation).length,1);
 });
 test('a missing normal-slot remove button prevents all mutations',async()=>{
@@ -405,7 +472,7 @@ test('ordinary removal uses the point recognized on a real base frame, never the
 });
 test('unexpected normal-slot compaction stops before any following installation',async()=>{
   const f=runtime({afterMutation:(state,m)=>{if(m.item===-1)state.info.ships[1].api_slot=[102,101,-1];}});
-  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[102,101]}]}),/no repeat/);
+  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[102,101]}]}),/未重复提交/);
   assert.equal(f.inputs.filter(i=>i.mutation).length,1);
 });
 test('equipment catches collateral changes to another ship',async()=>{

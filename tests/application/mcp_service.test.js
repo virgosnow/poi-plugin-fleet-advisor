@@ -49,6 +49,33 @@ test('execution timeout diagnostics survive the service job record without chang
   }finally{await service.dispose();clean(dir);}
 });
 
+test('local equipment step diagnostics are retained in the job log without emitting UI updates',async()=>{
+  const dir=temp(),failure=Error('store confirmation failed');let service;
+  const controller={preview(){return {pinned:{org:{ships:[{id:1}]}}};},run:async()=>{
+    service.recordDiagnostic({phase:'equipment',stage:'planned',slot:1,requestPath:'api_req_kaisou/slotset'});
+    service.recordDiagnostic({phase:'equipment',stage:'confirmation',outcome:'timeout',target:{matched:false}});
+    throw failure;
+  },dispose(){},stop(){}};
+  service=new FleetAdvisorService({controller,getStore:state,storageDir:dir});
+  try{
+    service.setExperimentalSettings({automaticOperations:true});const notifications=[];
+    service.subscribe(event=>notifications.push(event));
+    await assert.rejects(service.run('fleet',{fleet:1,ships:[1]}),e=>e===failure);
+    const job=[...service.jobs.values()].at(-1),saved=JSON.parse(fs.readFileSync(path.join(dir,'mcp-state.json'),'utf8')).jobs.at(-1);
+    assert.equal(saved.state,'failed');assert.deepEqual(saved.diagnostics.map(e=>e.stage),['planned','confirmation']);
+    assert.equal(saved.diagnostics[0].requestPath,'api_req_kaisou/slotset');assert.equal(saved.diagnostics[1].target.matched,false);
+    assert.deepEqual(service.getJob({jobId:job.jobId}).diagnostics,saved.diagnostics);assert.deepEqual(notifications,[]);
+  }finally{await service.dispose();clean(dir);}
+});
+
+test('the controller forwards execution diagnostics to the session callback',()=>{
+  const received=[],controller=new Controller({getStore:state,onDiagnostic:event=>received.push(event)});
+  controller.host={};controller.observer={};controller.observerMode='image';
+  controller.createSession({recognitionMode:'image'});
+  controller.session.onDiagnostic({phase:'equipment',stage:'request-observed'});
+  assert.deepEqual(received,[{phase:'equipment',stage:'request-observed'}]);
+});
+
 test('immutable snapshots page all equipment without duplication and match simplified characters',()=>{
   const data=state(),snapshots=new Snapshots(()=>data),created=snapshots.create();
   assert.equal(created.equipmentCount,1202);

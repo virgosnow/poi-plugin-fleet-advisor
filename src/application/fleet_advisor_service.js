@@ -216,6 +216,12 @@ class FleetAdvisorService {
     job.progress=event;job.updatedAt=nowIso();
     job.events.push({time:job.updatedAt,...event});if(job.events.length>100)job.events.shift();
   }
+  recordDiagnostic(event){
+    const job=this.jobs.get(this.activeJobId);if(!job)return;
+    // Diagnostics stay in the local job record and never trigger UI updates.
+    const records=job.diagnostics||(job.diagnostics=[]);
+    records.push({time:nowIso(),...event});if(records.length>200)records.shift();
+  }
   // Single master switch: enabled exposes the whole MCP surface (queries,
   // previews AND execution) with the bridge running; disabled stops the
   // bridge entirely so nothing is exposed locally.

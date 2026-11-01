@@ -93,7 +93,7 @@ exports.pluginDidLoad=()=>{
     createHost:()=>new PoiHost({window,remote:require('@electron/remote')}),
     createObserver:(host,mode)=>mode==='controls'?new(require('./src/execution/control_observer').ControlObserver)(host):
       new WorkerObserver({createWorker:filename=>host.createObserverWorker(filename)}),
-    onProgress:value=>service?.progress(value)});
+    onProgress:value=>service?.progress(value),onDiagnostic:value=>service?.recordDiagnostic(value)});
   service=new FleetAdvisorService({controller,getStore:currentStore,
     // The main process owns lifecycle only; the coordinator and its existing
     // thread pool run in an independent, disposable utility process.

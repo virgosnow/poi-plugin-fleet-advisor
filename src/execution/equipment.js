@@ -7,6 +7,38 @@ const {equipmentSelectionFailure}=require('./observation_diagnostics');
 const SLOT_Y=[271,321,366,412,457];
 const together=(session,checks,predicate=()=>true,stableFrames=2,reuseLastFrame=false)=>session.until('batch',{checks},r=>r.valid&&predicate(r.results),6000,{stableFrames,reuseLastFrame}).then(r=>r.results);
 
+function equipmentDiagnostic(session,event){
+  // Diagnostics are best effort and must never affect a game operation.
+  try{session.onDiagnostic?.(event);}catch(_){}
+}
+function equipmentIdentity(store,id){
+  if(!(id>0))return null;
+  const item=store.info?.equips?.[id],master=store.const?.$equips?.[item?.api_slotitem_id];
+  return {instanceId:id,name:master?.api_name||null,level:item?.api_level??null};
+}
+function equipmentShipName(store,id){
+  return store.const?.$ships?.[store.info?.ships?.[id]?.api_ship_id]?.api_name||'未知舰娘';
+}
+function equipmentTimeout(store,planner,shipId,op){
+  const shipName=id=>equipmentShipName(store,id);
+  const mismatch=(id,expected)=>{
+    const current=planner.currentState(id),slots=[];
+    for(let j=0;j<Math.max(current.slots.length,expected.slots.length);j++)
+      if(current.slots[j]!==expected.slots[j])slots.push(`第${j+1}槽`);
+    if(current.ex!==expected.ex)slots.push('增设槽');
+    return slots.join('、');
+  };
+  const details=[],targetSlots=mismatch(shipId,op.after);
+  if(targetSlots)details.push(`目标舰「${shipName(shipId)}」${targetSlots}未确认`);
+  if(op.source){
+    const sourceSlots=mismatch(op.source.shipId,op.source.after);
+    if(sourceSlots)details.push(`来源舰「${shipName(op.source.shipId)}」${sourceSlots}未确认`);
+  }
+  const slot=op.kind==='clear'?'全部普通装备槽':op.kind==='ex'?'增设槽':`第${op.j+1}槽`;
+  const action=op.source?'借用装备':op.kind==='clear'?'卸下全部装备':op.id<0?'卸下装备':'安装装备';
+  return new Error(`装备状态确认超时：${shipName(shipId)} ${slot} ${action}；${details.join('；')||'装备状态未确认'}。已观察到游戏请求，但结果未确认；请先在游戏中核对装备状态，未重复提交。`);
+}
+
 async function restoreEquipment(session,scheme) {
   const planner=createEquipmentPlanner(()=>session.host.getStore()), plan=planner.resolvePlan(scheme);
   const completed=plan.fleetShips.filter(id=>!plan.ships.some(s=>s.shipId===id));
@@ -48,6 +80,15 @@ async function restoreEquipment(session,scheme) {
         :op.kind==='clear'?{path:'api_req_kaisou/unsetslot_all',ship:ship.shipId}
         :op.kind==='ex'?{path:'api_req_kaisou/slotset_ex',ship:ship.shipId,item:op.id}
         :{path:'api_req_kaisou/slotset',ship:ship.shipId,j:op.j,item:op.id};
+      const slot=op.kind==='clear'?'all':op.kind==='ex'?'ex':op.j+1;
+      const diagnosticKey={fleet:plan.fleet,ship:ship.shipId,slot,step:step+1,total:ship.ops.length};
+      try{
+        const store=data();
+        equipmentDiagnostic(session,{phase:'equipment',stage:'planned',...diagnosticKey,operation:op.kind,requestPath:mutation.path,
+          item:equipmentIdentity(store,op.id),target:{ship:ship.shipId,name:equipmentShipName(store,ship.shipId),before:op.before,expected:op.after},
+          ...(op.source?{source:{ship:op.source.shipId,name:equipmentShipName(store,op.source.shipId),slot:op.source.j==='ex'?'ex':op.source.j+1,
+            before:op.source.before,expected:op.source.after}}:{})});
+      }catch(_){} // Incomplete diagnostic metadata must not affect execution.
       session.onProgress({phase:'equipment',fleet:plan.fleet,ship:ship.shipId,slot:op.kind==='clear'?'all':op.kind==='ex'?'ex':op.j+1,
         operation:op.kind,completed:step,total:ship.ops.length});
       if(op.kind==='clear') {
@@ -214,12 +255,23 @@ async function restoreEquipment(session,scheme) {
           await session.input(1075,659,mutation,'click',{settleMs:0});
         }
       }
-      const deadline=session.now()+30000;
+      equipmentDiagnostic(session,{phase:'equipment',stage:'request-observed',...diagnosticKey,requestPath:mutation.path});
+      const confirmationStart=session.now(),deadline=confirmationStart+30000;
+      const confirmationDiagnostic=outcome=>{
+        try{
+          const target=planner.currentState(ship.shipId),source=op.source?planner.currentState(op.source.shipId):null;
+          equipmentDiagnostic(session,{phase:'equipment',stage:'confirmation',...diagnosticKey,outcome,
+            elapsedMs:Math.max(0,Math.round(session.now()-confirmationStart)),
+            target:{observed:target,matched:planner.sameState(target,op.after)},
+            ...(op.source?{source:{observed:source,matched:planner.sameState(source,op.source.after)}}:{})});
+        }catch(_){} // A diagnostic cannot mask the operation's actual result.
+      };
       while(!planner.sameState(planner.currentState(ship.shipId),op.after)
         ||op.source&&!planner.sameState(planner.currentState(op.source.shipId),op.source.after)) {
-        if(session.now()>=deadline)throw new Error('Equipment store confirmation timed out; no repeat submission');
+        if(session.now()>=deadline){confirmationDiagnostic('timeout');throw equipmentTimeout(data(),planner,ship.shipId,op);}
         await session.wait(50);
       }
+      confirmationDiagnostic('confirmed');
       expected.set(ship.shipId,op.after);
       if(op.source)expected.set(op.source.shipId,op.source.after);
       changing.clear();changes++;

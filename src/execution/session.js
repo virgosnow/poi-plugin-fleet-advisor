@@ -19,6 +19,7 @@ class Session {
       checks:0,hostCheckMs:0,validationMs:0,inputMs:0,waitMs:0,observationsByKind:{},controlReads:0,reusedFrames:0,delayedProbes:0,probeWaitMs:0,
       captureBreakdown:{checkMs:0,commandMs:0,base64Ms:0,maxCommandMs:0,maxEventLoopLagMs:0,slowCaptures:0},slowCaptures:[]};
     this.onProgress = options.onProgress || (() => {});
+    this.onDiagnostic = options.onDiagnostic || (() => {});
   }
   check(full = true) {
     if (this.abort.signal.aborted) throw new Error('Run stopped');
