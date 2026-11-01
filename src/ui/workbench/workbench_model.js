@@ -25,22 +25,35 @@ function family(store,id){
 }
 function roster(store,slots=[],index=-1,search=''){
   const term=normalizeName(search).toLowerCase(),used=new Set(slots.filter((x,i)=>x&&i!==index).map(x=>family(store,x.id)));
+  const graph=store.const?.$shipgraph,graphIndex=Array.isArray(graph)?new Map(graph.filter(Boolean).map(row=>[Number(row.api_id),row])):null;
+  const portraits=new Map();let resolvePortrait;
+  try{resolvePortrait=require('views/utils/ship-img').getShipImgPath;}catch(_){resolvePortrait=()=>null;}
+  const portrait=id=>{if(!portraits.has(id))portraits.set(id,V.portraitUrl(store,id,resolvePortrait,graphIndex));return portraits.get(id);};
   return V.rosterRows(store).map(row=>{
     const ship=store.info.ships[row.id],master=store.const.$ships[ship.api_ship_id];
     const type=TYPES[master.api_stype]||store.const.$shipTypes?.[master.api_stype]?.api_name||'未知舰种';
     const fleetIndex=(store.info.fleets||[]).findIndex(f=>(f.api_ship||[]).includes(row.id));
-    return {...row,type,typeId:master.api_stype,fleet:fleetIndex<0?null:fleetIndex+1,fleetLabel:fleetIndex<0?'未编入舰队':`第 ${fleetIndex+1} 舰队`,cond:ship.api_cond,portrait:V.portraitUrl(store,ship.api_ship_id),
+    return {...row,type,typeId:master.api_stype,fleet:fleetIndex<0?null:fleetIndex+1,fleetLabel:fleetIndex<0?'未编入舰队':`第 ${fleetIndex+1} 舰队`,cond:ship.api_cond,portrait:portrait(ship.api_ship_id),
       unavailable:row.unavailable||(used.has(family(store,row.id))?'同舰已编入':null)};
   }).filter(row=>!term||normalizeName(row.name+' '+row.type+' '+row.id).toLowerCase().includes(term));
 }
-function replacementCandidates(store,slots,index,search='',scope='similar',selection){
-  const current=slots[index],typeId=store.const.$ships[store.info.ships[current?.id]?.api_ship_id]?.api_stype;
+// The owned roster and automatic-exclusion reasons do not depend on the
+// selected draft position. They can be prepared while the workbench is idle.
+function prepareReplacementCandidates(store,selection){
   const excluded=selection?require('../../config/recommendation_filters').evaluator(store,selection.kind,selection.filters):()=>[];
+  return roster(store,[], -1).map(row=>({...row,familyKey:family(store,row.id),
+    searchText:normalizeName(row.name+' '+row.type+' '+row.id).toLowerCase(),preferenceReasons:excluded(row.id)}));
+}
+function replacementCandidates(store,slots,index,search='',scope='similar',selection,prepared,{sortFirstFleet=true}={}){
+  const current=slots[index],typeId=store.const.$ships[store.info.ships[current?.id]?.api_ship_id]?.api_stype;
+  const term=normalizeName(search).toLowerCase();
+  const used=new Set(slots.filter((row,i)=>row&&i!==index).map(row=>family(store,row.id)));
   // Explicit selections override automatic preferences. First-fleet members
   // lead each list, then both groups descend by level. Search spans ship types.
-  return roster(store,slots,index,search).filter(r=>search.trim()||scope==='all'||!typeId||r.typeId===typeId)
-    .map(r=>({...r,preferenceReasons:excluded(r.id)}))
-    .sort((a,b)=>Number(b.fleet===1)-Number(a.fleet===1)||b.level-a.level||a.id-b.id);
+  const rows=(prepared||prepareReplacementCandidates(store,selection))
+    .filter(row=>(!term||row.searchText.includes(term))&&(search.trim()||scope==='all'||!typeId||row.typeId===typeId))
+    .map(row=>({...row,unavailable:row.unavailable||(used.has(row.familyKey)?'同舰已编入':null)}));
+  return sortFirstFleet?rows.sort((a,b)=>Number(b.fleet===1)-Number(a.fleet===1)||b.level-a.level||a.id-b.id):rows;
 }
 function changeSummary(store,slots,fleet){
   const before=(store.info.fleets?.[fleet-1]?.api_ship||[]).filter(id=>id>0),after=slots.filter(Boolean).map(s=>s.id);
@@ -501,4 +514,4 @@ function fleetSummary(report,profile,routeNodes){
 }
 const income=require('../../domain/expeditions/expedition_income').missionIncome;
 
-module.exports={TYPES,entry,scheme,resolved,roster,replacementCandidates,changeSummary,equipmentOptions,recommendationHolds,merge,withEquipment,projected,inspect,routeChoices,badges,income,mapOverview,selectedMapProfile,routeEdgeProbabilities,mapProgress,displayThreat,displayBossFlagship,fleetSummary,routeArrival,draftRouteIssue,routeSpeedSummary,applicationWarning};
+module.exports={TYPES,entry,scheme,resolved,roster,prepareReplacementCandidates,replacementCandidates,changeSummary,equipmentOptions,recommendationHolds,merge,withEquipment,projected,inspect,routeChoices,badges,income,mapOverview,selectedMapProfile,routeEdgeProbabilities,mapProgress,displayThreat,displayBossFlagship,fleetSummary,routeArrival,draftRouteIssue,routeSpeedSummary,applicationWarning};

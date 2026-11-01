@@ -51,12 +51,12 @@ function rosterRows(store){
 const nodeKind={start:'出发',battle:'水上战',nightBattle:'夜战',asw:'对潜战',
   aerialCombat:'航空战',aerialRaid:'空袭',noBattle:'无战斗',resources:'资源',transport:'运输卸载',
   item:'资源',whirlpool:'涡潮',activeBranch:'能动分岐',airRecon:'航空侦察',unknown:'资料不足'};
-function portraitUrl(store,masterId,resolver){
+function portraitUrl(store,masterId,resolver,graphIndex){
   if(!masterId)return null;
   try{
     const getPath=resolver||require('views/utils/ship-img').getShipImgPath;
     const graphs=store.const?.$shipgraph;
-    const graph=Array.isArray(graphs)?graphs.find(g=>g.api_id===masterId):graphs?.[masterId];
+    const graph=graphIndex?graphIndex.get(Number(masterId)):Array.isArray(graphs)?graphs.find(g=>g.api_id===masterId):graphs?.[masterId];
     return getPath(masterId,'banner',false,store.info?.server?.ip,graph?.api_version?.[0])||null;
   }catch(_){return null;}
 }

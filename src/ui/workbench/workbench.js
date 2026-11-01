@@ -11,6 +11,7 @@ const collapse=require('../components/collapse');
 const {assessCombat}=require('../../application/combat_assessment');
 const {assessRouteChoices}=require('../../application/route_combat_assessments');
 const {runRouteCombatBatch}=require('./route_combat_batch');
+const {createShipPickerCache}=require('./ship_picker_cache');
 const SHIP_GROUPS=[['small','驱逐／海防',[1,2]],['cruiser','巡洋舰',[3,4,5,6,21]],['battleship','战舰',[8,9,10,12]],['carrier','空母',[7,11,18]],['submarine','潜艇',[13,14]],['other','辅助舰',[16,17,19,20,22]]];
 const shipGroup=type=>SHIP_GROUPS.find(group=>group[2].includes(Number(type)))?.[0]||'other';
 const blank=()=>Array(6).fill(null),pad=rows=>rows.concat(Array(Math.max(0,6-rows.length)).fill(null));
@@ -149,6 +150,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const [noPlan,setNoPlan]=React.useState('');
     const grid=React.useRef(null),alive=React.useRef(true),positions=React.useRef(new Map()),popupList=React.useRef(null);
     const resultViews=React.useRef(new Map());
+    const pickerCache=React.useRef(null),pickerRowsCache=React.useRef(null);
+    if(!pickerCache.current)pickerCache.current=createShipPickerCache();
     const calculationChannel=React.useRef({value:'',listeners:new Set()});
     const previousDefaultGoal=React.useRef(defaultGoal);
     const mapDialog=React.useRef(null),noPlanDialog=React.useRef(null);
@@ -198,6 +201,14 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const conditionKey=JSON.stringify([kind,area,target,phase,'clear',style,missionId,goal,filterKey,...(selectedQuests.length?[selectedQuests]:[])]);
     latest.current=conditionKey;
     routeCombatContext.current=JSON.stringify([conditionKey,fleet,excluded]);
+    React.useEffect(()=>{
+      if(paused||working)return;
+      // Precompute only plain data; images are requested lazily on opening.
+      const host=grid.current?.ownerDocument?.defaultView;let idle;
+      const prepare=()=>{try{pickerCache.current.get(getStore(),{kind,filters:selectionSettings});}catch(_){}};
+      const timer=setTimeout(()=>{if(host?.requestIdleCallback)idle=host.requestIdleCallback(prepare,{timeout:1200});else prepare();},200);
+      return()=>{clearTimeout(timer);if(idle!==undefined)host?.cancelIdleCallback?.(idle);};
+    },[paused,working,revision,filterKey,kind]);
     React.useEffect(()=>{
       const previous=previousDefaultGoal.current;previousDefaultGoal.current=defaultGoal;
       if(kind==='expedition'&&previous!==defaultGoal&&!busy&&!working&&!slots.some(Boolean)&&goal===previous)setGoal(defaultGoal);
@@ -642,7 +653,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const conditionsChanged=rows.length>0&&draftContext!==null&&draftContext!==conditionKey;
     const activityText=activity==='equipment'?'正在更新装备推荐…':activity==='route'?'正在同步路线与编成…':'正在补全…';
     const applyHint=busy?'正在应用编成':working?activityText:!rows.length||preselecting?'可先选入任务舰娘，也可直接补全':dirty?'正在核对编成…':!report.valid?(report.error||'编成需要调整'):conditionsChanged?'条件已变更 · 当前编成已保留，请点击一键补全':checks.length?'远征条件未满足 · 可调整后再应用':notice||changeSummary+(reasons.length?' · 请留意路线条件':'');
-    const portrait=row=>h('div',{className:'paa-wb-portrait'},h('span',null,row.name.slice(0,2)),row.portrait?h('img',{src:row.portrait,alt:'',draggable:false,onError:e=>{e.currentTarget.style.display='none';}}):null);
+    const portrait=(row,lazy=false)=>h('div',{className:'paa-wb-portrait'},h('span',null,row.name.slice(0,2)),row.portrait?h('img',{src:row.portrait,alt:'',draggable:false,...(lazy?{loading:'lazy',decoding:'async'}:{}),onError:e=>{e.currentTarget.style.display='none';}}):null);
     const shipCard=(s,i)=>{
       const remove=()=>{
         const next=pad(slots.filter((x,j)=>x&&j!==i));invalidateRouteChoices();commit(next);
@@ -675,10 +686,16 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         h('div',{className:'paa-wb-gears'},...s.slots.map((_,k)=>gearSlot(k)),store.info.ships[s.id].api_slot_ex!==0?gearSlot('ex'):h('div',{className:'paa-wb-gear-unopened'},'增 · 未开启')),
         h(ExecutionCard,{running:!!(busy&&!hidden&&executionPlan?.fleet===fleet&&executionPlan.targets?.[i]===s.id),stopping,fleet,index:i,ship:s.id}));
     };
-    const popupRows=popup&&!paused&&!resumePending.current?(popup.slot===undefined?W.replacementCandidates(store,slots,popup.index,search,'all',{kind,filters:selectionSettings})
-      .filter(row=>(shipType==='all'||(shipType.startsWith('type:')?String(row.typeId)===shipType.slice(5):shipGroup(row.typeId)===shipType))&&(shipFleet==='all'||row.fleet===Number(shipFleet)))
-      .sort((a,b)=>shipSort==='level-asc'?a.level-b.level||a.id-b.id:shipSort==='morale-desc'?b.cond-a.cond||b.level-a.level||a.id-b.id:
-        shipSort==='name'?a.name.localeCompare(b.name,'ja')||b.level-a.level||a.id-b.id:b.level-a.level||a.id-b.id):W.equipmentOptions(store,slots,popup.index,popup.slot,search)):[];
+    const popupRows=popup&&!paused&&!resumePending.current?(popup.slot===undefined?(()=>{
+      const selection={kind,filters:selectionSettings},prepared=pickerCache.current.get(store,selection);
+      const key=JSON.stringify([slots.map(slot=>slot?.id||null),popup.index,search,shipType,shipFleet,shipSort]);
+      if(pickerRowsCache.current?.prepared===prepared&&pickerRowsCache.current.key===key)return pickerRowsCache.current.rows;
+      const rows=W.replacementCandidates(store,slots,popup.index,search,'all',selection,prepared,{sortFirstFleet:false})
+        .filter(row=>(shipType==='all'||(shipType.startsWith('type:')?String(row.typeId)===shipType.slice(5):shipGroup(row.typeId)===shipType))&&(shipFleet==='all'||row.fleet===Number(shipFleet)))
+        .sort((a,b)=>shipSort==='level-asc'?a.level-b.level||a.id-b.id:shipSort==='morale-desc'?b.cond-a.cond||b.level-a.level||a.id-b.id:
+          shipSort==='name'?a.name.localeCompare(b.name,'ja')||b.level-a.level||a.id-b.id:b.level-a.level||a.id-b.id);
+      pickerRowsCache.current={prepared,key,rows};return rows;
+    })():W.equipmentOptions(store,slots,popup.index,popup.slot,search)):[];
     const currentEquipment=popup?.slot!==undefined?(popup.slot==='ex'?slots[popup.index]?.ex:slots[popup.index]?.slots[popup.slot]):null;
     const replacementShip=popup?.slot===undefined&&slots[popup?.index]?store.info?.ships?.[slots[popup.index].id]:null;
     const replacementType=replacementShip&&store.const?.$ships?.[replacementShip.api_ship_id]?.api_stype;
@@ -857,7 +874,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         h('p',{id:'paa-wb-no-plan-message'},noPlan.message),
         h('p',{className:'paa-wb-no-plan-hint'},noPlan.hint),
         h('div',{className:'paa-wb-no-plan-actions'},h('button',{type:'button',autoFocus:true,onClick:()=>setNoPlan('')},'知道了'))):null,
-      popup?h('div',{className:'paa-wb-popup-shade',onClick:()=>setPopup(null)},h('section',{className:'paa-wb-popup','data-picker':popup.slot===undefined?'ship':'equipment',role:'dialog','aria-modal':true,'aria-label':popup.slot===undefined?'替换舰娘':'替换装备',onClick:e=>e.stopPropagation()},
+      popup?h('div',{className:'paa-wb-popup-shade','data-picker':popup.slot===undefined?'ship':'equipment',onClick:()=>setPopup(null)},h('section',{className:'paa-wb-popup','data-picker':popup.slot===undefined?'ship':'equipment',role:'dialog','aria-modal':true,'aria-label':popup.slot===undefined?'替换舰娘':'替换装备',onClick:e=>e.stopPropagation()},
         h('div',{className:'paa-wb-section-head'},h('h3',null,`第 ${popup.index+1} 位 · ${popup.slot===undefined?'选择舰娘':popup.slot==='ex'?'补强增设':`第 ${Number(popup.slot)+1} 槽`}`),h('button',{type:'button',onClick:()=>setPopup(null)},'关闭')),
         h('div',{className:'paa-wb-popup-filters'},h('input',{autoFocus:true,type:'search',value:search,'aria-label':'搜索候选',placeholder:popup.slot===undefined?'舰名 / 舰种 / ID':'装备名称 / 分类 / ID',onChange:e=>setSearch(e.target.value)}),
           popup.slot!==undefined?h('select',{'aria-label':'装备分类',value:selectedCategory,onChange:e=>setEquipmentCategory(e.target.value)},
@@ -874,7 +891,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         h('div',{className:'paa-wb-popup-list',ref:popupList},...visiblePopupRows.flatMap((row,i)=>[
           popup.slot!==undefined&&(i===0||row.categoryId!==visiblePopupRows[i-1].categoryId)?h('h4',{key:`category-${row.categoryId}`,className:'paa-wb-equipment-group'},row.category):null,
           h('button',{key:row.id,type:'button',className:popup.slot===undefined?undefined:'paa-wb-equipment-option','aria-current':row.id===currentEquipment?'true':undefined,...popup.slot===undefined?{}:V.equipmentTooltipProps(row),disabled:disabled||!!row.unavailable,onClick:()=>pick(row)},
-          popup.slot===undefined?portrait(row):h(EquipmentIcon,{item:row}),h('span',{className:popup.slot===undefined?undefined:'paa-wb-equipment-label'},h('strong',null,row.name),popup.slot===undefined?h('small',null,`${row.type} · Lv.${row.level} · ${row.fleetLabel} · 疲劳 ${row.cond}${row.unavailable?' · '+row.unavailable:row.preferenceReasons.length?' · 自动筛选：'+row.preferenceReasons.join('、')+'（可手动选入）':''}`):
+          popup.slot===undefined?portrait(row,true):h(EquipmentIcon,{item:row}),h('span',{className:popup.slot===undefined?undefined:'paa-wb-equipment-label'},h('strong',null,row.name),popup.slot===undefined?h('small',null,`${row.type} · Lv.${row.level} · ${row.fleetLabel} · 疲劳 ${row.cond}${row.unavailable?' · '+row.unavailable:row.preferenceReasons.length?' · 自动筛选：'+row.preferenceReasons.join('、')+'（可手动选入）':''}`):
             row.stars>0||row.proficiency>0?h('span',{className:'paa-wb-equipment-quality'},[row.stars>0?`★${row.stars}`:'',row.proficiency>0?`熟练 ${row.proficiency}`:''].filter(Boolean).join(' · ')):null,
             popup.slot!==undefined&&row.statsSummary?h('span',{className:'paa-wb-equipment-stats'},row.statsSummary):null,
             row.id===currentEquipment?h('span',{className:'paa-wb-equipment-current'},'当前'):null))]),!visiblePopupRows.length?h('p',{className:'paa-muted'},popup.slot===undefined?'没有匹配舰娘，请调整筛选或搜索。':'没有匹配项，请修改搜索。'):null),

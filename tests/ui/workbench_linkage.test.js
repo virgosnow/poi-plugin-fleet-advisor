@@ -951,6 +951,27 @@ test('ship picker defaults to first fleet for empty slots and the exact type acr
   }
 });
 
+test('ship picker warms roster data in the background and reuses it on open and filter changes',async()=>{
+  const V=require('../../src/ui/models/presentation_model'),original=V.rosterRows,originalPortrait=V.portraitUrl,h=harness();let builds=0;
+  V.rosterRows=(...args)=>{builds++;return original(...args);};
+  V.portraitUrl=()=>'/fixture/banner.png';
+  try{
+    h.render();const effect=h.effects.filter(item=>String(item.fn).includes('pickerCache.current.get(getStore()')).at(-1);
+    const cleanup=effect.fn();await new Promise(resolve=>setTimeout(resolve,230));assert.equal(builds,1);
+    h.find(h.render(),node=>node.props.className==='paa-wb-empty').props.onClick();h.render();
+    assert.equal(builds,1,'opening reuses the warmed roster');
+    h.set('shipFleet','all');
+    const image=h.find(h.render(),node=>node.type==='img'&&node.props.src==='/fixture/banner.png');
+    assert(image);assert.equal(image.props.loading,'lazy');assert.equal(image.props.decoding,'async');
+    h.set('shipFleet','all');h.set('search','测试');h.render();
+    h.set('shipSort','level-asc');h.render();assert.equal(builds,1,'filters do not rebuild the roster');
+    h.store.info.ships[2].api_lv=1;h.render();assert.equal(builds,2,'in-place roster changes refresh the cache');
+    cleanup();
+    h.render({busy:true});const paused=h.effects.filter(item=>String(item.fn).includes('pickerCache.current.get(getStore()')).at(-1);
+    assert.equal(paused.fn(),undefined,'background preparation stops during game operations');
+  }finally{V.rosterRows=original;V.portraitUrl=originalPortrait;}
+});
+
 test('broad ship filters include related types and retain unknown types under auxiliary ships',()=>{
   const h=harness();for(const [id,type] of [[1,1],[2,2],[3,6],[4,10],[5,18],[6,14],[7,22],[8,99]])h.store.const.$ships[id].api_stype=type;
   h.set('popup',{index:0});const ids=()=>h.find(h.render(),n=>n.props.className==='paa-wb-popup-list').children.filter(n=>n?.type==='button').map(n=>n.props.key).sort((a,b)=>a-b);
