@@ -995,6 +995,52 @@ test('related tasks occupy the bottom of the correct left workbench and follow t
   }
 });
 
+test('overview task navigation selects map and phase and preserves same-map selections',()=>{
+  const h=harness(),catalog=require('../../data/quests/requirements.json').quests;
+  const live=code=>{const q=catalog.find(row=>row.code===code);return {api_no:q.ids[0],api_title:q.title,api_state:2};};
+  h.store.questState={known:true,tasks:[live('B131'),live('B143')]};
+  h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
+  const navigate=intent=>{
+    const props={navigationIntent:intent};h.render(props);
+    h.effects.filter(item=>String(item.fn).includes('handledNavigation.current===intent.id')).at(-1).fn();
+    return h.render(props);
+  };
+  const base={kind:'normal',area:'7-2',target:'boss',phase:'gauge2'};
+  let tree=navigate({...base,id:1,code:'B131'});
+  assert.equal(h.get('area'),'7-2');assert.equal(h.get('target'),'boss');assert.equal(h.get('phase'),'gauge2');
+  assert.deepEqual(h.get('selectedQuests'),['B131']);assert(h.get('slots').every(row=>!row));
+  let tasks=h.find(tree,node=>node.type?.name==='QuestSection');assert(!tasks.props.defaultOpen);
+  assert.deepEqual(tasks.props.selectedQuests,['B131']);assert.equal(tasks.props.key,1);
+  tree=navigate({...base,id:2,code:'B143'});
+  assert.deepEqual(h.get('selectedQuests'),['B131','B143']);
+  tasks=h.find(tree,node=>node.type?.name==='QuestSection');assert.equal(tasks.props.key,2);
+  assert.equal(h.calls.fleet+h.calls.equipment,0,'navigation does not start a recommendation or game operation');
+});
+
+test('overview task navigation selects expedition and ignores stale tasks',()=>{
+  const h=harness('expedition'),q=require('../../data/quests/requirements.json').quests.find(row=>row.code==='Dw2');
+  h.store.questState={known:true,tasks:[{api_no:q.ids[0],api_title:q.title,api_state:2}]};
+  h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
+  const intent={kind:'expedition',missionId:38,code:'Dw2',id:1};
+  h.render({navigationIntent:intent});h.effects.filter(item=>String(item.fn).includes('handledNavigation.current===intent.id')).at(-1).fn();
+  const tree=h.render({navigationIntent:intent});
+  assert.equal(h.get('missionId'),38);assert.deepEqual(h.get('selectedQuests'),['Dw2']);assert(h.get('slots').every(row=>!row));
+  assert(!h.find(tree,node=>node.type?.name==='QuestSection').props.defaultOpen);
+  h.store.questState={known:true,tasks:[]};const stale={...intent,id:2,missionId:37};
+  h.render({navigationIntent:stale});h.effects.filter(item=>String(item.fn).includes('handledNavigation.current===intent.id')).at(-1).fn();
+  assert.equal(h.get('missionId'),38);assert.match(h.get('error'),/任务已变化或未同步/);
+});
+
+test('generic task navigation keeps its current destination and draft',()=>{
+  const h=harness(),q=require('../../data/quests/requirements.json').quests.find(row=>row.code==='B1');
+  h.store.questState={known:true,tasks:[{api_no:q.ids[0],api_title:q.title,api_state:2}]};
+  const slots=[W.entry(h.store,2),null,null,null,null,null];h.set('slots',slots);
+  const intent={kind:'normal',area:null,target:null,code:'B1',id:1};
+  h.render({navigationIntent:intent});h.effects.filter(item=>String(item.fn).includes('handledNavigation.current===intent.id')).at(-1).fn();
+  h.render({navigationIntent:intent});
+  assert.equal(h.get('area'),'3-5');assert.deepEqual(h.get('slots'),slots);assert.deepEqual(h.get('selectedQuests'),['B1']);
+});
+
 test('left-side calculation veils stay inside result regions and leave related tasks outside',()=>{
   for(const kind of ['normal','expedition']){
     const h=harness(kind);h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);

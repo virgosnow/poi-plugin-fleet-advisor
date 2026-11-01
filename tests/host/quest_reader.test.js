@@ -60,6 +60,15 @@ test('quest reader uses a quiet observed home and one read-only request without 
   assert.equal(f.context.fetch,f.nativeFetch);
 });
 
+test('quest reader forwards only safe fields from game-provided selectable rewards',async t=>{
+  const f=fixture();t.after(()=>f.reader.dispose());await f.port();
+  f.fetch=async()=>({ok:true,text:async()=> 'svdata='+JSON.stringify({api_result:1,api_data:{api_list:[{
+    api_no:201,api_state:2,api_select_rewards:[[{api_no:1,api_kind:12,api_mst_id:35,api_count:2,secret:'omit'}]],secret:'omit'}]}})});
+  const context=await f.reader.context(),result=await f.reader.read({sessionKey:context.sessionKey});
+  assert.deepEqual(plain(result.list.api_list[0].api_select_rewards),[[{api_no:1,api_kind:12,api_mst_id:35,api_count:2}]]);
+  assert(!JSON.stringify(result).includes('omit'));
+});
+
 test('cached context supplies the opaque session while busy or incompatible without taking a capture',async t=>{
   const f=fixture();t.after(()=>f.reader.dispose());await f.port();f.busy=true;
   f.context.fetch=async()=>{};

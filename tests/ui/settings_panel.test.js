@@ -5,6 +5,25 @@ const workbenches=tree=>{
   visit(tree);return found;
 };
 
+test('current fleet task targets open the appropriate workbench with a fresh navigation intent',()=>{
+  const states=[],refs=[];let cursor=0,refCursor=0;
+  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
+    useState(initial){const i=cursor++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;
+      return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},
+    useRef(initial){const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{}};
+  const Panel=require('../../src/ui/shell/panel')(React,{getController:()=>({}),getStore:()=>({}),subscribe:()=>()=>{}});
+  const render=()=>{cursor=0;refCursor=0;return Panel();};
+  let tree=render();const manual=()=>workbenches(tree).find(node=>node.props.kind==='manual');
+  manual().props.onNavigateQuest({kind:'normal',area:'7-2',phase:'gauge2',code:'B131'});tree=render();
+  let normal=workbenches(tree).find(node=>node.props.kind==='normal');assert(!normal.props.hidden);
+  assert.equal(normal.props.navigationIntent.code,'B131');assert.equal(normal.props.navigationIntent.phase,'gauge2');
+  const id=normal.props.navigationIntent.id;
+  manual().props.onNavigateQuest({kind:'expedition',missionId:38,code:'Dw2'});tree=render();
+  const expedition=workbenches(tree).find(node=>node.props.kind==='expedition');assert(!expedition.props.hidden);
+  assert.equal(expedition.props.navigationIntent.missionId,38);assert(expedition.props.navigationIntent.id>id);
+  normal=workbenches(tree).find(node=>node.props.kind==='normal');assert.equal(normal.props.navigationIntent,null);
+});
+
 test('experimental automation is opt-in, autosaves near its switch and preserves workbench instances',()=>{
   const E=require('../../src/config/experimental_settings');let saved=E.normalize(),cursor=0;const states=[];
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),

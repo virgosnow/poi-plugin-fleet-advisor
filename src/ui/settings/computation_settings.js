@@ -36,7 +36,7 @@ module.exports=(React,{getController})=>{
     const value=status?.settings||defaults.normalize(),locked=disabled||pending||!status;
     const change=(patch,target=Object.keys(patch)[0])=>act(target,()=>getController().setComputationSettings(patch),'已保存，下次计算生效');
     const clear=kind=>act('clear:'+kind,()=>getController().clearRecommendationCache(kind),'缓存已清理');
-    const kinds=['results','calculations','schemes','logs'];
+    const kinds=['results','calculations','gameData','logs'];
     const total=status?.cache&&kinds.every(k=>Number.isFinite(status.cache[k]?.bytes))?
       kinds.reduce((sum,k)=>sum+status.cache[k].bytes,0):null;
     const hasFiles=kinds.some(k=>status?.cache?.[k]?.files>0);
@@ -50,7 +50,7 @@ module.exports=(React,{getController})=>{
           h('span',{className:'paa-settings-value'},h('select',{id:'paa-expedition-threads','aria-label':'远征线程',value:value.expeditionThreads,disabled:locked,onChange:e=>change({expeditionThreads:Number(e.target.value)})},
             h('option',{value:2},'2 线程（默认）'),h('option',{value:1},'1 线程')),feedback(React,feedbacks.expeditionThreads)))),
       h('section',{className:'paa-settings-card paa-cache-card','aria-label':'缓存文件'},
-        h('div',{className:'paa-settings-section-head'},h('div',{className:'paa-settings-label'},h('h3',null,'缓存文件'),feedback(React,undefined,{label:'缓存文件',text:'各类缓存共用一个磁盘容量上限，完整推荐、底层计算和编成方案缓存保持启用。\n日志用于问题排查，已有日志可在这里单独清理。\n清理只移除本地缓存与日志，不影响游戏舰队、游戏编成预设或设置。'}))),
+        h('div',{className:'paa-settings-section-head'},h('div',{className:'paa-settings-label'},h('h3',null,'缓存文件'),feedback(React,undefined,{label:'缓存文件',text:'各类缓存共用一个磁盘容量上限。游戏数据缓存包含本地任务记录和 MCP 编成方案，清理后这些记录会丢失。\n日志用于问题排查，已有日志可在这里单独清理。\n清理不会改变游戏舰队、游戏编成预设或设置。'}))),
         h('div',{className:'paa-cache-list'},
         h('div',{className:'paa-cache-row paa-cache-capacity'},
           h('div',{className:'paa-settings-row paa-resource-control paa-cache-capacity-controls'},h('span',{className:'paa-settings-label'},h('label',{htmlFor:'paa-cache-limit'},'磁盘缓存上限')),
@@ -61,13 +61,13 @@ module.exports=(React,{getController})=>{
         ...[
           ['results','完整推荐'],
           ['calculations','底层计算'],
-          ['schemes','编成方案'],
+          ['gameData','游戏数据'],
           ['logs','日志']
         ].map(([kind,label])=>{
           const row=status?.cache?.[kind];
           return h('div',{className:'paa-cache-row paa-cache-entry',key:kind},
             h('div',{className:'paa-settings-label'},h('span',{className:'paa-cache-name'},label+'缓存'),feedback(React,row?.writeError?{kind:'error',text:row.writeError}:undefined)),
-            h('span',{className:'paa-cache-usage','data-tooltip':row?.error||undefined},row?.error?'读取失败':row?`${formatBytes(row.bytes)} · ${kind==='schemes'?row.count+' 个方案':row.files+' 个文件'}`:'—'),
+            h('span',{className:'paa-cache-usage','data-tooltip':row?.error||undefined},row?.error?'读取失败':row?`${formatBytes(row.bytes)} · ${row.files} 个文件`:'—'),
             h('div',{className:'paa-settings-value paa-cache-actions'},h('button',{type:'button',disabled:locked||status?.busy||!row?.files&&!row?.writeError,'aria-label':'清理'+label+'缓存',onClick:()=>clear(kind)},'清理'),feedback(React,feedbacks['clear:'+kind])));
         }))));
   };

@@ -133,4 +133,4 @@ function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState,now
   return {status:'ready',tasks};
 }
 
-module.exports={listRelatedQuests,evaluateFleetRequirements,resolveQuestCodes};
+module.exports={listRelatedQuests,evaluateFleetRequirements,resolveQuestCodes,taskSnapshot,findDefinition,goalLabel,relation};

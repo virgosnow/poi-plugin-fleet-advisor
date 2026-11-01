@@ -11,6 +11,12 @@ function countdown(end,now){
   if(!seconds)return '等待归航';
   return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60].map(n=>String(n).padStart(2,'0')).join(':');
 }
+function countdownNeedsTick(store,previous,now){
+  return (store?.info?.fleets||[]).some(fleet=>{
+    const mission=fleet?.api_mission,end=Number(mission?.[2]);
+    return Number(mission?.[0])>0&&Number.isFinite(end)&&end>0&&(end>previous||end>now);
+  });
+}
 function fleetHeading(store,fleet,now=Date.now()){
   const row=store.info?.fleets?.[fleet-1],mission=row?.api_mission,state=Number(mission?.[0]);
   const ids=(row?.api_ship||[]).filter(id=>id>0),away=state>0;
@@ -106,4 +112,4 @@ function inspect(store,fleet,presetId=null){
     levelSum:heading.exists&&ships.every(s=>Number.isFinite(s.level))?ships.reduce((n,s)=>n+s.level,0):null,
     hp:heading.exists&&ships.length&&ships.every(s=>s.hp?.current!==null&&s.hp?.max>0)?{current:ships.reduce((n,s)=>n+s.hp.current,0),max:ships.reduce((n,s)=>n+s.hp.max,0)}:null};
 }
-module.exports={inspect,fleetHeading,countdown,summarize,presetList,presetHeading};
+module.exports={inspect,fleetHeading,countdown,countdownNeedsTick,summarize,presetList,presetHeading};

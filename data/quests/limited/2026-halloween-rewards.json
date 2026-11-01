@@ -1,0 +1,14 @@
+{
+  "source": "https://wikiwiki.jp/kancolle/%E4%BB%BB%E5%8B%99/%E6%96%B0%E7%9D%80%E4%BB%BB%E5%8B%99",
+  "reviewedAt": "2026-11-01",
+  "quests": {
+    "2610B1": {"fixed": [{"name":"南瓜","count":1}], "choices": [[{"name":"开发资材","count":8},{"name":"高速修复材","count":6},{"name":"勋章","count":1}]]},
+    "2610B2": {"choices": [[{"name":"间宫","count":2},{"name":"开发资材","count":20},{"name":"勋章","count":2}],[{"name":"间宫","count":2},{"name":"南瓜","count":2},{"name":"新型航空兵装资材","count":2}]]},
+    "2610B3": {"choices": [[{"name":"南瓜","count":2},{"name":"SKレーダー","count":4},{"name":"勋章","count":2}],[{"name":"南瓜","count":3},{"name":"改装设计图","count":1},{"name":"海外舰最新技术","count":3}]]},
+    "2610B4": {"choices": [[{"name":"开发资材","count":8},{"name":"勋章","count":1},{"name":"海外舰最新技术","count":1}],[{"name":"Ro.44水上戦闘機","count":2},{"name":"南瓜","count":2},{"name":"工厂资源","count":3}]]},
+    "2610B5": {"fixed": [{"name":"南瓜","count":1}], "choices": [[{"name":"开发资材","count":16},{"name":"南瓜","count":1},{"name":"装备栏位","count":2}]]},
+    "2610B6": {"fixed": [{"name":"南瓜","count":1}], "choices": [[{"name":"开发资材","count":16},{"name":"南瓜","count":1},{"name":"勋章","count":1}]]},
+    "2610B7": {"choices": [[{"name":"南瓜","count":1},{"name":"间宫","count":2}],[{"name":"勋章","count":3},{"name":"南瓜","count":2},{"name":"开发资材","count":36}]]},
+    "2610B8": {"choices": [[{"name":"改修资材","count":9},{"name":"試製 秋水","count":1},{"name":"工厂资源","count":3}],[{"name":"战斗详报","count":1},{"name":"南瓜","count":3},{"name":"改装设计图","count":1}]]}
+  }
+}

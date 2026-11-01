@@ -16,6 +16,10 @@
 
 MCP 服务采用 Node.js 内置 HTTP 实现，不捆绑协议 SDK 或客户端适配器。
 
+## 任务报酬资料
+
+常驻任务的结构化固定和可选报酬取自 [cnxin/poi-plugin-quest-line](https://github.com/cnxin/poi-plugin-quest-line) 的任务资料，匹配任务游戏编号、Wiki 编号及日文名称后，仅提取奖励种类、编号、数量和改修等级；来源快照哈希记录在 `data/quests/rewards.json`。该项目采用 MIT License，Copyright (c) 2026 cnxin，许可全文见 [SOURCE_LICENSE](data/quests/SOURCE_LICENSE)。资料来源和游戏名称的原有权利不因提取而改变。2026 南瓜任务报酬另按[日文 Wiki 新着任务](https://wikiwiki.jp/kancolle/任務/新着任務)记录，供玩家参考。
+
 ## 远征资料
 
 远征收益、补给与大成功概率根据日文 Wiki 独立实现，入口为 `src/domain/expeditions/expedition_income.js` 和 `expeditions.js`。数值存在差异时优先采用 Wiki。

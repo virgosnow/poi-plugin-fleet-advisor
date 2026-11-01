@@ -218,13 +218,13 @@ test('resource settings reach real workers without changing complete recommendat
   }
 });
 test('resource panel saves independent controls, reports failures and clears the chosen cache',async()=>{
-  let saved=S.normalize(),data={settings:saved,...S.resources(saved,8,16*1024**3),busy:false,cache:{results:{files:2,bytes:100},calculations:{files:3,bytes:200},schemes:{count:2,files:1,bytes:400},logs:{files:0,bytes:0}}};
+  let saved=S.normalize(),data={settings:saved,...S.resources(saved,8,16*1024**3),busy:false,cache:{results:{files:2,bytes:100},calculations:{files:3,bytes:200},gameData:{files:1,bytes:400},logs:{files:0,bytes:0}}};
   const state=[data],refs=[],effects=[],patches=[],clears=[];let index=0,refIndex=0,first=true;
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
     useState(initial){const i=index++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return [state[i],v=>{state[i]=typeof v==='function'?v(state[i]):v;}];},
     useRef(v){const i=refIndex++;return refs[i]||(refs[i]={current:v});},useEffect(fn){if(first)effects.push(fn);}};
   const service={setComputationSettings:async patch=>{patches.push(patch);saved={...saved,...patch};return data={...data,settings:saved,...S.resources(saved,8)};},
-    clearRecommendationCache:async kind=>{clears.push(kind);return data={...data,cache:kind==='all'?{results:{files:0,bytes:0},calculations:{files:0,bytes:0},schemes:{count:0,files:0,bytes:0},logs:{files:0,bytes:0}}:{...data.cache,[kind]:{count:0,files:0,bytes:0}}};}};
+    clearRecommendationCache:async kind=>{clears.push(kind);return data={...data,cache:kind==='all'?{results:{files:0,bytes:0},calculations:{files:0,bytes:0},gameData:{files:0,bytes:0},logs:{files:0,bytes:0}}:{...data.cache,[kind]:{count:0,files:0,bytes:0}}};}};
   const Panel=require('../../src/ui/settings/computation_settings')(React,{getController:()=>service});
   const render=disabled=>{index=0;refIndex=0;const tree=Panel({active:false,disabled});if(first){first=false;effects.forEach(fn=>fn());}return tree;};
   const find=(n,p)=>n&&typeof n==='object'&&(p(n)?n:n.children?.map(c=>find(c,p)).find(Boolean));
@@ -243,7 +243,7 @@ test('resource panel saves independent controls, reports failures and clears the
   assert(find(capacity,n=>n.props.className==='paa-cache-usage'&&n.children.some(c=>typeof c==='string'&&c.startsWith('已用 '))));
   assert(!find(find(control('缓存文件'),n=>n.props.className==='paa-settings-section-head'),n=>n.props['aria-label']==='清理全部缓存'),'cache heading has no detached cleanup action');
   assert(find(capacity,n=>n.children.includes('已用 700 B')));
-  assert(find(tree,n=>n.children.includes('400 B · 2 个方案')));
+  assert(find(tree,n=>n.children.includes('400 B · 1 个文件')));
   assert(!control('启用编成方案缓存'));
   assert.equal(control('磁盘缓存上限').props.value,256);
   assert.deepEqual(control('磁盘缓存上限').children.map(n=>[n.props.value,n.children[0]]),[[128,'128 MiB'],[256,'256 MiB（默认）'],[384,'384 MiB'],[512,'512 MiB']]);
@@ -256,14 +256,14 @@ test('resource panel saves independent controls, reports failures and clears the
   assert.deepEqual(patches[1],{expeditionThreads:1});
   await control('磁盘缓存上限').props.onChange({target:{value:'512'}});tree=render(false);
   assert.equal(control('磁盘缓存上限').props.value,512);assert.deepEqual(patches[2],{cacheLimitMiB:512});
-  for(const label of ['完整推荐','底层计算','编成方案','日志'])assert(!control('启用'+label+'缓存'),'cache rows have no switches');
+  for(const label of ['完整推荐','底层计算','游戏数据','日志'])assert(!control('启用'+label+'缓存'),'cache rows have no switches');
   assert(!find(control('缓存文件'),n=>n.props.type==='checkbox'));
-  assert(!control('清理编成方案缓存').props.disabled);
+  assert(!control('清理游戏数据缓存').props.disabled);
   await control('清理完整推荐缓存').props.onClick();tree=render(false);assert.deepEqual(clears,['results']);assert(control('清理完整推荐缓存').props.disabled);assert(!control('清理底层计算缓存').props.disabled);
-  await control('清理底层计算缓存').props.onClick();tree=render(false);assert(!control('清理全部缓存').props.disabled,'scheme-only cache is still clearable');
-  await control('清理编成方案缓存').props.onClick();tree=render(false);assert(control('清理编成方案缓存').props.disabled);
-  data={...data,cache:{...data.cache,schemes:{count:1,files:1,bytes:250}}};state[0]=data;tree=render(false);
-  await control('清理全部缓存').props.onClick();tree=render(false);assert.deepEqual(clears,['results','calculations','schemes','all']);assert(control('清理全部缓存').props.disabled);assert(control('清理底层计算缓存').props.disabled);assert(control('清理编成方案缓存').props.disabled);
+  await control('清理底层计算缓存').props.onClick();tree=render(false);assert(!control('清理全部缓存').props.disabled,'game-data cache is still clearable');
+  await control('清理游戏数据缓存').props.onClick();tree=render(false);assert(control('清理游戏数据缓存').props.disabled);
+  data={...data,cache:{...data.cache,gameData:{files:1,bytes:250}}};state[0]=data;tree=render(false);
+  await control('清理全部缓存').props.onClick();tree=render(false);assert.deepEqual(clears,['results','calculations','gameData','all']);assert(control('清理全部缓存').props.disabled);assert(control('清理底层计算缓存').props.disabled);assert(control('清理游戏数据缓存').props.disabled);
   data={...data,cache:{...data.cache,logs:{files:2,bytes:1200}}};state[0]=data;tree=render(false);
   assert(!control('清理日志缓存').props.disabled);assert(!control('清理全部缓存').props.disabled);
   assert(!control('启用日志缓存'),'logging is controlled by the experimental switch');

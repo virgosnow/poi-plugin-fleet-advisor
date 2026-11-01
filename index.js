@@ -21,6 +21,7 @@ const {PoiHost}=require('./src/host/poi_host');
 const {readStore}=require('./src/host/store');
 const {WorkerObserver}=require('./src/vision/worker_observer');
 const questHandoff=Symbol.for('poi-plugin-fleet-advisor.quest-handoff');
+const questProgressHandoff=Symbol.for('poi-plugin-fleet-advisor.quest-progress-handoff');
 const questReadLedger=Symbol.for('poi-plugin-fleet-advisor.quest-read-ledger');
 let controller=null,service=null,expeditionProgress=null,questObserver=null,progressListener=null;
 let recommendationHost=null;
@@ -41,7 +42,7 @@ function tickQuests(){
   });
 }
 function setQuestPageActive(owner,active){
-  if(!['normal','expedition'].includes(owner)||!questAutoRead)return;
+  if(!['manual','normal','expedition'].includes(owner)||!questAutoRead)return;
   questAutoRead.setActive(owner,active);
   if(active)questPages.add(owner);else questPages.delete(owner);
   if(questPages.size&&!questTimer){questTimer=setInterval(tickQuests,500);tickQuests();}
@@ -71,13 +72,14 @@ exports.pluginDidLoad=()=>{
       // Natural task responses take priority; never replace a newer task
       // selection with a direct-read snapshot that started earlier.
       if(result?.list&&questObserver===observer&&!observer.view().known&&
-        (await reader.context({cached:true})).sessionKey===options.sessionKey)observer.acceptList(result.list);
+        (await reader.context({cached:true})).sessionKey===options.sessionKey){service?.reconcileQuestProgress(result.list.api_list);observer.acceptList(result.list);}
       return result;
     }});
   questAutoRead.restore(window[questReadLedger]);
   progressListener=event=>{
     try{questReader?.observeResponse(event.detail);}catch(error){}
     try{expeditionProgress?.observe(event.detail,readStore(window));}catch(error){}
+    try{service?.observeQuestProgress(event.detail);}catch(error){}
     try{questObserver?.observe(event.detail,readStore(window));}catch(error){}
   };
   requestListener=event=>{try{questReader?.observeRequest(event.detail);}catch(error){}};
@@ -103,6 +105,8 @@ exports.pluginDidLoad=()=>{
     prepareRecommendationWorker:()=>getRecommendationHost().prewarm(),
     releaseRecommendationWorker:()=>recommendationHost?.release(),
     storageDir:path.join(os.homedir(),'.poi-plugin-fleet-advisor')});
+  const progressHandoff=window[questProgressHandoff];delete window[questProgressHandoff];
+  if(progressHandoff)try{service.questProgressObserver.restore(progressHandoff,currentStore());}catch(error){/* Unsafe or stale handoffs are ignored. */}
   if(service.persistenceReady&&service.mcpEnabled){
     void service.startMcpServer().catch(error=>{if(service)service.bridgeError=error.message;});
   }
@@ -121,6 +125,9 @@ exports.pluginWillUnload=()=>{const previous=service,progress=expeditionProgress
   // Development hot reloads transfer only recent, actually observed task rows
   // in memory. A normal unload never retains this cache.
   if(window.__fleetAdvisorUpdateBusy&&questObserver)window[questHandoff]=questObserver.snapshot();
+  if(window.__fleetAdvisorUpdateBusy&&previous?.questProgressObserver)try{
+    window[questProgressHandoff]=previous.questProgressObserver.snapshot(readStore(window));
+  }catch(error){/* Never prevent plugin shutdown when poi is closing. */}
   questObserver?.dispose();
   service=null;controller=null;expeditionProgress=null;questObserver=null;progressListener=null;
   return Promise.all([previous?.dispose(),progress?.dispose(),readerCleanup]).then(()=>computeHost?.dispose());};

@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 test('poi entry exports explicit lifecycle hooks and uses an independent Fleet Advisor data directory',async()=>{
-  const entry=path.join(__dirname,'../../index.js'),exports={},listeners=new Map(),icons=[],styles=new Map(),storageLocations=[];let remoteRequests=0;
+  const entry=path.join(__dirname,'../../index.js'),exports={},listeners=new Map(),icons=[],styles=new Map(),storageLocations=[],restored=[];let remoteRequests=0;
   const document={head:{appendChild:node=>styles.set(node.id,node)},getElementById:id=>styles.get(id),createElement:()=>({remove(){styles.delete(this.id);}})};
   const mockedRequire=name=>{
     if(name==='react')return {};
@@ -11,14 +11,15 @@ test('poi entry exports explicit lifecycle hooks and uses an independent Fleet A
       constructor(directory,options){super(directory,options);storageLocations.push(directory);}
     }};
     if(name==='./src/application/fleet_advisor_service')return {FleetAdvisorService:class {
-      constructor({storageDir}){this.storageDir=storageDir;storageLocations.push(storageDir);this.persistenceReady=true;}subscribe(){return()=>{};}getStatus(){return {mcpEnabled:false,mcpHttp:{active:false,wanted:47615}};}async startMcpServer(){return {instanceId:'x',httpAddress:null,httpError:null};}dispose(){}
+      constructor({storageDir}){this.storageDir=storageDir;storageLocations.push(storageDir);this.persistenceReady=true;this.questProgressObserver={snapshot:()=>({version:1,marker:'test'}),restore:value=>restored.push(value)};}subscribe(){return()=>{};}getStatus(){return {mcpEnabled:false,mcpHttp:{active:false,wanted:47615}};}async startMcpServer(){return {instanceId:'x',httpAddress:null,httpError:null};}dispose(){}
     }};
     if(name==='./src/bridge/http_server')return {McpHttpServer:class {async start(){}async close(){}}};
     if(name==='@electron/remote'){remoteRequests++;throw Error('Remote loaded during idle');}
     return require(path.resolve(path.dirname(entry),name));
   };
-  vm.runInNewContext(fs.readFileSync(entry,'utf8'),{exports,require:mockedRequire,window:{document,getStore:()=>({info:{fleets:[]}}),
-    addEventListener:(type,fn)=>listeners.set(type,fn),removeEventListener:(type,fn)=>{assert.equal(listeners.get(type),fn);listeners.delete(type);}},__dirname:path.dirname(entry)});
+  const window={document,getStore:()=>({info:{fleets:[]}}),
+    addEventListener:(type,fn)=>listeners.set(type,fn),removeEventListener:(type,fn)=>{assert.equal(listeners.get(type),fn);listeners.delete(type);}};
+  vm.runInNewContext(fs.readFileSync(entry,'utf8'),{exports,require:mockedRequire,window,__dirname:path.dirname(entry)});
   assert.equal(typeof exports.reactClass,'function');exports.pluginDidLoad();assert(listeners.has('game.response'));
   const brand=require('../../src/ui/shell/plugin_brand'),pkg=require('../../package.json'),metadata=pkg.poiPlugin,lock=require('../../package-lock.json');
   assert.equal(pkg.name,'poi-plugin-fleet-advisor');assert.equal(metadata.id,pkg.name);assert.notEqual(pkg.private,true);
@@ -32,7 +33,9 @@ test('poi entry exports explicit lifecycle hooks and uses an independent Fleet A
   assert.equal(icons.length,1);assert.deepEqual(metadata.icon,[icons[0].prefix,icons[0].iconName]);
   assert.equal(styles.size,1);assert.match(styles.get('paa-plugin-icon-style').textContent,/data-icon="paa-fleet-advisor"/);
   exports.pluginDidLoad();assert.equal(styles.size,1);assert.equal(icons.length,1,'repeated enable does not duplicate branding');
-  await exports.pluginWillUnload();assert.equal(styles.size,0);assert.equal(listeners.size,0);assert.equal(remoteRequests,0);
+  window.__fleetAdvisorUpdateBusy=true;await exports.pluginWillUnload();assert.equal(styles.size,0);assert.equal(listeners.size,0);
+  exports.pluginDidLoad();assert.deepEqual(restored,[{version:1,marker:'test'}]);
+  delete window.__fleetAdvisorUpdateBusy;await exports.pluginWillUnload();assert.equal(styles.size,0);assert.equal(listeners.size,0);assert.equal(remoteRequests,0);
 });
 test('all referenced equipment templates exist in packaged asset set',()=>{
   const icons=require('../../data/equip_icon_index.json').icons;

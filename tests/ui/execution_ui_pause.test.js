@@ -63,6 +63,38 @@ for(const kind of ['normal','expedition'])test(`${kind} application freezes calc
   assert.deepEqual([inspect,summary,rows].map(spy=>spy.mock.callCount()),before.map(n=>n+1));
 });
 
+test('workbench coalesces battle data updates until return while quest state stays live',t=>{
+  const mapLoading=require.cache[require.resolve('../../src/ui/maps/map_loading')]||require('../../src/ui/maps/map_loading')&&require.cache[require.resolve('../../src/ui/maps/map_loading')];
+  t.mock.method(mapLoading,'exports',()=>()=>({status:'ready'}));
+  let store=fixture();store.info.basic.api_member_id=1;store.sortie={sortieStatus:[false,false,false,false]};
+  const controller=new Controller({getStore:()=>store}),service={getRecommendationFilters:()=>({}),createSnapshot:()=>({snapshotId:'readonly'}),listNormalMaps:()=>({maps:[]}),preview:(...args)=>controller.preview(...args)};
+  const inspect=t.mock.method(W,'inspect'),h=harness(t,require('../../src/ui/workbench/workbench'),{getStore:()=>store,getController:()=>service});
+  h.render({kind:'normal',busy:false,hidden:false});h.set('slots',[W.entry(store,1),W.entry(store,2),null,null,null,null]);h.set('choices',[{key:'completed'}]);h.render();h.flushChecks();
+  const oldRevision=h.get('revision'),oldInspections=inspect.mock.callCount(),slots=h.get('slots');
+  const poll=()=>{const timer=h.intervals.find(timer=>timer.active&&String(timer.fn).includes('const next=getStore()'));assert(timer);timer.fn();h.render();};
+  const questState={known:true,tasks:[{api_no:203,api_state:2}]};
+  for(let i=0;i<3;i++){
+    store={...store,questState,sortie:{sortieStatus:[true,false,false,false]},info:{...store.info,ships:{...store.info.ships},maps:{...store.info.maps}}};poll();
+    assert.equal(h.get('revision'),oldRevision);assert.equal(h.get('questState'),questState);assert.equal(h.get('slots'),slots);
+    assert.equal(h.flushChecks(),0);assert.equal(inspect.mock.callCount(),oldInspections);
+    assert(!find(h.tree,n=>n.props.className==='paa-wb-calculating'));
+  }
+  store={...store,sortie:{sortieStatus:[false,false,false,false]}};poll();assert.equal(h.get('revision'),oldRevision+1);
+  assert.equal(h.flushChecks(),1);assert.equal(inspect.mock.callCount(),oldInspections+1);
+  poll();assert.equal(h.get('revision'),oldRevision+1);assert.equal(h.flushChecks(),0);
+});
+
+test('workbench does not defer an account change during a sortie',t=>{
+  const mapLoading=require.cache[require.resolve('../../src/ui/maps/map_loading')]||require('../../src/ui/maps/map_loading')&&require.cache[require.resolve('../../src/ui/maps/map_loading')];
+  t.mock.method(mapLoading,'exports',()=>()=>({status:'ready'}));
+  let store=fixture();store.info.basic.api_member_id=1;store.sortie={sortieStatus:[true,false,false,false]};
+  const h=harness(t,require('../../src/ui/workbench/workbench'),{getStore:()=>store,getController:()=>({getRecommendationFilters:()=>({}),createSnapshot:()=>({snapshotId:'readonly'}),listNormalMaps:()=>({maps:[]})})});
+  h.render({kind:'normal',busy:false,hidden:false});const previous=h.get('revision');
+  store={...store,info:{...store.info,basic:{...store.info.basic,api_member_id:2}}};
+  const timer=h.intervals.find(timer=>timer.active&&String(timer.fn).includes('const next=getStore()'));assert(timer);timer.fn();h.render();
+  assert.equal(h.get('revision'),previous+1);
+});
+
 test('a never-opened workbench does not build catalogs, validate or calculate until shown',t=>{
   const mapLoading=require.cache[require.resolve('../../src/ui/maps/map_loading')]||require('../../src/ui/maps/map_loading')&&require.cache[require.resolve('../../src/ui/maps/map_loading')];
   t.mock.method(mapLoading,'exports',()=>()=>({status:'ready'}));

@@ -3,6 +3,8 @@ const fs=require('fs'),path=require('path'),crypto=require('crypto');
 const {Controller}=require('./controller');
 const {Snapshots,fingerprint,businessState,error}=require('./snapshots');
 const {Schemes,validateSchemeShape}=require('../infrastructure/persistence/scheme_store');
+const {QuestProgress}=require('../infrastructure/persistence/quest_progress');
+const {QuestProgressObserver}=require('../infrastructure/quests/quest_progress_observer');
 const {contract}=require('./contract');
 const {evaluateCandidate,RULE_VERSION}=require('../domain/fleet/fleet_metrics');
 const expeditions=require('../domain/expeditions/expeditions');
@@ -38,6 +40,8 @@ class FleetAdvisorService {
     this.snapshots=new Snapshots(getStore,now);this.schemes=new Schemes(storageDir,now,
       {getCacheLimit:()=>this.computationSettings.cacheLimitMiB*1024**2});
     this.computationSettings=computationSettings.normalizePreferences();
+    this.questProgress=new QuestProgress(storageDir,{now,getCacheLimit:()=>this.computationSettings.cacheLimitMiB*1024**2});
+    this.questProgressObserver=new QuestProgressObserver({progress:this.questProgress,now,onChange:()=>this.emit({type:'questProgress'})});
     this.performanceLogs=new PerformanceLogs(path.join(storageDir,'recommendation-cache'),
       {getLimitBytes:()=>this.computationSettings.cacheLimitMiB*1024**2,isEnabled:()=>this.experimentalSettings?.performanceDebug===true});
     this.recommendations=new RecommendationWorker({createWorker:createRecommendationWorker,cacheDir:path.join(storageDir,'recommendation-cache'),
@@ -137,16 +141,25 @@ class FleetAdvisorService {
     await this.cacheReady;
     const cache=await inspectCache(this.recommendations.cacheDir);
     if(this.performanceLogs.lastError)cache.logs={...cache.logs,writeError:this.performanceLogs.lastError};
+    const schemes=await this.schemes.inspectCache(),progress=await this.questProgress.inspectCache();
+    const gameData={files:Number.isFinite(schemes.files)&&Number.isFinite(progress.files)?schemes.files+progress.files:null,
+      bytes:Number.isFinite(schemes.bytes)&&Number.isFinite(progress.bytes)?schemes.bytes+progress.bytes:null,
+      ...(schemes.error||progress.error?{error:schemes.error||progress.error}:{}),...(progress.writeError?{writeError:progress.writeError}:{})};
     return {settings:this.getComputationSettings(),...computationSettings.resources(this.computationSettings),
-      busy:this.recommendations.queued>0,cache:{...cache,schemes:await this.schemes.inspectCache()}};
+      busy:this.recommendations.queued>0,cache:{...cache,schemes,gameData}};
   }
+  getQuestGoalProgress(task,goal){return this.questProgress.get(this.getStore(),task,goal);}
+  getQuestGoalProgressForTasks(tasks){return this.questProgress.getMany(this.getStore(),tasks);}
+  getQuestProgressError(){return this.questProgress.error||this.questProgress.lastError;}
+  reconcileQuestProgress(rows){void this.questProgress.reconcile(this.getStore(),rows).then(()=>this.emit({type:'questProgress'})).catch(()=>this.emit({type:'questProgress'}));}
+  observeQuestProgress(detail){this.questProgressObserver.observe(detail,this.getStore());}
   async maintainDiskCache(){
     const options={limitMiB:this.computationSettings.cacheLimitMiB};
     const first=await maintainCache(this.recommendations.cacheDir,options);
     if(!first.overLimit)return first;
     // Only this owner can evict the scheme file and clear its in-memory map.
-    const schemes=await this.schemes.clearCache(),last=await maintainCache(this.recommendations.cacheDir,options);
-    return {removed:first.removed+schemes.removed+last.removed,failed:first.failed+schemes.failed+last.failed,
+    const schemes=await this.schemes.clearCache(),gameData=await this.questProgress.clearCache(),last=await maintainCache(this.recommendations.cacheDir,options);
+    return {removed:first.removed+schemes.removed+gameData.removed+last.removed,failed:first.failed+schemes.failed+gameData.failed+last.failed,
       ...(last.overLimit?{error:'部分文件被占用，缓存总占用仍超过上限'}:{})};
   }
   async setComputationSettings(value){
@@ -180,17 +193,19 @@ class FleetAdvisorService {
     return {filters:this.getRecommendationFilters(),computation:{...await this.getComputationStatus(),maintenance}};
   }
   async clearRecommendationCache(kind){
-    if(!['results','calculations','schemes','logs','all'].includes(kind))throw error('INVALID_QUERY','无效的缓存类别');
+    if(!['results','calculations','schemes','gameData','logs','all'].includes(kind))throw error('INVALID_QUERY','无效的缓存类别');
     const maintenance=await this.recommendations.maintain(async()=>{
       const operations=[];
-      if(kind!=='schemes')operations.push(()=>maintainCache(this.recommendations.cacheDir,{clear:kind}));
-      if(kind==='schemes'||kind==='all')operations.push(()=>this.schemes.clearCache());
+      if(!['schemes','gameData'].includes(kind))operations.push(()=>maintainCache(this.recommendations.cacheDir,{clear:kind}));
+      if(['schemes','gameData','all'].includes(kind))operations.push(()=>this.schemes.clearCache());
+      if(kind==='gameData'||kind==='all')operations.push(()=>this.questProgress.clearCache());
       const result={removed:0,failed:0};
       // Failure in one category must not prevent the other from being cleared.
       for(const operation of operations)try{
         const next=await operation();result.removed+=next.removed;result.failed+=next.failed;
       }catch(e){result.failed++;result.error=e.message;}
       if((kind==='logs'||kind==='all')&&!result.failed)this.performanceLogs.lastError=null;
+      if(kind==='gameData'||kind==='all')this.emit({type:'questProgress'});
       return result;
     });
     return {...await this.getComputationStatus(),maintenance};
@@ -519,6 +534,6 @@ class FleetAdvisorService {
     return {jobId,state:'stopping'};
   }
   stop(){if(this.activeJobId)return this.cancelJob({jobId:this.activeJobId});return this.controller.stop();}
-  async dispose(){this.disposed=true;if(this.activeJobId)this.controller.stop();await this.recommendations.dispose();if(this.bridge)await this.bridge.close();await this.schemes.pending;this.controller.dispose();}
+  async dispose(){this.disposed=true;if(this.activeJobId)this.controller.stop();await this.recommendations.dispose();if(this.bridge)await this.bridge.close();await this.schemes.pending;await this.questProgress.pending;this.controller.dispose();}
 }
 module.exports={FleetAdvisorService,observedState};

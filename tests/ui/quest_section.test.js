@@ -40,8 +40,8 @@ test('quest cards toggle selection by click and keyboard without a separate butt
 function cardClicks(ui){
   let forwarded=0,selection={isCollapsed:true};
   const root={ownerDocument:{getSelection:()=>selection},closest:()=>null,
-    querySelector:selector=>{assert.equal(selector,':scope > summary');return summary;}};
-  const dispatch=(target=root,options={})=>ui.find(n=>n.type==='details').props.onClick({
+    querySelector:selector=>{assert.equal(selector,':scope > details > summary');return summary;}};
+  const dispatch=(target=root,options={})=>ui.find(n=>n.props.className==='paa-quest-section').props.onClick({
     target,currentTarget:root,button:0,defaultPrevented:false,
     preventDefault(){assert.fail('Native summary behavior must not be prevented');},...options});
   const summary={closest:()=>summary,click(){
@@ -97,6 +97,20 @@ test('related tasks stay folded and perform no evaluation until opened',()=>{
   assert.equal(folded.props['aria-hidden'],true);assert.equal(folded.props.inert,'');
   assert(ui.find(n=>n.props['data-quest-id']===1001),'keep the last body during its closing transition without re-evaluation');
   ui.toggle(true);assert.equal(ui.calls.length,2);assert.equal(ui.calls[1].slots,props.slots);
+});
+
+test('selected tasks remain visible and actionable when folded in both workbenches',()=>{
+  for(const kind of ['normal','expedition']){
+    const selected=['B141'],props={kind,selectedQuests:selected,slots:[],onToggleQuest:code=>selected.splice(selected.indexOf(code),1),onClearQuests:()=>selected.splice(0)};
+    const ui=harness(props,{status:'ready',tasks:[task(),task({id:1002,code:'B142',title:'其他任务'})]});
+    const card=()=>ui.find(n=>n.props['data-quest-id']===1001);
+    assert.equal(ui.find(n=>n.type==='details').props.open,false);assert.equal(ui.calls.length,1);
+    assert(card());assert.equal(card().props['aria-checked'],true);
+    assert.equal(ui.find(n=>n.props.id===ui.find(n=>n.type==='summary').props['aria-controls']).props.hidden,true);
+    ui.toggle(true);assert.equal(ui.all(n=>n.props['data-quest-id']===1001).length,1);assert(ui.find(n=>n.props['data-quest-id']===1002));
+    ui.toggle(false);card().props.onKeyDown({key:'Enter',repeat:false,preventDefault(){}});ui.render();
+    assert.deepEqual(selected,[]);assert(!ui.find(n=>n.props.className==='paa-quest-content paa-quest-selected'));
+  }
 });
 
 test('opened tasks re-evaluate the current ships, equipment, destination and quest state',()=>{

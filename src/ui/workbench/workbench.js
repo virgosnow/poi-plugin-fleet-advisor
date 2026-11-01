@@ -118,7 +118,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         h('span',{className:'paa-wb-rule-number'},`${number}.${i+1}`),
         h('div',null,conditionView(child,active&&child.met===true,`${number}.${i+1}`))))));
   };
-  return function Workbench({kind,busy,automaticFilters,automaticOperations=false,stopping=false,onStop,stopButtonRef,onApply,onActivity,operationFeedback,executionPlan,hidden=false}){
+  return function Workbench({kind,busy,automaticFilters,automaticOperations=false,stopping=false,onStop,stopButtonRef,onApply,onActivity,operationFeedback,executionPlan,hidden=false,navigationIntent}){
     const selectionSettings=automaticFilters||getController()?.getRecommendationFilters?.()?.[kind];
     const defaultGoal=kind==='expedition'?require('../../config/recommendation_filters').normalizeGroup('expedition',selectionSettings).defaultGoal:'great';
     const [slots,setSlots]=React.useState(blank),[fleet,setFleet]=React.useState(kind==='expedition'?2:1);
@@ -157,6 +157,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const mapDialog=React.useRef(null),noPlanDialog=React.useRef(null);
     const operation=React.useRef(0),routeCache=React.useRef(null),latest=React.useRef(null),prepared=React.useRef(false);
     const routeCombatGeneration=React.useRef(0),routeCombatContext=React.useRef(null),routeCombatSnapshot=React.useRef(null),routeRequests=React.useRef(new Map());
+    const handledNavigation=React.useRef(null);
     // Store references must stay outside serializable drafts (hot reload backs
     // drafts up on disk); an old or restored draft simply gets reassessed.
     const routeDraftCombatSnapshots=React.useRef(new WeakMap());
@@ -255,6 +256,32 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       setShipType('all');setEquipmentCategory('all');setMissionId(value);setGoal(defaultGoal);
     };
     React.useEffect(()=>{
+      const intent=navigationIntent;
+      if(hidden||busy||working||!intent||intent.kind!==kind||handledNavigation.current===intent.id)return;
+      handledNavigation.current=intent.id;
+      const current=getStore(),nextArea=intent.area||area,nextMission=intent.missionId??missionId;
+      const related=require('../../domain/quests/quest_requirements').listRelatedQuests({state:current,slots,deckId:fleet,
+        mapId:kind==='normal'?nextArea:undefined,missionId:kind==='expedition'?nextMission:undefined,questState:current.questState});
+      if(related.status!=='ready'||!related.tasks.some(task=>task.code===intent.code)){
+        setError('任务已变化或未同步，请重新选择任务');return;
+      }
+      observed.current=current;setQuestState(current.questState);
+      let changed=false;
+      if(kind==='normal'){
+        const nextTarget=intent.area?(intent.target||'boss'):target,nextPhase=intent.area?(intent.phase||''):phase;
+        changed=nextArea!==area||nextTarget!==target||nextPhase!==phase;
+        if(nextArea!==area)changeArea(nextArea);
+        else if(changed){
+          operation.current++;routeCache.current=null;prepared.current=false;invalidateRouteCombat();resultViews.current.clear();
+          commit(blank());setChoices([]);setRouteDrafts({});setExcluded([]);setPopup(null);setNoPlan('');setSearch('');
+          setWorking(false);setActivity('');setMapRoute('');setPathIndex(0);setNodeId(null);
+        }
+        if(changed){setTarget(nextTarget);setPhase(nextPhase);setCombatDeferredPhase(nextPhase);setRoutePhaseAnchor(nextPhase);setPurpose('clear');}
+      }else if(Number(nextMission)!==missionId){changed=true;changeMission(nextMission);}
+      setSelectedQuests(previous=>changed?[intent.code]:previous.includes(intent.code)?previous:[...previous,intent.code].sort());
+      setError('');
+    },[navigationIntent,hidden,busy,working]);
+    React.useEffect(()=>{
       alive.current=true;
       return()=>{alive.current=false;operation.current++;routeCombatGeneration.current++;};
     },[]);
@@ -278,6 +305,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       if(paused)return;
       let previous=getStore();
       let previousStage=kind==='normal'?require('../../domain/combat/encounter_stage').encounterStage(previous,area,effectivePhase):null;
+      const inSortie=state=>Array.isArray(state?.sortie?.sortieStatus)&&state.sortie.sortieStatus.some(Boolean);
+      let deferred=inSortie(previous);
       // A hidden page may have missed task-list responses. Show the latest
       // statuses on resume instead of flashing the old synchronization hint.
       setQuestState(previous.questState);
@@ -285,8 +314,13 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         // Quest changes update this small read-only section without invalidating
         // the route/loadout inspection or the recommendation caches.
         setQuestState(previous=>previous===next.questState?previous:next.questState);
+        // Battle packets repeatedly replace ship and map data. Keep the draft
+        // and its visible results stable until the fleet returns; explicit user
+        // actions still inspect the latest store through their own paths.
+        const ongoing=inSortie(next),sameAccount=(next.info?.basic?.api_member_id??null)===(previous.info?.basic?.api_member_id??null);
+        if(ongoing&&sameAccount){deferred=true;return;}
         const stage=kind==='normal'?require('../../domain/combat/encounter_stage').encounterStage(next,area,effectivePhase):null;
-        if(stage!==previousStage||['ships','equips','fleets','repairs','basic','maps'].some(k=>next.info?.[k]!==previous.info?.[k])||next.const!==previous.const||next.expeditionProgress!==previous.expeditionProgress){previous=next;previousStage=stage;setRevision(x=>x+1);}
+        if(deferred||stage!==previousStage||['ships','equips','fleets','repairs','basic','maps'].some(k=>next.info?.[k]!==previous.info?.[k])||next.const!==previous.const||next.expeditionProgress!==previous.expeditionProgress){previous=next;previousStage=stage;deferred=ongoing;setRevision(x=>x+1);}
       },1000);return()=>clearInterval(timer);
     },[paused,kind,area,effectivePhase]);
     React.useEffect(()=>{
@@ -836,7 +870,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
                     enemy?h('div',{className:'paa-threat-enemy'},portrait({name:enemy.name,portrait:V.portraitUrl(store,enemy.apiId)}),
                       h('span',null,enemy.name,h('small',null,`${(enemy.nodes||[]).join(' / ')} 点`))):
                       h('span',{className:'paa-muted'},!mapRoute?'请选择路线':item?.status==='none'?'无战斗':'敌情暂不可用'))))))),
-          h(QuestSection,{state:store,slots,deckId:fleet,kind,mapId:kind==='normal'?area:undefined,
+          h(QuestSection,{key:navigationIntent?.id||'default',state:store,slots,deckId:fleet,kind,mapId:kind==='normal'?area:undefined,
             missionId:kind==='expedition'?missionId:undefined,questState,paused,disabled,selectedQuests,onToggleQuest:code=>{
               if(disabled)return;operation.current++;routeCache.current=null;setRouteDrafts({});setChoices([]);invalidateRouteCombat();
               setSelectedQuests(current=>current.includes(code)?current.filter(item=>item!==code):[...current,code].sort());setError('');

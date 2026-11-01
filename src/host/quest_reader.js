@@ -79,6 +79,10 @@ async function frameOperation(key,action,args={}){
         if(Number.isFinite(row[field]))task[field]=row[field];
       for(const field of ['api_title','api_detail'])if(typeof row[field]==='string')task[field]=row[field];
       if(Array.isArray(row.api_get_material)&&row.api_get_material.every(Number.isFinite))task.api_get_material=row.api_get_material.slice();
+      if(Array.isArray(row.api_select_rewards)&&row.api_select_rewards.length<=20&&row.api_select_rewards.every(group=>Array.isArray(group)&&group.length<=20))
+        task.api_select_rewards=row.api_select_rewards.map(group=>group.filter(item=>item&&['api_no','api_kind','api_mst_id','api_count'].every(key=>Number.isSafeInteger(item[key]))).map(item=>
+          ({api_no:item.api_no,api_kind:item.api_kind,api_mst_id:item.api_mst_id,api_count:item.api_count,
+            ...Number.isSafeInteger(item.api_slotitem_level)&&item.api_slotitem_level>=0&&item.api_slotitem_level<=10?{api_slotitem_level:item.api_slotitem_level}:{}})));
       list.api_list.push(task);
     }
     return {list};

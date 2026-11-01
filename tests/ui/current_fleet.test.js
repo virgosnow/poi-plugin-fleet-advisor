@@ -30,6 +30,16 @@ test('status keeps missing fields unknown and empty fleets empty; expedition cou
   delete s.info.fleets[3];assert.equal(F.fleetHeading(s,4).status,'数据待同步');
   assert.equal(F.countdown(4000,1000),'00:00:03');assert.equal(F.countdown(1000,2000),'等待归航');assert.equal(F.countdown(0,2000),'时间待同步');
 });
+test('countdown updates only while a visible expedition can change',()=>{
+  const s=store(),needs=(previous,now)=>F.countdownNeedsTick(s,previous,now);
+  assert.equal(needs(1000,2000),false);
+  s.info.fleets[1].api_mission=[1,1,4000];assert.equal(needs(1000,2000),true);
+  assert.equal(needs(3999,4001),true,'the last update shows awaiting return');
+  assert.equal(needs(4001,5000),false,'the clock stops rerendering after arrival');
+  assert.equal(needs(5000,3000),true,'a backwards clock adjustment resumes the countdown');
+  s.info.fleets[1].api_mission=[1,1,0];assert.equal(needs(1000,2000),false);
+  s.info.fleets[1].api_mission=[0,1,4000];assert.equal(needs(1000,2000),false);
+});
 test('current aircraft counts and airpower use observed planes, including a depleted slot',()=>{
   const s=store();s.const.$ships[1].api_maxeq=[12,0];
   s.info.equips[101]={api_id:101,api_slotitem_id:500,api_alv:0};s.const.$equips[500]={api_name:'舰战',api_type:[0,0,6,6],api_tyku:10};
@@ -118,6 +128,38 @@ test('fleet overview never treats missing observations as fully supplied or miss
   s.info.fleets[2].api_ship=[999];const missing=F.summarize(s,3);assert(!missing.supplied);assert.equal(missing.unknown[0].id,999);assert.equal(missing.totals.fuel.max,null);
   delete s.info.fleets[3];assert.equal(F.summarize(s,4).totals.fuel.current,null);
 });
+test('current fleet view does not read game presets and uses a two-column fleet grid',()=>{
+  const s=store();Object.defineProperty(s.info,'presets',{get(){throw Error('preset data must not be read');}});
+  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
+    useState:value=>[typeof value==='function'?value():value,()=>{}],useRef:value=>({current:value}),useEffect:()=>{}};
+  const Component=require('../../src/ui/fleet/current_fleet')(React,{getStore:()=>s});
+  assert.doesNotThrow(()=>Component({}));
+  const styles=require('../../src/ui/fleet/current_fleet_styles');
+  assert.match(styles,/\.paa-current-fleets \.paa-source-list\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+});
+test('current fleet participates in task synchronization only while visible and idle',()=>{
+  const s=store(),effects=[],active=[];
+  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
+    useState:value=>[typeof value==='function'?value():value,()=>{}],useRef:value=>({current:value}),useEffect:fn=>effects.push(fn)};
+  const Component=require('../../src/ui/fleet/current_fleet')(React,{getStore:()=>s,setQuestPageActive:(owner,value)=>active.push([owner,value])});
+  Component({});let effect=effects.filter(fn=>String(fn).includes("setQuestPageActive?.('manual'" )).at(-1);
+  const cleanup=effect();cleanup();assert.deepEqual(active,[['manual',true],['manual',false]]);
+  effects.length=0;Component({busy:true});effect=effects.filter(fn=>String(fn).includes("setQuestPageActive?.('manual'" )).at(-1);
+  effect();assert.deepEqual(active.at(-1),['manual',false]);
+});
+test('idle fleet polling does not change the clock, while countdown and observed updates still refresh',t=>{
+  let s=store();const states=[],effects=[];let index=0,tick,time=1000;
+  t.mock.method(Date,'now',()=>time);t.mock.method(global,'setInterval',fn=>{tick=fn;return 1;});t.mock.method(global,'clearInterval',()=>{});
+  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
+    useState(v){const n=index++;if(!(n in states))states[n]=typeof v==='function'?v():v;return [states[n],v=>{states[n]=typeof v==='function'?v(states[n]):v;}];},
+    useRef(v){const n=index++;return states[n]||(states[n]={current:v});},useEffect:fn=>effects.push(fn)};
+  const Component=require('../../src/ui/fleet/current_fleet')(React,{getStore:()=>s});Component({});const cleanup=effects[0]();
+  time=2000;tick();assert.equal(states[2],1000,'idle tick keeps existing clock state');
+  s={...s,info:{...s.info,fleets:s.info.fleets.map((fleet,i)=>i===1?{...fleet,api_mission:[1,1,4000]}:fleet)}};
+  time=2500;tick();assert.equal(states[2],2500);assert.equal(states[1],1,'fleet change still causes a refresh');
+  time=4100;tick();assert.equal(states[2],4100,'return boundary is rendered');
+  time=5000;tick();assert.equal(states[2],4100,'finished countdown stays stable');cleanup();
+});
 test('read-only status UI switches live fleets, refreshes data and offers no scheme or game edit actions',t=>{
   let s=store(),index=0,tree,interval;const states=[],effects=[];
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
@@ -130,12 +172,10 @@ test('read-only status UI switches live fleets, refreshes data and offers no sch
   render();assert(find(tree,n=>n.type==='h3'&&n.children.includes('舰队总览')));assert(!find(tree,n=>n.props['aria-label']==='全舰队动态'));for(const label of ['保存方案','已保存方案','JSON','编入','应用编成','换船','移除','新建'])assert(!text(tree).includes(label),label);
   assert(!find(tree,n=>n.type==='textarea'));assert(find(tree,n=>n.props['data-source-fleet']===4));
   assert(!text(tree).includes('舰种构成'));assert(!text(tree).includes('整备情况'));assert(!text(tree).includes('需要留意'));
-  assert.equal(find(tree,n=>n.props.id==='paa-fleet-preset-list').props.inert,'');
-  const presetToggle=find(tree,n=>n.props['aria-controls']==='paa-fleet-preset-list');assert.equal(presetToggle.props['aria-expanded'],false);
-  assert.equal(presetToggle.type,'button');assert(presetToggle.props.className.includes('paa-preset-toggle'));
-  assert(find(tree,n=>n.type==='h3'&&n.children.includes(presetToggle)),'preset fold remains a section heading at the same level as fleets');
-  presetToggle.props.onClick();render();assert(find(tree,n=>n.props['aria-controls']==='paa-fleet-preset-list').props['aria-expanded']);
-  assert(find(tree,n=>n.props['data-source-preset']===2));assert(!find(tree,n=>n.props.className==='paa-fleet-overview'));
+  assert(!find(tree,n=>n.props.id==='paa-fleet-preset-list'));
+  assert(!find(tree,n=>n.props['data-source-preset']!==undefined));
+  assert(find(tree,n=>n.type?.name==='OverviewQuests'),'task area follows the four live fleets');
+  assert(!find(tree,n=>n.props.className==='paa-fleet-overview'));
   assert(!text(tree).includes('总耐久'));assert(!text(tree).includes('总等级'));
   assert(find(tree,n=>n.props['data-mechanism']==='expedition-morale'));
   const mechanisms=find(tree,n=>n.props['aria-label']==='战斗与远征机制');
@@ -158,21 +198,14 @@ test('read-only status UI switches live fleets, refreshes data and offers no sch
   assert.equal(stats.children[0].children[0].type,'dt');assert.equal(stats.children[0].children[1].type,'dd');
   assert(find(tree,n=>n.props['aria-label']===attrLabel).props['aria-expanded']);
   const fleetsBefore=JSON.stringify(s.info.fleets);
-  find(tree,n=>n.props['data-source-preset']===2).props.onClick();render();assert(find(tree,n=>n.props['data-source-preset']===2).props['aria-pressed']);
-  assert(!find(tree,n=>n.props['data-source-fleet']===1).props['aria-pressed']);assert(text(tree).includes('当前装备'));
-  assert.equal(find(tree,n=>n.props.className==='paa-wb-ships').children.length,2);assert.equal(JSON.stringify(s.info.fleets),fleetsBefore);
   find(tree,n=>n.props['data-source-fleet']===2).props.onClick();render();assert(find(tree,n=>n.props.className==='paa-fleet-empty'));assert(find(tree,n=>n.props['data-source-fleet']===2).props['aria-pressed']);
   find(tree,n=>n.props['data-source-fleet']===1).props.onClick();render();assert(find(tree,n=>n.props['aria-label']===attrLabel).props['aria-expanded']);
   find(tree,n=>n.props['data-source-fleet']===2).props.onClick();render();
   t.mock.method(global,'setInterval',fn=>{interval=fn;return 123;});t.mock.method(global,'clearInterval',()=>{});
   const off=effects[0]();s={...s,info:{...s.info,fleets:s.info.fleets.map((f,i)=>i===1?{...f,api_ship:[1]}:f)}};interval();render();assert(!find(tree,n=>n.props.className==='paa-fleet-empty'));assert.equal(states[1],1);
   assert(find(tree,n=>n.props['aria-label']===attrLabel).props['aria-expanded']);
-  find(tree,n=>n.props['data-source-preset']===2).props.onClick();render();
-  s={...s,info:{...s.info,presets:{...s.info.presets,api_deck:{...s.info.presets.api_deck,2:{...s.info.presets.api_deck[2],api_name:'更新后的预设',api_ship:[1]}}}}};interval();render();
-  assert(text(tree).includes('更新后的预设'));assert.equal(find(tree,n=>n.props.className==='paa-wb-ships').children.length,1);assert.equal(states[1],2);
-  s={...s,info:{...s.info,presets:{...s.info.presets,api_deck:{1:s.info.presets.api_deck[1]}}}};interval();render();assert(text(tree).includes('预设已移除'));
+  assert.notEqual(JSON.stringify(s.info.fleets),fleetsBefore,'the fixture changed only through the observed host update');
   off();let stopped=0;render({busy:true,onStop:()=>stopped++});assert(find(tree,n=>n.props['data-source-fleet']===1).props.disabled);
-  assert(find(tree,n=>n.props['data-source-preset']===1).props.disabled);
   find(tree,n=>n.type==='button'&&n.children.includes('停止操作')).props.onClick();assert.equal(stopped,1);
 });
 
@@ -188,16 +221,16 @@ test('switching fleet sources preserves scrolled viewports when the next fleet i
   const viewport={scrollTop:150,scrollLeft:7,scrollHeight:1000,clientHeight:800,parentElement:null};
   const node={parentElement:viewport,style:{},ownerDocument:{defaultView:{getComputedStyle:()=>({overflowY:'auto'})}},getBoundingClientRect:()=>({height:920})};
   tree.props.ref.current=node;
-  find(tree,n=>n.props['aria-controls']==='paa-fleet-preset-list').props.onClick();render();
-  find(tree,n=>n.props['data-source-preset']===2).props.onClick();
+  find(tree,n=>n.props['data-source-fleet']===2).props.onClick();
   assert.equal(node.style.minHeight,'870px','retain enough extent for the current 150px scroll, without reserving the entire old fleet');
   viewport.scrollHeight=900;viewport.scrollTop=80;viewport.scrollLeft=0;render();effects.forEach(fn=>fn());
   assert.equal(node.style.minHeight,'971px','correct a remaining scroll-range deficit before paint, including collapsed margins');
   assert.equal(viewport.scrollTop,150);assert.equal(viewport.scrollLeft,7);
-  assert(find(tree,n=>n.props['data-source-preset']===2).props['aria-pressed']);
-  viewport.scrollTop=0;find(tree,n=>n.props['data-source-fleet']===2).props.onClick();render();effects.forEach(fn=>fn());
+  assert(find(tree,n=>n.props['data-source-fleet']===2).props['aria-pressed']);
+  viewport.scrollTop=0;find(tree,n=>n.props['data-source-fleet']===1).props.onClick();render();effects.forEach(fn=>fn());
+  find(tree,n=>n.props['data-source-fleet']===2).props.onClick();render();effects.forEach(fn=>fn());
   assert.equal(node.style.minHeight,'');assert(find(tree,n=>n.props.className==='paa-fleet-empty'));
   node.style.minHeight='870px';render({hidden:true});effects.forEach(fn=>fn());assert.equal(node.style.minHeight,'');
-  render({busy:true});find(tree,n=>n.props['data-source-preset']===1).props.onClick();render();
+  render({busy:true});find(tree,n=>n.props['data-source-fleet']===1).props.onClick();render();
   assert(find(tree,n=>n.props['data-source-fleet']===2).props['aria-pressed'],'busy view cannot change its selection');
 });

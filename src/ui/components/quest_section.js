@@ -35,7 +35,7 @@ function displayGoalRows(task){
 }
 
 module.exports=function createQuestSection(React,options={}){
-  const h=React.createElement;
+  const h=React.createElement;let nextContentId=0;
   const toggleCardSpace=event=>{
     if(event.defaultPrevented||event.button!==undefined&&event.button!==0)return;
     const card=event.currentTarget,target=event.target?.nodeType===3?event.target.parentElement:event.target;
@@ -43,16 +43,18 @@ module.exports=function createQuestSection(React,options={}){
     // region alone. Forward only the card's surrounding whitespace once.
     if(!target||target.closest?.('summary, .paa-quest-content'))return;
     if(card.ownerDocument?.getSelection?.()?.isCollapsed===false)return;
-    card.querySelector(':scope > summary')?.click();
+    card.querySelector(':scope > details > summary')?.click();
   };
-  // Loading the quest catalog and evaluating a draft are both deferred until opened.
+  // Evaluate while expanded or while selected tasks must remain visible.
   const listRelatedQuests=options.listRelatedQuests||((input)=>require('../../domain/quests/quest_requirements').listRelatedQuests(input));
-  return function QuestSection({state,slots,deckId,kind='normal',mapId,missionId,questState,selectedQuests=[],onToggleQuest,onClearQuests,disabled=false}){
-    const [open,setOpen]=React.useState(false);
+  return function QuestSection({state,slots,deckId,kind='normal',mapId,missionId,questState,selectedQuests=[],onToggleQuest,onClearQuests,disabled=false,defaultOpen=false}){
+    const [open,setOpen]=React.useState(!!defaultOpen);
     const last=React.useRef(null);
-    const related=React.useMemo(()=>open?listRelatedQuests({state,slots,deckId,kind,mapId,missionId,questState}):last.current,
-      [open,state,slots,deckId,kind,mapId,missionId,questState]);
-    if(open)last.current=related;
+    const contentId=React.useRef(null);if(!contentId.current)contentId.current=`paa-quest-content-${++nextContentId}`;
+    const needsTasks=open||selectedQuests.length>0;
+    const related=React.useMemo(()=>needsTasks?listRelatedQuests({state,slots,deckId,kind,mapId,missionId,questState}):last.current,
+      [needsTasks,state,slots,deckId,kind,mapId,missionId,questState]);
+    if(needsTasks)last.current=related;
     const ready=related?.status==='ready';
     const tasks=ready&&(Array.isArray(related.tasks))?related.tasks.filter(task=>task&&(Number(task.state)===1||Number(task.state)===2)):[];
     const taskView=task=>{
@@ -83,13 +85,20 @@ module.exports=function createQuestSection(React,options={}){
             value?h('span',{className:'paa-quest-check-value','data-tooltip':detail,'aria-label':detail},value):null);
         }))):task.summary&&text(task.summary)!==goalText(task)?h('div',{className:'paa-quest-requirements'},h('span',{className:'paa-quest-row-label'},'编成'),h('p',{className:'paa-quest-requirement-summary'},text(task.summary))):null);
     };
-    return h('details',{className:'paa-quest-section',open,'aria-label':'相关任务',onClick:toggleCardSpace,onToggle:event=>setOpen(Boolean(event.currentTarget.open))},
-      h('summary',null,h('span',null,'相关任务'),selectedQuests.length?h('span',{className:'paa-quest-count'},`已选 ${selectedQuests.length}`):open&&ready?h('span',{className:'paa-quest-count'},`${tasks.length} 项`):null),
-      open||related?h('div',{className:'paa-quest-content','aria-hidden':!open,inert:open?undefined:''},
-        selectedQuests.length?h('div',{className:'paa-quest-selection'},h('span',null,`已选 ${selectedQuests.length} 项，补全时同时满足编成要求`),
-          h('button',{type:'button',disabled,onClick:()=>onClearQuests?.()},'清除选择')):null,
+    const selectedTasks=tasks.filter(task=>selectedQuests.includes(task.code)),otherTasks=tasks.filter(task=>!selectedQuests.includes(task.code));
+    const missing=selectedQuests.filter(code=>!selectedTasks.some(task=>task.code===code));
+    return h('section',{className:'paa-quest-section','aria-label':'相关任务',onClick:toggleCardSpace},
+      h('details',{className:'paa-quest-disclosure',open,onToggle:event=>setOpen(Boolean(event.currentTarget.open))},
+        h('summary',{'aria-controls':contentId.current},h('span',null,'相关任务'),selectedQuests.length?h('span',{className:'paa-quest-count'},`已选 ${selectedQuests.length}`):open&&ready?h('span',{className:'paa-quest-count'},`${tasks.length} 项`):null)),
+      selectedQuests.length?h('div',{className:'paa-quest-content paa-quest-selected'},
+        h('div',{className:'paa-quest-selection'},h('span',null,`已选 ${selectedQuests.length} 项，补全时同时满足编成要求`),
+          h('button',{type:'button',disabled,onClick:()=>onClearQuests?.()},'清除选择')),
+        selectedTasks.length?h('div',{className:'paa-quest-list',role:'region','aria-label':'已预选任务',tabIndex:0},...selectedTasks.map(taskView)):null,
+        missing.length?h('p',{className:'paa-quest-empty'},`任务资料待同步或已变化：${missing.join('、')}`):null):null,
+      h('div',{id:contentId.current,className:'paa-quest-content','aria-hidden':!open,inert:open?undefined:'',hidden:!open},
+        open||related?(
         !ready?h('p',{className:'paa-quest-empty'},'请在游戏中打开任务列表以同步'):
-          !tasks.length?h('p',{className:'paa-quest-empty'},'暂无可受领或进行中的相关任务'):
-            h('div',{className:'paa-quest-list',role:'region','aria-label':'相关任务要求',tabIndex:0},...tasks.map(taskView))):null);
+          !otherTasks.length?h('p',{className:'paa-quest-empty'},selectedQuests.length?'没有其他相关任务':'暂无可受领或进行中的相关任务'):
+            h('div',{className:'paa-quest-list',role:'region','aria-label':'相关任务要求',tabIndex:0},...otherTasks.map(taskView))):null));
   };
 };

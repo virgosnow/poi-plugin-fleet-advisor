@@ -7,7 +7,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
   const log=entry=>{try{if(appendLog)appendLog(entry);}catch(e){}};
   const h=React.createElement,settingFeedback=require('../settings/settings_feedback');
   const Workbench=createWorkbench(React,{getController,getStore,subscribe,setQuestPageActive});
-  const CurrentFleet=require('../fleet/current_fleet')(React,{getStore});
+  const CurrentFleet=require('../fleet/current_fleet')(React,{getStore,setQuestPageActive,getController,subscribe});
   const ExecutionFeedback=require('../components/execution_feedback')(React,{subscribe,getStore});
   const filterSettings=require('../settings/recommendation_settings')(React);
   const experimentalControls=require('../settings/experimental_settings')(React);
@@ -42,6 +42,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
       return()=>{root.removeEventListener('scroll',mark);window.clearTimeout(idle);delete root.dataset.scrolling;};
     },[]);
     const [draftEpoch,setDraftEpoch]=React.useState(0);
+    const [questNavigation,setQuestNavigation]=React.useState(null);
     const [recommendationFilters,setRecommendationFilters]=React.useState(()=>getController()?.getRecommendationFilters?.()||require('../../config/recommendation_filters').normalize());
     const [experimentalSettings,setExperimentalSettings]=React.useState(()=>getController()?.getExperimentalSettings?.()||require('../../config/experimental_settings').normalize());
     const copyMcpAddress=async text=>{
@@ -56,7 +57,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
       setMcpCopied(true);setTimeout(()=>setMcpCopied(false),2500);
     };
     const active=React.useRef(false),stopped=React.useRef(false),mounted=React.useRef(true),progressRef=React.useRef(''),executionPlan=React.useRef(null);
-    const stopButton=React.useRef(null),returnFocus=React.useRef(null),workspace=React.useRef(null),running=busy||!!externalJob;
+    const stopButton=React.useRef(null),returnFocus=React.useRef(null),workspace=React.useRef(null),questNavigationId=React.useRef(0),running=busy||!!externalJob;
     React.useEffect(()=>{
       const document=workspace.current?.ownerDocument||tooltipRoot.current?.ownerDocument;if(!document)return;
       if(running){
@@ -108,10 +109,14 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
       if(running||active.current||getMcpStatus?.()?.activeJobId)return;
       reset();setCopied('');setSettingsFeedbacks({});setMcpCopied(false);
       setPortDraft(String(getMcpStatus?.()?.mcpHttp?.wanted||''));
-      setMode('manual');setDraftEpoch(value=>value+1);
+      setQuestNavigation(null);setMode('manual');setDraftEpoch(value=>value+1);
       workspace.current?.closest('.paa')?.scrollIntoView({block:'start'});
     };
     const fail=error=>{setStatus({state:'error',title:'未能完成',text:error.message});setDetail(error.stack||error.message);};
+    const navigateQuest=destination=>{
+      if(running||active.current||!destination?.code||!['normal','expedition'].includes(destination.kind))return;
+      setQuestNavigation({...destination,id:++questNavigationId.current});setMode(destination.kind);reset();
+    };
     const copyDetail=async text=>{
       const document=tooltipRoot.current?.ownerDocument,navigator=document?.defaultView?.navigator;
       try{await navigator.clipboard.writeText(text);setCopied('已复制到剪贴板');}
@@ -204,7 +209,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
           settingFeedback(React,settingsFeedbacks.reset))]:[])))),
       h('div',{className:'paa-workspace','aria-busy':running},
       h('div',{className:'paa-workspace-content',ref:workspace,tabIndex:-1},
-      ...['normal','expedition','manual'].map(kind=>h(kind==='manual'?CurrentFleet:Workbench,{key:`${kind}:${draftEpoch}`,kind,automaticFilters:recommendationFilters[kind],automaticOperations:experimentalSettings.automaticOperations,hidden:mode!==kind,busy:running,stopping,onStop:stop,stopButtonRef:mode===kind?stopButton:undefined,operationFeedback:mode===kind?feedback:null,executionPlan:busy?executionPlan.current:null,...(kind!=='manual'?{onApply:candidate=>action(true,M.format(candidate))}:{})})),
+      ...['normal','expedition','manual'].map(kind=>h(kind==='manual'?CurrentFleet:Workbench,{key:`${kind}:${draftEpoch}`,kind,automaticFilters:recommendationFilters[kind],automaticOperations:experimentalSettings.automaticOperations,hidden:mode!==kind,busy:running,stopping,onStop:stop,stopButtonRef:mode===kind?stopButton:undefined,operationFeedback:mode===kind?feedback:null,executionPlan:busy?executionPlan.current:null,...(kind!=='manual'?{onApply:candidate=>action(true,M.format(candidate)),navigationIntent:questNavigation?.kind===kind?questNavigation:null}:{onNavigateQuest:navigateQuest})})),
       h('section',{className:'paa-settings-page',hidden:mode!=='settings','aria-label':'设置面板'},
       filterSettings({value:recommendationFilters,disabled:running||resettingSettings,feedbacks:settingsFeedbacks,onChange:(value,target)=>{
         try{setRecommendationFilters(getController().setRecommendationFilters(value));reportSetting(target,'success','已保存');}
