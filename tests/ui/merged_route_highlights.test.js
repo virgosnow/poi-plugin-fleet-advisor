@@ -8,7 +8,7 @@ const fixture=require('../helpers/workbench_fixture');
 const render=require('../../src/ui/maps/route_preview');
 const catalog=fs.readdirSync(path.join(__dirname,'../../data/normal_routes')).filter(f=>/^\d-\d\.json$/.test(f)).flatMap(file=>{
   const area=file.slice(0,-5),target=area==='1-6'?'N':'boss';
-  return plans.routeOptions(area,target).filter(o=>plans.optionPaths(o).length>1).map(option=>({area,target,option,
+  return plans.routeOptions(area,target).filter(o=>!o.fallback&&plans.optionPaths(o).length>1).map(option=>({area,target,option,
     overview:{profile:previewForMap(area,{target,phase:option.phase}),options:[option]}}));
 });
 const h=(type,props,...children)=>({type,props:props||{},children});

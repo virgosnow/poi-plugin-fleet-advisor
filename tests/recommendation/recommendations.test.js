@@ -1384,6 +1384,10 @@ test('4-3 route scoring rewards fitting an owned anti-ground hitter',()=>{
   assert(row.scores.groundAttack.bonus>beforeGround.get(row.routeKey));
   assert(row.scheme.ships.some(ship=>ship.slots?.includes(1900)));
   assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',row.scheme));
+  const fallbackKey=require('../../src/domain/routes/route_plans').recommendedOptions('4-3').find(option=>option.fallback).key;
+  const fallback=recommendNormalFleet(store,{area:'4-3',routeKey:fallbackKey});
+  assert(fallback.recommendations.length,JSON.stringify(fallback.guideWarnings));
+  assert(fallback.recommendations.every(item=>require('../../src/recommendation/fitting').antiGroundShips(store,item.scheme).length>0));
 });
 
 test('7-4 six-ship E to J route does not display the five-ship J to P shortcut',()=>{

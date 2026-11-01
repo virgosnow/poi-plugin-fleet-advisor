@@ -8,11 +8,12 @@ const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
 
 test('2-3 route formulas condense the full catalogue without changing its paths',()=>{
   const options=P.recommendedOptions('2-3'),before=JSON.stringify(options);
-  for(const option of options){
+  for(const option of options.filter(option=>!option.fallback)){
     assert.equal(routeFormula(option),option.id==='2-3-submarines'?'C→…→J/K→N':'A/B→…→J/K→N');
     assert(!routeFormula(option).includes('；'));
   }
   assert.equal(JSON.stringify(options),before);
+  assert.equal(routeFormula(options.find(option=>option.fallback)),'按舰队寻找可达路线');
   const option=options[0],actual=P.fleetPathOption({area:'2-3',phase:'',ships:[]},option);
   assert.equal(routeFormula({...actual,displayPaths:[['B','E','F','J','N']],displayPathLabel:'B→E→F→J→N'}),'B→E→F→J→N',
     'a fleet-specific caption must never resurrect eliminated branches');

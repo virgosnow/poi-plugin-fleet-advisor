@@ -114,6 +114,49 @@ test('task seeds retain route-specific hull types when higher-level escorts domi
   assert.deepEqual(row.scheme.ships.map(ship=>store.const.$ships[store.info.ships[ship.id].api_ship_id].api_stype).sort(),[2,2,2,2,3]);
 });
 
+test('pumpkin escort task finds a compatible real path with unremodeled ships excluded',async()=>{
+  const store=fixture();
+  for(const [id,name,type] of [[1,'対馬改',1],[2,'稲木改二',1],[3,'村雨改二',2],[4,'早波',2],
+    [5,'戦艦A',8],[6,'戦艦B',8],[7,'戦艦C',8],[8,'戦艦D',8]]){
+    Object.assign(store.const.$ships[id],{api_name:name,api_stype:type,api_aftershipid:id===4?999:0});store.info.ships[id].api_lv=75;
+  }
+  const args={area:'1-2',fleet:1,questCodes:['2610B2'],automaticFilters:{minLevel:0,excludeUnremodeled:true,excludeFatigued:false}};
+  const result=recommendNormalFleet(store,args),fallback=result.routeResults.find(row=>row.fallback);
+  assert(result.routeResults.filter(row=>!row.fallback).every(row=>row.status!=='available'),'curated hull templates are incompatible');
+  assert.equal(fallback.status,'available');assert(fallback.chance.probability>0);
+  const recommendation=result.recommendations[fallback.recommendationIndex];
+  assert(recommendation);assert(satisfiesQuests(store,recommendation.scheme,questRequirements(args.questCodes)));
+  assert(!recommendation.scheme.ships.some(ship=>ship.id===4),'the unremodeled ship remains excluded');
+  const plans=require('../../src/domain/routes/route_plans'),path=recommendation.selectedPath;
+  const chance=plans.planningPath(recommendation.route,path,{allowTentative:false}).chance;
+  assert.deepEqual(fallback.chance,chance,'the result reports one real path, not a sum of unrelated alternatives');
+  assert.deepEqual(fallback.displayPaths,[path]);
+  assert.equal(plans.optionPlanning(recommendation.route,fallback).branches.length,1,'independent paths are not combined');
+  const W=require('../../src/ui/workbench/workbench_model');
+  const display=W.routeArrival({route:recommendation.route},fallback,true);
+  assert.equal(display.value,'到达概率 70%');assert(!display.note.includes('分支在后续节点汇合'));
+  const overview=W.mapOverview('1-2','boss',undefined,undefined,store);
+  assert.deepEqual(W.selectedMapProfile(overview,fallback.key,null,recommendation.route).highlightPaths,[path]);
+  const explicit=recommendNormalFleet(store,{...args,routeKey:fallback.key});
+  assert.deepEqual(explicit.routeResults.map(row=>row.key),[fallback.key]);
+  assert.equal(explicit.routeResults[0].status,'available');
+  const parallel=await recommendNormalFleetParallel(store,args,(_batch,run)=>run());
+  const parallelFallback=parallel.routeResults.find(row=>row.fallback);
+  assert.equal(parallelFallback.status,'available');assert.deepEqual(parallelFallback.chance,fallback.chance);
+  assert(satisfiesQuests(store,parallel.recommendations[parallelFallback.recommendationIndex].scheme,questRequirements(args.questCodes)));
+  const {RecommendationWorker}=require('../../src/infrastructure/workers/recommendation_worker');
+  const worker=new RecommendationWorker({getDiagnostics:()=>null});
+  try{
+    const result=await worker.run('recommendNormalFleet',store,args),found=result.routeResults.find(row=>row.fallback);
+    assert.equal(found.status,'available');assert.deepEqual(found.chance,fallback.chance);
+    assert(satisfiesQuests(store,result.recommendations[found.recommendationIndex].scheme,questRequirements(args.questCodes)));
+  }finally{await worker.dispose();}
+  store.const.$ships[2].api_aftershipid=998;
+  const impossible=recommendNormalFleet(store,args);
+  assert.deepEqual(impossible.recommendations,[],'the fallback cannot bypass the unremodeled filter or task requirements');
+  assert.match(impossible.reason,/任务/);
+});
+
 test('the recommendation worker retains selected quests across worker boundaries',async()=>{
   const store=storeWithShips(),quests=questRequirements(['2610B1','2610B5']);
   const {RecommendationWorker}=require('../../src/infrastructure/workers/recommendation_worker');

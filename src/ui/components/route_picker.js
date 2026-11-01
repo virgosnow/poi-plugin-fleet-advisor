@@ -99,7 +99,7 @@ module.exports=function createRoutePicker(React){
               const rows=group.options.map(option=>h('button',{key:option.key,type:'button',className:'paa-route-option',role:'option',disabled:routeBlocked(option),tabIndex:expanded&&!routeBlocked(option)?0:-1,'aria-selected':option.key===value,onClick:()=>{if(expanded&&!routeBlocked(option))choose(option.key);}},
                 h('span',{className:'paa-route-option-head'},h('span',null,option.name),
                   combatScore(option)?renderCombatBalance.renderTier(h,option.combat):
-                    h('small',null,option.status==='notFound'?'上次未找到方案':option.status==='unconfirmed'?'方案待确认':option.combat?.status==='pending'?'计算中':option.combat?'暂不可评估':'')),
+                    h('small',null,option.status==='notFound'?'上次未找到方案':option.status==='unconfirmed'?'方案待确认':option.status==='notSearched'?'选择后计算':option.combat?.status==='pending'?'计算中':option.combat?'暂不可评估':'')),
                 h('span',{className:'paa-route-option-path'},path(option))));
               return h('section',{key:group.phase,role:'group','aria-label':group.label,className:'paa-route-group'},
                 groups.length>1?h('button',{type:'button',className:'paa-route-phase-toggle','aria-expanded':expanded,'aria-controls':id,onClick:()=>toggle(group)},

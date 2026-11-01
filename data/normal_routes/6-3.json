@@ -1,5 +1,14 @@
 {
   "area": "6-3",
+  "sortieRequirement": {
+    "all": [
+      {"allStypes": [2, 3, 16, 21]},
+      {"count": {"stypes": [16], "min": 1, "max": 2}},
+      {"count": {"stypes": [3, 21], "min": 1, "max": 3}},
+      {"count": {"stypes": [2], "min": 1}}
+    ]
+  },
+  "sortieRequirementSource": "https://wikiwiki.jp/kancolle/中部海域/6-3",
   "source": {
     "url": "https://zh.kcwiki.cn/wiki/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-3",
     "branchSectionSha256": "4f836b542c6f6736781856ea21514da66f22159ae984c0a0141599dce501cbd5",

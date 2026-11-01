@@ -9,7 +9,7 @@ test('reviewed catalog covers all 37 maps, all 43 objectives and two optional un
   assert.equal(new Set(Object.keys(catalog.maps).map(k=>k.split(':')[0])).size,37);
   assert.equal(Object.values(catalog.maps).filter(m=>m.target==='boss'||m.target==='N').length,43);
   for(const [key,m] of Object.entries(catalog.maps)){
-    const area=key.split(':')[0],options=P.routeOptions(area,m.target,m.phase||undefined).filter(o=>o.recommend!==false);
+    const area=key.split(':')[0],options=P.routeOptions(area,m.target,m.phase||undefined).filter(o=>o.recommend!==false&&!o.fallback);
     assert.equal(options.length,m.routes.length,key);
     assert.equal(new Set(options.map(o=>o.key)).size,options.length);
     assert.equal(new Set(options.map(o=>o.name)).size,options.length,key);
@@ -18,6 +18,28 @@ test('reviewed catalog covers all 37 maps, all 43 objectives and two optional un
     const policy=guidePolicy(area,m.target,m.phase||undefined);
     assert(policy,key);assert(policy.templates.length>0);
     assert(m.source.startsWith('https://wikiwiki.jp/'));
+  }
+});
+test('each catalog objective exposes a broadly compatible option built from actual map paths',()=>{
+  const {previewForMap}=require('../../../src/domain/routes/sortie_profile');
+  for(const [key,entry] of Object.entries(catalog.maps)){
+    const area=key.split(':')[0],phase=entry.phase||undefined;
+    const options=P.recommendedOptions(area,entry.target,phase),fallback=options.filter(option=>option.fallback);
+    assert.equal(fallback.length,1,key);
+    assert.equal(fallback[0].name,'自适应路线');assert.deepEqual(fallback[0].fleetRequirement,require('../../../data/normal_routes/'+area+'.json').sortieRequirement);
+    assert.equal(fallback[0].templates,null);assert.equal(fallback[0].strategy,undefined);
+    const actual=previewForMap(area,{target:entry.target,phase}).routePaths.map(path=>path.nodes.join('>'));
+    assert(actual.length,key);assert.deepEqual(P.optionPaths(fallback[0]).map(nodes=>nodes.join('>')),actual,key);
+  }
+});
+test('6-3 compatible and custom paths preserve mandatory sortie composition',()=>{
+  const options=P.routeOptions('6-3').filter(option=>option.fallback||option.recommend===false);
+  assert(options.length>1);
+  const eligible=(option,types)=>P.fleetRequirementAssessment({ships:types.map(stype=>({stype}))},option).eligible;
+  for(const option of options){
+    assert(eligible(option,[16,3,2,2,2,2]));
+    for(const types of [[16,3,2,2,2,8],[3,2,2,2,2,2],[16,2,2,2,2,2],[16,3,3,3,3,2],[16,16,16,3,2,2],[16,3,3,3,3,3]])
+      assert(!eligible(option,types),JSON.stringify(types));
   }
 });
 for(const w of witnesses)test(`catalog ${w.id} follows actual branch order, preserves hull requirements and renders all possible branches`,()=>{
@@ -48,7 +70,7 @@ test('all stages expose every curated option without mixing optional unlock targ
     for(let i=0;i<phases.length;i++){
       const store={info:{maps:{[Number(area.replace('-',''))]:{api_gauge_num:i+1}}}};
       const selected=P.recommendedOptions(area,'boss',undefined,{maxRoutes:5},store);
-      for(const phase of phases)assert.equal(selected.filter(r=>r.phase===phase).length,
+      for(const phase of phases)assert.equal(selected.filter(r=>r.phase===phase&&!r.fallback).length,
         catalog.maps[area+':'+phase].routes.length);
       assert(selected.every(r=>r.phaseLabel&&!r.name.includes('阶段')));
     }

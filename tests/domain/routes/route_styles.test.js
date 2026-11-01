@@ -15,8 +15,8 @@ function aviationFixture(escorts=[13,14]){
 }
 const scheme=ids=>({fleet:1,ships:ids.map(id=>({id,slots:[-1,-1],ex:-1}))});
 test('1-4 preset identities bind their reviewed hulls and never include the I detour',()=>{
- const catalog=plans.routeOptions('1-4'),options=catalog.filter(o=>o.recommend!==false);
- assert.equal(options.length,6);assert.equal(plans.recommendedOptions('1-4').length,6);
+ const catalog=plans.routeOptions('1-4'),options=catalog.filter(o=>o.recommend!==false&&!o.fallback);
+ assert.equal(options.length,6);assert.equal(plans.recommendedOptions('1-4').filter(o=>!o.fallback).length,6);
  for(const option of options){assert.equal(option.label,option.name+`（${option.pathLabel}）`);assert(option.templates.length);assert(option.paths.every(p=>!p.includes('I')&&p.at(-1)==='L'));}
  const carrier=carrierOption();assert.equal(carrier.pathLabel,'A/B→D→E→H→L');
  const ships=types=>({ships:types.map(stype=>({stype,name:'测试舰',openingTorpedo:[4,13,14].includes(stype)}))});
@@ -161,6 +161,7 @@ test('merged routes across the catalog share exact visible branches, captions an
   const fleets=[[3,2,2,2,2,2],[16,3,2,2,5,6],[20,11,7,18,4,4],[22,3,2,2,2,2],
     [13,6,2,2,3,4],[10,11,3,2,2,5],[11,7,5,6,8,2],[8,3,2,2,6,6],[5,5,5,2,2,2]];
   for(const file of files){const area=file.slice(0,-5);for(const option of plans.routeOptions(area)){
+    if(option.fallback)continue;
     optionsChecked++;const all=plans.optionPaths(option),order=plans.orderedPathNodes(all);
     for(const path of all){let from='start';for(const to of path){assert(order.indexOf(from)<order.indexOf(to),`${area} ${from}→${to}`);from=to;}}
     if(all.length<=1)continue;merged++;areas.add(area);

@@ -179,7 +179,8 @@ function mapOverview(area,target='boss',phase,settings,store){
 function routeEdgeProbabilities(route,option){
   if(!route?.area||!route.ships?.length||!option||option.phase&&option.phase!==route.phase)return [];
   const plans=require('../../domain/routes/route_plans'),edges=new Map();
-  const branches=plans.optionPaths(option).map(nodes=>({nodes,...plans.planningPath(route,nodes,
+  const paths=option.fallback?plans.fleetPaths(route,option):plans.optionPaths(option);
+  const branches=paths.map(nodes=>({nodes,...plans.planningPath(route,nodes,
     {allowTentative:false,includeLosRequirements:false})}));
   for(const branch of branches){
     const points=new Map(branch.pointAssessments.map(p=>[p.from,p.assessment]));let from='start';
@@ -329,7 +330,8 @@ function routeArrivalResult(report,selected,ready,target='boss'){
   if(selected.paths){
     const grouped=plans.optionPlanning(route,selected),probability=grouped.chance.probability;
     const arrival=selected.arrivalMode==='boss'?plans.bossArrivalChance(route,selected):null;
-    const manual=(arrival||plans.bossArrivalChance(route,selected)).playerChoices;
+    const manualOption=selected.fallback?{...selected,nodes:grouped.nodes,paths:[grouped.nodes]}:selected;
+    const manual=(arrival||plans.bossArrivalChance(route,manualOption)).playerChoices;
     const total=arrival?arrival.probability:probability;
     const percent=n=>`${Math.round(n*1000)/10}%`;
     const branches=grouped.branches.filter(b=>b.chance.max>0);
@@ -338,9 +340,9 @@ function routeArrivalResult(report,selected,ready,target='boss'){
     const warnings=probability===1?[]:plans.routeDiagnostics(route,selected).points
       .filter(point=>!branches.length||point.status!=='random').map(point=>point.summary);
     return withArrivalNotes({label,hasOtherBranches:Number.isFinite(total)&&Number.isFinite(probability)&&total-probability>1e-9,
-      value:total===1?'固定到达':total===0?'无法抵达 Boss':Number.isFinite(total)?`到达概率 ${percent(total)}`:'到达率待确认',
+      value:total===1?'固定到达':total===0?(target==='boss'?'无法抵达 Boss':'无法抵达目标'):Number.isFinite(total)?`到达概率 ${percent(total)}`:'到达率待确认',
       tone:total===1?'good':'warning',unreachable:total===0,warnings},
-      [{kind:'probabilitySummary',text:probability===0?'当前编成无法走所选路线':selected.arrivalMode==='boss'?`所选合流路线 ${probability===null?'概率待确认':percent(probability)}`:'分支在后续节点汇合'},
+      [{kind:'probabilitySummary',text:probability===0?'当前编成无法走所选路线':selected.fallback?'按当前编成选择一条可达路线':selected.arrivalMode==='boss'?`所选合流路线 ${probability===null?'概率待确认':percent(probability)}`:'分支在后续节点汇合'},
         ...(Number.isFinite(total)&&Number.isFinite(probability)&&total-probability>1e-9?[{text:'总到达概率包含其他可抵达目标的分支'}]:[]),
         ...branches.sort((a,b)=>(b.chance.probability??-1)-(a.chance.probability??-1))
           .map(b=>({nodes:b.nodes,probability:b.chance.probability,value:b.chance.probability===null?'待确认':percent(b.chance.probability)})),

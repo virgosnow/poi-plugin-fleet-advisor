@@ -24,7 +24,7 @@ test('1-3 upper guide includes both temporary branches through their actual E me
   assert.equal(option.name,'上转下水母流');
   assert.deepEqual(P.optionPaths(option),[[...'AEFJ'],[...'ADBEFJ']]);
   assert.equal(option.pathLabel,'A→(D→B)→E→F→J');
-  assert(P.routeOptions('1-3').filter(o=>o.recommend!==false).every(option=>option.basis==='guide'));
+  assert(P.routeOptions('1-3').filter(o=>o.recommend!==false&&!o.fallback).every(option=>option.basis==='guide'));
 });
 
 test('1-3 water-tender fleet sums A-E 20% and A-D-B-E 80% to fixed arrival',()=>{

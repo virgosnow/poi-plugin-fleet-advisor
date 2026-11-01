@@ -101,24 +101,25 @@ test('service injects global preferences into workers and future planning never 
 
  test('all curated routes reach the UI and the active-stage search despite legacy route budgets',()=>{
   const P=require('../../src/domain/routes/route_plans'),W=require('../../src/ui/workbench/workbench_model'),R=require('../../src/recommendation/index');
-  const store=fixture(),full=P.routeOptions('2-3');assert.equal(full.filter(r=>r.recommend!==false).length,5);
+  const store=fixture(),full=P.routeOptions('2-3');assert.equal(full.filter(r=>r.recommend!==false&&!r.fallback).length,5);
   assert.equal(new Set(full.flatMap(P.optionPaths).map(p=>p.join('>'))).size,16,'all physical journeys remain queryable');
-  assert.equal(P.recommendedOptions('2-3').length,5);
-  assert.equal(W.mapOverview('2-3').options.length,5);
-  assert.equal(W.mapOverview('2-3','boss',undefined,{maxRoutes:2}).options.length,5);
+  assert.equal(P.recommendedOptions('2-3').filter(r=>!r.fallback).length,5);
+  assert.equal(W.mapOverview('2-3').options.filter(r=>!r.fallback).length,5);
+  assert.equal(W.mapOverview('2-3','boss',undefined,{maxRoutes:2}).options.filter(r=>!r.fallback).length,5);
+  assert.equal(W.mapOverview('2-3').options.filter(r=>r.fallback).length,1);
   assert.equal(W.mapOverview('2-3').profile.routePaths.length,16);
   for(const [area,maxRoutes]of [['1-4',2],['7-2',2]]){
     const result=R.recommendNormalFleet(store,{area,automaticFilters:{maxRoutes}});
     assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),P.recommendedOptions(area,'boss',P.currentPhase(area,store),{maxRoutes}).map(r=>[r.phase,r.key]));
     assert(result.routeResults.length>maxRoutes);
   }
-  assert.equal(P.recommendedOptions('2-3','boss',undefined,{maxRoutes:20}).length,5);
-  assert.equal(P.recommendedOptions('1-1').length,4);
+  assert.equal(P.recommendedOptions('2-3','boss',undefined,{maxRoutes:20}).filter(r=>!r.fallback).length,5);
+  assert.equal(P.recommendedOptions('1-1').filter(r=>!r.fallback).length,4);
  });
 test('all stages retain every curated route regardless of progress or old route limits',()=>{
   const P=require('../../src/domain/routes/route_plans'),W=require('../../src/ui/workbench/workbench_model');
   const counts=(area,store,maxRoutes=5,phase)=>Object.fromEntries(
-    P.recommendedOptions(area,'boss',phase,{maxRoutes},store).reduce((groups,row)=>
+    P.recommendedOptions(area,'boss',phase,{maxRoutes},store).filter(row=>!row.fallback).reduce((groups,row)=>
       groups.set(row.phase,(groups.get(row.phase)||0)+1),new Map()));
   const store={info:{maps:{73:{api_gauge_num:2},56:{api_gauge_num:3}}}};
   assert.deepEqual(counts('7-3',store),{gauge1:3,gauge2:4});
@@ -149,7 +150,8 @@ test('snapshot worker searches only the observed phase while the UI retains the 
     const result=await service.recommendNormalFleet({snapshotId,area:'7-2',});
     assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),
       P.recommendedOptions('7-2','boss','gauge2').map(r=>[r.phase,r.key]));
-    assert.equal(result.routeResults.filter(r=>r.phase==='gauge2').length,4);
+    assert.equal(result.routeResults.filter(r=>r.phase==='gauge2'&&!r.fallback).length,4);
+    assert.equal(result.routeResults.filter(r=>r.phase==='gauge2'&&r.fallback).length,1);
     assert.equal(result.routeResults.filter(r=>r.phase==='gauge1').length,0);
     assert.deepEqual(require('../../src/ui/workbench/workbench_model').mapOverview('7-2','boss',undefined,undefined,store).profile.targetNodes,['M']);
   }finally{await service.dispose();clean(dir);}

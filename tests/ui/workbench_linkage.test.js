@@ -538,6 +538,7 @@ test('automatic 1-5 completion selects the first reachable recommended route',as
   assert.deepEqual(h.get('slots').filter(Boolean).map(row=>row.id),
     result.recommendations.find(row=>row.routeKey===reachable.key).scheme.ships.map(row=>row.id));
   assert.equal(h.get('error'),'');
+  assert(!h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog'));
 });
 
 test('automatic completion leaves the route unset when no route has a reachable recommendation',async()=>{
@@ -548,6 +549,57 @@ test('automatic completion leaves the route unset when no route has a reachable 
   assert.equal(h.get('mapRoute'),'');
   assert.match(h.get('error'),/没有可到达的路线方案/);
   assert(h.get('slots').every(slot=>!slot));
+  const dialog=h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog');
+  assert(dialog);assert.equal(dialog.props['aria-labelledby'],'paa-wb-no-plan-title');
+  assert(h.find(dialog,node=>node.children.includes('本轮未找到符合路线和当前条件的编成。')));
+  let focused=0,restored=0;
+  const mock={open:false,ownerDocument:{activeElement:{isConnected:true,focus(){restored++;}}},
+    showModal(){this.open=true;},close(){this.open=false;},querySelector(){return {focus(){focused++;}};}};
+  // Locate the dialog ref through the rendered element so this also covers the effect's native modal lifecycle.
+  dialog.props.ref.current=mock;
+  const effect=h.effects.filter(item=>String(item.fn).includes('noPlanDialog.current')).at(-1),cleanup=effect.fn();
+  assert(mock.open);assert.equal(focused,1);cleanup();assert(!mock.open);assert.equal(restored,1);
+  h.find(dialog,node=>node.type==='button'&&node.children.includes('知道了')).props.onClick();
+  assert(!h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog'));
+});
+
+test('failed compatibility search opens a dismissible dialog and preserves the existing draft',async()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans');h.set('area','1-2');
+  const options=plans.recommendedOptions('1-2'),fallback=options.find(option=>option.fallback),guide=options.find(option=>!option.fallback);
+  const row={routeKey:guide.key,scheme:W.scheme([W.entry(h.store,2)],1)};
+  h.service.recommendNormalFleet=args=>args.routeKey?
+    {routeResults:[{...fallback,status:'notFound',chance:null}],recommendations:[],reason:'自适应路线没有符合条件的编成'}:
+    {routeResults:[{...guide,status:'available',chance:{probability:1},recommendationIndex:0},
+      {...fallback,status:'notSearched',chance:null}],recommendations:[row]};
+  await h.find(h.render(),node=>node.props.className==='paa-wb-complete').props.onClick();
+  const before=JSON.stringify(h.get('slots'));
+  await h.find(h.render(),node=>node.type?.name==='RoutePicker').props.onChange(fallback.key);
+  const dialog=h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog');
+  assert(dialog);assert(h.find(dialog,node=>node.children.includes('自适应路线在本轮搜索中未找到符合条件的编成。')));
+  assert.equal(JSON.stringify(h.get('slots')),before);
+  dialog.props.onCancel({preventDefault(){}});
+  assert(!h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog'));
+});
+
+test('selecting the compatibility option searches it independently and preserves the curated choices',async()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans');h.set('area','1-2');
+  const options=plans.recommendedOptions('1-2'),fallback=options.find(option=>option.fallback),guide=options.find(option=>!option.fallback),queries=[];
+  const row=option=>({routeKey:option.key,scheme:W.scheme([W.entry(h.store,2)],1)});
+  h.service.recommendNormalFleet=args=>{
+    queries.push(args);
+    if(args.routeKey)return {routeResults:[{...fallback,status:'available',chance:{probability:.7},recommendationIndex:0}],recommendations:[row(fallback)]};
+    return {routeResults:[{...guide,status:'available',chance:{probability:1},recommendationIndex:0},
+      {...fallback,status:'notSearched',chance:null,recommendationIndex:null}],recommendations:[row(guide)]};
+  };
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert.equal(h.get('mapRoute'),guide.key);assert.equal(queries[0].routeKey,undefined);
+  const picker=h.find(h.render(),node=>node.type?.name==='RoutePicker');
+  await picker.props.onChange(fallback.key);h.render();
+  assert.equal(queries.length,2,'the ordinary result cache must not masquerade as a compatibility search');
+  assert.equal(queries[1].routeKey,fallback.key);assert.equal(h.get('mapRoute'),fallback.key);
+  assert(h.get('choices').some(choice=>choice.key===guide.key),'the previous curated result remains available');
+  assert(h.get('choices').some(choice=>choice.key===fallback.key&&choice.status==='available'));
+  assert.equal(h.get('error'),'');
 });
 
 test('a route missing from a completed recommendation is marked unknown instead of pending',async()=>{
@@ -1037,6 +1089,11 @@ test('expedition completion loads the closest reference draft instead of throwin
   await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
   assert.equal(h.get('slots').filter(Boolean)[0].id,2);assert.equal(h.get('error'),'');
   assert.equal(JSON.stringify(h.store),before);
+  const dialog=h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog');
+  assert(dialog);assert(h.find(dialog,node=>node.children.includes('本轮未找到达标的远征编成。')));
+  assert(h.find(dialog,node=>node.children.includes('已显示最接近的参考编成，请检查任务及未满足的出航条件。')));
+  h.find(dialog,node=>node.type==='button'&&node.children.includes('知道了')).props.onClick();
+  assert(!h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog'));
   const checks=[{type:'totalFirepower',left:456,right:500,sat:false},{type:'totalAsw',left:251,right:280,sat:false}];
   const E=require('../../src/ui/expedition/expedition_model'),conditions=E.requirements({checks});
   assert.deepEqual(conditions.map(c=>c.deficit),[44,29]);
@@ -1047,6 +1104,32 @@ test('expedition completion loads the closest reference draft instead of throwin
   const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join('');
   assert(text(shortfalls).includes('差 44'));assert(text(shortfalls).includes('差 29'));
   assert(text(shortfalls).includes('尚未满足出航条件'));assert(text(view).includes('达标后净收益'));
+});
+
+test('expedition with no reference fleet shows a dismissible no-plan dialog without changing the draft',async()=>{
+  const h=harness('expedition'),slots=[{...W.entry(h.store,2),pin:true},null,null,null,null,null];
+  h.set('slots',slots);const before=JSON.stringify(h.get('slots'));
+  h.service.recommendExpeditionFleet=()=>({recommendations:[],reason:'没有可用舰娘'});
+  await h.find(h.render(),node=>node.props.className==='paa-wb-complete').props.onClick();
+  const dialog=h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog');
+  assert(dialog);assert(h.find(dialog,node=>node.children.includes('本轮未找到符合远征和当前条件的编成。')));
+  assert.equal(h.get('error'),'没有可用舰娘');assert.equal(JSON.stringify(h.get('slots')),before);
+  dialog.props.onCancel({preventDefault(){}});
+  assert(!h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog'));
+});
+
+test('a successful or obsolete expedition search does not open a no-plan dialog',async()=>{
+  const h=harness('expedition');let finish;
+  h.service.recommendExpeditionFleet=()=>({recommendations:[{scheme:W.scheme([W.entry(h.store,2)],2)}]});
+  await h.find(h.render(),node=>node.props.className==='paa-wb-complete').props.onClick();
+  assert(!h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog'));
+  h.service.recommendExpeditionFleet=()=>new Promise(resolve=>{finish=resolve;});
+  const pending=h.find(h.render(),node=>node.props.className==='paa-wb-complete').props.onClick();
+  await new Promise(resolve=>setTimeout(resolve,30));
+  h.find(h.render(),node=>node.type?.name==='AreaPicker').props.onChange(2);h.render();
+  finish({recommendations:[],reason:'旧远征没有方案'});await pending;
+  assert(!h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog'));
+  assert.equal(h.get('error'),'');
 });
 
 test('switching expeditions selects the latest default goal without starting a search',()=>{
@@ -2344,6 +2427,26 @@ test('expedition completion keeps a total percentage while its stage labels chan
   const percentages=messages.map(totalPercentage);
   assert(percentages.every((value,index)=>value<100&&(!index||value>=percentages[index-1])),messages.join('\n'));
   finish(recommendationResult(h,'expedition'));await pending;assert.match(channel.value,/预计总进度\s+100%/);
+});
+
+test('real expedition worker reports progress into the unified workbench overlay',async()=>{
+  const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+  const {RecommendationWorker}=require('../../src/infrastructure/workers/recommendation_worker');
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'paa-expedition-progress-'));
+  const worker=new RecommendationWorker({cacheDir:directory}),h=harness('expedition'),events=[];
+  try{
+    h.service.recommendExpeditionFleet=(args,onProgress)=>worker.run('recommendExpeditionFleet',h.store,args,event=>{events.push(event.stage);onProgress(event);});
+    const pending=h.find(h.render(),node=>node.props.className==='paa-wb-complete').props.onClick();
+    await progressDelay(30);
+    const channel=progressChannel(h),received=[];channel.listeners.add(value=>received.push(value));
+    await pending;
+    assert(events.includes('expedition-candidates'));assert(events.includes('expedition-fit'));
+    assert(received.some(value=>value.includes('筛选远征编成')));
+    assert(received.some(value=>value.includes('规划远征装备与收益')));
+    assert.equal(totalPercentage(channel.value),100);
+    const percentages=received.map(totalPercentage);
+    assert(percentages.every((value,index)=>!index||value>=percentages[index-1]));
+  }finally{await worker.dispose();fs.rmSync(directory,{recursive:true,force:true});}
 });
 
 test('equipment-only adjustments in both workbenches report total progress and finish at 100%',async()=>{

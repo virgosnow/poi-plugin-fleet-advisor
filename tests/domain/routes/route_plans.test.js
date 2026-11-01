@@ -10,7 +10,7 @@ const {recommendNormalEquipment}=require('../../../src/recommendation/index');
 test('fleet-size projection keeps equipment, speed, uncertain branches and alternative paths possible',()=>{
   const {routeFleetSizes}=require('../../../src/domain/routes/route_plans');
   assert.deepEqual(routeFleetSizes('1-1',routeOptions('1-1')),[1,2,3,4,5,6],'small-fleet preference is not a game rule');
-  assert.deepEqual(routeFleetSizes('1-5',routeOptions('1-5').filter(o=>o.nodes.join('')==='ADEJ')),[1,2,3,4]);
+  assert.deepEqual(routeFleetSizes('1-5',routeOptions('1-5').filter(o=>!o.fallback&&o.nodes.join('')==='ADEJ')),[1,2,3,4]);
   assert.deepEqual(routeFleetSizes('1-2',routeOptions('1-2')),[1,2,3,4,5,6],'random entry and repairable speed keep other fleet sizes possible');
   assert.deepEqual(routeFleetSizes('4-5',routeOptions('4-5')),[1,2,3,4,5,6]);
   const paths=routeOptions('1-1'),withRequirement=when=>paths.map(p=>({...p,fleetRequirement:when}));
@@ -43,7 +43,7 @@ test('fleet-size pruning never removes a possible concrete hull across normal ma
 test('size-limited hull enumeration keeps the original feasible beams and parallel merge',()=>{
   const P=require('../../../src/domain/routes/route_plans'),rows=Array.from({length:24},(_,i)=>({
     id:i+1,name:'舰'+i,stype:[1,2,3,7,11,16][i%6],power:100-i,ship:{api_soku:10}}));
-  const ctx={fixed:[],roster:rows,byId:new Map(rows.map(r=>[r.id,r]))},routes=P.routeOptions('1-5').filter(o=>o.nodes.join('')==='ADEJ');
+  const ctx={fixed:[],roster:rows,byId:new Map(rows.map(r=>[r.id,r]))},routes=P.routeOptions('1-5').filter(o=>!o.fallback&&o.nodes.join('')==='ADEJ');
   const full=P.hullSeeds(ctx,{area:'1-5',routes},r=>r.id),options={area:'1-5',routes,sizes:P.routeFleetSizes('1-5',routes)};
   const limited=P.hullSeeds(ctx,options,r=>r.id);
   assert.deepEqual(limited.rows,full.rows);assert.deepEqual(limited.baselineRows,full.baselineRows);
@@ -140,7 +140,7 @@ test('bounded hull search visits low-ranked historical routing ships before ordi
   for(const [name,stype] of [['羽黒改二',5],['足柄改二',5],['神風',2]])rows.push({
     id:rows.length+1,name,stype,power:1,ship:{api_soku:10}});
   const before=JSON.stringify(rows),result=hullSeeds({fixed:[],roster:rows,byId:new Map(rows.map(r=>[r.id,r]))},
-    {area:'7-3',phase:'gauge2',routes:routeOptions('7-3','boss','gauge2')},r=>r.id);
+    {area:'7-3',phase:'gauge2',routes:routeOptions('7-3','boss','gauge2').filter(o=>!o.fallback)},r=>r.id);
   assert.equal(result.truncated,true);
   assert(result.rows.some(ships=>ships.length<=4&&['羽黒改二','神風'].every(name=>ships.some(s=>s.name===name))));
   assert.equal(JSON.stringify(rows),before);
@@ -640,10 +640,13 @@ test('speed fitting can use four engine slots and replace an unheld weaker boile
 test('guide routes take precedence while physical paths remain explicit non-preset queries',()=>{
  const catalog=require('../../../data/normal_route_guides.json').maps;
  for(const [key,guide] of Object.entries(catalog)){
-  const choices=routeOptions(key.split(':')[0],guide.target,guide.phase||undefined),presets=choices.filter(r=>r.recommend!==false);
+  const choices=routeOptions(key.split(':')[0],guide.target,guide.phase||undefined),presets=choices.filter(r=>r.recommend!==false&&!r.fallback);
   assert.deepEqual(presets.map(r=>r.id),guide.routes.map(r=>r.id));
   for(const r of presets){assert.equal(r.basis,'guide');assert.equal(r.source,guide.source);assert(r.key.startsWith('guide:'));}
-  for(const r of choices.filter(r=>r.recommend===false)){assert(!r.fleetRequirement);assert.equal(r.key,r.nodes.join('>'));}
+  for(const r of choices.filter(r=>r.recommend===false)){
+    assert.deepEqual(r.fleetRequirement,require('../../../data/normal_routes/'+key.split(':')[0]+'.json').sortieRequirement);
+    assert.equal(r.key,r.nodes.join('>'));
+  }
  }
 });
 test('physical route queries retain the whole graph separately from the bounded presets',()=>{
@@ -676,7 +679,7 @@ test('route names are Chinese and phase labels are separate from names',()=>{
 });
 test('all preset identities reject an empty fleet while physical paths stay unconstrained',()=>{
  const {fleetRequirementAssessment}=require('../../../src/domain/routes/route_plans');
- for(const area of ['1-1','2-2','3-4','7-3'])for(const o of routeOptions(area))assert.equal(fleetRequirementAssessment({ships:[]},o).eligible,o.recommend===false);
+ for(const area of ['1-1','2-2','3-4','7-3'])for(const o of routeOptions(area))assert.equal(fleetRequirementAssessment({ships:[]},o).eligible,o.recommend===false||!!o.fallback);
 });
 test('branch arrival uses all exits of the same fleet, separately from the highlighted path',()=>{
   const W=require('../../../src/ui/workbench/workbench_model'),store=fixture();
@@ -701,7 +704,7 @@ test('branch arrival uses all exits of the same fleet, separately from the highl
 
 test('merged guides retain every branch, remove the redundant 3-2 row and count shared prefixes once',()=>{
   const P=require('../../../src/domain/routes/route_plans'),W=require('../../../src/ui/workbench/workbench_model');
-  const options=routeOptions('3-2').filter(o=>o.recommend!==false);assert.equal(options.length,4);
+  const options=routeOptions('3-2').filter(o=>o.recommend!==false&&!o.fallback);assert.equal(options.length,4);
   assert.equal(options[0].name,'两战水雷提速流');assert(!options.some(o=>o.key==='C>G>F>L'));
   assert.deepEqual(P.optionPaths(options[0]),[[...'CEFL'],[...'CGFL']]);
   const store=backupFixture([16,3,2,2,2,2]);
@@ -775,7 +778,8 @@ test('all-route diagnostics list later blockers too, with full LoS and hull cond
 
 test('phase-less route selection exposes and previews the correct 7-3 gauge',()=>{
   const W=require('../../../src/ui/workbench/workbench_model'),overview=W.mapOverview('7-3','boss',undefined,undefined,{info:{maps:{73:{api_gauge_num:2}}}});
-  assert.deepEqual(overview.options.map(r=>r.phase),['gauge1','gauge1','gauge1','gauge2','gauge2','gauge2','gauge2']);
+  assert.deepEqual(overview.options.filter(r=>!r.fallback).map(r=>r.phase),['gauge1','gauge1','gauge1','gauge2','gauge2','gauge2','gauge2']);
+  assert.deepEqual(overview.options.filter(r=>r.fallback).map(r=>r.phase),['gauge1','gauge2']);
   for(const option of overview.options){
     const profile=W.selectedMapProfile(overview,option.key);
     assert(profile.routePaths.some(p=>p.nodes.join('>')===option.nodes.join('>')));
@@ -993,7 +997,7 @@ test('interleaved hull shards preserve the global truncated DFS prefix',()=>{
   const P=require('../../../src/domain/routes/route_plans'),rows=[];
   for(let stype=1;stype<=22;stype++)for(const speed of [5,10])rows.push({id:rows.length+1,name:'ship'+rows.length,stype,power:10000-rows.length,ship:{api_soku:speed}});
   for(const [name,stype] of [['羽黒改二',5],['足柄改二',5],['神風',2]])rows.push({id:rows.length+1,name,stype,power:1,ship:{api_soku:10}});
-  const ctx={fixed:[],roster:rows,byId:new Map(rows.map(r=>[r.id,r])),combatScore:r=>r.id},options={area:'7-3',phase:'gauge2',routes:P.routeOptions('7-3','boss','gauge2')};
+  const ctx={fixed:[],roster:rows,byId:new Map(rows.map(r=>[r.id,r])),combatScore:r=>r.id},options={area:'7-3',phase:'gauge2',routes:P.routeOptions('7-3','boss','gauge2').filter(o=>!o.fallback)};
   const expected=P.hullSeeds(ctx,options,r=>r.id);assert.equal(expected.truncated,true);assert.equal(expected.attempted,180001);
   const parts=[5,1,4,0,3,2].map(index=>P.hullSeeds(ctx,{...options,shard:{index,count:6},partial:true},r=>r.id));
   assert.deepEqual(P.mergeHullParts(parts,ctx.byId),expected);
@@ -1005,13 +1009,25 @@ test('interleaved shards retain serial beam order, stable ties, duplicate combat
     power:100-Math.floor(i/14),ship:{api_soku:i%2?10:5}}));
   for(const fixed of [[],[1],[1,2,3,4,5,6]]){
     const ctx={roster:rows,fixed,byId:new Map(rows.map(r=>[r.id,r])),combatScore:r=>r.id%3},
-      options={area:'2-3',routes:P.routeOptions('2-3','boss')};
+      options={area:'2-3',routes:P.routeOptions('2-3','boss').filter(o=>!o.fallback)};
     const serial=P.hullSeeds(ctx,options,r=>r.id);
     for(const count of [2,4,6,8]){
       const parts=Array.from({length:count},(_,index)=>P.hullSeeds(ctx,{...options,shard:{index,count},partial:true},r=>r.id));
       assert.deepEqual(P.mergeHullParts(parts.reverse(),ctx.byId),serial,`fixed=${fixed.length}, shards=${count}`);
     }
   }
+});
+
+test('compatibility hull search keeps a bounded prefix and the same result across shards',()=>{
+  const P=require('../../../src/domain/routes/route_plans');
+  const rows=Array.from({length:24},(_,i)=>({id:i+1,name:'舰'+i,stype:[1,2,3,5,7,11][i%6],power:100-i,ship:{api_soku:10}}));
+  const ctx={roster:rows,fixed:[],byId:new Map(rows.map(row=>[row.id,row]))};
+  const options={area:'1-2',routes:[P.routeOptions('1-2').find(option=>option.fallback)],maxAttempts:80};
+  const serial=P.hullSeeds(ctx,options,row=>row.id);
+  assert.equal(serial.truncated,true);assert.equal(serial.attempted,81);
+  assert.equal(P.hullSeeds(ctx,{...options,estimate:true},row=>row.id),81);
+  const parts=Array.from({length:4},(_,index)=>P.hullSeeds(ctx,{...options,partial:true,shard:{index,count:4}},row=>row.id));
+  assert.deepEqual(P.mergeHullParts(parts.reverse(),ctx.byId),serial);
 });
 
 test('hull shard merge deduplicates combat fleets before the global cutoff and restores equal-score order',()=>{

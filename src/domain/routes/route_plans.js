@@ -52,11 +52,15 @@ function pathLabel(paths){
 }
 function fleetPaths(route,option){
   if(!route?.area||!route.ships?.length||option?.phase&&option.phase!==route.phase)return [];
+  if(option?.fallback){
+    const best=optionPlanning(route,option);
+    return best.chance.max>0?[best.nodes]:[];
+  }
   return optionPaths(option).filter(nodes=>planningPath(route,nodes,
     {allowTentative:false,includeLosRequirements:false}).chance.max!==0);
 }
 function fleetPathOption(route,option){
-  if(optionPaths(option).length<=1||!route?.area||!route.ships?.length||option.phase&&option.phase!==route.phase)return option;
+  if(!option?.fallback&&optionPaths(option).length<=1||!route?.area||!route.ships?.length||option.phase&&option.phase!==route.phase)return option;
   const displayPaths=fleetPaths(route,option);
   const display=displayPaths.length?pathLabel(displayPaths):'无可达分支';
   const presetName=option.presetName||option.name;
@@ -87,6 +91,14 @@ function orderedPathNodes(paths){
 function optionPlanning(route,option){
   const branches=optionPaths(option).map(nodes=>({nodes,...planningPath(route,nodes,{allowTentative:false})}));
   if(branches.length===1)return {...branches[0],branches};
+  if(option?.fallback){
+    // These are alternatives, potentially including player-controlled forks.
+    // Pick one real journey rather than summing incompatible choices.
+    const best=branches.slice().sort((a,b)=>
+      (b.chance.probability??0)-(a.chance.probability??0)||b.chance.min-a.chance.min||
+      b.chance.max-a.chance.max||a.losShortfall-b.losShortfall||a.nodes.length-b.nodes.length)[0];
+    return {...best,branches:[best]};
+  }
   const min=Math.min(1,branches.reduce((sum,b)=>sum+b.chance.min,0)),max=Math.min(1,branches.reduce((sum,b)=>sum+b.chance.max,0));
   const viable=branches.filter(b=>b.chance.max>0),considered=viable.length?viable:branches;
   const losRequirements=[...new Map(considered.flatMap(b=>b.losRequirements).map(r=>[`${r.from}>${r.to}:${r.coefficient}:${r.required}`,r])).values()];
@@ -106,12 +118,15 @@ function routeOptions(area,target='boss',phase){
   const guidePaths=(guide?.routes||[]).filter(g=>optionPaths(g).every(nodes=>paths.some(p=>p.nodes.join('>')===nodes.join('>'))));
   // Physical paths remain explicit query targets, not another preset list.
   const used=new Set(guidePaths.map(p=>p.key));
-  const choices=[...guidePaths,...paths.filter(p=>!used.has(p.nodes.join('>'))).map(p=>({nodes:p.nodes,name:'自选路线',recommend:false}))];
+  const fallback=paths.length?{key:`fallback:${area}:${target}:${phase||'default'}`,name:'自适应路线',nodes:paths[0].nodes,
+    paths:paths.map(p=>p.nodes),pathLabel:'按舰队寻找可达路线',fallback:true,fleetRequirement:mapFor(area).sortieRequirement}:null;
+  const choices=[...guidePaths,...(fallback?[fallback]:[]),...paths.filter(p=>!used.has(p.nodes.join('>'))).map(p=>({nodes:p.nodes,name:'自选路线',recommend:false,fleetRequirement:mapFor(area).sortieRequirement}))];
   return choices.map(p=>({key:p.key||p.nodes.join('>'),id:p.id,
     name:p.name,label:`${p.name}（${p.strategy?.pathLabel||p.pathLabel||p.nodes.join('→')}）`,nodes:p.nodes,
     ...(p.paths?{paths:p.paths,pathLabel:p.pathLabel}:{}),
     ...(p.fixedPathNames?{fixedPathNames:p.fixedPathNames}:{}),
-    ...(guide?.arrivalMode==='boss'?{arrivalMode:'boss'}:{}),
+    ...(!p.fallback&&guide?.arrivalMode==='boss'?{arrivalMode:'boss'}:{}),
+    ...(p.fallback?{fallback:true}:{}),
     ...(p.strategy?{strategy:p.strategy}:{}),
     ...(p.fleetRequirement?{fleetRequirement:p.fleetRequirement}:{}),
     ...(p.summary?{summary:p.summary,priority:p.priority}:{}),
@@ -452,7 +467,8 @@ function losWindows(route,nodes){
 // needs all constraints to repair a fleet, not just the first blocked node.
 function routeDiagnostics(route,option){
   let paths=optionPaths(option);
-  if(paths.length>1){
+  if(option?.fallback)paths=[optionPlanning(route,option).nodes];
+  else if(paths.length>1){
     const viable=paths.filter(nodes=>planningPath(route,nodes,{allowTentative:false}).chance.max>0);
     if(viable.length)paths=viable;
   }
@@ -595,6 +611,7 @@ function mergeHullParts(parts,byId){
 }
 function hullSeeds(ctx,options,family){
   const map=mapFor(options.area),phase=options.phase,fixed=ctx.fixed.map(id=>ctx.byId.get(id));
+  const maxAttempts=Number.isSafeInteger(options.maxAttempts)&&options.maxAttempts>0?Math.min(180000,options.maxAttempts):180000;
   const sizes=new Set(options.sizes||[1,2,3,4,5,6]),maxSize=Math.max(fixed.length,...sizes);
   // Hulls are immutable during this search. Normalize each family once instead
   // of repeating string normalization at every node of the enumeration tree.
@@ -630,7 +647,7 @@ function hullSeeds(ctx,options,family){
     let level=1,total=fixed.length?1:0;
     for(let size=1;size<=maxSize-fixed.length;size++){
       level=level*(buckets.length+size-1)/size;total+=level;
-      if(total>180000)return 180001;
+      if(total>maxAttempts)return maxAttempts+1;
     }
     return total;
   }
@@ -721,7 +738,7 @@ function hullSeeds(ctx,options,family){
     // All shards traverse the same bounded DFS. Interleaving its ordinals
     // spreads the expensive six-ship leaves without changing the global cutoff.
     if(rows.length){
-      if(++attempted>180000){truncated=true;return;}
+      if(++attempted>maxAttempts){truncated=true;return;}
       if(!options.shard||(attempted-1)%options.shard.count===options.shard.index)
         if(sizes.has(rows.length))consider(rows,false,stronger?.some((r,i)=>r.id!==rows[i].id)?stronger:null);
     }
