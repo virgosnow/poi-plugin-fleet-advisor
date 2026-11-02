@@ -68,14 +68,20 @@ module.exports=`
 .paa .paa-workbench[data-kind=expedition] .paa-exp-chain-item[data-completed=true]>span{color:var(--paa-good)}
 .paa-exp-chain-plus,.paa-exp-chain-condition{color:var(--paa-muted);font-size:12px;line-height:20px;overflow-wrap:anywhere}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-condition{min-height:32px;padding-block:6px}
-.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-groups{display:grid;gap:12px;margin-top:8px;max-height:300px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
-.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table{margin-top:0}
-.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table>div{gap:6px;grid-template-columns:repeat(2,minmax(0,1fr));padding:3px 0;border:0}
-.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table[data-columns="3"]>div{grid-template-columns:repeat(3,minmax(0,1fr))}
-.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table>div:first-child{padding-bottom:5px;margin-bottom:3px;border-bottom:1px solid var(--paa-line)}
-.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table>div:first-child>:first-child{color:var(--paa-text)}
-.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table [role=rowheader],.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table [data-zero=true]{color:var(--paa-muted)}
-.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table [data-negative=true]{color:var(--paa-bad)}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-groups{display:grid;gap:8px;margin-top:8px;max-height:300px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.paa-exp-formula-group{min-width:0;padding-bottom:7px;border-bottom:1px solid color-mix(in srgb,var(--paa-line) 32%,transparent)}
+.paa-exp-formula-group:last-child{padding-bottom:0;border-bottom:0}
+.paa-exp-formula-resource{display:flex;align-items:center;color:var(--paa-text);font-size:13px;line-height:20px}
+.paa-exp-formula-resource .paa-resource-icon{width:16px!important;height:16px!important}
+.paa-exp-formula-row{display:flex;align-items:baseline;gap:8px;margin-top:3px;font-size:12px;line-height:19px;font-variant-numeric:tabular-nums}
+.paa-exp-formula-outcome{flex:none;width:38px;color:var(--paa-muted)}
+.paa-exp-formula-row[data-outcome=great] .paa-exp-formula-outcome{color:#efc778}
+.paa-exp-formula-expression{display:flex;flex-wrap:wrap;gap:0 5px;min-width:0;color:var(--paa-muted)}
+.paa-exp-formula-term,.paa-exp-formula-expression>strong{white-space:nowrap}
+.paa-exp-formula-expression>strong{color:var(--paa-text);font-weight:600}
+.paa-exp-formula-row[data-outcome=great] .paa-exp-formula-expression>strong:not([data-negative=true]):not([data-missing=true]){color:#efc778}
+.paa-exp-formula-expression [data-negative=true]{color:var(--paa-bad)}
+.paa-exp-formula-expression>strong[data-missing=true]{color:var(--paa-muted)}
 @container(max-width:780px){
  .paa-workbench[data-kind=expedition] .paa-wb-left [data-result-region=expedition]{border:0;background:none;padding:0}
  .paa-workbench[data-kind=expedition] .paa-wb-left>.paa-wb-context-controls{padding:12px 14px;border:1px solid var(--paa-line);border-radius:10px;background:var(--paa-card)}

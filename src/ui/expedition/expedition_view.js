@@ -13,6 +13,21 @@ module.exports=React=>{
     const value=!available?'—':!item.count?'待确认':guaranteed&&item.count===1?'1':`${guaranteed?1:0} ~ ${item.count}`;
     return h('span',{role:'cell',className:'paa-exp-item-condition','data-guaranteed':guaranteed,'data-great':great,'data-available':available&&item.count>0},h('strong',null,value,...(available&&item.count>0?[unitBadge('trip')]:[])));
   };
+  const incomeFormula=(row,missionId,outcome)=>{
+    const parts=E.incomeBreakdown(row,missionId),terms=parts.filter(part=>part.key!=='great'||outcome==='great');
+    const labels={base:'基础',great:'大成功',bonus:'加成',cost:'补给'};
+    const rendered=terms.map((part,index)=>{
+      const value=part[outcome],known=Number.isFinite(value);
+      const sign=index===0?(known&&value<0?'− ':''):(known&&value<0||part.key==='cost'&&(!known||value===0)?'− ':'+ ');
+      return h('span',{key:part.key,className:'paa-exp-formula-term','data-kind':part.key,'data-negative':known&&value<0},
+        `${sign}${labels[part.key]} ${known?Math.abs(value):'—'}`);
+    });
+    const total=outcome==='great'?row.greatNet:row.net;
+    return h('div',{className:'paa-exp-formula-row','data-outcome':outcome},
+      h('span',{className:'paa-exp-formula-outcome'},outcome==='great'?'大成功':'成功'),
+      h('span',{className:'paa-exp-formula-expression'},...rendered,
+        h('strong',{'data-negative':total<0,'data-missing':!Number.isFinite(total)},`= ${E.incomeText(total,'trip')}`)));
+  };
   const conditionList=conditions=>h(React.Fragment,null,
     h('div',{className:'paa-exp-condition-caption'},'当前 / 要求'),
     h('div',{className:'paa-exp-conditions'},...conditions.map((c,i)=>h('div',{className:'paa-exp-condition','data-satisfied':c.sat,'data-type':c.type,key:i},
@@ -72,10 +87,9 @@ module.exports=React=>{
             h('span',{role:'rowheader'},resource(item.name)),
             showSuccess?itemResult(item,!item.greatOnly):null,showGreat?itemResult(item,true,item.greatOnly,true):null))),
         income?h('details',{className:'paa-exp-income-details'},h('summary',null,'单次补给与收益明细'),
-          h('div',{className:'paa-exp-detail-groups'},...income.rows.map(r=>h('div',{key:r.name,className:'paa-exp-detail-table','data-columns':showGreat&&showSuccess?3:2,role:'table','aria-label':r.name+'单次收益明细'},
-            h('div',{role:'row'},h('span',{role:'columnheader'},resource(r.name)),showSuccess?h('span',{role:'columnheader'},'成功'):null,showGreat?h('span',{role:'columnheader'},'大成功'):null),
-            ...E.incomeBreakdown(r,mission?.missionId).map(part=>h('div',{key:part.key,role:'row','data-component':part.key},h('span',{role:'rowheader'},part.label),
-              ...[...(showSuccess?['success']:[]),...(showGreat?['great']:[])].map(outcome=>h('span',{key:outcome,role:'cell','data-negative':part[outcome]<0,'data-zero':part[outcome]===0},E.incomeText(part[outcome],'trip'))))))))):
+          h('div',{className:'paa-exp-detail-groups'},...income.rows.map(r=>h('section',{key:r.name,className:'paa-exp-formula-group','aria-label':r.name+'单次收益明细'},
+            h('div',{className:'paa-exp-formula-resource'},resource(r.name)),
+            showSuccess?incomeFormula(r,mission?.missionId,'success'):null,showGreat?incomeFormula(r,mission?.missionId,'great'):null)))):
           basePreview&&baseRows?null:h('span',{className:'paa-exp-income-empty paa-muted'},hasShips?'收益或补给资料不足':'基础奖励资料不足')));
   }
   function metrics({status,mission,income}){

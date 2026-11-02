@@ -395,16 +395,33 @@ test('100 percent great success shows only its net rewards and additive breakdow
     assert.equal(all(table,n=>n.props.role==='cell')[0].children[0],incomeUnit==='hour'?'+60':'+120');
     assert.equal(all(table,n=>n.props.role==='cell')[0].children.length,1,'the selected unit applies to resource values without repeating it on every row');
     for(const row of all(table,n=>n.props.role==='row'))assert.equal(row.children.filter(Boolean).length,2);
-    const details=all(tree,n=>n.props.className==='paa-exp-detail-table')[0];
-    assert.deepEqual(details.children[0].children.filter(Boolean).map(n=>text(n).trim()),['燃料','大成功']);
-    assert.deepEqual(details.children.slice(1).map(n=>n.children.map(text)),[
-      ['基础收益','+80'],['大成功加成','+40'],['收益加成','+30'],['补给消耗','-30'],
-    ]);
-    assert.equal(details.children.at(-1).children[1].props['data-negative'],true);
+    const details=all(tree,n=>n.props['aria-label']==='燃料单次收益明细')[0];
+    const formula=all(details,n=>n.props.className==='paa-exp-formula-row')[0];
+    assert.equal(formula.props['data-outcome'],'great');
+    assert.deepEqual(all(formula,n=>n.props.className==='paa-exp-formula-term').map(text),['基础 80','+ 大成功 40','+ 加成 30','− 补给 30']);
+    assert.equal(all(formula,n=>n.type==='strong')[0].children[0],'= +120');
+    assert.equal(all(formula,n=>n.props['data-kind']==='cost')[0].props['data-negative'],true);
     const mixed=view.overview({...props,rate:99.999,goal:'great'}),mixedTable=all(mixed,n=>n.props.className==='paa-exp-income-table')[0];
     assert.deepEqual(all(mixedTable,n=>n.props.role==='columnheader').map(n=>text(n).replace(/\s+/g,' ')),['奖励','成功 0%','大成功 100%']);
     assert.equal(all(mixedTable,n=>n.props.role==='cell')[0].children[0],incomeUnit==='hour'?'+35':'+70');
   }
+});
+
+test('fixed income details show compact formulas for both outcomes without inventing missing values',()=>{
+  const React={Fragment:'fragment',createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})};
+  const view=require('../../src/ui/expedition/expedition_view')(React),all=(n,p)=>!n||typeof n!=='object'?[]:[...(p(n)?[n]:[]),...(n.children||[]).flatMap(c=>all(c,p))];
+  const text=n=>typeof n==='string'||typeof n==='number'?String(n):(n?.children||[]).map(text).join('');
+  const income={rows:[{name:'燃料',base:80,net:70,greatNet:120,success:100,great:150,cost:30},{name:'弹药',base:null,net:null,greatNet:null,success:null,great:null,cost:null}]};
+  const tree=view.overview({mission:{missionId:43},master:{api_time:120},rate:80,hasShips:true,income,incomeUnit:'hour'});
+  assert.equal(all(tree,n=>n.props.className==='paa-exp-resource-details').length,0);
+  const details=all(tree,n=>n.props.className==='paa-exp-income-details')[0];assert(details);
+  const fuel=all(details,n=>n.props['aria-label']==='燃料单次收益明细')[0],rows=all(fuel,n=>n.props.className==='paa-exp-formula-row');
+  assert.deepEqual(rows.map(r=>r.props['data-outcome']),['success','great']);
+  assert.equal(text(rows[0]),'成功基础 80+ 加成 20− 补给 30= +70');
+  assert.equal(text(rows[1]),'大成功基础 80+ 大成功 40+ 加成 30− 补给 30= +120');
+  const unknown=all(details,n=>n.props['aria-label']==='弹药单次收益明细')[0];
+  assert(all(unknown,n=>n.type==='strong').every(n=>n.props['data-missing']===true));
+  assert(all(unknown,n=>n.props['data-kind']==='cost').every(n=>text(n)==='− 补给 —'));
 });
 
 test('great-success column remains distinct for unknown probability and preserves zero, loss and item semantics',()=>{
