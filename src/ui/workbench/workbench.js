@@ -8,6 +8,8 @@ const routePreview=require('../maps/route_preview'),shipDrag=require('../compone
 const {retain,hiddenPage}=require('../components/retained_view');
 const renderCombatBalance=require('../components/combat_balance');
 const collapse=require('../components/collapse');
+const shipDetailsView=require('../components/ship_details');
+const statIcon=require('../components/stat_icon');
 const {assessCombat}=require('../../application/combat_assessment');
 const {assessRouteChoices}=require('../../application/route_combat_assessments');
 const {runRouteCombatBatch}=require('./route_combat_batch');
@@ -149,6 +151,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const [selectedQuests,setSelectedQuests]=React.useState([]);
     const [noPlan,setNoPlan]=React.useState('');
     const [expeditionCompleted,setExpeditionCompleted]=React.useState(false);
+    const [attributeDetails,setAttributeDetails]=React.useState({});
     const grid=React.useRef(null),alive=React.useRef(true),positions=React.useRef(new Map()),popupList=React.useRef(null);
     const resultViews=React.useRef(new Map());
     const pickerCache=React.useRef(null),pickerRowsCache=React.useRef(null);
@@ -702,7 +705,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const conditionsChanged=rows.length>0&&draftContext!==null&&draftContext!==conditionKey;
     const activityText=activity==='equipment'?'正在更新装备推荐…':activity==='route'?'正在同步路线与编成…':'正在补全…';
     const applyHint=busy?'正在应用编成':working?activityText:targetUnavailable?'目标舰队正在远征或状态未同步，请选择可用舰队':!rows.length||preselecting?'可先选入任务舰娘，也可直接补全':dirty?'正在核对编成…':!report.valid?(report.error||'编成需要调整'):conditionsChanged?'条件已变更 · 当前编成已保留，请点击一键补全':checks.length?'远征条件未满足 · 可调整后再应用':notice||changeSummary+(reasons.length?' · 请留意路线条件':'');
-    const portrait=(row,lazy=false)=>h('div',{className:'paa-wb-portrait'},h('span',null,row.name.slice(0,2)),row.portrait?h('img',{src:row.portrait,alt:'',draggable:false,...(lazy?{loading:'lazy',decoding:'async'}:{}),onError:e=>{e.currentTarget.style.display='none';}}):null);
+    const portrait=(row,lazy=false,props=null)=>h(props?'button':'div',props?{type:'button',className:'paa-wb-portrait paa-fleet-portrait-toggle',...props}:{className:'paa-wb-portrait'},h('span',null,row.name.slice(0,2)),row.portrait?h('img',{src:row.portrait,alt:'',draggable:false,...(lazy?{loading:'lazy',decoding:'async'}:{}),onError:e=>{e.currentTarget.style.display='none';}}):null);
     const shipCard=(s,i)=>{
       const remove=()=>{
         const next=pad(slots.filter((x,j)=>x&&j!==i));invalidateRouteChoices();commit(next);
@@ -726,12 +729,15 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           planes!==undefined?h('span',{className:'paa-wb-aircraft-count','data-planes':planes??'unknown','aria-label':planes===null?'满载数量未知':`满载 ${planes} 架`},`${planes??'—'} 架`):null,
           s.keep[k]?h('span',{className:'paa-wb-kept'},'定'):null);
       };
+      const detailsId=`paa-workbench-stats-${kind}-${s.id}`,ship=store.info.ships[s.id];
       return h('article',{key:s.id,className:'paa-wb-ship','data-preselected':kind==='normal'&&!!s.preselected||undefined,'data-fleet-slot':i,'data-ship-id':s.id},
         kind==='normal'&&s.preselected?h('span',{className:'paa-wb-preselected'},'预选'):null,
-        h('div',{className:'paa-wb-ship-head'},portrait(row),h('div',{className:'paa-wb-identity'},h('strong',{'data-tooltip':row.name},row.name),h('small',null,`${i===0?'旗舰':`第 ${i+1} 位`} · ${W.TYPES[master.api_stype]||row.type} · Lv.${row.level}`)),
+        h('div',{className:'paa-fleet-ship-heading'},h('div',{className:'paa-wb-ship-head'},portrait(row,false,{disabled,'aria-expanded':!!attributeDetails[s.id],
+          'aria-controls':detailsId,'aria-label':`${row.name}：属性`,'data-tooltip':'查看属性',onClick:event=>shipDetailsView.toggle(setAttributeDetails,s.id,event)}),h('div',{className:'paa-wb-identity'},h('strong',{'data-tooltip':row.name},row.name),h('small',null,`${i===0?'旗舰':`第 ${i+1} 位`} · ${W.TYPES[master.api_stype]||row.type} · Lv.${row.level}`)),
           h('div',{className:'paa-wb-ship-actions'},
             h('button',{type:'button',className:'paa-wb-replace',disabled:disabled,onClick:()=>open(i),'data-tooltip':'替换舰娘'},'换船'),
             h('button',{type:'button',className:'paa-wb-remove',disabled:disabled,onClick:remove,'data-tooltip':'从当前编成移除'},'移除'))),
+          collapse(h,{open:attributeDetails[s.id],id:detailsId},h('dl',{className:'paa-fleet-ship-stats','aria-label':'舰娘当前属性','data-tooltip':'舰娘当前属性，未计入本页尚未应用的配装'},...shipDetailsView.stats(ship).map(stat=>h('div',{key:stat.label},h('dt',null,statIcon.react(React,stat.label),stat.label),h('dd',null,stat.value===null?'—':stat.value)))))),
         h('div',{className:'paa-wb-mechanisms','aria-label':kind==='expedition'?'当前远征状态':'当前配装机制'},...mechanismBadges(mechanisms.get(s.id))),
         h('div',{className:'paa-wb-gears'},...s.slots.map((_,k)=>gearSlot(k)),store.info.ships[s.id].api_slot_ex!==0?gearSlot('ex'):h('div',{className:'paa-wb-gear-unopened'},'增 · 未开启')),
         h(ExecutionCard,{running:!!(busy&&!hidden&&executionPlan?.fleet===fleet&&executionPlan.targets?.[i]===s.id),stopping,fleet,index:i,ship:s.id}));

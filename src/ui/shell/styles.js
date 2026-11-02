@@ -69,7 +69,8 @@ module.exports=`
 /* Equipment attributes stay paired; other hover tables retain their own layout. */
 .paa-tooltip-equipment-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 18px;margin:0;white-space:normal}
 .paa-tooltip-equipment-stat{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0;padding:4px 7px;border-radius:4px;background:color-mix(in srgb,currentColor 4%,transparent)}
-.paa-tooltip-equipment-label{margin:0;font-weight:400;opacity:.68;white-space:nowrap}
+.paa-tooltip-equipment-label{display:inline-flex;align-items:center;gap:4px;margin:0;font-weight:400;opacity:.8;white-space:nowrap}
+.paa-stat-icon{display:inline-block;width:14px;height:14px;flex:none;vertical-align:middle}
 .paa-tooltip-equipment-value{margin:0;min-width:0;text-align:right;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .paa-tooltip-equipment-value.is-negative{color:#e68e99}
 @media(max-width:320px){.paa-tooltip-equipment-stats{column-gap:10px}.paa-tooltip-equipment-stat{padding-inline:4px;gap:4px}}

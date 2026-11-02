@@ -3,7 +3,8 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const T=require('../../src/ui/models/metric_tooltips'),V=require('../../src/ui/models/presentation_model');
 const {renderStructured}=require('../../src/ui/components/tooltip');
 const fixture=require('../helpers/workbench_fixture');
-const doc={createElement:tag=>({tag,className:'',style:{},children:[],textContent:'',appendChild(child){this.children.push(child);}})};
+const doc={createElement:tag=>({tag,className:'',style:{},children:[],textContent:'',appendChild(child){this.children.push(child);}}),
+ createElementNS:(_ns,tag)=>({tag,className:'',children:[],setAttribute(name,value){this[name]=value;},appendChild(child){this.children.push(child);}})};
 const all=node=>[node,...node.children.flatMap(all)];
 test('air tooltip only shows the selected route loss table while keeping headline values',()=>{
  const store=fixture();store.info.equips[101]={api_slotitem_id:501,api_level:10};store.const.$equips[501]={api_name:'测试舰战'};
@@ -53,6 +54,7 @@ test('equipment card rows, picker items and icon tooltips share signed base stat
  assert(data.compact);assert.deepEqual(data.sections[0].numeric,[1,3]);
  const tip=doc.createElement('div');renderStructured(doc,tip,JSON.stringify(data));
  const rendered=all(tip);assert.equal(rendered.filter(n=>n.tag==='dt').length,5);
+ assert.equal(rendered.filter(n=>n.tag==='svg'&&n.class==='paa-stat-icon').length,5);
  assert.equal(rendered.filter(n=>n.tag==='dd').length,5);assert(!rendered.some(n=>n.tag==='th'));
  assert(rendered.some(n=>n.textContent==='-2'&&n.className.includes('is-negative')));
  assert.match(data.title,/★6.*熟练度 7/);assert.match(props['data-tooltip'],/爆装 \+11/);

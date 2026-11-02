@@ -1,4 +1,5 @@
 'use strict';
+const statIcon=require('./stat_icon');
 let nextId=0;
 // An SVG group can include a clipped, full-size game texture atlas. Browsers
 // include that image in its client bounds despite the visible clip, so map
@@ -40,7 +41,8 @@ function renderStructured(doc,tip,raw){
       for(const values of s.rows)for(let i=0;i<values.length;i+=2){
         if(!values[i])continue;
         const pair=doc.createElement('div');pair.className='paa-tooltip-equipment-stat';
-        pair.appendChild(text('dt','paa-tooltip-equipment-label',values[i]));
+        const label=text('dt','paa-tooltip-equipment-label',''),icon=statIcon.dom(doc,values[i]);
+        if(icon)label.appendChild(icon);label.appendChild(text('span','',values[i]));pair.appendChild(label);
         pair.appendChild(text('dd','paa-tooltip-equipment-value'+(/^[−-]/.test(String(values[i+1]))?' is-negative':''),values[i+1]));
         list.appendChild(pair);
       }

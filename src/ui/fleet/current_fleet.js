@@ -3,6 +3,8 @@ const F=require('./current_fleet_model'),V=require('../models/presentation_model
 const T=require('../models/metric_tooltips');
 const {retain,hiddenPage}=require('../components/retained_view');
 const collapse=require('../components/collapse');
+const shipDetailsView=require('../components/ship_details');
+const statIcon=require('../components/stat_icon');
 const show=n=>Number.isFinite(n)?n:'—';
 const fraction=p=>`${show(p?.current)} / ${show(p?.max)}`;
 module.exports=(React,{getStore,setQuestPageActive,getController,subscribe})=>{
@@ -69,7 +71,7 @@ module.exports=(React,{getStore,setQuestPageActive,getController,subscribe})=>{
     const losDetail=T.los(los,null,{current:true});
     const portrait=row=>h(row.unknown?'div':'button',row.unknown?{className:'paa-wb-portrait'}:{type:'button',className:'paa-wb-portrait paa-fleet-portrait-toggle',disabled:busy,
       'aria-expanded':!!shipDetails[row.id],'aria-controls':`paa-fleet-stats-${row.id}`,'aria-label':`${row.name}：属性`,'data-tooltip':'查看属性',
-      onClick:()=>setShipDetails(v=>({...v,[row.id]:!v[row.id]}))},h('span',null,row.name.slice(0,2)),row.portrait?h('img',{src:row.portrait,alt:'',draggable:false,onError:e=>{e.currentTarget.style.display='none';}}):null);
+      onClick:event=>shipDetailsView.toggle(setShipDetails,row.id,event)},h('span',null,row.name.slice(0,2)),row.portrait?h('img',{src:row.portrait,alt:'',draggable:false,onError:e=>{e.currentTarget.style.display='none';}}):null);
     const supply=ship=>{
       const state=ship.supply.state,label=state==='full'?'已补给':state==='low'?'待补给':'待同步';
       const aircraft=ship.equipment.filter(eq=>eq.capacity!==undefined).map(eq=>`第 ${eq.slot+1} 槽舰载机：${show(eq.planes)} / ${show(eq.capacity)}`);
@@ -110,7 +112,7 @@ module.exports=(React,{getStore,setQuestPageActive,getController,subscribe})=>{
             h('div',{className:'paa-fleet-ship-heading'},h('div',{className:'paa-wb-ship-head'},portrait(ship),h('div',{className:'paa-wb-identity'},h('strong',null,ship.name),h('small',null,`${i===0?'旗舰':`第 ${i+1} 位`}${ship.unknown?' · 资料待同步':` · ${ship.type} · Lv.${show(ship.level)}`}`)),
               !ship.unknown?h('div',{className:'paa-fleet-ship-actions'},h('span',{className:'paa-fleet-health','data-health':ship.health,'data-tooltip':`耐久：${fraction(ship.hp)}${ship.repair?.api_complete_time>0?`\n入渠剩余：${F.countdown(ship.repair.api_complete_time,now)}`:''}`,tabIndex:0},ship.repair?'入渠中':ship.health),supply(ship)):null),
               !ship.unknown?h('div',{className:'paa-fleet-ship-state'},
-                collapse(h,{open:shipDetails[ship.id],id:`paa-fleet-stats-${ship.id}`},h('dl',{className:'paa-fleet-ship-stats','aria-label':'当前面板属性'},...ship.stats.map(s=>h('div',{key:s.label},h('dt',null,s.label),h('dd',null,show(s.value))))))):null),
+                collapse(h,{open:shipDetails[ship.id],id:`paa-fleet-stats-${ship.id}`},h('dl',{className:'paa-fleet-ship-stats','aria-label':'当前面板属性'},...ship.stats.map(s=>h('div',{key:s.label},h('dt',null,statIcon.react(React,s.label),s.label),h('dd',null,show(s.value))))))):null),
             h('div',{className:'paa-wb-mechanisms','aria-label':'战斗与远征机制'},...badges(ship.badges)),
             h('div',{className:'paa-wb-gears'},...(ship.equipment||[]).map(eq=>h('div',{key:eq.slot,className:'paa-wb-gear',...eq.id>0&&!eq.item?{'data-tooltip':'装备资料待同步'}:V.equipmentTooltipProps(eq.item),tabIndex:0},
               h('span',{className:'paa-wb-slot-label'},eq.slot==='ex'?'增':eq.slot+1),eq.item?h(EquipmentIcon,{item:eq.item}):h('span',{className:'paa-wb-gear-empty'},eq.id>0?'?':'＋'),

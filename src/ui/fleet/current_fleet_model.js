@@ -3,6 +3,7 @@ const W=require('../workbench/workbench_model'),V=require('../models/presentatio
 const {evaluateCandidate}=require('../../domain/fleet/fleet_metrics');
 const {fleetMechanisms,fleetSpeed,aircraftCapacity}=require('../../domain/combat/ship_mechanisms');
 const {rewardBonus}=require('../../domain/expeditions/expedition_income');
+const shipDetails=require('../components/ship_details');
 const number=value=>{const n=Array.isArray(value)?value[0]:value;return typeof n==='number'&&Number.isFinite(n)?n:null;};
 const pair=(current,max)=>({current:number(current),max:number(max)});
 function countdown(end,now){
@@ -132,7 +133,7 @@ function inspect(store,fleet,presetId=null){
     const fuel=pair(ship.api_fuel,master.api_fuel_max),ammo=pair(ship.api_bull,master.api_bull_max);
     return {id:s.id,name:master.api_name,level:number(ship.api_lv),type:W.TYPES[master.api_stype]||'未知舰种',portrait:V.portraitUrl(store,ship.api_ship_id),
       hp,health,ratio,repair:repair||ship.api_situation===2?repair||{}:null,fuel,ammo,supply:shipSupply(fuel,ammo,equipment),
-      stats:[['火力','api_karyoku'],['雷装','api_raisou'],['对空','api_taiku'],['装甲','api_soukou'],['对潜','api_taisen'],['索敌','api_sakuteki'],['回避','api_kaihi'],['运','api_lucky']].map(([label,key])=>({label,value:number(ship[key])})),
+      stats:shipDetails.stats(ship),
       equipment,expansion:ship.api_slot_ex!==0,badges:mechanisms.get(s.id)||[]};
   });
   const uncertain=!heading.exists||slots.some(s=>s.unknown)||known.some(s=>s.slots.concat(s.ex).some(id=>id>0&&!store.info.equips[id]));

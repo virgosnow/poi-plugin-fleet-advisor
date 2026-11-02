@@ -195,6 +195,30 @@ function harness(kind='normal',automaticFilters){
   return {render,find,control,chooseGoal,get,set,service,calls,store,effects,refs};
 }
 
+test('normal and expedition ship portraits reveal attributes for the same visible row without changing the draft',()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind);h.set('slots',[W.entry(h.store,1),W.entry(h.store,2),W.entry(h.store,3),null,null,null]);
+    const draft=JSON.stringify(h.get('slots'));
+    const grid={children:[1,2,3].map((id,i)=>({dataset:{shipId:String(id)},classList:{contains:()=>true},
+      querySelector:()=>true,getBoundingClientRect:()=>({top:i<2?100:300})}))};
+    grid.children.forEach(card=>card.parentElement=grid);
+    const event=id=>({currentTarget:{closest:()=>grid.children[id-1]}});
+    const button=(tree,id)=>h.find(tree,n=>n.props['aria-controls']===`paa-workbench-stats-${kind}-${id}`);
+    const detail=(tree,id)=>h.find(tree,n=>n.props.id===`paa-workbench-stats-${kind}-${id}`);
+    let tree=h.render();assert.equal(button(tree,1).props['aria-expanded'],false);
+    button(tree,1).props.onClick(event(1));tree=h.render();
+    assert.equal(button(tree,1).props['aria-expanded'],true);assert.equal(button(tree,2).props['aria-expanded'],true);
+    assert.equal(button(tree,3).props['aria-expanded'],false);assert.equal(detail(tree,1).props.inert,undefined);
+    const attrs=h.find(detail(tree,1),n=>n.props.className==='paa-fleet-ship-stats');
+    assert.equal(attrs.props['aria-label'],'舰娘当前属性');assert.match(attrs.props['data-tooltip'],/尚未应用/);
+    assert(h.find(attrs,n=>n.type==='dd'&&n.children.includes(20)));
+    assert(h.find(attrs,n=>n.type==='dt'&&h.find(n,x=>x.type==='svg'&&x.props.className==='paa-stat-icon')));
+    button(tree,2).props.onClick(event(2));tree=h.render();assert.equal(button(tree,1).props['aria-expanded'],false);
+    assert.equal(button(tree,2).props['aria-expanded'],false);assert.equal(JSON.stringify(h.get('slots')),draft);
+    assert.equal(h.calls.equipment+h.calls.fleet,0);assert.equal(button(h.render({busy:true}),1).props.disabled,true);
+  }
+});
+
 test('picker typing and disclosures reuse fleet and route derivations until the draft changes',()=>{
   const h=harness(),original=W.mapOverview;let calculations=0;
   W.mapOverview=(...args)=>{calculations++;return original(...args);};
