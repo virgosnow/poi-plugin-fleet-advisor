@@ -377,7 +377,7 @@ test('selected expedition displays monthly prerequisites first and item rewards 
   for(const rate of [null,80,99.999,100]){
     const tree=view.overview({...props,rate}),table=all(tree,n=>n.props.className==='paa-exp-income-table')[0];
     assert.equal(table.props['data-columns'],rate===100?2:3);
-    assert.equal(table.props['data-great-available'],rate>0);
+    assert.equal(table.props['data-great-available'],Number.isFinite(rate)?rate>0:'unknown');
     assert.deepEqual(all(table,n=>n.props.className==='paa-exp-item-condition').map(text),rate===100?['0 ~ 2 /次','1 /次']:['0 ~ 2 /次','0 ~ 2 /次','—','1 /次']);
   }
 });
@@ -393,8 +393,7 @@ test('100 percent great success shows only its net rewards and additive breakdow
     const tree=view.overview(props),table=all(tree,n=>n.props.className==='paa-exp-income-table')[0];
     assert.deepEqual(all(table,n=>n.props.role==='columnheader').map(n=>text(n).replace(/\s+/g,' ')),['奖励','大成功 100%']);
     assert.equal(all(table,n=>n.props.role==='cell')[0].children[0],incomeUnit==='hour'?'+60':'+120');
-    assert.equal(all(table,n=>n.props.role==='cell')[0].children[1].props.className,'paa-exp-value-unit');
-    assert.equal(all(table,n=>n.props.role==='cell')[0].children[1].children[0],incomeUnit==='hour'?'/小时':'/次');
+    assert.equal(all(table,n=>n.props.role==='cell')[0].children.length,1,'the selected unit applies to resource values without repeating it on every row');
     for(const row of all(table,n=>n.props.role==='row'))assert.equal(row.children.filter(Boolean).length,2);
     const details=all(tree,n=>n.props.className==='paa-exp-detail-table')[0];
     assert.deepEqual(details.children[0].children.filter(Boolean).map(n=>text(n).trim()),['燃料','大成功']);
@@ -406,6 +405,20 @@ test('100 percent great success shows only its net rewards and additive breakdow
     assert.deepEqual(all(mixedTable,n=>n.props.role==='columnheader').map(n=>text(n).replace(/\s+/g,' ')),['奖励','成功 0%','大成功 100%']);
     assert.equal(all(mixedTable,n=>n.props.role==='cell')[0].children[0],incomeUnit==='hour'?'+35':'+70');
   }
+});
+
+test('great-success column remains distinct for unknown probability and preserves zero, loss and item semantics',()=>{
+  const React={Fragment:'fragment',createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})};
+  const view=require('../../src/ui/expedition/expedition_view')(React),all=(n,p)=>!n||typeof n!=='object'?[]:[...(p(n)?[n]:[]),...(n.children||[]).flatMap(c=>all(c,p))];
+  const tree=view.overview({mission:{missionId:43},master:{api_time:120,api_win_item1:[3,1],api_win_item2:[1,1]},
+    rate:null,hasShips:true,income:{rows:[{name:'燃料',net:20,greatNet:30},{name:'弹药',net:-10,greatNet:-5},{name:'钢材',net:0,greatNet:0},{name:'铝土',net:null,greatNet:null}]}});
+  const table=all(tree,n=>n.props.className==='paa-exp-income-table')[0];
+  assert.equal(table.props['data-great-available'],'unknown');
+  assert(all(table,n=>n.props.className==='paa-exp-great-heading').length===1);
+  const great=all(table,n=>n.props.className==='paa-exp-resource-great');
+  assert.equal(great[0].props['data-negative'],false);assert.equal(great[1].props['data-negative'],true);assert.equal(great[2].props['data-zero'],true);
+  assert.equal(great[3].props['data-missing'],true);
+  assert.equal(all(table,n=>n.props.className==='paa-exp-item-condition'&&n.props['data-great']&&n.props['data-available']).length,2);
 });
 
 test('monthly expedition chain remains visible and preserves navigation',()=>{

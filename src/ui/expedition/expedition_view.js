@@ -7,12 +7,11 @@ module.exports=React=>{
   const unitBadge=unit=>h('small',{className:'paa-exp-value-unit'},unit==='hour'?'/小时':'/次');
   const outcomeLabel=(label,percent)=>h(React.Fragment,null,`${label} `,h('span',{className:'paa-exp-outcome-probability','data-known':percent!==null},percent===null?'—':percent+'%'));
   const incomeValue=(value,unit,minutes)=>{
-    const label=E.incomeText(value,unit,minutes);
-    return [label,...(label==='—'?[]:[unitBadge(unit)])];
+    return [E.incomeText(value,unit,minutes)];
   };
-  const itemResult=(item,available,guaranteed=false)=>{
+  const itemResult=(item,available,guaranteed=false,great=false)=>{
     const value=!available?'—':!item.count?'待确认':guaranteed&&item.count===1?'1':`${guaranteed?1:0} ~ ${item.count}`;
-    return h('span',{role:'cell',className:'paa-exp-item-condition','data-guaranteed':guaranteed},h('strong',null,value,...(available&&item.count>0?[unitBadge('trip')]:[])));
+    return h('span',{role:'cell',className:'paa-exp-item-condition','data-guaranteed':guaranteed,'data-great':great,'data-available':available&&item.count>0},h('strong',null,value,...(available&&item.count>0?[unitBadge('trip')]:[])));
   };
   const conditionList=conditions=>h(React.Fragment,null,
     h('div',{className:'paa-exp-condition-caption'},'当前 / 要求'),
@@ -65,13 +64,13 @@ module.exports=React=>{
       h('section',{className:'paa-exp-income','data-rate':rateState,'aria-label':(incomeUnit==='hour'?'每小时':'单次')+incomeLabel},
         h('div',{className:'paa-exp-section-head'},h('div',{className:'paa-exp-income-title'},h('h4',null,incomeLabel),basePreview||!income?h('span',null,basePreview?'未扣补给 · 未计加成':'待核算补给'):null),
           h('div',{className:'paa-exp-income-unit',role:'group','aria-label':'收益时间单位'},...['trip','hour'].map(unit=>h('button',{key:unit,type:'button','aria-pressed':incomeUnit===unit,onClick:()=>onIncomeUnitChange?.(unit)},unit==='hour'?'每小时':'单次')))),
-        h('div',{className:'paa-exp-income-table','data-columns':showGreat&&showSuccess?3:2,'data-has-items':items.length>0,'data-great-available':rate>0,'data-unit':incomeUnit,'data-preview':basePreview,role:'table','aria-label':basePreview?'远征基础奖励':'扣补给后的远征收益'},
-          h('div',{className:'paa-exp-income-row paa-exp-income-heading',role:'row'},h('span',{role:'columnheader'},'奖励'),showSuccess?h('span',{role:'columnheader'},outcomeLabel('成功',successPercent)):null,showGreat?h('span',{role:'columnheader'},outcomeLabel('大成功',greatPercent)):null),
+        h('div',{className:'paa-exp-income-table','data-columns':showGreat&&showSuccess?3:2,'data-has-items':items.length>0,'data-great-available':Number.isFinite(rate)?rate>0:'unknown','data-unit':incomeUnit,'data-preview':basePreview,role:'table','aria-label':basePreview?'远征基础奖励':'扣补给后的远征收益'},
+          h('div',{className:'paa-exp-income-row paa-exp-income-heading',role:'row'},h('span',{role:'columnheader'},'奖励'),showSuccess?h('span',{role:'columnheader'},outcomeLabel('成功',successPercent)):null,showGreat?h('span',{role:'columnheader',className:'paa-exp-great-heading'},outcomeLabel('大成功',greatPercent)):null),
           ...rewardRows.map(r=>h('div',{className:'paa-exp-income-row',role:'row',key:r.name},h('span',{role:'rowheader'},resource(r.name)),
-            showSuccess?h('strong',{role:'cell','data-negative':r.net<0,'data-zero':(basePreview?r.success:r.net)===0},...incomeValue(basePreview?r.success:r.net,incomeUnit,master?.api_time)):null,showGreat?h('strong',{role:'cell',className:'paa-exp-resource-great','data-negative':r.greatNet<0,'data-zero':(basePreview?r.great:r.greatNet)===0},...incomeValue(basePreview?r.great:r.greatNet,incomeUnit,master?.api_time)):null)),
+            showSuccess?h('strong',{role:'cell','data-negative':r.net<0,'data-zero':(basePreview?r.success:r.net)===0,'data-missing':!Number.isFinite(basePreview?r.success:r.net)},...incomeValue(basePreview?r.success:r.net,incomeUnit,master?.api_time)):null,showGreat?h('strong',{role:'cell',className:'paa-exp-resource-great','data-negative':r.greatNet<0,'data-zero':(basePreview?r.great:r.greatNet)===0,'data-missing':!Number.isFinite(basePreview?r.great:r.greatNet)},...incomeValue(basePreview?r.great:r.greatNet,incomeUnit,master?.api_time)):null)),
           ...items.map((item,index)=>h('div',{className:'paa-exp-income-row paa-exp-item-row',role:'row',key:`item-${index}`,'data-great-only':item.greatOnly},
             h('span',{role:'rowheader'},resource(item.name)),
-            showSuccess?itemResult(item,!item.greatOnly):null,showGreat?itemResult(item,true,item.greatOnly):null))),
+            showSuccess?itemResult(item,!item.greatOnly):null,showGreat?itemResult(item,true,item.greatOnly,true):null))),
         income?h('details',{className:'paa-exp-income-details'},h('summary',null,'单次补给与收益明细'),
           h('div',{className:'paa-exp-detail-groups'},...income.rows.map(r=>h('div',{key:r.name,className:'paa-exp-detail-table','data-columns':showGreat&&showSuccess?3:2,role:'table','aria-label':r.name+'单次收益明细'},
             h('div',{role:'row'},h('span',{role:'columnheader'},resource(r.name)),showSuccess?h('span',{role:'columnheader'},'成功'):null,showGreat?h('span',{role:'columnheader'},'大成功'):null),

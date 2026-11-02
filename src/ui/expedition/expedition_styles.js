@@ -47,7 +47,12 @@ module.exports=`
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income .paa-exp-value-unit{font-size:12px;line-height:16px;font-weight:400;color:var(--paa-muted);white-space:nowrap}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-row>strong[data-negative=true]{color:var(--paa-bad)}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-row>strong[data-zero=true]{color:var(--paa-muted);font-weight:400}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-row>strong[data-missing=true]{color:var(--paa-muted);font-weight:400}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-table[data-great-available=false] .paa-exp-resource-great{color:var(--paa-muted)}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-heading .paa-exp-great-heading{color:#efc778}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-great-heading .paa-exp-outcome-probability[data-known=true]{color:#efc778;border-color:#b58c4d}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-table:not([data-great-available=false]) .paa-exp-income-row>strong.paa-exp-resource-great:not([data-negative=true]):not([data-zero=true]):not([data-missing=true]){color:#efc778}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-item-condition[data-great=true][data-available=true]{color:#efc778}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-resource{gap:6px;min-width:0;overflow-wrap:anywhere}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-resource .paa-resource-icon{flex:none;width:20px!important;height:20px!important}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-details{margin-top:10px!important;padding-top:9px;border-top:1px solid var(--paa-line)}
