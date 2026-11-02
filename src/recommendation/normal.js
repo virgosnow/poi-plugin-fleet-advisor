@@ -38,6 +38,16 @@ const {questRequirements,createQuestChecker,createQuestPrecheck,questSeeds}=requ
 const {guideHull,guidePolicy,guideReady,guideSeeds,guideShipAllowed,guideSource,oneOneSeeds,specialFleetSeeds,specialPositionLocks}=require('./strategies');
 const previewForSnapshot=(store,area,options={})=>previewForMap(area,{...options,encounterStage:encounterStage(store,area,options.phase)});
 
+// Adaptive search has no preset fleet structure. Divide its real paths among
+// independent hull beams so a common path cannot crowd out a rare one. All
+// paths remain covered; these groups are search-only, never displayed routes.
+function adaptiveHullGroups(option){
+  const paths=routePlans.optionPaths(option),count=Math.min(paths.length,12);
+  const groups=Array.from({length:count},()=>[]);
+  paths.forEach((nodes,index)=>groups[index%count].push(nodes));
+  return groups.map((paths,index)=>({...option,key:`${option.key}:coverage:${index}`,nodes:paths[0],paths}));
+}
+
 // Combat-first submarine fleets may use spare aircraft slots, but an air
 // trial cannot consume either of the first two available torpedo positions.
 function fitAirForPriority(store,scheme,inventory,required,reference,goal,heldSlots,score){
@@ -384,6 +394,7 @@ function* normalFleetSteps(store,args){
   if(args.routeKey!==undefined){
     const selected=routePlans.routeOptions(args.area,args.target||'boss',args.phase).find(o=>o.key===args.routeKey);
     if(!selected)throw error('INVALID_QUERY','Unknown routeKey for this area, target and phase');
+    if(selected.fallback)throw error('INVALID_QUERY','自适应路线仅在预设路线均无方案时自动搜索');
     return yield* searchNormalFleet(store,{...args,phase:selected.phase||args.phase},[selected]);
   }
   // The complete catalog is cheap to browse; fleet/equipment search is scoped
@@ -394,10 +405,8 @@ function* normalFleetSteps(store,args){
   if(!fallback)return yield* searchNormalFleet(store,scoped,curated);
   if(!curated.length)return yield* searchNormalFleet(store,scoped,[fallback],false);
   const primary=yield* searchNormalFleet(store,scoped,curated);
-  // Keep the broad route available for explicit selection without adding a
-  // costly all-path search to every ordinary recommendation.
-  if(primary.recommendations.length)return {...primary,routeResults:[...primary.routeResults,
-    {...fallback,status:'notSearched',chance:null,recommendationIndex:null}]};
+  // Search the broad route only after all curated routes have failed.
+  if(primary.recommendations.length)return primary;
   const rescue=yield* searchNormalFleet(store,scoped,[fallback],false);
   return {...rescue,routeResults:[...primary.routeResults,...rescue.routeResults],
     ...(primary.guideWarnings?{guideWarnings:[...primary.guideWarnings,...(rescue.guideWarnings||[])]}:{})};
@@ -465,7 +474,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       row.donorShipIds=[...new Set((plan.equipment.donors||[]).map(d=>d.shipId))];previewed.set(key,row.donorShipIds);return true;
     }catch(_){previewed.set(key,false);return false;}
   };
-  const candidates=[],seeds=[],seen=new Set(),budget=fallbackOnly?120:900,guideSeedKeys=new Set(),preparedPaths=new WeakMap();
+  const candidates=[],seeds=[],seen=new Set(),budget=fallbackOnly?360:900,guideSeedKeys=new Set(),preparedPaths=new WeakMap();
   const evaluateCandidate=candidateEvaluator(store,args,ctx,inventory);
   const collectCandidate=(candidate,asSeed=false,paths)=>{
     if(!candidate)return;
@@ -509,13 +518,13 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   for(const rows of specialSeeds)evaluate(rows);
   let pathSeeds=null;
   {
-    const options={area,phase,routes:requestedRoutes,sizes,...(fallbackOnly?{maxAttempts:30000}:{})};
+    const options={area,phase,routes:fallbackOnly?adaptiveHullGroups(requestedRoutes[0]):requestedRoutes,sizes};
     routePlans.hullCache(options); // Own the dependency-keyed table before children return facts.
     const estimatedWork=routePlans.hullSeeds(ctx,{...options,estimate:true},shipFamilyKey);
     const parts=yield {kind:'hulls',args,options,items:[{index:0,count:1}],estimatedWork};
     pathSeeds=routePlans.mergeHullParts(parts,ctx.byId);
   }
-  for(const rows of pathSeeds?.baselineRows||[])evaluate(rows);
+  for(const rows of (fallbackOnly?pathSeeds?.rows:pathSeeds?.baselineRows)||[])evaluate(rows);
   const combatSeedRows=(pathSeeds?.rows||[]).filter(rows=>!seen.has(idsKey(rows)));
   // Deterministic coverage across fleet size and ship-type mix. Preserve the
   // user's fixed order, which determines the flagship when provided.
@@ -573,9 +582,9 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   // Re-evaluate the real engine allocation; virtual speed never reaches the UI.
   if(JSON.stringify(require(`../../data/normal_routes/${area}.json`).machineRules).includes('speed')){
     for(const wanted of ['fast','fastPlus','fastest']){
-      const missing=requestedRoutes.filter(o=>!o.strategy&&!seeds.some(s=>routePlans.planningPath(s.route,o.nodes,{allowTentative:false}).chance.probability>0));
+      const missing=requestedRoutes.filter(o=>!o.strategy&&!seeds.some(s=>routePlans.optionPaths(o).some(nodes=>routePlans.planningPath(s.route,nodes,{allowTentative:false}).chance.probability>0)));
       if(!missing.length)break;
-      const upgraded=routePlans.hullSeeds({...ctx,combatScore:null},{area,phase,routes:missing,speed:wanted,sizes,...(fallbackOnly?{maxAttempts:30000}:{})},shipFamilyKey);
+      const upgraded=routePlans.hullSeeds({...ctx,combatScore:null},{area,phase,routes:fallbackOnly?adaptiveHullGroups(missing[0]):missing,speed:wanted,sizes},shipFamilyKey);
       for(const rows of upgraded.rows){
         const fit=speedLoadout(store,holdDraftEquipment(store,emptyLoadout(store,schemeOf(ctx.fleet,rows),args.heldSlots),args.heldSlots),equipmentForFleet(inventory,rows,args.automaticFilters),wanted,args.heldSlots);
         if(fit)evaluate(rows,fit,true);
@@ -601,6 +610,12 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     let cached=strictCache.get(seed);if(!cached){cached=new Map();strictCache.set(seed,cached);}
     if(!cached.has(option.key))cached.set(option.key,routePlans.strategyAssessment(seed.route,option)?.chance||planning(seed,option).chance);
     return cached.get(option.key);
+  };
+  // A positive lower bound proves some arrival chance even if the exact
+  // probability is a range. Unknown 0..N is not evidence of reachability.
+  const reachable=(seed,option)=>{
+    const chance=strictChance(seed,option);
+    return option.fallback?chance.min>0:chance.probability>0;
   };
   const planning=(seed,option)=>{
     const prepared=preparedPaths.get(seed)?.get(option.key);if(prepared?.planning)return prepared.planning;
@@ -642,13 +657,15 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   };
   const perPathSeeds=requestedRoutes.flatMap(option=>seeds.filter(s=>pathRank(s,option,true)>-Infinity)
     .sort((a,b)=>pathRank(b,option,true)-pathRank(a,option,true)).slice(0,24));
-  const reserveSeeds=[...new Map([...perPathSeeds,
+  const adaptiveCoverage=fallbackOnly?adaptiveHullGroups(requestedRoutes[0]).flatMap(option=>seeds.filter(seed=>
+    routePlans.optionPaths(option).some(nodes=>routePlans.hullPath(seed.route,nodes).max>0)).slice(0,4)):[];
+  const reserveSeeds=[...new Map([...perPathSeeds,...adaptiveCoverage,
     ...seeds.slice().sort((a,b)=>b.scores.strengthProxy-a.scores.strengthProxy).slice(0,12),
     ...airSeeds,...aswSeeds,
     ...seeds.filter(seed=>area==='1-1'&&seed.rows.length<=2).slice(0,64),
     ...seeds.filter(seed=>guideSeedKeys.has(idsKey(seed.rows)))]
     .map(row=>[idsKey(row.rows),row])).values()];
-  const gearKey=seed=>idsKey(seed.rows),protectedGearKeys=new Set([...guideSeedKeys,...specialSeeds.map(idsKey)]);
+  const gearKey=seed=>idsKey(seed.rows),protectedGearKeys=new Set([...guideSeedKeys,...specialSeeds.map(idsKey),...adaptiveCoverage.map(gearKey)]);
   const shortlist=perf.stage('selection.gear-shortlist',()=>gearShortlist(area==='1-1'?reserveSeeds:seeds,{
     routes:requestedRoutes,key:gearKey,rank:(s,o)=>pathRank(s,o,true),scores:pathScores,
     hullPower:s=>s.rows.reduce((n,r)=>n+ctx.combatScore(r),0),airPotential,protectedKeys:protectedGearKeys,
@@ -684,7 +701,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       // Dedicated speed/LoS passes below retain their original search pools.
       if(option.strategy)return false;
       const ready=candidates.filter(row=>routePlans.fleetRequirementAssessment(row.route,option).eligible&&
-        strictChance(row,option).probability>0&&planning(row,option).losShortfall===0&&
+        reachable(row,option)&&planning(row,option).losShortfall===0&&
         (airGoal==='ignore'||pathScores(row,option).airPriority==='combat'||pathScores(row,option).airGoalTier===3))
         .sort((a,b)=>pathRank(b,option)-pathRank(a,option)).find(executable);
       if(!ready)return true;
@@ -789,7 +806,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   for(const result of combatResults)if(result.candidates[0])preparedPaths.set(result.candidates[0],new Map(result.paths));
   const combatSeeds=combatResults.flatMap(result=>result.candidates).filter(Boolean);
   const lockedIds=new Set([...ctx.fixed,...(args.heldSlots||[]).filter(s=>s&&(s.pin||Object.keys(s.keep||{}).length)).map(s=>s.id)]);
-  const validFor=(row,option)=>row&&strictChance(row,option).probability>0&&
+  const validFor=(row,option)=>row&&reachable(row,option)&&
     routePlans.fleetRequirementAssessment(row.route,option).eligible&&
     (!option.strategy||routePlans.strategyAssessment(row.route,option).eligible);
   const refinementBases=(fallbackOnly?[]:requestedRoutes).map(option=>({option,used:new Set(),tried:0,gains:[],base:candidates.filter(row=>validFor(row,option))
@@ -958,8 +975,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   }
   const routeResults=requestedRoutes.map(option=>{
     const possible=candidates.filter(row=>row.profile?.routePaths?.some(p=>routePlans.optionPaths(option).some(nodes=>p.nodes.join('>')===nodes.join('>')))&&pathRank(row,option)>-Infinity);
-    const combatReady=row=>!option.fallback||!routeGroundTargets(profileForRoute(area,row.route,routeProfilePaths(row.route,option))).length||antiGroundShips(store,row.scheme).length>0;
-    const viable=possible.filter(row=>strictChance(row,option).probability>0&&combatReady(row)&&(!option.strategy||routePlans.strategyAssessment(row.route,option).eligible))
+    const viable=possible.filter(row=>reachable(row,option)&&(!option.strategy||routePlans.strategyAssessment(row.route,option).eligible))
       .sort((a,b)=>(option.arrivalMode==='boss'?
         (b.route.probability??b.route.chanceRange?.[0]??0)-(a.route.probability??a.route.chanceRange?.[0]??0):0)||pathRank(b,option)-pathRank(a,option));
     const item=viable.find(executable),chance=item?strictChance(item,option):null;
@@ -981,7 +997,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     const unmet=closest?planning(closest,option).losRequirements.filter(r=>r.shortfall>0||r.shortfall===null):[];
     return {...(item?routePlans.fleetPathOption(item.route,option):option),status:item?'available':unconfirmed?'unconfirmed':'notFound',chance,diagnostics,
       requirements:[...new Map(diagnosticPaths.flatMap(nodes=>routePlans.requirements(area,nodes,phase)).map(r=>[r.from+'>'+r.to,r])).values()],
-      message:item?'':(quests.length?'本轮未找到同时满足已选任务及路线条件的编成；请调整勾选任务或固定舰娘。':option.fallback&&possible.some(row=>strictChance(row,option).probability>0&&!combatReady(row))?'可达路线存在陆上敌人，本轮未找到配备对地装备的可执行编成。':missingShips.length?'所选路线缺少可用的带路船，持有情况与排除原因如下。':option.strategy?strategyFailure(store,ctx,option,inventory,args.heldSlots):
+      message:item?'':(quests.length?'本轮未找到同时满足已选任务及路线条件的编成；请调整勾选任务或固定舰娘。':missingShips.length?'所选路线缺少可用的带路船，持有情况与排除原因如下。':option.strategy?strategyFailure(store,ctx,option,inventory,args.heldSlots):
         unconfirmed?'尚无到达率可确认的方案，以下分岐资料或条件需核实。':
         '本轮未找到可沿此路线抵达的配置；以下按候选编成列出全部受阻条件，不代表所有编成都无法通过。')+
         (diagnostics.warnings.length?'\n'+diagnostics.warnings.join('\n'):'')+
@@ -1215,7 +1231,9 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   let chosen=selectedRoute?candidates.find(row=>{
     if(!routePlans.fleetRequirementAssessment(row.route,selectedRoute).eligible)return false;
     const strategy=routePlans.strategyAssessment(row.route,selectedRoute);
-    return strategy?strategy.eligible:routePlans.optionPlanning(row.route,selectedRoute).chance.probability>0;
+    if(strategy)return strategy.eligible;
+    const chance=routePlans.optionPlanning(row.route,selectedRoute).chance;
+    return selectedRoute.fallback?chance.min>0:chance.probability>0;
   }):candidates.find(row=>row.evidence);
   if(!chosen){
     const diagnostics=selectedRoute?routePlans.routeDiagnostics(candidates[0].route,selectedRoute):

@@ -467,7 +467,7 @@ test('route details guide explicit player choices without requiring or matching 
 test('route search covers each displayed path, retains missing options and respects fixed/excluded ships',()=>{
   const store=fixture(),before=JSON.stringify(store);
   const result=recommendNormalFleet(store,{area:'1-2',fixedShipIds:[1],excludedShipIds:[2]});
-  assert.deepEqual(result.routeResults.map(r=>r.key),routeOptions('1-2').filter(r=>r.recommend!==false).map(r=>r.key));
+  assert.deepEqual(result.routeResults.map(r=>r.key),routeOptions('1-2').filter(r=>r.recommend!==false&&!r.fallback).map(r=>r.key));
   assert(result.recommendations.length);
   for(const row of result.recommendations){
     assert(row.scheme.ships.some(s=>s.id===1));assert(!row.scheme.ships.some(s=>s.id===2));
@@ -482,6 +482,17 @@ test('route search covers each displayed path, retains missing options and respe
   assert(locked.routeResults.find(r=>r.key==='guide:3-5-05').requirements.length);
   assert(locked.recommendations.every(r=>r.routeKey!=='guide:3-5-05'));
   assert.equal(JSON.stringify(store),before);
+});
+test('5-6 P to Q1 paths cannot reach the third Boss through Q2, regardless of the unknown Q1 LoS gate',()=>{
+  const P=require('../../../src/domain/routes/route_plans'),store=require('../../helpers/workbench_fixture')();
+  const route=evaluateNormalRoute(store,{area:'5-6',phase:'gauge3',scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
+  const option=P.recommendedOptions('5-6','boss','gauge3').find(row=>row.fallback);
+  const paths=P.optionPaths(option).filter(nodes=>nodes.includes('Q1'));
+  assert(paths.length>0);
+  for(const nodes of paths){
+    assert(nodes.includes('P'));assert(nodes.includes('Q2'));assert(nodes.includes('V'));
+    assert.equal(P.planningPath(route,nodes,{allowTentative:false}).chance.max,0);
+  }
 });
 test('requirements expose ordered alternatives and ship type conditions, without inventing one mandatory template',()=>{
   const steps=requirements('2-2',['C','E','K']);

@@ -201,7 +201,9 @@ test('two independent HTTP clients query/recommend/refit and share one mock exec
   assert((await b.tool('query_fleet_presets',args)).synced);
   assert.equal((await b.tool('query_fleet_status',{...args,presetId:1})).ships.length,3);
   assert((await a.tool('query_equipment_options',{...args,shipId:1,slot:0})).items.length);
-  const selected=(await b.tool('query_normal_map',{...args,area:'1-2'})).routes[0];
+  const map=await b.tool('query_normal_map',{...args,area:'1-2'});
+  assert(map.routes.length&&!map.routes.some(row=>row.fallback),'adaptive routes are not offered as manual choices');
+  const selected=map.routes[0];
   const recommendation=await a.tool('recommend_normal_fleet',{...args,area:'1-2',routeKey:selected.key,heldSlots:[{id:1,pin:true}]});
   assert(recommendation.recommendations.length);
   const scheme=recommendation.recommendations[0].scheme;

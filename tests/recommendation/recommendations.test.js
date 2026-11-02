@@ -100,6 +100,13 @@ test('1-1 retains the broad fallback when no small fleet satisfies the guide equ
   assert(result.recommendations.length>0);assert.equal(JSON.stringify(store),before);
 });
 
+test('a successful preset search does not expose or run the adaptive route',()=>{
+  const store=fixture();armSurfaceDestroyers(store);
+  const result=recommendNormalFleet(store,{area:'1-1'});
+  assert(result.recommendations.length>0);
+  assert(result.routeResults.every(row=>!row.fallback));
+});
+
 test('1-1 retries the broad search if compact candidates fail final operation-plan validation',()=>{
   const {FleetPlanner}=require('../../src/domain/fleet/fleet_plan'),{PerformanceTrace}=require('../../src/shared/performance_trace');
   const store=fixture(),preview=FleetPlanner.prototype.preview,trace=new PerformanceTrace({level:'stages'});
@@ -1378,8 +1385,8 @@ test('1-4 surface battles favor heavy firepower, while mixed routes retain both 
   assert(strong.scheme.ships.length>=4,'surface encounters need enough fighting ships');
   const unqualified=recommendNormalFleet(fixture(),{area:'4-3',
     fixedShipIds:[1,2,3],excludedShipIds:[4,5,6,7,8]});
-  assert.equal(unqualified.recommendations.length,0,
-    'a fleet that merely reaches the installation boss must not be recommended');
+  assert(unqualified.recommendations.some(row=>row.routeKey.startsWith('fallback:')&&row.pathChance.probability>0),
+    'a confirmed route may be returned even without ideal anti-ground equipment');
   assert(unqualified.guideWarnings.length>0);
 });
 
@@ -1401,9 +1408,40 @@ test('4-3 route scoring rewards fitting an owned anti-ground hitter',()=>{
   assert(row.scheme.ships.some(ship=>ship.slots?.includes(1900)));
   assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',row.scheme));
   const fallbackKey=require('../../src/domain/routes/route_plans').recommendedOptions('4-3').find(option=>option.fallback).key;
-  const fallback=recommendNormalFleet(store,{area:'4-3',routeKey:fallbackKey});
-  assert(fallback.recommendations.length,JSON.stringify(fallback.guideWarnings));
-  assert(fallback.recommendations.every(item=>require('../../src/recommendation/fitting').antiGroundShips(store,item.scheme).length>0));
+  assert.throws(()=>recommendNormalFleet(store,{area:'4-3',routeKey:fallbackKey}),/仅在预设路线均无方案时自动搜索/);
+});
+
+test('adaptive search accepts a real random route to an installation without requiring special ground equipment',()=>{
+  const store=fixture();armSurfaceDestroyers(store);
+  [3,2,2,2,5,5].forEach((stype,index)=>{
+    store.const.$ships[index+1].api_stype=stype;store.info.ships[index+1].api_lv=85;
+  });
+  const fixedShipIds=[1,2,3,4,5,6],before=JSON.stringify(store);
+  const result=recommendNormalFleet(store,{area:'4-3',fixedShipIds,excludedShipIds:[7,8]});
+  const fallback=result.routeResults.find(row=>row.fallback);
+  assert(result.routeResults.filter(row=>!row.fallback).every(row=>row.status!=='available'));
+  assert.equal(fallback.status,'available');assert.equal(fallback.chance.probability,0.7);
+  const item=result.recommendations[fallback.recommendationIndex];
+  assert.deepEqual(item.selectedPath,['D','H','N']);
+  assert(fixedShipIds.every(id=>item.scheme.ships.some(ship=>ship.id===id)));
+  assert.equal(require('../../src/recommendation/fitting').antiGroundShips(store,item.scheme).length,0);
+  assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',item.scheme));
+  assert.equal(JSON.stringify(store),before);
+});
+
+test('adaptive search retains a low but positive, individually verified Boss route',()=>{
+  const store=fixture(),fixedShipIds=[1,2,3,4,5,6];
+  for(const id of fixedShipIds){store.const.$ships[id].api_stype=8;store.info.ships[id].api_lv=85;}
+  const held={id:1,pin:true,holdPosition:true,slots:[-1,-1],ex:-1,keep:{0:true}};
+  const result=recommendNormalFleet(store,{area:'2-4',fixedShipIds,excludedShipIds:[7,8],heldSlots:[held]});
+  const fallback=result.routeResults.find(row=>row.fallback);
+  assert.equal(fallback.status,'available');assert(Math.abs(fallback.chance.probability-0.021)<1e-9);
+  const item=result.recommendations[fallback.recommendationIndex],plans=require('../../src/domain/routes/route_plans');
+  assert.deepEqual(plans.planningPath(item.route,item.selectedPath,{allowTentative:false}).chance,fallback.chance);
+  assert.equal(item.selectedPath.at(-1),'P');
+  assert(fixedShipIds.every(id=>item.scheme.ships.some(ship=>ship.id===id)));
+  assert.equal(item.scheme.ships[0].id,1);assert.equal(item.scheme.ships[0].slots[0],-1);
+  assert.doesNotThrow(()=>new Controller({getStore:()=>store}).preview('fleet',item.scheme));
 });
 
 test('7-4 six-ship E to J route does not display the five-ship J to P shortcut',()=>{
@@ -1512,6 +1550,7 @@ test('6-3 rejects ineligible large hulls and uses the seaplane tender light flee
 
 test('3-5 exposes trained lower and upper攻略 fleets instead of low-level cheap hulls',()=>{
   const store=fixture();
+  store.info.maps={35:{api_gauge_type:1,api_required_defeat_count:4,api_defeat_count:0}};
   store.info.basic.api_level=1;
   store.const.$shipTypes[11]={api_equip_type:{6:1,8:1}};
   store.const.$shipTypes[2]={api_equip_type:{1:1,24:1}};
@@ -1556,10 +1595,12 @@ test('3-5 exposes trained lower and upper攻略 fleets instead of low-level chea
   const lowerAir=airGoal.recommendations.find(row=>row.routeKey==='guide:3-5-01'),upperAir=airGoal.recommendations.find(row=>row.routeKey==='guide:3-5-05');
   assert.equal(lowerAir.scores.routeAirReference.scope,'selectedRoute');
   assert.deepEqual(lowerAir.scores.routeAirReference.nodes.map(n=>n.id),['F','G','K']);
-  assert.equal(lowerAir.scores.airGoalRequired,35);
+  assert.equal(lowerAir.scores.airGoalRequired,1);
   assert.equal(upperAir.scores.routeAirReference.scope,'selectedRoute');
   assert.deepEqual(upperAir.scores.routeAirReference.nodes.map(n=>n.id),['B','D','H','K']);
-  assert.equal(upperAir.scores.airGoalRequired,381);
+  assert.equal(upperAir.scores.airGoalRequired,332);
+  assert.equal(upperAir.route.encounterStage,'before');
+  assert.equal(upperAir.scores.routeAirReference.nodes.find(node=>node.id==='H').enemyAirPower,221);
   const unsafeFixed=recommendNormalFleet(store,{area:'3-5',routeKey:'B>D>H>K',
     fixedShipIds:[22]});
   assert(unsafeFixed.recommendations.length>0);

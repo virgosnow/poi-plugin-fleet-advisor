@@ -71,7 +71,7 @@ function mapDetail(store,{area,target='boss',phase,routeKey,nodeId},settings){
   const profile=routeKey?W.selectedMapProfile(overview,routeKey,null,null,false,store):
     phase?overview.profile:W.mapOverview(area,target,displayPhase,settings,store).profile;
   if(nodeId!==undefined&&!profile.mapPreview.nodes.some(n=>n.id===nodeId))throw error('INVALID_QUERY','Unknown nodeId for this map');
-  return {area,target,phase:displayPhase||null,routes:overview.options,selectedRoute:selected||null,
+  return {area,target,phase:displayPhase||null,routes:overview.options.filter(option=>!option.fallback),selectedRoute:selected||null,
     progress:W.mapProgress(store,area),profile,
     threat:W.displayThreat(profile,nodeId||null)};
 }

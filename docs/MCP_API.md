@@ -109,7 +109,7 @@ All successful tool calls return data in MCP `result.structuredContent`; `conten
 
 Mechanism badges retain their structured numeric fields and multiline detail: combat speed, opening air/torpedo/ASW, anti-air, day/night attacks, night CI, contact, ground and ship-specific special attacks, smoke/illumination, and expedition morale/drums/income where applicable. No tag means its detector did not establish eligibility, not that the ship can never activate it. For candidate status, raw ship attributes/plane counts remain observed values; `metrics` and mechanisms evaluate before/after equipment changes explicitly.
 
-Normal search always uses route requirements and a single combat score; default `airGoal=superiority`. `routeKey` narrows full search to that route; otherwise the global route limit and phase quotas match the page. Without explicit phase, map preview/evaluation uses observed progress (phase 1 planning if unknown); route catalogs/recommendations can include other phases. A route key itself identifies its phase.
+Normal search always uses route requirements and a single combat score; default `airGoal=superiority`. `routeKey` narrows search to a non-adaptive route. Without it, the current or requested phase's curated routes are searched first; only if all fail does search try an adaptive route. Adaptive routes cannot be requested directly, but a returned adaptive result can be evaluated. Without explicit phase, map preview/evaluation uses observed progress (phase 1 planning if unknown); the route catalog can include other phases. A route key itself identifies its phase.
 
 Arrival excludes retreat/battle outcomes. `arrival` describes selected/merged route or overall Boss arrival according to the strategy; do not add probabilities from different recommended fleets. `fleetSummary.air.reference/estimate` contains selected-route per-node thresholds and aircraft-loss estimates. The map catalog field `airControl` contains static reference information; use route evaluation for loss-adjusted results. LoS gates may have different coefficients: read `planning.losRequirements` / `fleetSummary.los`, not just coefficient 4. Missing data remains unknown. Search is bounded; `notFound` does not prove a solution is impossible.
 
@@ -439,7 +439,7 @@ Effect: **read-only**.
 
 #### `fleet_advisor_recommend_normal_fleet`
 
-Recommend hulls/equipment for every curated route in the requested map/stage; no route-count cap. airGoal defaults to superiority. routeResults include notFound diagnostics and probabilities. routeKey restricts the exact route. Honors saved sortie filters/locks and equipment borrowing: when disabled, use only unequipped inventory and equipment owned by ships in each proposed fleet, including expansion slots. Clients cannot override this setting. Bounded search, not global optimization or victory guarantee.
+Recommend hulls/equipment for every curated route in the requested map/stage; no route-count cap. When all curated routes fail, automatically search a broad adaptive route. Adaptive routes cannot be requested directly. airGoal defaults to superiority. routeResults include notFound diagnostics and probabilities. routeKey restricts the exact non-adaptive route. Honors saved sortie filters/locks and equipment borrowing: when disabled, use only unequipped inventory and equipment owned by ships in each proposed fleet, including expansion slots. Clients cannot override this setting. Bounded search, not global optimization or victory guarantee.
 
 Effect: **read-only**.
 

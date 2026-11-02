@@ -110,7 +110,10 @@ test('service injects global preferences into workers and future planning never 
   assert.equal(W.mapOverview('2-3').profile.routePaths.length,16);
   for(const [area,maxRoutes]of [['1-4',2],['7-2',2]]){
     const result=R.recommendNormalFleet(store,{area,automaticFilters:{maxRoutes}});
-    assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),P.recommendedOptions(area,'boss',P.currentPhase(area,store),{maxRoutes}).map(r=>[r.phase,r.key]));
+    const fallbackSearched=result.routeResults.some(r=>r.fallback);
+    assert.deepEqual(result.routeResults.map(r=>[r.phase,r.key]),P.recommendedOptions(area,'boss',P.currentPhase(area,store),{maxRoutes})
+      .filter(r=>!r.fallback||fallbackSearched).map(r=>[r.phase,r.key]));
+    if(fallbackSearched)assert(result.routeResults.filter(r=>!r.fallback).every(r=>r.status!=='available'));
     assert(result.routeResults.length>maxRoutes);
   }
   assert.equal(P.recommendedOptions('2-3','boss',undefined,{maxRoutes:20}).filter(r=>!r.fallback).length,5);

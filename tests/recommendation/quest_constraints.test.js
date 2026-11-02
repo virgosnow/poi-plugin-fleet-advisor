@@ -137,9 +137,7 @@ test('pumpkin escort task finds a compatible real path with unremodeled ships ex
   assert.equal(display.value,'到达概率 70%');assert(!display.note.includes('分支在后续节点汇合'));
   const overview=W.mapOverview('1-2','boss',undefined,undefined,store);
   assert.deepEqual(W.selectedMapProfile(overview,fallback.key,null,recommendation.route).highlightPaths,[path]);
-  const explicit=recommendNormalFleet(store,{...args,routeKey:fallback.key});
-  assert.deepEqual(explicit.routeResults.map(row=>row.key),[fallback.key]);
-  assert.equal(explicit.routeResults[0].status,'available');
+  assert.throws(()=>recommendNormalFleet(store,{...args,routeKey:fallback.key}),/仅在预设路线均无方案时自动搜索/);
   const parallel=await recommendNormalFleetParallel(store,args,(_batch,run)=>run());
   const parallelFallback=parallel.routeResults.find(row=>row.fallback);
   assert.equal(parallelFallback.status,'available');assert.deepEqual(parallelFallback.chance,fallback.chance);
