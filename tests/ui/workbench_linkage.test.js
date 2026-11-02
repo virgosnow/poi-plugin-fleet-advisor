@@ -82,16 +82,45 @@ test('expedition selection clears drafts and late recommendations cannot refill 
   assert.equal(h.get('working'),false);assert.equal(JSON.stringify(h.store),before);
 });
 
-test('expedition goal changes request the new target immediately and replace automatic hulls',async()=>{
+test('expedition goal changes remain idle until completion, then update automatic hulls',async()=>{
   const h=harness('expedition'),queries=[];
   h.service.recommendExpeditionFleet=args=>{queries.push(args);return {recommendations:[{scheme:{fleet:2,ships:[{id:args.goal==='success'?7:1},{id:2}]}}]};};
+  await h.chooseGoal(h.render(),'success');h.render();
+  assert.equal(queries.length,0);assert.equal(h.get('goal'),'success');assert(h.get('slots').every(slot=>!slot));
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();
+  assert.equal(queries.length,1);assert.equal(queries[0].goal,'success');
   for(const goal of ['success','great']){
+    if(goal===h.get('goal'))continue;
     const pending=h.chooseGoal(h.render(),goal);h.render();await pending;
     assert.equal(queries.at(-1).goal,goal);assert.equal(h.get('goal'),goal);
     assert.equal(h.get('slots')[0].id,goal==='success'?7:1);
     assert.equal(JSON.parse(h.get('draftContext'))[7],goal);
   }
   assert.equal(queries.length,2);
+});
+
+test('expedition goal changes preserve manually selected ships until completion, and clearing resets the behavior',async()=>{
+  const h=harness('expedition'),queries=[];
+  h.service.recommendExpeditionFleet=args=>{queries.push(args);return {recommendations:[{scheme:{fleet:2,ships:[{id:2},{id:3}]}}]};};
+  const selected={...W.entry(h.store,2),pin:true};h.set('slots',[selected,null,null,null,null,null]);
+  const before=JSON.stringify(h.get('slots'));
+  await h.chooseGoal(h.render(),'success');h.render();
+  assert.equal(queries.length,0);assert.equal(JSON.stringify(h.get('slots')),before);assert.equal(h.get('goal'),'success');
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();assert.equal(queries.length,1);
+  h.find(h.render(),n=>n.props.className==='paa-wb-quiet'&&n.children.includes('一键清空')).props.onClick();h.render();
+  await h.chooseGoal(h.render(),'great');h.render();
+  assert.equal(queries.length,1);assert(h.get('slots').every(slot=>!slot));assert.equal(h.get('goal'),'great');
+});
+
+test('switching expeditions and failed completion do not enable automatic goal recommendations',async()=>{
+  const h=harness('expedition');let calls=0;
+  h.service.recommendExpeditionFleet=()=>{calls++;return {recommendations:[{scheme:{fleet:2,ships:[{id:2},{id:3}]}}]};};
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();assert.equal(calls,1);
+  h.find(h.render(),n=>n.type?.name==='AreaPicker').props.onChange(2);h.render();
+  await h.chooseGoal(h.render(),'success');h.render();assert.equal(calls,1);
+  h.service.recommendExpeditionFleet=()=>{calls++;return {recommendations:[],reason:'没有可用方案'};};
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();assert.equal(calls,2);
+  await h.chooseGoal(h.render(),'great');h.render();assert.equal(calls,2);
 });
 
 test('expedition single-ship replacement fits drums without searching or replacing the other hulls',async()=>{

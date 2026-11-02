@@ -52,7 +52,7 @@
   const statusFields=['sourceFleet','shipDetails'];
   // Capture only live fields, including when reloading an older mounted version
   // that still has the retired JSON editor and local-library state hooks.
-  const draftFields=['slots','fleet','area','purpose','target','phase','missionId','goal','incomeUnit','style','choices','excluded','sourceFleet','shipType','draftContext','pathIndex','nodeId','mapRoute','routeDrafts','routeRulesOpen','combatDeferredPhase','routePhaseAnchor','shipDetails','selectedQuests'];
+  const draftFields=['slots','fleet','area','purpose','target','phase','missionId','goal','incomeUnit','style','choices','excluded','sourceFleet','shipType','draftContext','pathIndex','nodeId','mapRoute','routeDrafts','routeRulesOpen','combatDeferredPhase','routePhaseAnchor','shipDetails','selectedQuests','expeditionCompleted'];
   function workbenchHooks() {
     const el=panel();let root=el?.[Object.keys(el||{}).find(k=>k.startsWith('__reactFiber$'))];
     if(!root)return [];
@@ -61,7 +61,7 @@
     const walk=fiber=>{
       if(!fiber)return;
       if(['Workbench','CurrentFleet'].includes(fiber.type?.name)){
-        const source=String(fiber.type).split('React.useRef')[0];
+        const componentSource=String(fiber.type),source=componentSource.split('React.useRef')[0];
         const names=[...source.matchAll(/\[\s*(\w+)\s*,\s*\w+\s*\]\s*=\s*React\.useState\(/g)].map(m=>m[1]);
         const hooks={};let hook=fiber.memoizedState;
         for(const name of names){
@@ -69,18 +69,27 @@
           hooks[name]={value:hook.memoizedState,dispatch:hook.queue.dispatch};hook=hook.next;
         }
         if(fiber.type.name==='CurrentFleet'?!hooks.sourceFleet:!Array.isArray(hooks.slots?.value)||!hooks.fleet)throw Error('Cannot identify workbench draft');
-        found.push({kind:fiber.memoizedProps.kind,hooks});
+        // Older expedition workbenches stored successful completion in a ref.
+        // Carry it into the new state field without inferring it from the fleet.
+        let legacyExpeditionCompleted;
+        if(fiber.memoizedProps.kind==='expedition'&&!hooks.expeditionCompleted){
+          const refs=[...componentSource.split('React.useEffect')[0].matchAll(/\b(\w+)\s*=\s*React\.useRef\(/g)].map(m=>m[1]);
+          for(const name of refs){if(!hook)break;if(name==='prepared'){legacyExpeditionCompleted=hook.memoizedState?.current===true;break;}hook=hook.next;}
+        }
+        found.push({kind:fiber.memoizedProps.kind,hooks,legacyExpeditionCompleted});
       }
       walk(fiber.child);walk(fiber.sibling);
     };
     walk(root.stateNode?.current||root);return found;
   }
   function captureWorkbenches() {
-    return workbenchHooks().map(({kind,hooks})=>{
+    return workbenchHooks().map(({kind,hooks,legacyExpeditionCompleted})=>{
       if(hooks.working?.value)throw Error('Workbench is calculating; wait before updating');
       // These preferences belong to CurrentFleet; older editable workbenches
       // still carried unused copies before the retired editor was removed.
-      return {kind,values:JSON.parse(JSON.stringify(Object.fromEntries(draftFields.filter(name=>hooks[name]&&(kind==='manual'||!statusFields.includes(name))).map(name=>[name,hooks[name].value]))))};
+      const values=Object.fromEntries(draftFields.filter(name=>hooks[name]&&(kind==='manual'||!statusFields.includes(name))).map(name=>[name,hooks[name].value]));
+      if(kind==='expedition'&&!hooks.expeditionCompleted&&legacyExpeditionCompleted!==undefined)values.expeditionCompleted=legacyExpeditionCompleted;
+      return {kind,values:JSON.parse(JSON.stringify(values))};
     });
   }
   function workbenchesRestored(saved){
