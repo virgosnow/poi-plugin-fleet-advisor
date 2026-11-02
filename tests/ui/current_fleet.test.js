@@ -136,6 +136,8 @@ test('current fleet view does not read game presets and uses a two-column fleet 
   assert.doesNotThrow(()=>Component({}));
   const styles=require('../../src/ui/fleet/current_fleet_styles');
   assert.match(styles,/\.paa-current-fleets \.paa-source-list\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles,/\.paa-current-fleets \.paa-source-list>button:not\(:disabled\) \*\{cursor:pointer\}/);
+  assert.match(styles,/\.paa-current-fleets \.paa-source-list>button:disabled \*\{cursor:default\}/);
 });
 test('current fleet participates in task synchronization only while visible and idle',()=>{
   const s=store(),effects=[],active=[];
@@ -170,6 +172,9 @@ test('read-only status UI switches live fleets, refreshes data and offers no sch
   const find=(n,p)=>n&&typeof n==='object'&&(p(n)?n:n.children.map(c=>find(c,p)).find(Boolean));
   const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
   render();assert(find(tree,n=>n.type==='h3'&&n.children.includes('舰队总览')));assert(!find(tree,n=>n.props['aria-label']==='全舰队动态'));for(const label of ['保存方案','已保存方案','JSON','编入','应用编成','换船','移除','新建'])assert(!text(tree).includes(label),label);
+  const firstFleet=find(tree,n=>n.props['data-source-fleet']===1);
+  assert.match(text(firstFleet),/待命/);assert(!find(firstFleet,n=>n.props.className==='paa-fleet-signals'));
+  assert(!text(firstFleet).includes('受损'));assert(find(tree,n=>n.props.className==='paa-fleet-health'),'selected ship health remains visible');
   assert(!find(tree,n=>n.type==='textarea'));assert(find(tree,n=>n.props['data-source-fleet']===4));
   assert(!text(tree).includes('舰种构成'));assert(!text(tree).includes('整备情况'));assert(!text(tree).includes('需要留意'));
   assert(!find(tree,n=>n.props.id==='paa-fleet-preset-list'));
@@ -195,6 +200,10 @@ test('read-only status UI switches live fleets, refreshes data and offers no sch
   assert.equal(find(tree,n=>n.props.id==='paa-fleet-stats-1').props.inert,'');assert(!find(tree,n=>n.props.id==='paa-fleet-supply-details'));
   const attrLabel='测试舰1：属性';find(tree,n=>n.props['aria-label']===attrLabel).props.onClick();render();
   const stats=find(tree,n=>n.props['aria-label']==='当前面板属性');assert.equal(stats.type,'dl');assert.equal(stats.children.length,8);
+  const shipCard=find(tree,n=>n.props['data-ship-id']===1),shipHead=find(shipCard,n=>n.props.className==='paa-wb-ship-head');
+  assert(find(shipHead,n=>n.props.className==='paa-fleet-health'),'health belongs beside the ship identity');
+  assert(find(shipHead,n=>n.props['aria-label']===attrLabel),'attribute toggle belongs beside the ship identity');
+  assert(!find(shipHead,n=>n.props['aria-label']==='当前面板属性'),'expanded stats remain full-width below the heading');
   assert.equal(stats.children[0].children[0].type,'dt');assert.equal(stats.children[0].children[1].type,'dd');
   assert(find(tree,n=>n.props['aria-label']===attrLabel).props['aria-expanded']);
   const fleetsBefore=JSON.stringify(s.info.fleets);

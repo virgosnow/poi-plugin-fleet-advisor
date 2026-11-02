@@ -129,7 +129,7 @@ test('current fleets retain visible members and mechanisms while busy and read f
   h.render({busy:true});assert.equal(h.intervals.filter(timer=>timer.active).length,0);
   for(let i=0;i<6;i++){store={...store,info:{...store.info,ships:{...store.info.ships}}};h.render({stopping:i===5});assert.equal(text(find(h.tree,n=>n.props.className==='paa-wb-ships')),oldText);}
   h.render({busy:false,hidden:true});assert.deepEqual([inspect.mock.callCount(),summary.mock.callCount()],before);
-  h.render({hidden:false});assert.deepEqual([inspect.mock.callCount(),summary.mock.callCount()],[before[0]+1,before[1]+4]);
+  h.render({hidden:false});assert.deepEqual([inspect.mock.callCount(),summary.mock.callCount()],[before[0]+1,before[1]]);
 });
 
 test('progress and elapsed time update only the feedback component and unsubscribe when finished',t=>{

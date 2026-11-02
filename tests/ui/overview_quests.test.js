@@ -5,13 +5,22 @@ const catalog=require('../../data/quests/requirements.json').quests;
 const task=code=>{const q=catalog.find(row=>row.code===code);return {api_no:q.ids[0],api_title:q.title,api_state:2};};
 const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})};
 const walk=(node,p)=>!node||typeof node!=='object'?[]:[...(p(node)?[node]:[]),...(node.children||[]).flatMap(child=>walk(child,p))];
+const strings=node=>!node||typeof node!=='object'?String(node??''):(node.children||[]).map(strings).join(' ');
+function harness(props,options){
+  const states=[];let index=0,tree;
+  const react={...React,useState(initial){const i=index++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;
+    return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];}};
+  const Component=create(react,options),render=()=>{index=0;tree=Component(props);return tree;};
+  render();return {render,find:p=>walk(tree,p)[0],all:p=>walk(tree,p)};
+}
 
 test('overview task goals navigate separately without changing game state',()=>{
   const Component=create(React),calls=[],state={questState:{known:true,tasks:[task('B131'),task('Dw2')]}};
-  const before=JSON.stringify(state),tree=Component({state,onNavigate:destination=>calls.push(destination)});
+  const before=JSON.stringify(state),ui=harness({state,onNavigate:destination=>calls.push(destination)}),tree=ui.render();
   const buttons=walk(tree,node=>node.type==='button'&&node.props.className==='paa-overview-quest-target');
-  buttons.find(node=>node.children[0].includes('7-2')).props.onClick();
-  buttons.find(node=>node.children[0]==='38号远征').props.onClick();
+  buttons.find(node=>strings(node).includes('7-2')).props.onClick();
+  ui.find(node=>node.type==='button'&&strings(node).startsWith('远征')).props.onClick();ui.render();
+  ui.all(node=>node.type==='button'&&node.props.className==='paa-overview-quest-target').find(node=>strings(node).includes('38号远征')).props.onClick();
   assert.deepEqual(calls.map(({kind,area,phase,missionId,code})=>({kind,area,phase,missionId,code})),[
     {kind:'normal',area:'7-2',phase:'gauge2',missionId:undefined,code:'B131'},
     {kind:'expedition',area:undefined,phase:undefined,missionId:38,code:'Dw2'}]);
@@ -23,11 +32,10 @@ test('overview task goals navigate separately without changing game state',()=>{
 test('overview shows active tasks, progress hints and helpful empty states',()=>{
   const Component=create(React),active={...task('B131'),api_progress_flag:1};
   const tree=Component({state:{questState:{known:true,tasks:[active,{...task('Dw2'),api_state:1}]}}});
-  const strings=node=>!node||typeof node!=='object'?String(node??''):(node.children||[]).map(strings).join(' ');
   const content=strings(tree);
-  assert.match(content,/进行中的任务/);assert.match(content,/点击目标/);assert.match(content,/进度 50% 以上/);
+  assert.match(content,/进行中的任务/);assert(!content.includes('点击目标'));assert.match(content,/进度 50% 以上/);
   assert.equal(walk(tree,node=>node.type==='article').length,1);
-  assert.match(strings(Component({state:{questState:{known:true,tasks:[]}}})),/暂无进行中的出击与远征任务/);
+  assert.match(strings(Component({state:{questState:{known:true,tasks:[]}}})),/暂无进行中的出击任务/);
   assert.match(strings(Component({state:{}})),/打开任务列表以同步/);
 });
 
@@ -51,7 +59,7 @@ test('overview batches progress reads and is memoized when React supports it',()
     getQuestGoalProgress:()=>{individual++;return 0;}};
   const Component=create(ReactWithMemo,{getController:()=>service}),tree=Component({state});
   assert.equal(memo,1);assert.equal(batches,1);assert.equal(individual,0);
-  assert(walk(tree,node=>node.props.className==='paa-overview-goal-status'&&node.props['data-complete']&&node.children.includes('1/1')).length);
+  assert(walk(tree,node=>node.props.className==='paa-overview-goal-status'&&node.props['data-complete']&&node.children.includes('✓ 1/1')).length);
 });
 
 test('goal progress shows zero, observed and completed counts without changing stored values',()=>{
@@ -61,6 +69,18 @@ test('goal progress shows zero, observed and completed counts without changing s
   const status=()=>walk(Component({state}),node=>node.props.className==='paa-overview-goal-status')[0];
   assert.equal(status().children[0],'0/5');assert.equal(status().props['data-complete'],false);
   observed=2;assert.equal(status().children[0],'2/5');assert.equal(status().props['data-complete'],false);
-  observed=5;assert.equal(status().children[0],'5/5');assert.equal(status().props['data-complete'],true);
-  observed=9;assert.equal(status().children[0],'5/5');assert.equal(observed,9);
+  observed=5;assert.equal(status().children[0],'✓ 5/5');assert.equal(status().props['data-complete'],true);
+  observed=9;assert.equal(status().children[0],'✓ 5/5');assert.equal(observed,9);
+});
+
+test('reward details expand in place while category switching retains the selected task and exact rewards',()=>{
+  const sortie={...task('Bd7'),api_get_material:[300,0,0,200],api_select_rewards:[[{api_kind:12,api_mst_id:35,api_count:2}]]};
+  const state={questState:{known:true,tasks:[sortie,task('Dw2')]},const:{$equips:{35:{api_name:'测试装备'}}}};
+  const ui=harness({state});const tab=label=>ui.find(n=>n.type==='button'&&strings(n).startsWith(label));
+  assert.equal(tab('出击').props['aria-pressed'],true);assert.equal(ui.all(n=>n.type==='article').length,1);
+  const toggle=ui.find(n=>n.props.className==='paa-overview-reward-toggle');assert(toggle);assert.equal(toggle.props['aria-expanded'],false);
+  toggle.props.onClick();ui.render();assert.equal(ui.find(n=>n.props.className==='paa-overview-reward-toggle').props['aria-expanded'],true);
+  const details=ui.find(n=>n.props.className==='paa-overview-reward-details');assert.match(strings(details),/任选其一/);assert.match(strings(details),/测试装备/);
+  tab('远征').props.onClick();ui.render();assert.equal(tab('远征').props['aria-pressed'],true);assert.match(strings(ui.find(n=>n.type==='article')),/远征/);
+  tab('出击').props.onClick();ui.render();assert.equal(ui.find(n=>n.props.className==='paa-overview-reward-toggle').props['aria-expanded'],true);
 });
