@@ -258,7 +258,9 @@ test('unlock explanations cover all expedition ids and separate historical succe
   let text=unlockText(44,{},progress);assert.match(text,/✓ 40（已完成）/);assert.match(text,/✓ 41（已完成）/);assert.match(text,/○ A4（本期待同步）/);
   progress.records[103]={state:2,period:'2026-10'};text=unlockText(44,{},progress);assert.match(text,/✓ A4（本期已完成）/);
   assert.match(unlockText(104),/A4/);assert.match(unlockText(104),/B3/);assert.match(unlockText(133),/D2/);assert.match(unlockText(141),/40/);
-  assert.match(unlockText(23),/通关海域 1-5/);assert.match(unlockText(41),/通关海域 2-4/);assert.match(unlockText(1),/完成任务 A4/);
+  assert.match(unlockText(23),/通关海域 1-5/);assert.match(unlockText(41),/通关海域 2-4/);
+  assert.match(unlockText(1),/完成任务 A4「6隻編成の艦隊を編成せよ！」/);
+  assert.deepEqual(require('../../src/ui/expedition/expedition_model').missionChain(1).before.map(item=>item.text),['完成任务 A4「6隻編成の艦隊を編成せよ！」']);
   assert.match(unlockText(999),/资料待补充/);
   progress.list={period:'2026-10',ids:[40,41],catalogIds:[40,41,103]};delete progress.records[103];
   assert.match(unlockText(44,{},progress),/A4（本期未解锁）/);

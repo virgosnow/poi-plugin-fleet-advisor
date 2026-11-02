@@ -14,7 +14,7 @@
   "notes": "Direct prerequisites; all listed conditions are required. Monthly prerequisites must be completed in the current expedition period. Unlock status itself always comes from the server list.",
   "monthly": [42, 43, 44, 46, 103, 104, 105, 111, 112, 113, 114, 115, 132, 133, 141, 142],
   "missions": {
-   "1": {"quests": ["A4「编成一支六舰舰队」"]},
+   "1": {"quests": ["A4「6隻編成の艦隊を編成せよ！」"]},
    "2": {"missions": [1]},
    "3": {"missions": [1]},
    "4": {"missions": [2, 3]},
