@@ -73,18 +73,19 @@ test('resource breakdown follows available outcomes and adds exactly to net inco
     {name:'弹药',base:30,success:31,great:47,cost:0,net:31,greatNet:47}]},before=JSON.stringify(income);
   for(const rate of [0,50,100,null]){
     const tree=view.overview({rate,income,hasShips:true,master:{api_win_item1:[3,1]}});
-    const tables=all(tree,n=>n.props.className==='paa-exp-detail-table'),outcomes=rate===0?['success']:rate===100?['great']:['success','great'];
-    assert.equal(tables.length,2);
-    tables.forEach((table,index)=>{
-      assert.equal(table.props['data-columns'],outcomes.length+1);
-      const rows=all(table,n=>n.props['data-component']);
-      assert.deepEqual(rows.map(n=>n.props['data-component']),['base','great','bonus','cost']);
-      for(const [col,outcome] of outcomes.entries()){
-        const values=rows.map(n=>n.children[col+1]);
-        assert.equal(values.reduce((n,c)=>n+Number(text(c)),0),income.rows[index][outcome==='success'?'net':'greatNet']);
-        assert.equal(text(values.at(-1)),index===0?'-5':'0');
-        assert.equal(values.at(-1).props['data-negative'],index===0);
-        assert.equal(values.at(-1).props['data-zero'],index===1);
+    const groups=all(tree,n=>n.props.className==='paa-exp-formula-group'),outcomes=rate===0?['success']:rate===100?['great']:['success','great'];
+    assert.equal(groups.length,2);
+    groups.forEach((group,index)=>{
+      const rows=all(group,n=>n.props.className==='paa-exp-formula-row');
+      assert.deepEqual(rows.map(row=>row.props['data-outcome']),outcomes);
+      for(const row of rows){
+        const outcome=row.props['data-outcome'],terms=all(row,n=>n.props.className==='paa-exp-formula-term');
+        assert.deepEqual(terms.map(term=>term.props['data-kind']),outcome==='great'?['base','great','bonus','cost']:['base','bonus','cost']);
+        const sum=terms.reduce((total,term)=>{const value=text(term),amount=Number(value.match(/\d+$/)[0]);return total+(value.startsWith('−')?-amount:amount);},0);
+        const expected=income.rows[index][outcome==='success'?'net':'greatNet'];
+        assert.equal(sum,expected);assert.equal(text(all(row,n=>n.type==='strong')[0]),`= ${expected>0?'+':''}${expected}`);
+        assert.equal(terms.at(-1).props['data-negative'],index===0);
+        assert(!text(row).includes('-0'));
       }
     });
   }
