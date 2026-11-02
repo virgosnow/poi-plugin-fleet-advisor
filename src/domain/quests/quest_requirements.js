@@ -103,12 +103,11 @@ function resourcesChecks(quest,state){
   });
 }
 
-// This function checks a draft against requirements. It neither tracks quest
-// completion nor promises that the next sortie/expedition will succeed.
-function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState,now=Date.now()}={}){
+// Match destination and observed task state without inspecting the player's fleet.
+function relatedQuestEntries({state,mapId,missionId,questState,now=Date.now()}={}){
   const snapshot=taskSnapshot(state,questState);
   if(!snapshot.known)return {status:'unknown',tasks:[]};
-  const tasks=[],seen=new Set();let evaluate;
+  const tasks=[],seen=new Set();
   for(const live of snapshot.tasks){
     if(!live||![1,2].includes(Number(live.api_state))||seen.has(Number(live.api_no)))continue;
     const definition=findDefinition(live,now);
@@ -117,6 +116,22 @@ function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState,now
     const related=entries.filter(entry=>entry.relation!==false);
     if(!related.length)continue;
     seen.add(Number(live.api_no));
+    tasks.push({live,definition,entries,related});
+  }
+  return {status:'ready',tasks};
+}
+function countRelatedQuests(input){
+  const result=relatedQuestEntries(input);
+  return {status:result.status,count:result.status==='ready'?result.tasks.length:null};
+}
+
+// This function checks a draft against requirements. It neither tracks quest
+// completion nor promises that the next sortie/expedition will succeed.
+function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState,now=Date.now()}={}){
+  const matched=relatedQuestEntries({state,mapId,missionId,questState,now});
+  if(matched.status!=='ready')return {status:'unknown',tasks:[]};
+  const tasks=[];let evaluate;
+  for(const {live,definition,entries,related} of matched.tasks){
     if(!evaluate)evaluate=createFleetRequirementEvaluator(state);
     const evaluation=evaluate(definition.fleet,slots,deckId);
     const checks=evaluation.checks.concat(resourcesChecks(definition,state));
@@ -133,4 +148,4 @@ function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState,now
   return {status:'ready',tasks};
 }
 
-module.exports={listRelatedQuests,evaluateFleetRequirements,resolveQuestCodes,taskSnapshot,findDefinition,goalLabel,relation};
+module.exports={listRelatedQuests,countRelatedQuests,evaluateFleetRequirements,resolveQuestCodes,taskSnapshot,findDefinition,goalLabel,relation};

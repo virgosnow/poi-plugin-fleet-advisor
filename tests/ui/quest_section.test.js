@@ -3,18 +3,20 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const create=require('../../src/ui/components/quest_section');
 
 function harness(props,result){
-  const hooks=[],calls=[];let cursor=0,tree;
+  const hooks=[],calls=[],countCalls=[];let cursor=0,tree;
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
     useRef(initial){const index=cursor++;return hooks[index]||(hooks[index]={current:initial});},
     useState(initial){const index=cursor++;if(!(index in hooks))hooks[index]=initial;return [hooks[index],value=>{hooks[index]=value;}];},
     useMemo(compute,deps){const index=cursor++,cached=hooks[index];if(!cached||deps.some((value,i)=>!Object.is(value,cached.deps[i])))hooks[index]={value:compute(),deps};return hooks[index].value;}};
-  const Component=create(React,{listRelatedQuests:input=>{calls.push(input);return typeof result==='function'?result(input):result;}});
+  const Component=create(React,{listRelatedQuests:input=>{calls.push(input);return typeof result==='function'?result(input):result;},
+    countRelatedQuests:input=>{countCalls.push(input);return typeof result==='function'||result.status!=='ready'?{status:'unknown',count:null}:
+      {status:'ready',count:result.tasks.filter(task=>[1,2].includes(Number(task.state))).length};}});
   const walk=(node,match)=>!node||typeof node!=='object'?[]:[...(match(node)?[node]:[]),...node.children.flatMap(child=>walk(child,match))];
   const render=()=>{cursor=0;tree=Component(props);return tree;};
   const find=match=>walk(tree,match)[0];
   const content=node=>node===null||node===undefined||node===false?'':typeof node==='object'?node.children.map(content).join(''):String(node);
   render();
-  return {calls,render,find,all:match=>walk(tree,match),text:()=>content(tree),
+  return {calls,countCalls,render,find,all:match=>walk(tree,match),text:()=>content(tree),
     toggle(open){find(node=>node.type==='details').props.onToggle({currentTarget:{open}});render();}};
 }
 function task(overrides={}){
@@ -82,35 +84,52 @@ test('cancelled or secondary pointer clicks on card whitespace do not toggle it'
   assert.equal(ui.calls.length,0);
 });
 
-test('related tasks stay folded and perform no evaluation until opened',()=>{
+test('related tasks show their lightweight count while folded and perform no fleet evaluation until opened',()=>{
   const props={state:{ships:{}},slots:[],deckId:1,kind:'normal',mapId:'1-5',questState:{status:'ready'}};
   const ui=harness(props,{status:'ready',tasks:[task()]});
   assert.equal(ui.find(n=>n.type==='details').props.open,false);
-  assert.equal(ui.text(),'相关任务');assert.equal(ui.calls.length,0);
-  props.mapId='2-5';ui.render();assert.equal(ui.calls.length,0);
+  assert.equal(ui.text(),'相关任务1 件');assert.equal(ui.calls.length,0);assert.equal(ui.countCalls.length,1);
+  props.mapId='2-5';ui.render();assert.equal(ui.calls.length,0);assert.equal(ui.countCalls.length,2);
   ui.toggle(true);assert.equal(ui.calls.length,1);
   assert.equal(ui.calls[0].mapId,'2-5');assert.equal(ui.calls[0].slots,props.slots);
-  assert.match(ui.text(),/相关任务1 项/);
+  assert.match(ui.text(),/相关任务1 件/);
   ui.render();assert.equal(ui.calls.length,1,'unrelated rerenders reuse the current evaluation');
-  ui.toggle(false);props.slots=[{id:5,slots:[18],ex:-1}];ui.render();assert.equal(ui.calls.length,1);
+  ui.toggle(false);props.slots=[{id:5,slots:[18],ex:-1}];ui.render();assert.equal(ui.calls.length,1);assert.equal(ui.countCalls.length,2,'equipment changes do not recompute the task count');
   const folded=ui.find(n=>n.props.className==='paa-quest-content');
   assert.equal(folded.props['aria-hidden'],true);assert.equal(folded.props.inert,'');
   assert(ui.find(n=>n.props['data-quest-id']===1001),'keep the last body during its closing transition without re-evaluation');
   ui.toggle(true);assert.equal(ui.calls.length,2);assert.equal(ui.calls[1].slots,props.slots);
 });
 
-test('selected tasks remain visible and actionable when folded in both workbenches',()=>{
-  for(const kind of ['normal','expedition']){
-    const selected=['B141'],props={kind,selectedQuests:selected,slots:[],onToggleQuest:code=>selected.splice(selected.indexOf(code),1),onClearQuests:()=>selected.splice(0)};
-    const ui=harness(props,{status:'ready',tasks:[task(),task({id:1002,code:'B142',title:'其他任务'})]});
-    const card=()=>ui.find(n=>n.props['data-quest-id']===1001);
-    assert.equal(ui.find(n=>n.type==='details').props.open,false);assert.equal(ui.calls.length,1);
-    assert(card());assert.equal(card().props['aria-checked'],true);
-    assert.equal(ui.find(n=>n.props.id===ui.find(n=>n.type==='summary').props['aria-controls']).props.hidden,true);
-    ui.toggle(true);assert.equal(ui.all(n=>n.props['data-quest-id']===1001).length,1);assert(ui.find(n=>n.props['data-quest-id']===1002));
-    ui.toggle(false);card().props.onKeyDown({key:'Enter',repeat:false,preventDefault(){}});ui.render();
-    assert.deepEqual(selected,[]);assert(!ui.find(n=>n.props.className==='paa-quest-content paa-quest-selected'));
-  }
+test('normal selected tasks show only compact names when folded and keep original order when expanded',()=>{
+  const selected=['B142'],props={kind:'normal',selectedQuests:selected,slots:[],onToggleQuest:code=>{
+    const at=selected.indexOf(code);if(at<0)selected.push(code);else selected.splice(at,1);},onClearQuests:()=>selected.splice(0)};
+  const ui=harness(props,{status:'ready',tasks:[task(),task({id:1002,code:'B142',title:'第二任务'}),task({id:1003,code:'B143',title:'第三任务'})]});
+  const compact=()=>ui.find(n=>n.props.className==='paa-quest-content paa-quest-selected-compact');
+  assert.equal(ui.find(n=>n.type==='details').props.open,false);assert.equal(ui.calls.length,1);
+  assert.match(ui.text(),/3 件 · 预选 1/);
+  assert.deepEqual(compact().children[0].children.map(n=>n.children[0]),['第二任务']);
+  assert.equal(ui.find(n=>n.props.id===ui.find(n=>n.type==='summary').props['aria-controls']).props.hidden,true);
+  ui.toggle(true);assert(!compact());
+  assert.match(ui.text(),/预选 1 项，补全时同时满足编成要求/);
+  assert.deepEqual(ui.all(n=>n.type==='article').map(n=>n.props['data-quest-id']),[1001,1002,1003]);
+  assert.equal(ui.find(n=>n.props['data-quest-id']===1002).props['aria-checked'],true);
+  assert.equal(ui.all(n=>n.props['data-quest-id']===1002).length,1);
+  ui.find(n=>n.props['data-quest-id']===1001).props.onKeyDown({key:'Enter',repeat:false,preventDefault(){}});ui.render();
+  ui.toggle(false);assert.deepEqual(compact().children[0].children.map(n=>n.children[0]),['「夕張改二」試してみてもいいかしら？','第二任务']);
+  ui.toggle(true);ui.find(n=>n.type==='button'&&n.children.includes('清除选择')).props.onClick();ui.render();
+  assert.deepEqual(selected,[]);assert(!compact());
+});
+
+test('expedition selected tasks retain their existing folded behavior',()=>{
+  const selected=['B141'],props={kind:'expedition',selectedQuests:selected,slots:[],onToggleQuest:code=>selected.splice(selected.indexOf(code),1),onClearQuests:()=>selected.splice(0)};
+  const ui=harness(props,{status:'ready',tasks:[task(),task({id:1002,code:'B142',title:'其他任务'})]});
+  const card=()=>ui.find(n=>n.props['data-quest-id']===1001);
+  assert.equal(ui.find(n=>n.type==='details').props.open,false);assert.equal(ui.calls.length,1);
+  assert(card());assert.equal(card().props['aria-checked'],true);
+  ui.toggle(true);assert.equal(ui.all(n=>n.props['data-quest-id']===1001).length,1);assert(ui.find(n=>n.props['data-quest-id']===1002));
+  ui.toggle(false);card().props.onKeyDown({key:'Enter',repeat:false,preventDefault(){}});ui.render();
+  assert.deepEqual(selected,[]);assert(!ui.find(n=>n.props.className==='paa-quest-content paa-quest-selected'));
 });
 
 test('opened tasks re-evaluate the current ships, equipment, destination and quest state',()=>{

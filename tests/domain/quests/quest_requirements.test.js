@@ -3,7 +3,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const DATA=require('../../../data/quests/requirements.json');
-const {listRelatedQuests,evaluateFleetRequirements}=require('../../../src/domain/quests/quest_requirements');
+const {listRelatedQuests,countRelatedQuests,evaluateFleetRequirements}=require('../../../src/domain/quests/quest_requirements');
 const byCode=new Map(DATA.quests.map(q=>[q.code,q]));
 function task(code,state=2,overrides={}){
   const quest=byCode.get(code);return {api_no:quest.ids[0],api_state:state,api_title:quest.title,...overrides};
@@ -18,6 +18,17 @@ function fixture(){
   return {state,add};
 }
 const query=(state,slots,codes,options={})=>listRelatedQuests({state,slots,mapId:'1-5',deckId:1,questState:{known:true,tasks:codes.map(code=>task(code))},...options});
+
+test('related quest count matches full results without reading fleet or equipment',()=>{
+  const {state}=fixture(),questState={known:true,tasks:[task('B48',1),task('Bd8',2),task('Bw1',2),task('B5',3),task('Bd8',2)]};
+  for(const mapId of ['1-1','1-5','2-3','99-9']){
+    const expected=listRelatedQuests({state,mapId,questState}).tasks.length;
+    const noFleet={questState};Object.defineProperty(noFleet,'const',{get(){throw Error('must not inspect fleet masters');}});
+    Object.defineProperty(noFleet,'info',{get(){throw Error('must not inspect fleet state');}});
+    assert.deepEqual(countRelatedQuests({state:noFleet,mapId,questState}),{status:'ready',count:expected});
+  }
+  assert.deepEqual(countRelatedQuests({questState:{known:false,tasks:[]},mapId:'1-5'}),{status:'unknown',count:null});
+});
 const codeList=answer=>answer.tasks.map(task=>task.code);
 
 test('only observed available and active quests are listed; never infer unlocks',()=>{

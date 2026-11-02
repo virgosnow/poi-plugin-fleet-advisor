@@ -47,10 +47,14 @@ module.exports=function createQuestSection(React,options={}){
   };
   // Evaluate while expanded or while selected tasks must remain visible.
   const listRelatedQuests=options.listRelatedQuests||((input)=>require('../../domain/quests/quest_requirements').listRelatedQuests(input));
-  return function QuestSection({state,slots,deckId,kind='normal',mapId,missionId,questState,selectedQuests=[],onToggleQuest,onClearQuests,disabled=false,defaultOpen=false}){
+  const countRelatedQuests=options.countRelatedQuests||((input)=>require('../../domain/quests/quest_requirements').countRelatedQuests(input));
+  return function QuestSection({state,slots,deckId,kind='normal',mapId,missionId,questState,selectedQuests=[],onToggleQuest,onClearQuests,disabled=false,paused=false,defaultOpen=false}){
     const [open,setOpen]=React.useState(!!defaultOpen);
-    const last=React.useRef(null);
+    const last=React.useRef(null),lastCount=React.useRef(null);
     const contentId=React.useRef(null);if(!contentId.current)contentId.current=`paa-quest-content-${++nextContentId}`;
+    const count=React.useMemo(()=>kind==='normal'&&!paused?countRelatedQuests({state,mapId,questState}):lastCount.current,
+      [kind,mapId,questState,state?.questState,state?.info?.quests,paused]);
+    if(kind==='normal'&&!paused)lastCount.current=count;
     const needsTasks=open||selectedQuests.length>0;
     const related=React.useMemo(()=>needsTasks?listRelatedQuests({state,slots,deckId,kind,mapId,missionId,questState}):last.current,
       [needsTasks,state,slots,deckId,kind,mapId,missionId,questState]);
@@ -60,6 +64,11 @@ module.exports=function createQuestSection(React,options={}){
     const taskView=task=>{
       const conditionStatus=status(task.status),checks=Array.isArray(task.checks)?task.checks:[],period=text(task.period),selected=selectedQuests.includes(task.code);
       const toggle=()=>{if(!disabled&&task.code)onToggleQuest?.(task.code);};
+      const heading=h('div',{className:'paa-quest-heading'},h('h4',null,text(task.title)||text(task.code)||`任务 ${task.id}`));
+      const meta=h('div',{className:'paa-quest-meta'},
+        period?h('span',{className:'paa-quest-period'},PERIODS[period]||period):null,
+        h('span',{className:'paa-quest-state','data-active':Number(task.state)===2},Number(task.state)===2?'进行中':'可受领'),
+        h('span',{className:'paa-quest-condition-status','data-status':conditionStatus},STATUS_TEXT[conditionStatus]));
       return h('article',{key:task.id??task.code,className:'paa-quest-item',role:'checkbox',tabIndex:disabled||!task.code?-1:0,
         'aria-checked':selected,'aria-disabled':disabled||!task.code||undefined,'aria-label':`选择任务：${text(task.title)||text(task.code)}`,
         'data-quest-id':task.id,'data-condition-status':conditionStatus,'data-selected':selected||undefined,
@@ -67,14 +76,12 @@ module.exports=function createQuestSection(React,options={}){
           if(event.currentTarget.ownerDocument?.getSelection?.()?.isCollapsed===false)return;toggle();},
         onKeyDown:event=>{if((event.key===' '||event.key==='Enter')&&!event.repeat){event.preventDefault();toggle();}}},
         selected?h('span',{className:'paa-quest-preselected'},'预选'):null,
-        h('div',{className:'paa-quest-heading'},
-          h('h4',null,text(task.title)||text(task.code)||`任务 ${task.id}`)),
-        h('div',{className:'paa-quest-meta'},
-          period?h('span',{className:'paa-quest-period'},PERIODS[period]||period):null,
-          h('span',{className:'paa-quest-state','data-active':Number(task.state)===2},Number(task.state)===2?'进行中':'可受领'),
-          h('span',{className:'paa-quest-condition-status','data-status':conditionStatus},STATUS_TEXT[conditionStatus])),
+        ...(kind==='normal'?[meta,heading]:[heading,meta]),
         h('div',{className:'paa-quest-goals'},h('span',{className:'paa-quest-row-label'},'目标'),
-          h('ul',{'aria-label':'任务行动目标'},...displayGoalRows(task).map(({label,related},index)=>h('li',{key:index,'data-related':related?'true':'false'},label)))),
+          h('ul',{'aria-label':'任务行动目标'},...displayGoalRows(task).map(({label,related},index)=>{
+            const map=kind==='normal'&&related?label.match(/^(\d+-\d+)(.*)$/):null;
+            return h('li',{key:index,'data-related':related?'true':'false'},...(map?[h('strong',{key:'map'},map[1]),map[2]]:[label]));
+          }))),
         checks.length?h('div',{className:'paa-quest-requirements'},h('span',{className:'paa-quest-row-label'},'编成'),
           h('ul',{className:'paa-quest-checks','aria-label':'当前编成要求'},...checks.map((check,index)=>{
           const checkStatus=status(check.status),value=comparison(check);
@@ -87,18 +94,28 @@ module.exports=function createQuestSection(React,options={}){
     };
     const selectedTasks=tasks.filter(task=>selectedQuests.includes(task.code)),otherTasks=tasks.filter(task=>!selectedQuests.includes(task.code));
     const missing=selectedQuests.filter(code=>!selectedTasks.some(task=>task.code===code));
+    const compactSelection=kind==='normal';
     return h('section',{className:'paa-quest-section','aria-label':'相关任务',onClick:toggleCardSpace},
       h('details',{className:'paa-quest-disclosure',open,onToggle:event=>setOpen(Boolean(event.currentTarget.open))},
-        h('summary',{'aria-controls':contentId.current},h('span',null,'相关任务'),selectedQuests.length?h('span',{className:'paa-quest-count'},`已选 ${selectedQuests.length}`):open&&ready?h('span',{className:'paa-quest-count'},`${tasks.length} 项`):null)),
-      selectedQuests.length?h('div',{className:'paa-quest-content paa-quest-selected'},
+        h('summary',{'aria-controls':contentId.current},h('span',null,'相关任务'),
+          kind==='normal'&&count?.status==='ready'?h('span',{className:'paa-quest-count'},`${count.count} 件${selectedQuests.length?` · 预选 ${selectedQuests.length}`:''}`):
+            selectedQuests.length?h('span',{className:'paa-quest-count'},`${kind==='normal'?'预选':'已选'} ${selectedQuests.length}`):open&&ready?h('span',{className:'paa-quest-count'},`${tasks.length} 项`):null)),
+      compactSelection&&!open&&selectedQuests.length?h('div',{className:'paa-quest-content paa-quest-selected-compact'},
+        selectedTasks.length?h('ul',{'aria-label':'已预选任务'},...selectedTasks.map(task=>
+          h('li',{key:task.id??task.code},text(task.title)||text(task.code)||`任务 ${task.id}`))):null,
+        missing.length?h('p',{className:'paa-quest-empty'},`任务资料待同步或已变化：${missing.join('、')}`):null):
+      !compactSelection&&selectedQuests.length?h('div',{className:'paa-quest-content paa-quest-selected'},
         h('div',{className:'paa-quest-selection'},h('span',null,`已选 ${selectedQuests.length} 项，补全时同时满足编成要求`),
           h('button',{type:'button',disabled,onClick:()=>onClearQuests?.()},'清除选择')),
         selectedTasks.length?h('div',{className:'paa-quest-list',role:'region','aria-label':'已预选任务',tabIndex:0},...selectedTasks.map(taskView)):null,
         missing.length?h('p',{className:'paa-quest-empty'},`任务资料待同步或已变化：${missing.join('、')}`):null):null,
       h('div',{id:contentId.current,className:'paa-quest-content','aria-hidden':!open,inert:open?undefined:'',hidden:!open},
+        compactSelection&&selectedQuests.length?h('div',{className:'paa-quest-selection'},h('span',null,`预选 ${selectedQuests.length} 项，补全时同时满足编成要求`),
+          h('button',{type:'button',disabled,onClick:()=>onClearQuests?.()},'清除选择')):null,
+        compactSelection&&missing.length?h('p',{className:'paa-quest-empty'},`任务资料待同步或已变化：${missing.join('、')}`):null,
         open||related?(
         !ready?h('p',{className:'paa-quest-empty'},'请在游戏中打开任务列表以同步'):
-          !otherTasks.length?h('p',{className:'paa-quest-empty'},selectedQuests.length?'没有其他相关任务':'暂无可受领或进行中的相关任务'):
-            h('div',{className:'paa-quest-list',role:'region','aria-label':'相关任务要求',tabIndex:0},...otherTasks.map(taskView))):null));
+          !(compactSelection?tasks:otherTasks).length?h('p',{className:'paa-quest-empty'},!compactSelection&&selectedQuests.length?'没有其他相关任务':'暂无可受领或进行中的相关任务'):
+            h('div',{className:'paa-quest-list',role:'region','aria-label':'相关任务要求',tabIndex:0},...(compactSelection?tasks:otherTasks).map(taskView))):null));
   };
 };
