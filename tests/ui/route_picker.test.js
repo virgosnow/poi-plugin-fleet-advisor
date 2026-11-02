@@ -1,6 +1,20 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const create=require('../../src/ui/components/route_picker');
+test('map route shortcuts follow picker order, skip blocked and adaptive routes, and stay in the same gauge',()=>{
+  const {routeNeighbor}=create,{fromRatio}=require('../../src/domain/combat/combat_balance');
+  const combat=ratio=>({status:'estimated',balance:fromRatio(ratio)});
+  const options=[{key:'a',phase:'gauge1',combat:combat(1)},{key:'b',phase:'gauge1',combat:combat(3)},
+    {key:'blocked',phase:'gauge1',status:'notFound',combat:combat(2)},
+    {key:'adaptive',phase:'gauge1',fallback:true},{key:'other',phase:'gauge2'}];
+  assert.equal(routeNeighbor(options,'','gauge1',1),'b');
+  assert.equal(routeNeighbor(options,'','gauge1',-1),'a');
+  assert.equal(routeNeighbor(options,'b','gauge1',1),'a');
+  assert.equal(routeNeighbor(options,'a','gauge1',-1),'b');
+  assert.equal(routeNeighbor(options,'a','gauge1',1),'b');
+  assert.equal(routeNeighbor(options,'other','gauge2',1),null);
+  assert.equal(routeNeighbor(options,'adaptive','gauge1',1),'b');
+});
 function harness(props){
   let i=0,tree;const states=[];
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
@@ -27,6 +41,19 @@ test('route popup stays anchored and Escape never changes the fleet or selected 
   const anchor=ui.find(n=>n.props.className==='paa-area-anchor'),panel=ui.find(n=>n.props.role==='dialog');assert(anchor.children.includes(panel));
   assert.equal(ui.all(n=>n.props.role==='group').length,1);assert.equal(ui.all(n=>n.type==='h4').length,0);
   anchor.props.onKeyDown({key:'Escape',preventDefault(){},stopPropagation(){}});ui.render();assert.deepEqual(calls,[]);assert(!ui.find(n=>n.props.role==='dialog'));
+});
+
+test('route picker opens only on click and clicks toggle the panel',()=>{
+  const options=require('../../src/domain/routes/route_plans').recommendedOptions('1-4'),calls=[];
+  const props={options,value:options[0].key,onChange:key=>calls.push(key)},ui=harness(props);
+  const anchor=()=>ui.find(n=>n.props.className==='paa-area-anchor'),panel=()=>ui.find(n=>n.props.role==='dialog');
+  assert.equal(anchor().props.onPointerEnter,undefined);assert.equal(anchor().props.onPointerLeave,undefined);
+  ui.find(n=>n.props['aria-label']==='路线').props.onClick();ui.render();assert(panel());
+  ui.find(n=>n.props['aria-label']==='路线').props.onClick();ui.render();assert(!panel());
+  ui.find(n=>n.props['aria-label']==='路线').props.onClick();ui.render();assert(panel());
+  ui.find(n=>n.props['aria-label']==='路线').props.onClick();ui.render();assert(!panel());
+  props.disabled=true;ui.render();assert(!panel());
+  assert.deepEqual(calls,[]);
 });
 
 test('battle predictions replace priority labels and rank routes within each phase without changing selections',()=>{
@@ -76,30 +103,36 @@ test('other gauges stay folded and cannot be selected until explicitly expanded;
   assert.deepEqual(toggles().map(n=>n.props['aria-expanded']),[true,false],'expansion from another map cannot leak');
 });
 
-test('next-route shortcut stays hidden until enabled and cycles only within the selected gauge',()=>{
+test('reset button clears any selected route and closes the picker without changing gauge',()=>{
   const options=require('../../src/domain/routes/route_plans').recommendedOptions('5-6'),calls=[];
-  const first=options.filter(o=>o.phase==='gauge1'),third=options.filter(o=>o.phase==='gauge3');
+  const first=options.filter(o=>o.phase==='gauge1'&&!o.fallback);
   const props={area:'5-6',options,value:first.at(-1).key,currentPhase:'gauge3',onChange:key=>calls.push(key)},ui=harness(props);
-  const next=()=>ui.find(n=>n.props['aria-label']==='下一条路线');
-  assert(!next());props.showNext=true;ui.render();assert(next());
-  next().props.onClick();assert.deepEqual(calls,[first[0].key],'wrapping cannot advance to another gauge');
-  props.value=first[0].key;ui.render();next().props.onClick();assert.equal(calls.at(-1),first[1].key);
-  props.value='';ui.render();next().props.onClick();assert.equal(calls.at(-1),third[0].key,'an empty selection starts in the active gauge');
-  props.disabled=true;ui.render();assert(next().props.disabled);const count=calls.length;next().props.onClick();assert.equal(calls.length,count);
-  props.disabled=false;props.hidden=true;ui.render();next().props.onClick();assert.equal(calls.length,count);
+  const reset=()=>ui.find(n=>n.props['aria-label']==='重置路线');
+  assert(reset());ui.open();reset().props.onClick();ui.render();assert.deepEqual(calls,['']);
+  assert(!ui.find(n=>n.props.role==='dialog'));
+  props.value='';ui.render();assert(reset());assert(reset().props.disabled);
+  reset().props.onClick();assert.deepEqual(calls,['']);
+  props.value=first[0].key;props.disabled=true;ui.render();assert(reset().props.disabled);
+  reset().props.onClick();assert.deepEqual(calls,['']);
+  props.disabled=false;props.hidden=true;ui.render();reset().props.onClick();assert.deepEqual(calls,['']);
 });
 
-test('next-route shortcut hides with no alternative and skips unavailable routes',()=>{
+test('adaptive result is display-only, cannot be selected, and can be reset',()=>{
+  const options=require('../../src/domain/routes/route_plans').recommendedOptions('1-2'),fallback=options.find(o=>o.fallback);
+  const curated=options.filter(o=>!o.fallback),calls=[];
+  const props={area:'1-2',options,value:fallback.key,onChange:key=>calls.push(key)},ui=harness(props);
+  assert.match(ui.find(n=>n.props.className==='paa-wb-route-name').children.join(''),/自适应路线/);
+  ui.open();assert(!ui.find(n=>n.props.role==='option'&&n.props.key===fallback.key));
+  assert(ui.find(n=>n.props.role==='option'&&n.props.key===curated[0].key));
+  const reset=ui.find(n=>n.props['aria-label']==='重置路线');assert(reset);reset.props.onClick();
+  assert.deepEqual(calls,['']);assert(!calls.includes(fallback.key));
+});
+
+test('reset remains available for a single route, including an unavailable one',()=>{
   const only={key:'only',name:'唯一路线',nodes:['A','B']},calls=[];
-  const props={options:[only],value:'only',showNext:true,onChange:key=>calls.push(key)},ui=harness(props);
-  const next=()=>ui.find(n=>n.props['aria-label']==='下一条路线');
-  assert(!next());props.value='';ui.render();assert(next());ui.open();next().props.onClick();ui.render();
-  assert.deepEqual(calls,['only']);assert(!ui.find(n=>n.props.role==='dialog'));
-  props.options=[];ui.render();assert(!next());
-  props.options=[only,{key:'bad',name:'条件未满足',status:'notFound'},{key:'unknown',name:'待确认',status:'unconfirmed'},
-    {key:'good',name:'可用路线',status:'available'}];props.value='only';ui.render();
-  next().props.onClick();assert.equal(calls.at(-1),'good');
-  props.options=props.options.filter(o=>o.key!=='good');ui.render();assert(!next());
+  const props={options:[{...only,status:'notFound'}],value:'only',onChange:key=>calls.push(key)},ui=harness(props);
+  const reset=ui.find(n=>n.props['aria-label']==='重置路线');assert(reset);reset.props.onClick();
+  assert.deepEqual(calls,['']);
 });
 
 test('failed or unconfirmed route choices are disabled until their status is cleared',()=>{

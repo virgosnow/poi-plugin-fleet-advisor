@@ -140,7 +140,7 @@ const nodePopoverRef=focus=>{
 };
 
 module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,disabled,
-  mapMode='actual',zoomed=false,onMode,onZoom,onExpand,idSuffix='',onAssetError,assetError,mapAsset,compact=false,fixedNodes=false,showDetails=true,nodePopup=false,enemyPortrait,showPaths=true,onBackground,textOnly=false}){
+  mapMode='actual',zoomed=false,onMode,onZoom,onExpand,onPreviousRoute,onNextRoute,idSuffix='',onAssetError,assetError,mapAsset,compact=false,fixedNodes=false,showDetails=true,nodePopup=false,enemyPortrait,showPaths=true,onBackground,textOnly=false}){
   const compactColors={battle:'#ff767b',nightBattle:'#b180ed',asw:'#ff767b',aerialCombat:'#ff767b',aerialRaid:'#ff767b',airRecon:'#b8d16b',resources:'#9bd65c',whirlpool:'#d2baff',noBattle:'#53c9ee',activeBranch:'#53c9ee',start:'#53c9ee',unknown:'#d9e1ea'};
   const compactBackgrounds={battle:'#482d38',asw:'#482d38',nightBattle:'#3e2d5c',whirlpool:'#443c5b',aerialCombat:'#253646',aerialRaid:'#3f2d38',resources:'#30472e',airRecon:'#354329',noBattle:'#203e50',activeBranch:'#203e50',start:'#203e50'};
   const nodeColor=(kind,type)=>compact?(compactColors[canonicalKind(kind)]||type.color):type.color;
@@ -270,6 +270,10 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
         'data-tooltip':'放大海域地图','aria-label':'放大海域地图','aria-haspopup':'dialog'},
         h('svg',{viewBox:'0 0 24 24',width:18,height:18,'aria-hidden':true,fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round'},
           h('circle',{cx:10,cy:10,r:6.5}),h('path',{d:'m15 15 5 5 M7 10h6 M10 7v6'}))):null,
+      onExpand?h('div',{className:'paa-map-route-controls','aria-label':'切换路线'},
+        ...[[onPreviousRoute,'上一条路线','m5 13 7-7 7 7'],[onNextRoute,'下一条路线','m5 11 7 7 7-7']].map(([action,label,path])=>
+          h('button',{key:label,type:'button',disabled:disabled||!action,onClick:action||undefined,'aria-label':label,'data-tooltip':label},
+            h('svg',{viewBox:'0 0 24 24',width:18,height:18,fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:path}))))):null,
       nodePopup&&detail?h('div',{className:'paa-map-node-popover',ref:nodePopoverRef(focus),role:'region','aria-label':'节点详情','aria-live':'polite'},
         h('button',{type:'button',className:'paa-map-popover-close','aria-label':'关闭节点详情',onClick:()=>onBackground?.()},'×'),...detail):null),
     h('div',{className:'paa-map-legend','aria-label':'地图节点图例'},

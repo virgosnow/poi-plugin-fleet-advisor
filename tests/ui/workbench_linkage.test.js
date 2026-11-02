@@ -111,7 +111,7 @@ test('expedition single-ship replacement fits drums without searching or replaci
   assert(result.eligible);assert.equal(result.greatSuccess.drums,5);assert(result.greatSuccess.drumCarriers>=3);
 });
 
-test('unlock prerequisite links navigate expeditions, clear drafts and do not start recommendations',()=>{
+test('expedition chain navigation preserves drafts and does not start recommendations',()=>{
   const h=harness('expedition'),missions=require('../../src/domain/expeditions/expeditions').listExpeditions(h.store);
   h.set('catalog',missions);h.set('missionId',43);
   h.store.expeditionProgress={period:'2026-10',records:{},list:{period:'2026-10',ids:[],catalogIds:missions.map(m=>m.missionId)}};
@@ -125,12 +125,12 @@ test('unlock prerequisite links navigate expeditions, clear drafts and do not st
   h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);h.set('excluded',[8]);h.set('choices',[{key:'old'}]);
   h.set('search','旧搜索');h.set('popup',{index:0});
   navigate();
-  assert.equal(h.get('missionId'),42);assert(h.get('slots').every(s=>s===null));assert.deepEqual(h.get('choices'),[]);
+  assert.equal(h.get('missionId'),42);assert.equal(h.get('slots')[0].id,2);assert.deepEqual(h.get('choices'),[]);
   assert.deepEqual(h.get('excluded'),[]);assert.equal(h.get('popup'),null);assert.equal(h.get('draftContext'),null);
   for(const name of ['search',])assert.equal(h.get(name),'');
   assert.equal(h.find(h.render(),n=>n.type?.name==='AreaPicker').props.value,42);
   assert(h.find(h.render(),n=>n.props['data-mission-id']===41),'locked prerequisite can continue to its own prerequisite');
-  h.set('missionId',23);
+  h.find(h.render(),n=>n.type?.name==='AreaPicker').props.onChange(23);
   const map=h.find(h.render(),n=>n.type==='span'&&n.children.includes('通关海域 1-5'));
   assert(map);assert.equal(map.props.onClick,undefined);
   assert.equal(searches,0);assert.equal(JSON.stringify(h.store),before);
@@ -234,6 +234,17 @@ test('map node selection never replaces route-level combat assessment or its two
   h.set('nodeId','C');assert.equal(text(section()),before);
   h.set('nodeId',null);assert.equal(text(section()),before);
   assert.equal(h.calls.fleet+h.calls.equipment,0);
+});
+
+test('combat prediction displays a compact final-stage note only on the selected relevant route',()=>{
+  const h=harness();h.set('area','3-5');
+  const option=W.mapOverview('3-5').options.find(o=>require('../../src/domain/routes/route_plans').optionPaths(o).some(p=>p.includes('H')));
+  assert(option);h.set('mapRoute',option.key);
+  const section=()=>h.find(h.render(),n=>n.props.className==='paa-wb-threat');
+  const note=h.find(section(),n=>n.props.className==='paa-balance-stage-note');
+  assert(note);assert.match(note.children.join(''),/斩杀阶段敌方编成会变化/);
+  h.set('area','1-1');h.set('mapRoute',W.mapOverview('1-1').options[0].key);
+  assert.equal(h.find(section(),n=>n.props.className==='paa-balance-stage-note'),undefined);
 });
 
 test('battle comparison result appears beside its heading without hover details',t=>{
@@ -565,43 +576,58 @@ test('automatic completion leaves the route unset when no route has a reachable 
   assert(!h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog'));
 });
 
-test('failed compatibility search opens a dismissible dialog and preserves the existing draft',async()=>{
+test('adaptive routes cannot be selected manually, even after a successful preset search',async()=>{
   const h=harness(),plans=require('../../src/domain/routes/route_plans');h.set('area','1-2');
-  const options=plans.recommendedOptions('1-2'),fallback=options.find(option=>option.fallback),guide=options.find(option=>!option.fallback);
+  const options=plans.recommendedOptions('1-2'),fallback=options.find(option=>option.fallback),guide=options.find(option=>!option.fallback),queries=[];
   const row={routeKey:guide.key,scheme:W.scheme([W.entry(h.store,2)],1)};
-  h.service.recommendNormalFleet=args=>args.routeKey?
-    {routeResults:[{...fallback,status:'notFound',chance:null}],recommendations:[],reason:'自适应路线没有符合条件的编成'}:
-    {routeResults:[{...guide,status:'available',chance:{probability:1},recommendationIndex:0},
-      {...fallback,status:'notSearched',chance:null}],recommendations:[row]};
+  h.service.recommendNormalFleet=args=>{queries.push(args);return {routeResults:[{...guide,status:'available',chance:{probability:1},recommendationIndex:0}],recommendations:[row]};};
   await h.find(h.render(),node=>node.props.className==='paa-wb-complete').props.onClick();
   const before=JSON.stringify(h.get('slots'));
   await h.find(h.render(),node=>node.type?.name==='RoutePicker').props.onChange(fallback.key);
-  const dialog=h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog');
-  assert(dialog);assert(h.find(dialog,node=>node.children.includes('自适应路线在本轮搜索中未找到符合条件的编成。')));
-  assert.equal(JSON.stringify(h.get('slots')),before);
-  dialog.props.onCancel({preventDefault(){}});
-  assert(!h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog'));
+  assert.equal(queries.length,1);assert.equal(h.get('mapRoute'),guide.key);
+  assert.equal(JSON.stringify(h.get('slots')),before);assert(!h.find(h.render(),node=>node.props.className==='paa-wb-no-plan-dialog'));
 });
 
-test('selecting the compatibility option searches it independently and preserves the curated choices',async()=>{
+test('completion automatically displays the adaptive result after all presets fail, including a preselected preset',async()=>{
   const h=harness(),plans=require('../../src/domain/routes/route_plans');h.set('area','1-2');
   const options=plans.recommendedOptions('1-2'),fallback=options.find(option=>option.fallback),guide=options.find(option=>!option.fallback),queries=[];
-  const row=option=>({routeKey:option.key,scheme:W.scheme([W.entry(h.store,2)],1)});
+  const pinned={...W.entry(h.store,2),pin:true,preselected:true,preselectionComplete:false};
+  h.set('slots',[pinned,null,null,null,null,null]);h.set('mapRoute',guide.key);
   h.service.recommendNormalFleet=args=>{
     queries.push(args);
-    if(args.routeKey)return {routeResults:[{...fallback,status:'available',chance:{probability:.7},recommendationIndex:0}],recommendations:[row(fallback)]};
-    return {routeResults:[{...guide,status:'available',chance:{probability:1},recommendationIndex:0},
-      {...fallback,status:'notSearched',chance:null,recommendationIndex:null}],recommendations:[row(guide)]};
+    if(queries.length>1)return {routeResults:[{...guide,status:'available',chance:{probability:1},recommendationIndex:0}],
+      recommendations:[{routeKey:guide.key,scheme:W.scheme([pinned],1)}]};
+    return {routeResults:[{...guide,status:'notFound',chance:null,recommendationIndex:null},
+      {...fallback,status:'available',chance:{probability:.7},recommendationIndex:0}],
+      recommendations:[{routeKey:fallback.key,scheme:W.scheme([pinned],1)}]};
   };
   await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
-  assert.equal(h.get('mapRoute'),guide.key);assert.equal(queries[0].routeKey,undefined);
-  const picker=h.find(h.render(),node=>node.type?.name==='RoutePicker');
-  await picker.props.onChange(fallback.key);h.render();
-  assert.equal(queries.length,2,'the ordinary result cache must not masquerade as a compatibility search');
-  assert.equal(queries[1].routeKey,fallback.key);assert.equal(h.get('mapRoute'),fallback.key);
-  assert(h.get('choices').some(choice=>choice.key===guide.key),'the previous curated result remains available');
+  h.render();assert.equal(queries.length,1);assert.equal(queries[0].routeKey,undefined);
+  assert.deepEqual(queries[0].fixedShipIds,[2]);assert.equal(h.get('mapRoute'),fallback.key);
+  assert(h.get('slots').some(slot=>slot?.id===2));
   assert(h.get('choices').some(choice=>choice.key===fallback.key&&choice.status==='available'));
   assert.equal(h.get('error'),'');
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert.equal(queries.length,2);assert.equal(queries[1].routeKey,undefined);
+  assert.equal(h.get('mapRoute'),guide.key,'a later successful preset replaces the temporary adaptive result');
+  assert.equal(h.get('error'),'');
+});
+
+test('automatic switching without a cached plan searches only the chosen preset',async()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans');h.set('area','1-2');
+  const guides=plans.recommendedOptions('1-2').filter(option=>!option.fallback),queries=[];
+  h.service.recommendNormalFleet=args=>{
+    queries.push(args);
+    if(args.routeKey)return {routeResults:[{...guides[1],status:'notFound',chance:null}],recommendations:[]};
+    return {routeResults:[{...guides[0],status:'available',chance:{probability:1},recommendationIndex:0}],
+      recommendations:[{routeKey:guides[0].key,scheme:W.scheme([W.entry(h.store,2)],1)}]};
+  };
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  const before=JSON.stringify(h.get('slots'));
+  await h.find(h.render(),n=>n.type?.name==='RoutePicker').props.onChange(guides[1].key);
+  assert.equal(queries.length,2);assert.equal(queries[1].routeKey,guides[1].key);
+  assert.equal(JSON.stringify(h.get('slots')),before,'failed automatic switch preserves the draft');
+  assert(!String(h.get('mapRoute')).startsWith('fallback:'));
 });
 
 test('a route missing from a completed recommendation is marked unknown instead of pending',async()=>{
@@ -642,13 +668,15 @@ test('saved route drafts do not serialize the account store or master data',asyn
   assert.equal(draft.snapshotInfo,undefined);assert.equal(draft.snapshotMaster,undefined);
 });
 
-test('next-route shortcut requires another selectable route in the selected stage',()=>{
+test('resetting a route keeps its selected gauge and preserves the draft',async()=>{
   const h=harness(),plans=require('../../src/domain/routes/route_plans');h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};
-  const options=plans.recommendedOptions('5-6'),third=options.filter(o=>o.phase==='gauge3');assert(third.length>1);
-  h.set('mapRoute',third[0].key);h.set('choices',third.map((o,i)=>({...o,status:i===0?'available':'notFound',row:i===0?{}:null})));
-  const picker=()=>h.find(h.render(),n=>n.type?.name==='RoutePicker');assert.equal(picker().props.showNext,false);
-  h.set('choices',third.map((o,i)=>({...o,status:i<2?'available':'notFound',row:i<2?{}:null})));assert.equal(picker().props.showNext,true);
-  h.set('choices',third.map((o,i)=>({...o,status:i===0?'available':'unconfirmed',row:i===0?{}:null})));assert.equal(picker().props.showNext,false);
+  const first=plans.recommendedOptions('5-6','boss','gauge1').filter(o=>!o.fallback);
+  h.set('mapRoute',first[0].key);h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
+  const before=JSON.stringify(h.get('slots'));
+  const picker=h.find(h.render(),n=>n.type?.name==='RoutePicker');
+  assert.equal(picker.props.value,first[0].key);await picker.props.onChange('');
+  assert.equal(h.get('mapRoute'),'');assert.equal(h.get('routePhaseAnchor'),'gauge1');
+  assert.equal(JSON.stringify(h.get('slots')),before);assert.equal(h.calls.fleet+h.calls.equipment,0);
 });
 
 test('changing phases clears prior unavailable route results',async()=>{
@@ -682,17 +710,18 @@ test('blocked ship replacement shows red routing reasons without searching or sw
   }
 });
 
-test('next-route shortcut survives ship replacement and reflects the current gauge catalogue',async()=>{
+test('route reset remains available after replacing a ship and clearing stale recommendations',async()=>{
   const h=harness(),plans=require('../../src/domain/routes/route_plans'),routes=plans.recommendedOptions('3-5');
   h.set('slots',[{...W.entry(h.store,2),pin:true},W.entry(h.store,1),null,null,null,null]);
   h.set('mapRoute',routes[0].key);h.set('choices',routes.map((o,i)=>({...o,status:i===1?'notFound':'available',row:{}})));
   const picker=()=>h.find(h.render(),n=>n.type?.name==='RoutePicker');
-  assert(picker().props.showNext);h.set('popup',{index:1});
+  assert.equal(picker().props.value,routes[0].key);h.set('popup',{index:1});
   const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
   await list.children.find(n=>n?.type==='button'&&n.props.key===3).props.onClick();
   assert.equal(h.calls.equipment,1);assert.equal(h.get('choices').length,1);assert.equal(h.get('choices')[0].status,'notFound');
-  assert(picker().props.showNext,'route shortcuts survive replacing the ship and clearing stale recommendations');
-  assert(picker().props.options.some(o=>o.key!==routes[0].key));
+  assert.equal(picker().props.value,routes[0].key);
+  const before=JSON.stringify(h.get('slots'));await picker().props.onChange('');
+  assert.equal(h.get('mapRoute'),'');assert.equal(JSON.stringify(h.get('slots')),before);
 });
 
 test('selecting another gauge before completion only selects the route; late completion cannot refill a changed map',async()=>{
@@ -1758,6 +1787,20 @@ test('expanded map keeps the selected route and node without changing the fleet 
   dialog.props.onCancel({preventDefault(){}});tree=h.render();
   assert(!h.find(tree,n=>n.type==='dialog'));assert.equal(h.get('mapRoute'),'guide:3-5-01');
   assert.equal(JSON.stringify(h.get('slots')),before);assert.equal(h.calls.fleet,0);
+});
+
+test('map route arrows select neighboring routes without applying a fleet',()=>{
+  const h=harness();h.set('area','1-4');let tree=h.render();
+  const previous=h.find(tree,n=>n.props['aria-label']==='上一条路线');
+  const next=h.find(tree,n=>n.props['aria-label']==='下一条路线');
+  assert(previous&&!previous.props.disabled);assert(next&&!next.props.disabled);
+  const viewport=h.find(tree,n=>n.props.className==='paa-map-viewport');
+  assert(viewport.children.some(n=>n?.props?.className==='paa-map-route-controls'));
+  next.props.onClick();tree=h.render();const first=h.get('mapRoute');assert(first);
+  h.find(tree,n=>n.props['aria-label']==='下一条路线').props.onClick();tree=h.render();
+  assert.notEqual(h.get('mapRoute'),first);
+  h.find(tree,n=>n.props['aria-label']==='上一条路线').props.onClick();h.render();
+  assert.equal(h.get('mapRoute'),first);assert.equal(h.calls.fleet,0);
 });
 
 test('ship cards retain editable empty slots and controls without loadout explanations or donor provenance',()=>{

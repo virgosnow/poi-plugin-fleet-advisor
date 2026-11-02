@@ -248,10 +248,11 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       setTarget(selected?.bossNodes?.length?'boss':selected?.terminalNodes?.[0]||'boss');
       setPhase('');setCombatDeferredPhase('');setRoutePhaseAnchor('');setPurpose('clear');setMapRoute('');setPathIndex(0);setNodeId(null);
     };
-    const changeMission=value=>{
+    const changeMission=(value,{preserveDraft=false}={})=>{
       value=Number(value);if(value===missionId)return;
       operation.current++;routeCache.current=null;prepared.current=false;resultViews.current.clear();
-      commit(blank());setChoices([]);setSelectedQuests([]);setExcluded([]);setPopup(null);setNoPlan('');setSearch('');
+      if(preserveDraft){setReport({valid:false});setError('');setNotice('');}else commit(blank());
+      setChoices([]);setSelectedQuests([]);setExcluded([]);setPopup(null);setNoPlan('');setSearch('');
       setWorking(false);setActivity('');
       setShipType('all');setEquipmentCategory('all');setMissionId(value);setGoal(defaultGoal);
     };
@@ -403,7 +404,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const generation=++routeCombatGeneration.current,context=routeCombatContext.current,service=getController();
       const initialInfo=initialStore.info,initialMaster=initialStore.const;
       routeCombatSnapshot.current={info:initialInfo,master:initialMaster,signature};
-      const routeOptions=require('../../domain/routes/route_plans').recommendedOptions(area,target,undefined,selectionSettings,initialStore);
+      const routeOptions=require('../../domain/routes/route_plans').recommendedOptions(area,target,undefined,selectionSettings,initialStore)
+        .filter(option=>!option.fallback||found.routeResults?.some(row=>row.key===option.key&&row.status==='available'));
       const current=requestedPhase||'';
       const currentKeys=new Set(routeOptions.filter(option=>(option.phase||'')===current).map(option=>option.key));
       setBatchRouteChoices(previous=>Object.fromEntries(Object.entries(previous).filter(([key])=>!currentKeys.has(key))));
@@ -440,9 +442,10 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const combatSignature=JSON.stringify([kind,area,target,purpose,missionId,requestedGoal,fleet,excluded,filterKey,holds,selectedQuests]);
       const previousCombat=routeCombatSnapshot.current;
       if(kind==='normal'&&!automatic&&previousCombat&&(previousCombat.info!==initialInfo||previousCombat.master!==initialMaster||previousCombat.signature!==combatSignature))invalidateRouteCombat();
-      const fallbackRequest=kind==='normal'&&String(requestedRoute||'').startsWith('fallback:');
-      const signature=kind==='expedition'?JSON.stringify([cacheKey('both'),revision]):fallbackRequest?
-        JSON.stringify([cacheKey(requestedGoal,requestedPhase),requestedRoute]):cacheKey(requestedGoal,requestedPhase);
+      const routeOnly=kind==='normal'&&automatic&&requestedRoute&&!String(requestedRoute).startsWith('fallback:');
+      const fullSignature=cacheKey(requestedGoal,requestedPhase);
+      const signature=kind==='expedition'?JSON.stringify([cacheKey('both'),revision]):routeOnly?
+        JSON.stringify([fullSignature,requestedRoute]):fullSignature;
       publishCalculation(progress.update({stage:'prepare'}));
       const progressTimer=startProgressTimer(progress,()=>progressActive&&alive.current&&token===operation.current);
       setWorking(true);setActivity(automatic?'route':'complete');setNotice('');setError('');setPopup(null);setNoPlan('');
@@ -455,16 +458,18 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
             throw Error('所选任务已变化或未同步，请重新选择任务');
         }
         const stamp=kind==='expedition'?require('../../application/snapshots').fingerprint(initialStore):null;
-        const cached=routeCache.current?.get(signature);
+        const fullCached=routeOnly?routeCache.current?.get(fullSignature):null;
+        const cached=routeCache.current?.get(signature)||((fullCached?.found?.routeResults?.some(row=>row.key===requestedRoute)||
+          fullCached?.found?.recommendations?.some(row=>row.routeKey===requestedRoute))?fullCached:null);
         let found;
-        if((automatic||kind==='expedition')&&cached?.key===signature&&cached.info===initialInfo&&cached.master===initialMaster&&
+        if((automatic||kind==='expedition')&&cached&&(cached.key===signature||routeOnly&&cached.key===fullSignature)&&cached.info===initialInfo&&cached.master===initialMaster&&
           (kind!=='expedition'||cached.stamp===stamp&&cached.found.goals?.[requestedGoal]))found=kind==='expedition'?{...cached.found,...cached.found.goals[requestedGoal]}:cached.found;
         else{
           const service=getController();
           const query={fleet,fixedShipIds:slots.filter(s=>s&&(s.pin||Object.keys(s.keep).length)).map(s=>s.id),excludedShipIds:excluded,
             ...(selectedQuests.length?{questCodes:selectedQuests}: {})};
           const onProgress=value=>{if(progressActive&&alive.current&&token===operation.current)publishCalculation(progress.update(value));};
-          if(kind==='normal')found=await requestNormalRoute(service,{...query,area,target,phase:requestedPhase||undefined,...(fallbackRequest?{routeKey:requestedRoute}:{}),
+          if(kind==='normal')found=await requestNormalRoute(service,{...query,area,target,phase:requestedPhase||undefined,...(routeOnly?{routeKey:requestedRoute}:{}),
             airGoal:'superiority',heldSlots:W.recommendationHolds(slots,{preservePositions:false})},signature,initialStore,onProgress);
           else {const {snapshotId}=service.createSnapshot();found=await service.recommendExpeditionFleet({...query,snapshotId,limit:3,missionId,goal:requestedGoal,heldSlots:W.recommendationHolds(slots),
               ...(slots[0]&&(slots[0].pin||Object.keys(slots[0].keep).length)?{fixedFlagshipId:slots[0].id}:{})},onProgress);}
@@ -482,19 +487,21 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         // Keep recent gauges available when switching back, with the same
         // snapshot, filters and manual constraints. Bound retained full fleets.
         while(routeCache.current.size>8)routeCache.current.delete(routeCache.current.keys().next().value);
-        const options=W.routeChoices(found);setChoices(previous=>previous.filter(c=>(fallbackRequest||['notFound','unconfirmed'].includes(c.status))&&!options.some(o=>o.key===c.key)).concat(options));
+        const options=W.routeChoices(found);setChoices(previous=>previous.filter(c=>(routeOnly||['notFound','unconfirmed'].includes(c.status))&&!options.some(o=>o.key===c.key)).concat(options));
         if(kind==='normal'&&!automatic){setCombatDeferredPhase('');startRouteCombat(found,requestedPhase,initialStore,combatSignature);}
         // Without an explicit selection, the route catalogue can begin with a
         // route for which the search found no fleet (for example 1-5's
         // coastal-defence route). Select the first result that has both an
         // arrival chance and a matching recommendation instead.
-        const selectedKey=requestedRoute||found.routeResults?.find(result=>result.chance&&
+        const rescue=found.routeResults?.find(result=>result.fallback&&result.chance&&found.recommendations?.some(row=>row.routeKey===result.key));
+        const preferredRoute=String(requestedRoute||'').startsWith('fallback:')?'':requestedRoute;
+        const selectedKey=rescue?.key||preferredRoute||found.routeResults?.find(result=>result.chance&&
           found.recommendations?.some(row=>row.routeKey===result.key))?.key||
           (!found.routeResults?.length?found.recommendations?.[0]?.routeKey:undefined);
         const routeResult=found.routeResults?.find(r=>r.key===selectedKey);
         if(kind==='normal'&&!found.recommendations?.length){
           const message=found.reason||found.message||'当前条件下没有可到达的路线方案，请调整固定舰娘或目标';
-          setError(message);setNoPlan({message:fallbackRequest?'自适应路线在本轮搜索中未找到符合条件的编成。':'本轮未找到符合路线和当前条件的编成。',
+          setError(message);setNoPlan({message:'本轮未找到符合路线和当前条件的编成。',
             hint:'可以调整任务勾选、固定舰娘或筛选条件后重试。当前编成已保留。'});
           if(routeResult&&!routeResult.chance)setMapRoute(selectedKey);
           return;
@@ -598,6 +605,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const dirty=report.settingsKey!==JSON.stringify(settings)||JSON.stringify(report.scheme)!==JSON.stringify(W.scheme(slots,fleet));
       const overview=kind==='normal'?W.mapOverview(area,target,phase,selectionSettings,store):null;
       const mapProfile=overview?W.selectedMapProfile(overview,mapRoute,dirty?null:report.profile,!dirty&&report.valid?report.route:null,rows.length>0,store):null;
+      const finalStageNotice=mapRoute?W.finalStageNotice(mapProfile):'';
       const preselecting=kind==='normal'&&!prepared.current&&slots.some(Boolean);
       const speedReading=kind==='expedition'?null:fleetSpeed(store,preselecting?[]:slots);
       const mechanisms=kind==='expedition'?E.shipBadges(expeditionStatus):preselecting?new Map():fleetMechanisms(store,slots,speedReading,mapProfile);
@@ -662,9 +670,9 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         summary.los.tooltipContent=JSON.stringify(T.los(dirty?null:report.metrics?.lineOfSight,summary.los));
       }
       const changeSummary=rows.length&&!dirty&&report.valid?W.changeSummary(store,slots,fleet):'';
-      return {contextKey:conditionKey,effectivePhase,changeSummary,rows,rowById,expeditionStatus,mission,map,expedition,rate,income,dirty,overview,mapProfile,speedReading,speedRequirement,mechanisms,combat,currentDraftCombat,threat,targetThreat,targetNonCombat,progress,routeOptions,selectedRoute,arrival,routeIssue,routeRequirements,routeSearchFailed,reasons,checks,summary};
+      return {contextKey:conditionKey,effectivePhase,changeSummary,rows,rowById,expeditionStatus,mission,map,expedition,rate,income,dirty,overview,mapProfile,finalStageNotice,speedReading,speedRequirement,mechanisms,combat,currentDraftCombat,threat,targetThreat,targetNonCombat,progress,routeOptions,selectedRoute,arrival,routeIssue,routeRequirements,routeSearchFailed,reasons,checks,summary};
     });
-    const {changeSummary,rows,rowById,expeditionStatus,mission,map,expedition,rate,income,dirty,overview,mapProfile,speedReading,speedRequirement,mechanisms,combat,currentDraftCombat,threat,targetThreat,targetNonCombat,progress,routeOptions,selectedRoute,arrival,routeIssue,routeRequirements,routeSearchFailed,reasons,checks,summary}=data||{rows:[],dirty:false,routeOptions:[]};
+    const {changeSummary,rows,rowById,expeditionStatus,mission,map,expedition,rate,income,dirty,overview,mapProfile,finalStageNotice,speedReading,speedRequirement,mechanisms,combat,currentDraftCombat,threat,targetThreat,targetNonCombat,progress,routeOptions,selectedRoute,arrival,routeIssue,routeRequirements,routeSearchFailed,reasons,checks,summary}=data||{rows:[],dirty:false,routeOptions:[]};
     React.useEffect(()=>{
       if(!paused&&!resumePending.current&&kind==='normal'&&mapRoute&&!routeOptions.some(o=>o.key===mapRoute))setMapRoute('');
     },[paused,kind,area,target,phase,mapRoute,store.info?.maps]);
@@ -757,10 +765,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     };
     const field=(label,value,onChange,options,route)=>h('label',{className:'paa-wb-field','data-route-caption':!!route},h('span',null,label),h('select',{'aria-label':label,value,disabled,onChange:e=>onChange(e.target.value)},...options.map(([value,name,optionDisabled])=>h('option',{key:value,value,disabled:optionDisabled},name))),
       route?h('span',{className:'paa-wb-route-caption','aria-hidden':true},h('span',{className:'paa-wb-route-name'},route.name),h('span',{className:'paa-wb-route-path'},`（${route.displayPathLabel||route.strategy?.pathLabel||route.pathLabel||route.nodes.join('→')}）`)):null);
-    const normalRouteControl=kind==='normal'?h(RoutePicker,{options:routeOptions,value:mapRoute,area,disabled,hidden,
-      showNext:routeOptions.some(option=>(option.phase||'')===(selectedRoute?.phase||effectivePhase||'')&&option.key!==mapRoute&&!['notFound','unconfirmed'].includes(option.status)),
-      currentPhase:require('../../domain/routes/route_plans').currentPhase(area,store),onChange:value=>{
-        if(disabled||routeOptions.some(option=>option.key===value&&['notFound','unconfirmed'].includes(option.status)))return;
+    const changeRoute=value=>{
+        if(disabled||routeOptions.some(option=>option.key===value&&(option.fallback||['notFound','unconfirmed'].includes(option.status))))return;
         const nextPhase=routeOptions.find(option=>option.key===value)?.phase||phaseForRoute(value);
         if(value&&nextPhase!==effectivePhase){
           // A gauge is a fresh composition: don't carry a saved fleet, fixed
@@ -802,7 +808,12 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         inspectSelection(value);setMapRoute(value);setNodeId(null);
         if((!combatDeferredPhase||combatDeferredPhase!==phaseForRoute(value))&&prepared.current&&
           (draftContext===conditionKey||!slots.some(Boolean)))return complete(style,true,value);
-      }}):null;
+      };
+    const normalRouteControl=kind==='normal'?h(RoutePicker,{options:routeOptions,value:mapRoute,area,disabled,hidden,
+      currentPhase:require('../../domain/routes/route_plans').currentPhase(area,store),onChange:changeRoute}):null;
+    const routeNeighbor=require('../components/route_picker').routeNeighbor;
+    const previousRoute=kind==='normal'?routeNeighbor(routeOptions,mapRoute,effectivePhase,-1):null;
+    const nextRoute=kind==='normal'?routeNeighbor(routeOptions,mapRoute,effectivePhase,1):null;
     const contextControls=h('div',{className:'paa-wb-context-controls'},
         kind==='normal'?h(AreaPicker,{maps:catalog,mapMasters:store.const.$maps,value:area,onChange:changeArea,disabled,hidden}):
         h(React.Fragment,null,h(AreaPicker,{kind:'expedition',missions:catalog,missionMasters:store.const.$missions,missionProgress:store.expeditionProgress,fleets:store.info.fleets,useItems:store.const.$useitems,value:missionId,onChange:changeMission,disabled,hidden}),expeditionView.goal({value:goal,onChange:changeGoal,disabled})),normalRouteControl);
@@ -814,9 +825,9 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const rendered=h('div',{className:'paa-workbench','data-kind':kind,hidden},
       h('div',{className:'paa-wb-columns'},
         h('section',{className:'paa-wb-left'},contextControls,
-          kind==='expedition'?stableResult('expedition',expeditionView.overview({mission,master:store.const.$missions?.[missionId],missionMasters:store.const.$missions,missionProgress:store.expeditionProgress,fleets:store.info.fleets,useItems:store.const.$useitems,expedition,rate,income,goal,hasShips:rows.length>0,incomeUnit,onIncomeUnitChange:setIncomeUnit,onMissionChange:changeMission,disabled})):
+          kind==='expedition'?stableResult('expedition',expeditionView.overview({mission,master:store.const.$missions?.[missionId],missionMasters:store.const.$missions,missionProgress:store.expeditionProgress,fleets:store.info.fleets,useItems:store.const.$useitems,expedition,rate,income,goal,hasShips:rows.length>0,incomeUnit,onIncomeUnitChange:setIncomeUnit,onMissionChange:value=>changeMission(value,{preserveDraft:true}),disabled})):
           h(React.Fragment,null,h('section',{className:'paa-wb-map-section','aria-label':'海域地图与攻略进度'},
-            routePreview(h,{profile:mapProfile,mapAsset,pathIndex:0,nodeId,onPath:setPathIndex,onNode:setNodeId,onBackground:()=>setNodeId(null),onExpand:e=>{e?.currentTarget?.focus({preventScroll:true});setMapExpanded(true);},disabled,compact:true,showDetails:!!nodeId,nodePopup:true,textOnly:true,showPaths:false}),
+            routePreview(h,{profile:mapProfile,mapAsset,pathIndex:0,nodeId,onPath:setPathIndex,onNode:setNodeId,onBackground:()=>setNodeId(null),onExpand:e=>{e?.currentTarget?.focus({preventScroll:true});setMapExpanded(true);},onPreviousRoute:previousRoute?()=>changeRoute(previousRoute):null,onNextRoute:nextRoute?()=>changeRoute(nextRoute):null,disabled,compact:true,showDetails:!!nodeId,nodePopup:true,textOnly:true,showPaths:false}),
             progress?h('div',{className:'paa-wb-progress-list','aria-label':'海域攻略进度','data-has-current':progress.some(gauge=>gauge.isCurrent)},
               ...progress.map(gauge=>h('div',{key:gauge.node,className:'paa-wb-progress','data-state':gauge.state,'aria-current':gauge.isCurrent?'step':undefined,'data-tooltip':gauge.title},
                 h('span',{className:'paa-wb-progress-heading'},routePreview.bossIcon(h,{width:15,height:15}),gauge.label),
@@ -866,6 +877,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
                   onClick:()=>setCombatDetailsOpen(open=>!open)},h('span',{className:'paa-balance-title'},'战况预测'),renderCombatBalance.renderTier(h,combat)):
                   h('h4',null,'战况预测')),
               renderCombatBalance(h,combat),
+              finalStageNotice?h('p',{className:'paa-balance-stage-note'},finalStageNotice):null,
               collapse(h,{id:`${kind}-combat-details`,open:combatDetailsOpen&&!!renderCombatBalance.renderTier(h,combat)},renderCombatBalance.renderDetails(h,combat)),
               h('div',{className:'paa-threat-cards'},h('strong',{className:'paa-threat-title'},'最大威胁'),
                 ...(targetNonCombat?(threat?.enemies?.length?threat.enemies.slice(0,2).map(enemy=>({enemy,item:threat})):[{item:threat}]):

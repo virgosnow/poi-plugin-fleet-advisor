@@ -241,6 +241,23 @@ function selectedMapProfile(overview,selection,actual,route,hasFleet=!!route?.sh
     routePaths:selected,examples:selected.map(p=>p.nodes),threat:selected.length?
       require('../../domain/routes/route_threats').routeThreat(overview.profile.mapPreview.nodes,selected):overview.profile.threat};
 }
+// Use the recorded final formations, not differences in air power. A boss
+// belonging to another gauge is not the selected gauge's final encounter.
+function finalStageNotice(profile){
+  if(!/^\d-\d$/.test(profile?.area||'')||!profile.routePaths?.length)return '';
+  let data;try{data=require(`../../../data/sortie/encounters/${profile.area}.json`);}catch(_){return '';}
+  const targets=new Set(profile.targetNodes||[]);
+  if(!data.gauges?.some(g=>g.mechanism==='bossSunk'&&targets.has(g.bossNode)))return '';
+  const changed=profile.routePaths.some(path=>(path.nodes||[]).some(id=>{
+    const node=data.nodes?.[id];if(!node||node.boss&&!targets.has(id))return false;
+    const patterns=Object.values(node.phases||{}).flatMap(group=>group.patterns||[]);
+    if(patterns.some(row=>row.finalForm===true))return true;
+    const cross=data.crossCheck?.nodes?.[id]?.kcwikiVariants||[];
+    return require('../../domain/combat/encounter_stage').applyCrosscheckEvidence(profile.area,id,cross,patterns)
+      .some(row=>row.finalForm===true&&!row.evidenceConflict);
+  }));
+  return !changed?'':profile.encounterStage==='final'?'当前为斩杀阶段，敌方编成与平时不同':'斩杀阶段敌方编成会变化';
+}
 function mapProgress(store,area){
   const map=require(`../../../data/normal_routes/${area}.json`);
   const catalog=require(`../../../data/sortie/encounters/${area}.json`).gauges||[];
@@ -516,4 +533,4 @@ function fleetSummary(report,profile,routeNodes){
 }
 const income=require('../../domain/expeditions/expedition_income').missionIncome;
 
-module.exports={TYPES,entry,scheme,resolved,roster,prepareReplacementCandidates,replacementCandidates,changeSummary,equipmentOptions,recommendationHolds,merge,withEquipment,projected,inspect,routeChoices,badges,income,mapOverview,selectedMapProfile,routeEdgeProbabilities,mapProgress,displayThreat,displayBossFlagship,fleetSummary,routeArrival,draftRouteIssue,routeSpeedSummary,applicationWarning};
+module.exports={TYPES,entry,scheme,resolved,roster,prepareReplacementCandidates,replacementCandidates,changeSummary,equipmentOptions,recommendationHolds,merge,withEquipment,projected,inspect,routeChoices,badges,income,mapOverview,selectedMapProfile,finalStageNotice,routeEdgeProbabilities,mapProgress,displayThreat,displayBossFlagship,fleetSummary,routeArrival,draftRouteIssue,routeSpeedSummary,applicationWarning};

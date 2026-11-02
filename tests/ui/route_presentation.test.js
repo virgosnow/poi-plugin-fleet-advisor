@@ -34,8 +34,9 @@ test('the route selector uses the compact formula in both selected and popup row
   const options=P.recommendedOptions('2-3');
   const tree=require('../../src/ui/components/route_picker')(React)({options,value:options[0].key,onChange:()=>{}});
   const captions=all(tree,n=>['paa-wb-route-path','paa-route-option-path'].includes(n.props.className));
-  assert.equal(captions.length,options.length+1);
-  assert.deepEqual(captions.map(text),[options[0],...options].map(routeFormula));
+  const visible=options.filter(option=>!option.fallback);
+  assert.equal(captions.length,visible.length+1);
+  assert.deepEqual(captions.map(text),[options[0],...visible].map(routeFormula));
 });
 
 test('merged arrival probabilities render one complete journey and one unchanged chance per list row',()=>{

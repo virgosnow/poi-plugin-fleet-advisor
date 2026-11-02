@@ -30,11 +30,11 @@ function routeGroups(options,currentPhase){
 }
 module.exports=function createRoutePicker(React){
   const h=React.createElement,placementEffect=React.useLayoutEffect||React.useEffect;
-  return function RoutePicker({options=[],value='',onChange,currentPhase,disabled=false,hidden=false,showNext=false,area}){
+  return function RoutePicker({options=[],value='',onChange,currentPhase,disabled=false,hidden=false,area}){
     const [open,setOpen]=React.useState(false),anchor=React.useRef(null),trigger=React.useRef(null),panel=React.useRef(null);
     const [expanded,setExpanded]=React.useState({});
-    const close=()=>{setOpen(false);trigger.current?.focus({preventScroll:true});};
     const show=()=>{setExpanded({});setOpen(true);};
+    const close=()=>{setOpen(false);trigger.current?.focus({preventScroll:true});};
     const choose=key=>{if(disabled||hidden)return;if(key!==value)onChange(key);close();};
     React.useEffect(()=>setOpen(false),[area,disabled,hidden]);
     placementEffect(()=>{
@@ -72,10 +72,9 @@ module.exports=function createRoutePicker(React){
       }
       buttons[(next+buttons.length)%buttons.length]?.focus();
     };
-    const selected=options.find(o=>o.key===value),groups=routeGroups(options,currentPhase);
-    const cycleGroup=groups.find(group=>group.phase===(selected?.phase||currentPhase||''))||groups[0];
-    const cycle=(cycleGroup?.options||[]).filter(option=>!routeBlocked(option)),cycleIndex=cycle.findIndex(option=>option.key===value);
-    const nextRoute=cycle.length?cycle[(cycleIndex+1)%cycle.length]:null;
+    // An automatically selected rescue route can remain the displayed value,
+    // but it is never a manual option or a shortcut destination.
+    const selected=options.find(o=>o.key===value),groups=routeGroups(options.filter(o=>!o.fallback),currentPhase);
     const context=[area,currentPhase,selected?.phase].join(':');
     const isExpanded=group=>groups.length===1||(expanded.context===context&&Object.hasOwn(expanded.phases,group.phase)?
       expanded.phases[group.phase]:group.phase===currentPhase||group.phase===selected?.phase||!currentPhase&&group===groups[0]);
@@ -110,12 +109,24 @@ module.exports=function createRoutePicker(React){
                 h('div',{id,className:'paa-collapse','data-open':expanded,'aria-hidden':!expanded,inert:expanded?undefined:''},
                   h('div',{className:'paa-collapse-clip'},h('div',{className:'paa-route-options'},...rows))));
             })),
-          !options.length?h('p',{className:'paa-muted'},'当前没有推荐路线'):null):null),
-      showNext&&nextRoute&&nextRoute.key!==value?h('button',{type:'button',className:'paa-route-next',disabled:disabled||hidden,
-        'aria-label':'下一条路线','data-tooltip':nextRoute?`下一条：${nextRoute.name}${cycleGroup.phase?'\n仅在'+cycleGroup.label+'内切换':''}`:'没有可切换的路线',
-        onClick:()=>{if(disabled||hidden||!nextRoute||nextRoute.key===value)return;setOpen(false);onChange(nextRoute.key);}},
-        h('svg',{width:16,height:16,viewBox:'-18 -10 296 320',fill:'currentColor','aria-hidden':true},
-          h('path',{d:'M108 9 0 139h69v152h39zM152 9h39v152h68L152 291z'}))):null);
+          !groups.length?h('p',{className:'paa-muted'},'当前没有推荐路线'):null):null),
+      h('button',{type:'button',className:'paa-route-reset',disabled:disabled||hidden||!value,
+        'aria-label':'重置路线','data-tooltip':'取消路线选择',
+        onClick:()=>{if(disabled||hidden||!value)return;setOpen(false);onChange('');}},
+        h('svg',{width:18,height:18,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
+          h('path',{d:'M4 7a6 6 0 1 1 0 6M4 3v4h4'}))));
   };
 };
 module.exports.routeGroups=routeGroups;
+// Follow the same order and availability as the picker, without crossing gauges.
+module.exports.routeNeighbor=(options,value,phase,direction)=>{
+  const rows=routeGroups(options.filter(option=>!option.fallback&&(option.phase||'')===(phase||'')),phase)[0]?.options||[];
+  if(!rows.length)return null;
+  const current=rows.findIndex(option=>option.key===value);
+  for(let step=1;step<=rows.length;step++){
+    const index=current<0?(direction>0?step-1:rows.length-step):(current+direction*step+rows.length*2)%rows.length;
+    const option=rows[index];
+    if(option.key!==value&&!routeBlocked(option))return option.key;
+  }
+  return null;
+};
