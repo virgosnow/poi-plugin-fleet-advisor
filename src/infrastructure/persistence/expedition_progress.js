@@ -1,5 +1,13 @@
 'use strict';
 const fs=require('fs'),path=require('path'),crypto=require('crypto');
+const unlockRules=require('../../../data/expedition_requirements.json').unlocks.missions;
+function downstream(id){
+  const found=new Set(),queue=[Number(id)];
+  while(queue.length){const parent=queue.shift();for(const [key,rule] of Object.entries(unlockRules)){
+    const next=Number(key);if(!found.has(next)&&(rule.missions||[]).includes(parent)){found.add(next);queue.push(next);}
+  }}
+  return found;
+}
 
 // Monthly expeditions reset at noon JST on the 15th, not the quest reset.
 function expeditionPeriod(now=Date.now()){
@@ -70,7 +78,13 @@ class ExpeditionProgress {
         this.observe({path:'/kcsapi/api_get_member/mission',body},current);
         if(newer.length){this.records={...this.records,...Object.fromEntries(newer)};this.save();}
       }
-    }).catch(()=>{/* Keep the last known record; never interrupt the player. */}).finally(()=>{this.loading=null;});
+    }).catch(()=>{/* Keep the last known record; never interrupt the player. */}).finally(()=>{
+      this.loading=null;
+      // A successful return during this read invalidates its snapshot. Retry
+      // once the previous request has settled rather than accepting stale locks.
+      if(!this.closed&&this.key===key&&this.refreshState===state&&this.revision!==revision&&!state.complete)
+        this.refresh(this.getStore());
+    });
   }
   save(){
     if(!this.key)return;
@@ -112,7 +126,15 @@ class ExpeditionProgress {
         const id=departure?.id;
         const master=store.const?.$missions?.[id];
         if(id&&master&&(Number(master.api_reset_type)!==1||departure.period===period)){
-          this.records={...this.records,[id]:{state:2,period}};this.save();
+          this.records={...this.records,[id]:{state:2,period}};
+          // An absent entry in the previous list is no longer proof of a lock
+          // after its prerequisite completes; wait for fresh server evidence.
+          if(this.list?.period===period){const affected=downstream(id);
+            this.list={...this.list,catalogIds:this.list.catalogIds.filter(candidate=>!affected.has(candidate))};}
+          this.revision++;
+          if(this.refreshState?.period===period)Object.assign(this.refreshState,{attempts:0,complete:false,next:0});
+          this.save();
+          this.refresh(store,period);
         }
       }
       // A result may already have cleared the fleet in Redux: use the previous

@@ -31,10 +31,25 @@ test('natural list updates and successful returns take precedence over an older 
   f.store.info.fleets[1].api_mission=[1,1,Date.now()+60000];tracker.view(f.store);await tick();
   f.store.info.fleets[1].api_mission=[0];tracker.observe({path:RESULT,postBody:{api_deck_id:2},body:{api_clear_result:1}},f.store);
   resolve({api_list_items:[{api_mission_id:1,api_state:1},{api_mission_id:103,api_state:1}]});await tick();
+  assert.equal(tracker.view(f.store).records[103],undefined,'the request started before completion is stale');
+  resolve({api_list_items:[{api_mission_id:1,api_state:2},{api_mission_id:103,api_state:1}]});await tick();
   assert.equal(tracker.view(f.store).records[1].state,2);assert.equal(tracker.view(f.store).records[103].state,1);await tracker.dispose();
   const next=new ExpeditionProgress(f.dir,{getStore:()=>f.store,load:()=>new Promise(r=>{resolve=r;})});next.view(f.store);await tick();
   next.observe({path:LIST,body:[{api_mission_id:103,api_state:2}]},f.store);
   resolve({api_list_items:[{api_mission_id:103,api_state:1}]});await tick();assert.equal(next.view(f.store).records[103].state,2);await next.dispose();
+});
+test('a successful return invalidates stale successor locks and refreshes the mission list',async t=>{
+  const f=fixture(t);f.store.const.$missions[42]={api_reset_type:1,api_time:15};f.store.const.$missions[43]={api_reset_type:1,api_time:15};
+  let resolve,calls=0;const tracker=new ExpeditionProgress(f.dir,{now:()=>stamp('2026-10-16T00:00:00Z'),getStore:()=>f.store,load:()=>{calls++;return new Promise(r=>{resolve=r;});}});
+  tracker.view(f.store);await tick();resolve({api_list_items:[{api_mission_id:42,api_state:1},{api_mission_id:1,api_state:2}]});await tick();
+  assert(tracker.view(f.store).list.catalogIds.includes(43));
+  f.store.info.fleets[1].api_mission=[1,42,stamp('2026-10-16T00:15:00Z')];tracker.observe({path:'/kcsapi/api_req_mission/start'},f.store);
+  tracker.observe({path:RESULT,postBody:{api_deck_id:2},body:{api_clear_result:0}},f.store);
+  assert(tracker.view(f.store).list.catalogIds.includes(43),'failure leaves the existing snapshot intact');assert.equal(calls,1);
+  f.store.info.fleets[1].api_mission=[0];tracker.observe({path:RESULT,postBody:{api_deck_id:2},body:{api_clear_result:1}},f.store);
+  const pending=tracker.view(f.store);assert.equal(pending.records[42].state,2);assert(!pending.list.catalogIds.includes(43),'the old absence cannot establish a lock');
+  await tick();assert.equal(calls,2);resolve({api_list_items:[{api_mission_id:42,api_state:2},{api_mission_id:43,api_state:0}]});await tick();
+  assert(tracker.view(f.store).list.ids.includes(43));await tracker.dispose();
 });
 test('unloading during a startup read prevents late status updates',async t=>{
   const f=fixture(t);let resolve;const tracker=new ExpeditionProgress(f.dir,{getStore:()=>f.store,load:()=>new Promise(r=>{resolve=r;})});
