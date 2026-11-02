@@ -6,7 +6,7 @@ const catalog=new Map(require('../../../data/sortie/enemy_catalog.json').enemies
 const pending=require('../../../data/sortie/adjudications.json').entries.filter(e=>e.status==='pending');
 const cache=new Map();
 const jets=require('../combat/jet_aviation');
-const {filterFormations}=require('../combat/encounter_stage');
+const {filterFormations,applyCrosscheckEvidence}=require('../combat/encounter_stage');
 const {createMarginPlan}=require('./air_margin_plan');
 const noAirBattle=new Set(['start','noBattle','item','resources','transport','whirlpool','activeBranch','airRecon','nightBattle']);
 const valid=n=>Number.isFinite(n)&&n>=0;
@@ -88,20 +88,17 @@ function nodeAir(area,id,node,cross,encounterStage='unknown'){
   const hasCompositionConflict=pending.some(e=>e.area===area&&e.node===id&&e.kind==='compositionConflict');
   // Secondary-source alternatives are retained when their stage is unknown,
   // exactly as in the battle model. Never infer a final state from a name.
-  const variants=hasCompositionConflict?filterFormations(area,id,cross?.kcwikiVariants||[],encounterStage):[];
+  const secondary=hasCompositionConflict?applyCrosscheckEvidence(area,id,(cross?.kcwikiVariants||[])
+    .map(variant=>({...variant,source:'kcwiki'})),allPatterns):[];
+  if(secondary.some(variant=>variant.evidenceConflict))issues.push('差异编成资料与核对记录冲突');
+  const variants=filterFormations(area,id,secondary,encounterStage);
   if(hasCompositionConflict){
     if(!cross?.kcwikiVariants?.length)issues.push('差异编成资料不足');
     for(const variant of variants){
+      if(variant.evidenceConflict)continue;
       const ships=[...(variant.apiIds||[]),...(variant.escortApiIds||[])].map(apiId=>({apiId}));
       const value=valid(variant.air)?variant.air:ships.length&&ships.every(noCombatAircraft)?0:null;
-      // Numeric wiki patterns can cover the same aircraft composition even when
-      // the secondary page omits its air column. Otherwise keep it unresolved.
-      const airShips=list=>list.filter(s=>!noCombatAircraft(s)).map(s=>s.apiId).sort((a,b)=>a-b).join(',');
-      const signature=airShips(ships);
-      const matches=ships.length?patterns.filter(p=>valid(p.enemyAirPower)&&
-        airShips([...(p.enemyShips||[]),...(p.escortFleet?.enemyShips||[])])===signature):[];
       if(valid(value))values.push(value);
-      else if(matches.length)values.push(...matches.map(p=>p.enemyAirPower));
       else issues.push('差异编成制空资料不足');
     }
   }

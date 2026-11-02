@@ -118,6 +118,16 @@ test('4-5 boss uses the documented final and post-clear air compositions',()=>{
   assert.deepEqual(values,[138,111,138,138]);
 });
 
+test('air display follows the current stage',()=>{
+  const plane=aircraft(25,32,6),path={examples:[['H']],encounterStage:'before'};
+  const current=routeAirReference({},'3-5',path),final=routeAirReference({},'3-5',{...path,encounterStage:'final'});
+  assert.equal(current.enemyAirPower,221);assert.equal(final.enemyAirPower,254);
+  const summary=W.fleetSummary({route:{encounterStage:'before'},metrics:{airPower:plane}},
+    {area:'3-5',encounterStage:'before',examples:[['H']]});
+  assert.equal(summary.air.reference.enemyAirPower,221);
+  assert.equal(summary.air.estimate.paths[0].steps[0].required.superiority,332);
+});
+
 test('air query attribution reconciles cache hits and pass/fail without changing results',()=>{
   const perf=require('../../../src/shared/performance_trace');
   const {routeAirMeets}=require('../../../src/domain/routes/route_air');

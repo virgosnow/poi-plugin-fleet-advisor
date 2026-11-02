@@ -81,7 +81,8 @@ function crossCheckAlternatives(area,id,data,lookup=catalog){
   const expected=pending.filter(row=>row.area===area&&row.node===id),cross=data?.crossCheck?.nodes?.[id];
   if(!expected.length)return {status:'unknown',formations:[],warnings:['敌编成冲突来源未记录']};
   const conflicts=(cross?.conflicts||[]).filter(row=>row.type==='compositionConflict');
-  const variants=cross?.kcwikiVariants||[];
+  const patterns=Object.values(data?.nodes?.[id]?.phases||{}).flatMap(phase=>phase.patterns||[]);
+  const variants=require('./encounter_stage').applyCrosscheckEvidence(area,id,cross?.kcwikiVariants||[],patterns);
   if(!variants.length||expected.some(row=>!conflicts.some(other=>other.wikiwikiPattern===row.pattern)))
     return {status:'unknown',formations:[],warnings:['敌编成资料冲突尚未完整收录']};
   const convert=(enemyId,name)=>enemyRecord({apiId:enemyId,name,apiIdStatus:'verified(crosscheck)'},lookup,
@@ -89,7 +90,7 @@ function crossCheckAlternatives(area,id,data,lookup=catalog){
   const formations=[];
   for(let i=0;i<variants.length;i++){
     const variant=variants[i],ids=variant.apiIds,escortIds=variant.escortApiIds||[];
-    if(!Array.isArray(ids)||!ids.length||ids.length>LIMITS.shipsPerFormation||!Array.isArray(escortIds)||escortIds.length>LIMITS.shipsPerFormation||
+    if(variant.evidenceConflict||!Array.isArray(ids)||!ids.length||ids.length>LIMITS.shipsPerFormation||!Array.isArray(escortIds)||escortIds.length>LIMITS.shipsPerFormation||
       [...ids,...escortIds].some(id=>!Number.isInteger(id)||!lookup.has(id)))
       return {status:'unknown',formations:[],warnings:['另一来源的敌编成资料不完整']};
     const ships=ids.map((id,j)=>convert(id,variant.namesJa?.[j])),escort=escortIds.map(id=>convert(id));
@@ -146,14 +147,14 @@ function routeEncounters(profile,data=mapData(profile?.area),lookup=catalog){
     if(PASSIVE.has(kind))continue;
     const record=formationRecords(raw,lookup),formationCross=crossCheckFormations(profile.area,id,record,data),
       alternatives=summary.compositionUncertain?crossCheckAlternatives(profile.area,id,data,lookup):{status:'known',formations:[],warnings:[]};
-    const unique=new Map();
+    const unique=new Map(),stage=require('./encounter_stage');
     for(const form of record.formations.concat(alternatives.formations)){
       const key=JSON.stringify([form.phase,form.hqLevelRange,form.availability,form.finalForm,
         form.ships.map(ship=>ship.apiId),form.escort.map(ship=>ship.apiId)]),previous=unique.get(key);
       if(previous)previous.formation=[...new Set([...previous.formation,...form.formation])];
       else unique.set(key,{...form,formation:[...form.formation]});
     }
-    const formations=require('./encounter_stage').filterFormations(profile.area,id,[...unique.values()],profile.encounterStage);
+    const formations=stage.filterFormations(profile.area,id,[...unique.values()],profile.encounterStage);
     if(record.status!=='known'||formationCross.status!=='known'||alternatives.status!=='known'||formations.length>LIMITS.formationsPerNode){
       reasons.push(`${id} 点敌编成资料待确认`);
     }
