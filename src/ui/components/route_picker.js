@@ -2,6 +2,7 @@
 const {routeFormula}=require('../models/route_presentation');
 const renderCombatBalance=require('./combat_balance');
 const {LABELS}=require('../../domain/combat/combat_balance');
+const usePickerHover=require('./picker_hover');
 const routeBlocked=option=>['notFound','unconfirmed'].includes(option?.status);
 const combatScore=option=>{
   const {status,balance}=option?.combat||{};
@@ -34,9 +35,10 @@ module.exports=function createRoutePicker(React){
     const [open,setOpen]=React.useState(false),anchor=React.useRef(null),trigger=React.useRef(null),panel=React.useRef(null);
     const [expanded,setExpanded]=React.useState({});
     const show=()=>{setExpanded({});setOpen(true);};
-    const close=()=>{setOpen(false);trigger.current?.focus({preventScroll:true});};
+    const hover=usePickerHover(React,{enabled:!disabled&&!hidden,open,anchor,onOpen:show,onClose:()=>setOpen(false)});
+    const close=()=>{hover.dismiss();setOpen(false);trigger.current?.focus({preventScroll:true});};
     const choose=key=>{if(disabled||hidden)return;if(key!==value)onChange(key);close();};
-    React.useEffect(()=>setOpen(false),[area,disabled,hidden]);
+    React.useEffect(()=>{hover.dismiss();setOpen(false);},[area,disabled,hidden]);
     placementEffect(()=>{
       if(!open||disabled||hidden)return;
       const root=anchor.current,dialog=panel.current,doc=root.ownerDocument,win=doc.defaultView;
@@ -46,10 +48,10 @@ module.exports=function createRoutePicker(React){
         dialog.style.left=`${Math.max(12-r.left,Math.min(0,doc.documentElement.clientWidth-12-r.left-width))}px`;
         dialog.style.maxHeight=`${Math.max(100,Math.min(350,doc.documentElement.clientHeight-r.bottom-18))}px`;
       };
-      const outside=e=>{if(!root.contains(e.target))setOpen(false);};
+      const outside=e=>{if(!root.contains(e.target)){hover.dismiss();setOpen(false);}};
       place();
       const selected=dialog.querySelector('[aria-selected=true]:not(:disabled)')||dialog.querySelector('[role=option]:not(:disabled)');
-      selected?.focus({preventScroll:true});
+      if(!hover.isHover())selected?.focus({preventScroll:true});
       const list=dialog.querySelector('.paa-route-list');
       if(selected&&list)list.scrollTop+=selected.getBoundingClientRect().top-list.getBoundingClientRect().top-30;
       doc.addEventListener('pointerdown',outside,true);win.addEventListener('resize',place);doc.addEventListener('scroll',place,true);
@@ -58,7 +60,7 @@ module.exports=function createRoutePicker(React){
     const keys=e=>{
       if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
       if(!['ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
-      e.preventDefault();if(!open){show();return;}
+      e.preventDefault();if(!open){hover.click();return;}
       const buttons=[...panel.current.querySelectorAll('[role=option], .paa-route-phase-toggle')]
         .filter(button=>!button.disabled&&!button.closest('[aria-hidden=true]')),i=buttons.indexOf(e.target);
       const direction=['ArrowDown','ArrowRight'].includes(e.key)?1:-1;
@@ -82,11 +84,11 @@ module.exports=function createRoutePicker(React){
     const path=routeFormula;
     return h('div',{className:'paa-area-picker paa-wb-route-picker','data-kind':'route'},
       h('span',{className:'paa-area-label'},'路线'),
-      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,
-        onBlur:e=>{if(!e.currentTarget.contains(e.relatedTarget))setOpen(false);}},
+      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:hover.guardClick,onPointerEnter:hover.enter,onPointerLeave:hover.leave,
+        onBlur:e=>{if(!e.currentTarget.contains(e.relatedTarget)){hover.dismiss();setOpen(false);}}},
         h('button',{type:'button',className:'paa-area-trigger paa-route-trigger',ref:trigger,disabled,
           'aria-label':'路线','aria-haspopup':'dialog','aria-expanded':open&&!disabled&&!hidden,
-          onClick:()=>{if(!disabled&&!hidden){if(open)setOpen(false);else show();}}},
+          onClick:()=>{if(!disabled&&!hidden)hover.click();}},
           h('span',{className:'paa-wb-route-name'},selected?.name||'选择路线'),
           selected?h('span',{className:'paa-wb-route-path'},`${selected.phaseLabel?selected.phaseLabel+'　':''}${path(selected)}`):null,
           h('span',{className:'paa-area-chevron','aria-hidden':true})),
@@ -112,7 +114,7 @@ module.exports=function createRoutePicker(React){
           !groups.length?h('p',{className:'paa-muted'},'当前没有推荐路线'):null):null),
       h('button',{type:'button',className:'paa-route-reset',disabled:disabled||hidden||!value,
         'aria-label':'重置路线','data-tooltip':'取消路线选择',
-        onClick:()=>{if(disabled||hidden||!value)return;setOpen(false);onChange('');}},
+        onClick:()=>{if(disabled||hidden||!value)return;hover.dismiss();setOpen(false);onChange('');}},
         h('svg',{width:18,height:18,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
           h('path',{d:'M4 7a6 6 0 1 1 0 6M4 3v4h4'}))));
   };

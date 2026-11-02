@@ -43,11 +43,11 @@ test('route popup stays anchored and Escape never changes the fleet or selected 
   anchor.props.onKeyDown({key:'Escape',preventDefault(){},stopPropagation(){}});ui.render();assert.deepEqual(calls,[]);assert(!ui.find(n=>n.props.role==='dialog'));
 });
 
-test('route picker opens only on click and clicks toggle the panel',()=>{
+test('route picker clicks toggle the panel',()=>{
   const options=require('../../src/domain/routes/route_plans').recommendedOptions('1-4'),calls=[];
   const props={options,value:options[0].key,onChange:key=>calls.push(key)},ui=harness(props);
   const anchor=()=>ui.find(n=>n.props.className==='paa-area-anchor'),panel=()=>ui.find(n=>n.props.role==='dialog');
-  assert.equal(anchor().props.onPointerEnter,undefined);assert.equal(anchor().props.onPointerLeave,undefined);
+  assert.equal(typeof anchor().props.onPointerEnter,'function');assert.equal(typeof anchor().props.onPointerLeave,'function');assert.equal(typeof anchor().props.onClickCapture,'function');
   ui.find(n=>n.props['aria-label']==='路线').props.onClick();ui.render();assert(panel());
   ui.find(n=>n.props['aria-label']==='路线').props.onClick();ui.render();assert(!panel());
   ui.find(n=>n.props['aria-label']==='路线').props.onClick();ui.render();assert(panel());

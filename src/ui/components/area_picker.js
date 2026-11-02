@@ -3,6 +3,7 @@ const REGIONS=['','镇守府海域','南西诸岛海域','北方海域','西方�
 const REGION_ORDER=new Map([1,2,3,7,4,5,6].map((world,index)=>[world,index]));
 const {missionSummary,referenceIncome}=require('../expedition/expedition_model');
 const {normalizeName}=require('../../shared/name_matching');
+const usePickerHover=require('./picker_hover');
 const INCOME_ORDERS={fuel:'燃料',ammo:'弹药',steel:'钢材',bauxite:'铝土'};
 function filterMissions(missions,summary,{query=''}={}){
   const words=normalizeName(query).toLowerCase().trim().split(/\s+/).filter(Boolean);
@@ -46,8 +47,9 @@ module.exports=function createAreaPicker(React){
     const [open,setOpen]=React.useState(false),trigger=React.useRef(null),dialog=React.useRef(null),anchor=React.useRef(null);
     const [query,setQuery]=React.useState(''),[order,setOrder]=React.useState('number');
     const netResource=INCOME_ORDERS[order];
-    const close=()=>{setOpen(false);trigger.current?.focus();};
-    React.useEffect(()=>{if(disabled||hidden)setOpen(false);},[disabled,hidden]);
+    const hover=usePickerHover(React,{enabled:!disabled&&!hidden,open,anchor,onOpen:()=>setOpen(true),onClose:()=>setOpen(false)});
+    const close=()=>{hover.dismiss();setOpen(false);trigger.current?.focus();};
+    React.useEffect(()=>{if(disabled||hidden){hover.dismiss();setOpen(false);}},[disabled,hidden]);
     React.useEffect(()=>{
       if(!open||disabled||hidden)return;
       const panel=dialog.current,root=anchor.current,doc=root.ownerDocument,win=doc.defaultView;
@@ -58,10 +60,10 @@ module.exports=function createAreaPicker(React){
         panel.style.left=`${Math.max(12-r.left,Math.min(0,doc.documentElement.clientWidth-12-r.left-width))}px`;
         panel.style.maxHeight=`${Math.max(100,Math.min(320,doc.documentElement.clientHeight-r.bottom-18))}px`;
       };
-      const outside=e=>{if(!root.contains(e.target))setOpen(false);};
+      const outside=e=>{if(!root.contains(e.target)){hover.dismiss();setOpen(false);}};
       place();
       const selected=panel.querySelector('[aria-current=true]')||panel.querySelector('.paa-area-maps button');
-      (expedition?panel.querySelector('input[type=search]'):selected)?.focus({preventScroll:true});
+      if(!hover.isHover())(expedition?panel.querySelector('input[type=search]'):selected)?.focus({preventScroll:true});
       const list=panel.querySelector('.paa-area-regions');
       if(selected&&list)list.scrollTop+=selected.getBoundingClientRect().top-list.getBoundingClientRect().top-30;
       doc.addEventListener('pointerdown',outside,true);win.addEventListener('resize',place);doc.addEventListener('scroll',place,true);
@@ -109,9 +111,10 @@ module.exports=function createAreaPicker(React){
           [h('strong',null,id(entry)),entry.name?h('small',null,entry.name):null]));
     };
     return h('div',{className:'paa-area-picker','data-kind':kind},h('span',{className:'paa-area-label'},label),
-      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onBlur:e=>{if(!e.currentTarget.contains(e.relatedTarget))setOpen(false);}},
+      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:hover.guardClick,onPointerEnter:hover.enter,onPointerLeave:hover.leave,
+        onBlur:e=>{if(!e.currentTarget.contains(e.relatedTarget)){hover.dismiss();setOpen(false);}}},
       h('button',{type:'button',ref:trigger,className:'paa-area-trigger',disabled,
-        'aria-label':label,'aria-description':selectedBrief?.statusText,'aria-haspopup':'dialog','aria-expanded':open&&!disabled&&!hidden,onClick:()=>{if(!disabled&&!hidden)setOpen(!open);}},
+        'aria-label':label,'aria-description':selectedBrief?.statusText,'aria-haspopup':'dialog','aria-expanded':open&&!disabled&&!hidden,onClick:()=>{if(!disabled&&!hidden)hover.click();}},
         h('strong',null,selectedBrief?.number||value),h('span',{className:'paa-area-name'},selectedBrief?.name||selected?.name||`选择${label}`),
         selectedBrief?h('span',{className:'paa-mission-option-state paa-mission-selected-state'},monthBadge(selectedBrief),statusIcon(selectedBrief)):null,
         h('span',{className:'paa-area-chevron','aria-hidden':true})),
