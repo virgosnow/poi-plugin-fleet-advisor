@@ -172,6 +172,10 @@ test('read-only status UI switches live fleets, refreshes data and offers no sch
   const find=(n,p)=>n&&typeof n==='object'&&(p(n)?n:n.children.map(c=>find(c,p)).find(Boolean));
   const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
   render();assert(find(tree,n=>n.type==='h3'&&n.children.includes('舰队总览')));assert(!find(tree,n=>n.props['aria-label']==='全舰队动态'));for(const label of ['保存方案','已保存方案','JSON','编入','应用编成','换船','移除','新建'])assert(!text(tree).includes(label),label);
+  const leftModules=find(tree,n=>n.props.className==='paa-fleet-selector-body');
+  const fleetModule=find(leftModules,n=>n.props.className==='paa-scheme-library paa-current-fleets');
+  assert(find(fleetModule,n=>n.type==='h3'&&n.children.includes('舰队总览')));
+  assert(leftModules.children.some(n=>n.type?.name==='OverviewQuests'),'tasks remain a separate module following the fleet selector');
   const firstFleet=find(tree,n=>n.props['data-source-fleet']===1);
   assert.match(text(firstFleet),/待命/);assert(!find(firstFleet,n=>n.props.className==='paa-fleet-signals'));
   assert(!text(firstFleet).includes('受损'));assert(find(tree,n=>n.props.className==='paa-fleet-health'),'selected ship health remains visible');

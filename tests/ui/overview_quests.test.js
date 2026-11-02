@@ -84,3 +84,24 @@ test('reward details expand in place while category switching retains the select
   tab('远征').props.onClick();ui.render();assert.equal(tab('远征').props['aria-pressed'],true);assert.match(strings(ui.find(n=>n.type==='article')),/远征/);
   tab('出击').props.onClick();ui.render();assert.equal(ui.find(n=>n.props.className==='paa-overview-reward-toggle').props['aria-expanded'],true);
 });
+
+test('task module defaults by container width and remembers manual choices independently',()=>{
+  let index=0,tree,onResize,cleanup;const states=[];
+  const container={clientWidth:812,ownerDocument:{defaultView:{getComputedStyle:()=>({paddingLeft:'16px',paddingRight:'16px'}),
+    ResizeObserver:class{constructor(cb){onResize=cb;}observe(){}disconnect(){}}}}};
+  const react={...React,useState(initial){const i=index++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;
+    return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},
+    useRef(initial){const i=index++;return states[i]||(states[i]={current:initial});},
+    useLayoutEffect(fn){if(!cleanup)cleanup=fn;},useEffect(){}};
+  const state={questState:{known:true,tasks:[task('B131'),task('Dw2')]}};
+  const Component=create(react),render=()=>{index=0;tree=Component({state});tree.props.ref.current={closest:()=>container};return tree;};
+  const button=()=>walk(tree,n=>n.props.className==='paa-overview-quests-toggle')[0];
+  const content=()=>walk(tree,n=>n.props.id==='paa-overview-tasks-content')[0];
+  render();const dispose=cleanup();render();assert.equal(button().props['aria-expanded'],false);assert.equal(content().props.inert,'');
+  button().props.onClick();render();assert.equal(button().props['aria-expanded'],true);assert.equal(content().props.inert,undefined);
+  container.clientWidth=1000;onResize();render();assert.equal(button().props['aria-expanded'],true,'wide defaults open');
+  button().props.onClick();render();assert.equal(button().props['aria-expanded'],false);
+  container.clientWidth=812;onResize();render();assert.equal(button().props['aria-expanded'],true,'narrow manual choice remains');
+  container.clientWidth=1000;onResize();render();assert.equal(button().props['aria-expanded'],false,'wide manual choice remains');
+  dispose();
+});

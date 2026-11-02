@@ -78,9 +78,9 @@ module.exports=(React,{getStore,setQuestPageActive,getController,subscribe})=>{
     };
     const part=(label,value,cls,detail,tier)=>h('div',{className:'paa-fleet-metric-part '+cls,...typeof detail==='object'?T.attributes(detail):{'data-tooltip':detail},'data-tier':tier,tabIndex:0},h('span',null,label),h('strong',null,value));
     const rendered=h('div',{className:'paa-workbench paa-current-status','data-kind':'manual',hidden,ref:content},h('div',{className:'paa-wb-columns'},
-      h('section',{className:'paa-wb-left'},h('div',{className:'paa-fleet-section-heading'},h('h3',null,'舰队总览')),
-        h('div',{className:'paa-fleet-selector-body'},
-        h('div',{className:'paa-scheme-library paa-current-fleets'},h('div',{className:'paa-source-list'},...[1,2,3,4].map(n=>{
+      h('section',{className:'paa-wb-left'},h('div',{className:'paa-fleet-selector-body'},
+        h('div',{className:'paa-scheme-library paa-current-fleets'},h('div',{className:'paa-fleet-section-heading'},h('h3',null,'舰队总览')),
+        h('div',{className:'paa-source-list'},...[1,2,3,4].map(n=>{
           const fleet=fleets[n-1];
           return h('button',{key:n,type:'button','data-source-fleet':n,'aria-pressed':sourceFleet===n,'data-selected':sourceFleet===n,disabled:busy,onClick:()=>selectSource(()=>setSourceFleet(n))},
             h('span',{className:'paa-source-title'},h('strong',null,`第 ${n} 舰队`),fleet.name?h('span',{className:'paa-fleet-choice-name','data-tooltip':fleet.name},fleet.name):null,h('small',null,`${fleet.ids.length} 艘`)),

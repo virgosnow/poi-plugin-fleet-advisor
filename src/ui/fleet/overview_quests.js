@@ -8,6 +8,20 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
     const [revision,setRevision]=React.useState?React.useState(0):[0,()=>{}];
     const [category,setCategory]=React.useState?React.useState('B'):['B',()=>{}];
     const [rewardOpen,setRewardOpen]=React.useState?React.useState({}):[{},()=>{}];
+    const [narrow,setNarrow]=React.useState?React.useState(false):[false,()=>{}];
+    const [openByLayout,setOpenByLayout]=React.useState?React.useState({}):[{},()=>{}];
+    const root=React.useRef?React.useRef(null):{current:null};
+    const layout=narrow?'narrow':'wide',expanded=openByLayout[layout]??!narrow;
+    const layoutEffect=React.useLayoutEffect||React.useEffect;
+    if(layoutEffect)layoutEffect(()=>{
+      const container=root.current?.closest('.paa'),win=container?.ownerDocument?.defaultView;
+      if(!container||!win)return;
+      const update=()=>{const css=win.getComputedStyle(container),width=container.clientWidth-(parseFloat(css.paddingLeft)||0)-(parseFloat(css.paddingRight)||0);
+        if(width>0)setNarrow(width<=780);};
+      update();const observer=win.ResizeObserver?new win.ResizeObserver(update):null;
+      if(observer)observer.observe(container);else win.addEventListener('resize',update);
+      return()=>{if(observer)observer.disconnect();else win.removeEventListener('resize',update);};
+    },[]);
     if(React.useEffect)React.useEffect(()=>subscribe(event=>{if(event?.type==='questProgress')setRevision(n=>n+1);}),[]);
     const service=getController();void revision;
     const result=React.useMemo?React.useMemo(()=>listOverviewQuests({state,questState}),[state,questState]):listOverviewQuests({state,questState}),tasks=result.tasks;
@@ -55,9 +69,15 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
         shipBonus&&!fixed.length?h('span',{className:'paa-overview-rewards-unknown'},'舰娘报酬详情以游戏为准'):null,
         !reference&&!choices.length&&!shipBonus?h('span',{className:'paa-overview-rewards-unknown'},'其他报酬以游戏为准'):null)):null);
     };
-    return h('section',{className:'paa-overview-quests','aria-label':'出击与远征任务'},
-      h('div',{className:'paa-overview-quests-heading'},h('h3',null,'进行中的任务'),result.status==='ready'?h('div',{className:'paa-overview-quest-tabs','aria-label':'任务类型'},
+    return h('section',{className:'paa-overview-quests','aria-label':'出击与远征任务',ref:root},
+      h('div',{className:'paa-overview-quests-heading','data-open':expanded},h('h3',null,
+        h('button',{type:'button',className:'paa-overview-quests-toggle',disabled,'aria-expanded':expanded,'aria-controls':'paa-overview-tasks-content',
+          onClick:()=>setOpenByLayout(previous=>({...previous,[layout]:!expanded}))},h('span',null,'进行中的任务'),
+          !expanded&&result.status==='ready'?h('small',null,`${tasks.length} 项`):null,
+          h('svg',{className:'paa-fleet-chevron','data-open':expanded,viewBox:'0 0 16 16',width:12,height:12,fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'m6 3 5 5-5 5'})))),
+        expanded&&result.status==='ready'?h('div',{className:'paa-overview-quest-tabs','aria-label':'任务类型'},
         ...[['B','出击'],['D','远征']].map(([key,label])=>h('button',{key,type:'button',disabled,'aria-pressed':category===key,onClick:()=>setCategory(key)},label,h('span',null,tasks.filter(task=>task.category===key).length)))):null),
+      collapse(h,{open:expanded,id:'paa-overview-tasks-content'},
       result.status!=='ready'?h('p',{className:'paa-overview-quests-empty'},'请在游戏中打开任务列表以同步'):
         !tasks.some(task=>task.category===category)?h('p',{className:'paa-overview-quests-empty'},`暂无进行中的${category==='B'?'出击':'远征'}任务`):
           h(React.Fragment||'div',null,
@@ -67,7 +87,7 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
               task.period||task.progressFlag===1||task.progressFlag===2?h('div',{className:'paa-overview-quest-meta'},task.period?h('span',{className:'paa-overview-quest-category'},PERIODS[task.period]||task.period):null,
                 task.progressFlag===1||task.progressFlag===2?h('span',{'data-active':true},`进度 ${task.progressFlag===1?'50':'80'}% 以上`):null):null,
               h('h4',null,task.title),
-              h('ul',null,...task.goals.map((goal,index)=>goalView(task,goal,index))),rewardView(task))))));
+              h('ul',null,...task.goals.map((goal,index)=>goalView(task,goal,index))),rewardView(task)))))));
   };
   return React.memo?React.memo(OverviewQuests):OverviewQuests;
 };

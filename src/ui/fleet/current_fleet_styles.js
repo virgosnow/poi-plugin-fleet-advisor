@@ -40,20 +40,17 @@ module.exports=`
 .paa-current-status .paa-wb-left .paa-fleet-choice-state{align-items:center;font-size:14px;line-height:22px}
 .paa-current-status .paa-wb-left .paa-fleet-choice-state time{font-weight:600;white-space:nowrap}
 @container(min-width:781px){
- .paa-current-status .paa-wb-columns{grid-template-rows:auto auto;row-gap:0}
- .paa-current-status[data-kind=manual] :is(.paa-wb-left,.paa-wb-right){display:contents}
- .paa-current-status :is(.paa-wb-left>.paa-fleet-section-heading,.paa-wb-right>.paa-fleet-heading){grid-row:1;align-self:stretch;box-sizing:content-box;padding:12px 12px 0;border:1px solid var(--paa-line);border-bottom:0;border-radius:12px 12px 0 0;background:var(--paa-card)}
- .paa-current-status :is(.paa-fleet-selector-body,.paa-fleet-status-body){grid-row:2;padding:6px 12px 12px;border:1px solid var(--paa-line);border-top:0;border-radius:0 0 12px 12px;background:var(--paa-card);align-self:start}
- .paa-current-status :is(.paa-wb-left>.paa-fleet-section-heading,.paa-fleet-selector-body){grid-column:1}
- .paa-current-status :is(.paa-wb-right>.paa-fleet-heading,.paa-fleet-status-body){grid-column:2}
- .paa-current-status .paa-wb-left>.paa-fleet-section-heading{padding-inline:16px}
- .paa-current-status .paa-fleet-selector-body{padding-inline:16px;padding-bottom:16px}
+ .paa-current-status[data-kind=manual] :is(.paa-wb-left,.paa-wb-right){padding:0;border:0;background:transparent}
+ .paa-current-status[data-kind=manual] .paa-wb-right{display:flex;flex-direction:column;gap:0;min-width:0}
+ .paa-current-status .paa-wb-right>.paa-fleet-heading{align-self:stretch;box-sizing:content-box;padding:12px 12px 0;border:1px solid var(--paa-line);border-bottom:0;border-radius:12px 12px 0 0;background:var(--paa-card)}
+ .paa-current-status .paa-fleet-status-body{padding:6px 12px 12px;border:1px solid var(--paa-line);border-top:0;border-radius:0 0 12px 12px;background:var(--paa-card);align-self:stretch}
+ .paa-current-status .paa-fleet-selector-body{gap:12px}
 }
 @container(max-width:780px){
  .paa-current-status[data-kind=manual] .paa-wb-columns{gap:12px}
  .paa-current-status .paa-fleet-selector-body,.paa-current-status .paa-fleet-status-body{display:contents}
  .paa-current-status[data-kind=manual] .paa-wb-left,.paa-current-status[data-kind=manual] .paa-wb-right{display:contents}
- .paa-current-status .paa-fleet-section-heading{display:none}.paa-current-status[data-kind=manual] .paa-current-fleets{order:0;padding:0;border:0;background:transparent}
+ .paa-current-status[data-kind=manual] .paa-current-fleets{order:0}
  .paa-current-status .paa-fleet-heading{order:1;padding:4px 0}.paa-current-status .paa-fleet-status-body>.paa-wb-ships{margin-top:0}.paa-current-status .paa-fleet-metrics{order:2}.paa-current-status .paa-wb-ships{order:4}
  .paa-current-status .paa-fleet-running{order:1}.paa-current-status .paa-operation-feedback,.paa-current-status .paa-fleet-warning{order:3}.paa-current-status .paa-fleet-empty{order:4}
  .paa-current-status .paa-source-list>button{min-height:88px}.paa-current-status .paa-fleet-duty{max-width:60%}
@@ -66,6 +63,7 @@ module.exports=`
 @container(max-width:480px){.paa-fleet-duty time{font-size:12px}.paa-current-status .paa-fleet-heading .paa-muted{max-width:120px}}
 /* Four live fleets in a compact two-by-two grid, followed by actionable tasks. */
 .paa-current-status[data-kind=manual] .paa-current-fleets .paa-source-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;height:auto;max-height:none;overflow:visible}
+.paa-current-status[data-kind=manual] .paa-current-fleets{box-sizing:border-box;flex-direction:column;gap:6px;padding:12px 16px 16px;border:1px solid var(--paa-line);border-radius:10px;background:var(--paa-card)}
 .paa-current-status .paa-wb-left .paa-current-fleets .paa-source-list>button{min-width:0;min-height:0;padding:9px 10px;gap:5px}
 .paa-current-status .paa-current-fleets .paa-source-list>button:not(:disabled),.paa-current-status .paa-current-fleets .paa-source-list>button:not(:disabled) *{cursor:pointer}
 .paa-current-status .paa-current-fleets .paa-source-list>button:disabled,.paa-current-status .paa-current-fleets .paa-source-list>button:disabled *{cursor:default}
@@ -75,9 +73,9 @@ module.exports=`
 .paa-current-status .paa-current-fleets .paa-fleet-choice-name{grid-column:1 / -1;grid-row:2}
 .paa-current-status .paa-current-fleets .paa-source-portrait{max-width:42px;height:24px}
 .paa-current-status .paa-wb-left .paa-current-fleets .paa-fleet-choice-state{font-size:11px;line-height:17px;flex-wrap:wrap;gap:0 4px}
-.paa-overview-quests{min-width:0;margin-top:8px;padding-top:12px;border-top:1px solid var(--paa-line)}
-.paa-overview-quests-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
-.paa-overview-quests-heading h3{margin:0}.paa-overview-quests-empty{margin:0;line-height:20px;color:var(--paa-muted);font-size:12px}
+.paa-overview-quests{box-sizing:border-box;min-width:0;margin:0;padding:14px 16px;border:1px solid var(--paa-line);border-radius:10px;background:var(--paa-card)}
+.paa-overview-quests-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.paa-overview-quests-heading[data-open=true]{margin-bottom:10px}
+.paa-overview-quests-heading h3{flex:1;min-width:0;margin:0}.paa .paa-overview-quests-toggle{display:flex;align-items:center;gap:8px;width:100%;min-height:28px;padding:0;border:0;background:transparent;color:var(--paa-text);font:inherit;text-align:left}.paa .paa-overview-quests-toggle:hover:not(:disabled){background:transparent;color:var(--paa-text)}.paa-overview-quests-toggle small{margin-left:auto;color:var(--paa-muted);font-size:11px;font-weight:400;white-space:nowrap}.paa-overview-quests-toggle svg{margin-left:auto;color:var(--paa-muted)}.paa-overview-quests-toggle small+svg{margin-left:0}.paa-overview-quests-empty{margin:0;line-height:20px;color:var(--paa-muted);font-size:12px}
 .paa-overview-quest-tabs{display:flex;align-items:center;gap:2px;padding:2px;border:0;border-radius:7px;background:var(--paa-bg)}
 .paa .paa-overview-quest-tabs button{display:flex;align-items:center;gap:4px;min-height:24px;padding:2px 7px;border:0;background:transparent;color:var(--paa-muted);font-size:11px;line-height:18px}
 .paa .paa-overview-quest-tabs button[aria-pressed=true]{background:var(--paa-soft);color:var(--paa-accent)}.paa-overview-quest-tabs button span{font-variant-numeric:tabular-nums;font-size:10px;opacity:.85}
