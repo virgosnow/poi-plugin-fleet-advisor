@@ -57,8 +57,9 @@ module.exports=(React,{getStore,setQuestPageActive,getController,subscribe})=>{
     },[sourceFleet,hidden]);
     const live=paused?null:getStore(),data=retain(view,paused,[sourceFleet,revision,live?.info?.ships,live?.info?.equips,live?.info?.fleets,live?.info?.repairs,live?.info?.basic,live?.info?.useitems,live?.const],()=>({
       store:live,reading:F.inspect(live,sourceFleet)}));
-    const headings=retain(headingView,paused,[sourceFleet,revision,now,live?.info?.fleets,live?.const],()=>{
-      const fleets=[1,2,3,4].map(n=>F.fleetHeading(live,n,now));return {fleets,current:fleets[sourceFleet-1]};
+    const headings=retain(headingView,paused,[sourceFleet,revision,now,live?.info?.fleets,live?.info?.ships,live?.info?.equips,live?.const],()=>{
+      const fleets=[1,2,3,4].map(n=>{const fleet=F.fleetHeading(live,n,now),supplyNeeded=fleet.status==='待命'&&F.needsSupply(live,fleet.ids);
+        return {...fleet,supplyNeeded,displayStatus:supplyNeeded?'补给不足':fleet.status};});return {fleets,current:fleets[sourceFleet-1]};
     });
     if(hidden)return hiddenPage(h,page.current,{className:'paa-workbench paa-current-status','data-kind':'manual',hidden,ref:content});
     if(!data)return h('div',{className:'paa-workbench paa-current-status','data-kind':'manual',ref:content},operationFeedback,
@@ -66,9 +67,15 @@ module.exports=(React,{getStore,setQuestPageActive,getController,subscribe})=>{
     const {store,reading}=data,{fleets,current}=headings,air=reading.metrics.airPower,los=reading.metrics.lineOfSight;
     const losValue=c=>Number.isFinite(los?.scoresByCoefficient?.[c])?los.scoresByCoefficient[c].toFixed(1):'—';
     const losDetail=T.los(los,null,{current:true});
-    const portrait=row=>h('div',{className:'paa-wb-portrait'},h('span',null,row.name.slice(0,2)),row.portrait?h('img',{src:row.portrait,alt:'',draggable:false,onError:e=>{e.currentTarget.style.display='none';}}):null);
-    const chevron=open=>h('svg',{className:'paa-fleet-chevron','data-open':!!open,viewBox:'0 0 16 16',width:12,height:12,fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'m6 3 5 5-5 5'}));
-    const fold=(label,open,toggle,controls,ariaLabel)=>h('button',{type:'button',className:'paa-fleet-fold',disabled:busy,'aria-expanded':!!open,'aria-controls':controls,'aria-label':ariaLabel||label,onClick:toggle},label,chevron(open));
+    const portrait=row=>h(row.unknown?'div':'button',row.unknown?{className:'paa-wb-portrait'}:{type:'button',className:'paa-wb-portrait paa-fleet-portrait-toggle',disabled:busy,
+      'aria-expanded':!!shipDetails[row.id],'aria-controls':`paa-fleet-stats-${row.id}`,'aria-label':`${row.name}：属性`,'data-tooltip':'查看属性',
+      onClick:()=>setShipDetails(v=>({...v,[row.id]:!v[row.id]}))},h('span',null,row.name.slice(0,2)),row.portrait?h('img',{src:row.portrait,alt:'',draggable:false,onError:e=>{e.currentTarget.style.display='none';}}):null);
+    const supply=ship=>{
+      const state=ship.supply.state,label=state==='full'?'已补给':state==='low'?'待补给':'待同步';
+      const aircraft=ship.equipment.filter(eq=>eq.capacity!==undefined).map(eq=>`第 ${eq.slot+1} 槽舰载机：${show(eq.planes)} / ${show(eq.capacity)}`);
+      const detail=[`燃料：${fraction(ship.fuel)}`,`弹药：${fraction(ship.ammo)}`,...aircraft].join('\n');
+      return h('span',{className:'paa-fleet-supply','data-supply-state':state,'data-tooltip':detail,tabIndex:0},label);
+    };
     const part=(label,value,cls,detail,tier)=>h('div',{className:'paa-fleet-metric-part '+cls,...typeof detail==='object'?T.attributes(detail):{'data-tooltip':detail},'data-tier':tier,tabIndex:0},h('span',null,label),h('strong',null,value));
     const rendered=h('div',{className:'paa-workbench paa-current-status','data-kind':'manual',hidden,ref:content},h('div',{className:'paa-wb-columns'},
       h('section',{className:'paa-wb-left'},h('div',{className:'paa-fleet-section-heading'},h('h3',null,'舰队总览')),
@@ -79,12 +86,12 @@ module.exports=(React,{getStore,setQuestPageActive,getController,subscribe})=>{
             h('span',{className:'paa-source-title'},h('strong',null,`第 ${n} 舰队`),fleet.name?h('span',{className:'paa-fleet-choice-name','data-tooltip':fleet.name},fleet.name):null,h('small',null,`${fleet.ids.length} 艘`)),
             h('span',{className:'paa-source-ships'},...fleet.ids.slice(0,6).map(id=>{const ship=store.info?.ships?.[id],master=store.const?.$ships?.[ship?.api_ship_id],name=master?.api_name||`#${id}`,url=ship?V.portraitUrl(store,ship.api_ship_id):null;
               return h('span',{key:id,className:'paa-source-portrait','data-tooltip':name},h('span',null,name.slice(0,2)),url?h('img',{src:url,alt:'',draggable:false,onError:e=>{e.currentTarget.style.display='none';}}):null);
-            })),h('span',{className:'paa-fleet-choice-state','data-state':fleet.state},h('span',{'data-tooltip':fleet.mission||undefined},fleet.mission||fleet.status),fleet.remaining?h('time',null,fleet.remaining):null));
+            })),h('span',{className:'paa-fleet-choice-state','data-state':fleet.state,'data-supply':fleet.supplyNeeded||undefined},h('span',{'data-tooltip':fleet.mission||undefined},fleet.mission||fleet.displayStatus),fleet.remaining?h('time',null,fleet.remaining):null));
         }))),
         h(OverviewQuests,{state:store,questState,onNavigate:onNavigateQuest,disabled:busy}))),
       h('section',{className:'paa-wb-right'},
         h('div',{className:'paa-fleet-heading'},h('div',null,h('h3',null,`第 ${sourceFleet} 舰队`),current.name?h('span',{className:'paa-muted'},current.name):null),
-          h('div',{className:'paa-fleet-duty','data-state':current.state},h('span',null,current.status),current.mission?h('span',null,current.mission):null,current.remaining?h('time',{'data-tooltip':current.returnAt?new Date(current.returnAt).toLocaleString('zh-CN'):undefined},current.remaining):null)),
+          h('div',{className:'paa-fleet-duty','data-state':current.state,'data-supply':current.supplyNeeded||undefined},h('span',null,current.displayStatus),current.mission?h('span',null,current.mission):null,current.remaining?h('time',{'data-tooltip':current.returnAt?new Date(current.returnAt).toLocaleString('zh-CN'):undefined},current.remaining):null)),
         h('div',{className:'paa-fleet-status-body'},
         busy?h('div',{className:'paa-fleet-running'},h('span',null,'正在执行编成'),h('button',{type:'button',className:'paa-wb-apply',ref:stopButtonRef,disabled:stopping,onClick:event=>{if(!stopping)onStop?.(event);}},stopping?'正在停止…':'停止操作')):null,
         operationFeedback,
@@ -100,13 +107,9 @@ module.exports=(React,{getStore,setQuestPageActive,getController,subscribe})=>{
         ...reading.warnings.map(text=>h('p',{key:text,className:'paa-fleet-warning'},text)),
         !current.exists?h('div',{className:'paa-fleet-empty'},'舰队数据待同步'):!reading.ships.length?h('div',{className:'paa-fleet-empty'},'空舰队'):
           h('div',{className:'paa-wb-ships'},...reading.ships.map((ship,i)=>h('article',{key:ship.id,className:'paa-wb-ship','data-ship-id':ship.id},
-            h('div',{className:'paa-fleet-ship-heading'},h('div',{className:'paa-wb-ship-head'},portrait(ship),h('div',{className:'paa-wb-identity'},h('strong',{'data-tooltip':ship.name},ship.name),h('small',null,`${i===0?'旗舰':`第 ${i+1} 位`}${ship.unknown?' · 资料待同步':` · ${ship.type} · Lv.${show(ship.level)}`}`)),
-              !ship.unknown?h('div',{className:'paa-fleet-ship-actions'},h('div',{className:'paa-fleet-health','data-health':ship.health,'data-tooltip':`耐久：${fraction(ship.hp)}\n燃料：${fraction(ship.fuel)}\n弹药：${fraction(ship.ammo)}`,tabIndex:0},h('span',null,ship.repair?'入渠中':ship.health),
-                  ship.hp.current!==null&&ship.hp.max>0?h('progress',{value:ship.hp.current,max:ship.hp.max,'aria-label':`耐久：${fraction(ship.hp)}`}):h('span',null,'—'),ship.repair?.api_complete_time>0?h('time',null,F.countdown(ship.repair.api_complete_time,now)):null),
-                  fold('属性',shipDetails[ship.id],()=>setShipDetails(v=>({...v,[ship.id]:!v[ship.id]})),`paa-fleet-stats-${ship.id}`,`${ship.name}：属性`)):null),
+            h('div',{className:'paa-fleet-ship-heading'},h('div',{className:'paa-wb-ship-head'},portrait(ship),h('div',{className:'paa-wb-identity'},h('strong',null,ship.name),h('small',null,`${i===0?'旗舰':`第 ${i+1} 位`}${ship.unknown?' · 资料待同步':` · ${ship.type} · Lv.${show(ship.level)}`}`)),
+              !ship.unknown?h('div',{className:'paa-fleet-ship-actions'},h('span',{className:'paa-fleet-health','data-health':ship.health,'data-tooltip':`耐久：${fraction(ship.hp)}${ship.repair?.api_complete_time>0?`\n入渠剩余：${F.countdown(ship.repair.api_complete_time,now)}`:''}`,tabIndex:0},ship.repair?'入渠中':ship.health),supply(ship)):null),
               !ship.unknown?h('div',{className:'paa-fleet-ship-state'},
-                [ship.fuel,ship.ammo].some(p=>p.current!==null&&p.max!==null&&p.current<p.max)?h('span',{className:'paa-fleet-supply-warning','data-tooltip':`燃料：${fraction(ship.fuel)}\n弹药：${fraction(ship.ammo)}`,tabIndex:0},'补给不足'):
-                  [ship.fuel,ship.ammo].some(p=>p.current===null||p.max===null)?h('span',{className:'paa-muted'},'补给待同步'):null,
                 collapse(h,{open:shipDetails[ship.id],id:`paa-fleet-stats-${ship.id}`},h('dl',{className:'paa-fleet-ship-stats','aria-label':'当前面板属性'},...ship.stats.map(s=>h('div',{key:s.label},h('dt',null,s.label),h('dd',null,show(s.value))))))):null),
             h('div',{className:'paa-wb-mechanisms','aria-label':'战斗与远征机制'},...badges(ship.badges)),
             h('div',{className:'paa-wb-gears'},...(ship.equipment||[]).map(eq=>h('div',{key:eq.slot,className:'paa-wb-gear',...eq.id>0&&!eq.item?{'data-tooltip':'装备资料待同步'}:V.equipmentTooltipProps(eq.item),tabIndex:0},

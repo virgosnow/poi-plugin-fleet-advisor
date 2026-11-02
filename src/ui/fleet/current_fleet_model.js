@@ -26,6 +26,35 @@ function fleetHeading(store,fleet,now=Date.now()){
     mission:away?`${master?.api_disp_no||missionId||'—'} ${master?.api_name||'远征'}`:'',
     remaining:away?countdown(Number(mission?.[2]),now):'',returnAt:away&&Number(mission?.[2])>0?Number(mission[2]):null};
 }
+// Only flag observed deficits; missing data must not be mistaken for a shortage.
+function needsSupply(store,ids){
+  return ids.slice(0,6).some(id=>{
+    const ship=store.info?.ships?.[id],master=store.const?.$ships?.[ship?.api_ship_id];
+    if(!ship||!master)return false;
+    if([[ship.api_fuel,master.api_fuel_max],[ship.api_bull,master.api_bull_max]].some(([current,max])=>
+      number(current)!==null&&number(max)!==null&&number(current)<number(max)))return true;
+    return (ship.api_slot||[]).some((equipId,slot)=>{
+      if(equipId<=0)return false;
+      const equip=store.info?.equips?.[equipId],item=store.const?.$equips?.[equip?.api_slotitem_id];
+      const capacity=aircraftCapacity(master,item,slot),current=number(ship.api_onslot?.[slot]);
+      return Number.isFinite(capacity)&&current!==null&&current<capacity;
+    });
+  });
+}
+function shipSupply(fuel,ammo,equipment){
+  let missing=false,deficit=false;
+  const add=(current,max)=>{
+    if(current===null||max===null||!Number.isFinite(current)||!Number.isFinite(max)||max<0){missing=true;return;}
+    if(max===0)return;
+    if(current<max)deficit=true;
+  };
+  add(fuel.current,fuel.max);add(ammo.current,ammo.max);
+  for(const eq of equipment){
+    if(eq.id>0&&!eq.item){missing=true;continue;}
+    if(eq.capacity!==undefined)add(eq.planes,eq.capacity);
+  }
+  return {state:deficit?'low':missing?'unknown':'full'};
+}
 function presetList(store){
   const presets=store.info?.presets;
   return {synced:Number(presets?.api_max_num)>0||Object.keys(presets?.api_deck||{}).length>0,
@@ -100,8 +129,9 @@ function inspect(store,fleet,presetId=null){
     const health=ratio===null?'待同步':ratio<=.25?'大破':ratio<=.5?'中破':ratio<=.75?'小破':ratio<1?'轻伤':'完好';
     const equipment=s.slots.map((id,k)=>({slot:k,item:V.withAirPower(V.equipmentItem(store,id,k),metrics.airPower,s.id,{current:true}),id,capacity:aircraftCapacity(master,store.const.$equips[store.info.equips[id]?.api_slotitem_id],k),planes:number(ship.api_onslot?.[k])}));
     if(ship.api_slot_ex!==0)equipment.push({slot:'ex',item:V.equipmentItem(store,s.ex,'ex'),id:s.ex});
+    const fuel=pair(ship.api_fuel,master.api_fuel_max),ammo=pair(ship.api_bull,master.api_bull_max);
     return {id:s.id,name:master.api_name,level:number(ship.api_lv),type:W.TYPES[master.api_stype]||'未知舰种',portrait:V.portraitUrl(store,ship.api_ship_id),
-      hp,health,ratio,repair:repair||ship.api_situation===2?repair||{}:null,fuel:pair(ship.api_fuel,master.api_fuel_max),ammo:pair(ship.api_bull,master.api_bull_max),
+      hp,health,ratio,repair:repair||ship.api_situation===2?repair||{}:null,fuel,ammo,supply:shipSupply(fuel,ammo,equipment),
       stats:[['火力','api_karyoku'],['雷装','api_raisou'],['对空','api_taiku'],['装甲','api_soukou'],['对潜','api_taisen'],['索敌','api_sakuteki'],['回避','api_kaihi'],['运','api_lucky']].map(([label,key])=>({label,value:number(ship[key])})),
       equipment,expansion:ship.api_slot_ex!==0,badges:mechanisms.get(s.id)||[]};
   });
@@ -112,4 +142,4 @@ function inspect(store,fleet,presetId=null){
     levelSum:heading.exists&&ships.every(s=>Number.isFinite(s.level))?ships.reduce((n,s)=>n+s.level,0):null,
     hp:heading.exists&&ships.length&&ships.every(s=>s.hp?.current!==null&&s.hp?.max>0)?{current:ships.reduce((n,s)=>n+s.hp.current,0),max:ships.reduce((n,s)=>n+s.hp.max,0)}:null};
 }
-module.exports={inspect,fleetHeading,countdown,countdownNeedsTick,summarize,presetList,presetHeading};
+module.exports={inspect,fleetHeading,needsSupply,shipSupply,countdown,countdownNeedsTick,summarize,presetList,presetHeading};
