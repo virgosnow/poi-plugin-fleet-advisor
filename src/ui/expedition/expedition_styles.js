@@ -7,7 +7,8 @@ module.exports=`
 .paa-workbench[data-kind=expedition] .paa-wb-left>.paa-wb-context-controls{gap:12px;padding:0 2px 8px;border:0;background:none}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-area-label,.paa-exp-goal-field>span{flex:0 0 28px;width:28px;color:var(--paa-muted);font-size:14px;line-height:22px}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-area-picker{gap:10px}
-.paa-workbench[data-kind=expedition] .paa-wb-left .paa-area-trigger{height:40px;min-height:40px;gap:8px;padding:7px 12px;border-radius:6px;background:var(--paa-card);color:var(--paa-text)}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-area-trigger{height:40px;min-height:40px;gap:8px;padding:7px 32px 7px 12px;border-radius:6px;background:var(--paa-card);color:var(--paa-text)}
+.paa-area-picker[data-kind=expedition] .paa-mission-selected-state{flex:none}
 .paa-exp-goal-field{display:flex;align-items:center;gap:10px;min-width:0}
 .paa-exp-goal{box-sizing:border-box;height:40px;min-height:40px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex:1;min-width:0;gap:3px;padding:3px;border:1px solid var(--paa-line);border-radius:6px;background:var(--paa-card)}
 .paa .paa-exp-goal button{min-width:0;min-height:30px;padding:3px 4px;border:0;border-radius:3px;box-shadow:none;background:transparent;color:var(--paa-muted);white-space:normal}
@@ -52,6 +53,15 @@ module.exports=`
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-details{margin-top:10px!important;padding-top:9px;border-top:1px solid var(--paa-line)}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-income-details>summary{padding:0;font-size:13px;line-height:20px;font-weight:600}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-unlock-details>summary{font-size:13px;line-height:20px;font-weight:600}
+.paa-exp-chain{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.paa-exp-chain-row{display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:baseline;min-width:0}
+.paa-exp-chain-label{color:var(--paa-muted);font-size:12px;line-height:22px}
+.paa-exp-chain-items{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 6px;min-width:0}
+.paa .paa-workbench[data-kind=expedition] .paa-exp-chain-item{display:inline-flex;align-items:baseline;gap:4px;min-height:0;padding:1px 7px;border:1px solid var(--paa-line);border-radius:5px;background:transparent;color:var(--paa-text);font-size:13px;line-height:20px;white-space:nowrap}
+.paa .paa-workbench[data-kind=expedition] .paa-exp-chain-item:hover:not(:disabled){border-color:var(--paa-accent);color:var(--paa-accent)}
+.paa .paa-workbench[data-kind=expedition] .paa-exp-chain-item>span{font-size:11px;color:var(--paa-muted)}
+.paa .paa-workbench[data-kind=expedition] .paa-exp-chain-item[data-completed=true]>span{color:var(--paa-good)}
+.paa-exp-chain-plus,.paa-exp-chain-condition{color:var(--paa-muted);font-size:12px;line-height:20px;overflow-wrap:anywhere}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-condition{min-height:32px;padding-block:6px}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-groups{display:grid;gap:12px;margin-top:8px;max-height:300px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-detail-table{margin-top:0}

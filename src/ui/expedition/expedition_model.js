@@ -142,21 +142,39 @@ function rewardItems(master={},useItems={}){
   return entries.map(([id,count],index)=>({id,name:ITEMS[id]||useItems[id]?.api_name||`道具 ${id}`,
     count:Number.isFinite(count)&&count>0?count:null,greatOnly:entries.length>1&&index===1}));
 }
+function missionNumber(id,master={}){
+  const series=Math.floor(id/10),prefix=({10:'A',11:'B',13:'D',14:'E'})[series];
+  return master.api_disp_no||(prefix?prefix+(id%10+([10,11].includes(series)?1:0)):String(id));
+}
+function missionProgressItem(id,masters={},progress={}){
+  const period=progress.period||expeditionPeriod(),master=masters[id]||{},record=progress.records?.[id];
+  const monthly=master.api_reset_type==null?UNLOCKS.monthly.includes(id):Number(master.api_reset_type)===1;
+  const current=record&&(!monthly||record.period===period),done=current&&record.state===2;
+  const listed=progress.list?.period===period&&progress.list.ids.includes(id);
+  const locked=progress.list?.period===period&&progress.list.catalogIds.includes(id)&&!listed&&!current;
+  const state=done?'已完成':locked?'未解锁':current&&[0,1].includes(record.state)?'未完成':'待同步';
+  const number=missionNumber(id,master);
+  return {missionId:id,number,name:master.api_name||'',status:state,completed:!!done,text:`${done?'✓':'○'} ${number}${master.api_name?' '+master.api_name:''}（${monthly?'本期':''}${state}）`};
+}
+function missionChain(missionId,masters={},progress={}){
+  const id=Number(missionId),rule=UNLOCKS.missions[id];if(!rule)return null;
+  return {before:[...(rule.missions||[]).map(n=>missionProgressItem(n,masters,progress)),
+    ...(rule.maps||[]).map(area=>({text:`通关海域 ${area}`})),...(rule.quests||[]).map(quest=>({text:`完成任务 ${quest}`}))],
+    current:missionProgressItem(id,masters,progress),
+    after:Object.entries(UNLOCKS.missions).filter(([,row])=>(row.missions||[]).includes(id)).map(([n])=>missionProgressItem(Number(n),masters,progress))};
+}
+function downstreamPaths(missionId,masters={},progress={}){
+  const next=id=>Object.entries(UNLOCKS.missions).filter(([,rule])=>(rule.missions||[]).includes(Number(id))).map(([key])=>Number(key));
+  const walk=(id,seen)=>next(id).filter(child=>!seen.has(child)).flatMap(child=>{
+    const branch=walk(child,new Set([...seen,child])),item=missionProgressItem(child,masters,progress);
+    return branch.length?branch.map(path=>[item,...path]):[[item]];
+  });
+  return walk(Number(missionId),new Set([Number(missionId)]));
+}
 function unlockItems(missionId,masters={},progress={}){
   const rule=UNLOCKS.missions[missionId];
   if(!rule)return [{text:'解锁条件资料待补充'}];
-  const period=progress.period||expeditionPeriod();
-  const rows=(rule.missions||[]).map(id=>{
-    const master=masters[id]||{},record=progress.records?.[id];
-    const monthly=master.api_reset_type==null?UNLOCKS.monthly.includes(id):Number(master.api_reset_type)===1;
-    const current=record&&(!monthly||record.period===period),done=current&&record.state===2;
-    const listed=progress.list?.period===period&&progress.list.ids.includes(id);
-    const locked=progress.list?.period===period&&progress.list.catalogIds.includes(id)&&!listed&&!current;
-    const state=done?'已完成':locked?'未解锁':current&&[0,1].includes(record.state)?'未完成':'待同步';
-    const series=Math.floor(id/10),prefix=({10:'A',11:'B',13:'D',14:'E'})[series];
-    const number=master.api_disp_no||(prefix?prefix+(id%10+([10,11].includes(series)?1:0)):String(id));
-    return {missionId:id,completed:!!done,text:`${done?'✓':'○'} ${number}${master.api_name?' '+master.api_name:''}（${monthly?'本期':''}${state}）`};
-  });
+  const rows=(rule.missions||[]).map(id=>{const {missionId,completed,text}=missionProgressItem(id,masters,progress);return {missionId,completed,text};});
   return [...rows,...(rule.maps||[]).map(area=>({text:`通关海域 ${area}`})),
     ...(rule.quests||[]).map(quest=>({text:`完成任务 ${quest}`}))];
 }
@@ -164,4 +182,4 @@ function unlockText(missionId,masters={},progress={}){
   const items=unlockItems(missionId,masters,progress);
   return [UNLOCKS.missions[missionId]?'解锁条件（全部满足）':null,...items.map(item=>item.text)].filter(Boolean).join('\n');
 }
-module.exports={missionSummary,rewardItems,rateText,requirements,missingConditions,baseRewardRows,probabilityDetails,fleetStatus,shipBadges,durationText,incomeText,incomeBreakdown,unlockItems,unlockText,referenceIncome};
+module.exports={missionSummary,rewardItems,rateText,requirements,missingConditions,baseRewardRows,probabilityDetails,fleetStatus,shipBadges,durationText,incomeText,incomeBreakdown,unlockItems,unlockText,downstreamPaths,missionChain,referenceIncome};

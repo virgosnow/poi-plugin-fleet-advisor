@@ -61,14 +61,35 @@ test('expeditions share the anchored non-modal panel and select numeric mission 
   assert.deepEqual(calls,[101]);assert(!ui.find(n=>n.props.role==='dialog'));
 });
 
-test('current selection is a no-op; trigger toggle, focus departure and hidden tabs dismiss without changing drafts',()=>{
+test('expedition picker opens only on click and toggles without changing the selected mission',()=>{
+  const calls=[],ui=harness({kind:'expedition',missions:[{missionId:1,name:'练习航海'}],value:1,onChange:id=>calls.push(id)});
+  const anchor=()=>ui.find(n=>n.props.className==='paa-area-anchor'),panel=()=>ui.find(n=>n.props.role==='dialog');
+  const click=()=>{ui.find(n=>n.props['aria-label']==='远征').props.onClick();ui.render();};
+  assert.equal(anchor().props.onPointerEnter,undefined);assert.equal(anchor().props.onPointerLeave,undefined);
+  click();assert(panel());click();assert(!panel());click();assert(panel());click();assert(!panel());
+  assert.deepEqual(calls,[]);
+});
+
+test('current selection is a no-op; repeated clicks toggle the panel and focus departure closes it',()=>{
   const calls=[],props={maps:[{area:'1-1'}],value:'1-1',onChange:id=>calls.push(id)};
   const ui=harness(props);ui.open();ui.find(n=>n.props['aria-current']==='true').props.onClick();ui.render();
   assert.deepEqual(calls,[]);assert(!ui.find(n=>n.props.role==='dialog'));
-  ui.open();ui.open();assert(!ui.find(n=>n.props.role==='dialog'));
-  ui.open();ui.find(n=>n.props.className==='paa-area-anchor').props.onBlur({currentTarget:{contains:()=>false},relatedTarget:{}});ui.render();
+  ui.open();ui.open();assert(!ui.find(n=>n.props.role==='dialog'));ui.open();assert(ui.find(n=>n.props.role==='dialog'));
+  ui.find(n=>n.props.className==='paa-area-anchor').props.onBlur({currentTarget:{contains:()=>false},relatedTarget:{}});ui.render();
   assert(!ui.find(n=>n.props.role==='dialog'));
   ui.open();props.hidden=true;ui.render();assert(!ui.find(n=>n.props.role==='dialog'));assert.deepEqual(calls,[]);
+});
+
+test('map picker opens only on click and clicks toggle the panel',()=>{
+  const calls=[],props={maps:[{area:'1-1'}],value:'1-1',onChange:id=>calls.push(id)},ui=harness(props);
+  const anchor=()=>ui.find(n=>n.props.className==='paa-area-anchor'),panel=()=>ui.find(n=>n.props.role==='dialog');
+  assert.equal(anchor().props.onPointerEnter,undefined);assert.equal(anchor().props.onPointerLeave,undefined);
+  ui.find(n=>n.props['aria-label']==='海域').props.onClick();ui.render();assert(panel());
+  ui.find(n=>n.props['aria-label']==='海域').props.onClick();ui.render();assert(!panel());
+  ui.find(n=>n.props['aria-label']==='海域').props.onClick();ui.render();assert(panel());
+  ui.find(n=>n.props['aria-label']==='海域').props.onClick();ui.render();assert(!panel());
+  props.hidden=true;ui.render();assert(!panel());
+  assert.deepEqual(calls,[]);
 });
 
 test('expedition summaries combine display numbers, real duration and resources with possible item rewards',()=>{
@@ -185,6 +206,22 @@ test('locked expeditions differ from available uncompleted rows and never infer 
   progress.list.ids=[1];progress.records[103]={state:2,period:'2026-10'};assert.equal(summary(missions[1]).completion,'completed');
   delete progress.records[103];const running=create.missionSummary(missions[1],{api_reset_type:1},{},progress,[{api_mission:[1,103,0]}]);
   assert.equal(running.status,'running');assert.notEqual(running.completion,'locked');
+});
+
+test('selected expedition displays the same monthly and status icons as its panel row',()=>{
+  const mission={missionId:103,name:'月度远征'},missionMasters={103:{api_time:110,api_reset_type:1}};
+  const missionProgress={period:'2026-10',records:{103:{state:2,period:'2026-10'}},list:{period:'2026-10',ids:[103],catalogIds:[103]}};
+  const props={kind:'expedition',missions:[mission],missionMasters,missionProgress,value:103,fleets:[],onChange(){}};
+  const ui=harness(props),trigger=()=>ui.find(n=>n.props.className==='paa-area-trigger');
+  const status=()=>trigger().children.find(n=>n?.props?.className?.includes('paa-mission-selected-state'));
+  assert(status());assert.equal(status().children[0].props.className,'paa-mission-monthly');assert.equal(status().children[1].props['data-state'],'completed');
+  assert.equal(trigger().props['aria-description'],'本期已完成');
+  ui.open();const option=ui.find(n=>n.props['aria-current']==='true');
+  assert.equal(option.children.find(n=>n?.props?.className==='paa-mission-option-state').children[1].props['data-state'],'completed');
+  props.fleets=[{api_mission:[1,103]}];ui.render();assert.equal(status().children[1].props['data-state'],'running');
+  props.fleets=[];delete missionProgress.records[103];missionProgress.list.ids=[];ui.render();assert.equal(status().children[1].props['data-state'],'locked');
+  missionProgress.list.period='2026-09';ui.render();assert.equal(status().children[1].props['data-state'],'unknown');
+  const map=harness({maps:[{area:'1-1'}],value:'1-1',onChange(){}});assert(!map.find(n=>n.props.className?.includes('paa-mission-selected-state')));
 });
 
 test('picker labels locks, keeps planning selectable and marks only completed monthly cards for attenuation',()=>{
@@ -315,7 +352,7 @@ test('selected expedition displays monthly prerequisites first and item rewards 
   for(const incomeUnit of ['trip','hour']){
     const tree=view.overview({...props,incomeUnit}),income=all(tree,n=>n.props.className==='paa-exp-income')[0];
     assert.equal(tree.children[0].props.className,'paa-exp-unlock');
-    assert.match(text(tree.children[0]),/未解锁/);assert.match(text(tree.children[0]),/42 ミ船団護衛\(一号船団\)（本期未完成）/);
+    assert.match(text(tree.children[0]),/未解锁/);assert.match(all(tree,n=>n.props['data-mission-id']===42)[0].props['aria-label'],/42 ミ船団護衛\(一号船団\)（本期未完成）/);
     const items=all(income,n=>n.props.className==='paa-exp-income-row paa-exp-item-row');
     assert.equal(items.length,2);assert.match(text(items[0]),/开发资材.*0 ~ 2/);
     assert.match(text(items[1]),/高速修复材.*—/);
@@ -323,7 +360,7 @@ test('selected expedition displays monthly prerequisites first and item rewards 
     assert.equal(text(items[1].children[0]).trim(),'高速修复材');
     assert.deepEqual(items[0].children.filter(n=>n?.props?.role==='cell').map(text),['0 ~ 2 /次']);
     assert.deepEqual(items[1].children.filter(n=>n?.props?.role==='cell').map(text),['—']);
-    assert.equal(all(tree,n=>n.props['data-tooltip']||n.props.title).length,0);
+    assert.equal(all(income,n=>n.props['data-tooltip']||n.props.title).length,0);
     assert.equal(all(income,n=>n.props.className==='paa-exp-income-row paa-exp-income-heading')[0].children.filter(Boolean).length,2,'zero chance shows only ordinary success, including item rewards');
     for(const row of all(income,n=>n.props.role==='row'))assert.equal(row.children.filter(Boolean).length,2);
   }
@@ -332,10 +369,10 @@ test('selected expedition displays monthly prerequisites first and item rewards 
   const unknown=view.overview({...props,master:{...master,api_win_item1:[3,0],api_win_item2:[0,0]}});
   assert.deepEqual(all(unknown,n=>n.props.className==='paa-exp-item-condition').map(text),['待确认']);
   missionProgress.records[42]={state:2,period:'2026-10'};
-  assert.match(text(view.overview(props)),/本期已完成/);
-  missionProgress.records[42].period='2026-09';assert.match(text(view.overview(props)),/本期待同步/);
+  assert.match(all(view.overview(props),n=>n.props['data-mission-id']===42)[0].props['aria-label'],/本期已完成/);
+  missionProgress.records[42].period='2026-09';assert.match(all(view.overview(props),n=>n.props['data-mission-id']===42)[0].props['aria-label'],/本期待同步/);
   const regular=view.overview({mission:{missionId:1},master:{api_time:15},rate:null,hasShips:false});
-  assert.equal(all(regular,n=>n.props.className==='paa-exp-unlock').length,0,'ordinary unlocked missions do not repeat unlock requirements');
+  assert(all(regular,n=>n.props['aria-label']==='远征链').length,'ordinary missions can show their direct relationships');
   assert.equal(all(regular,n=>n.props.className==='paa-exp-income-table')[0].props['data-columns'],2);
   for(const rate of [null,80,99.999,100]){
     const tree=view.overview({...props,rate}),table=all(tree,n=>n.props.className==='paa-exp-income-table')[0];
@@ -371,7 +408,7 @@ test('100 percent great success shows only its net rewards and additive breakdow
   }
 });
 
-test('only known unlocked monthly expeditions collapse prerequisites and preserve navigation',()=>{
+test('monthly expedition chain remains visible and preserves navigation',()=>{
   const React={Fragment:'fragment',createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})};
   const view=require('../../src/ui/expedition/expedition_view')(React),all=(n,p)=>!n||typeof n!=='object'?[]:[...(p(n)?[n]:[]),...n.children.flatMap(c=>all(c,p))];
   const calls=[],props={mission:{missionId:43},master:{api_reset_type:1},hasShips:false,onMissionChange:id=>calls.push(id)};
@@ -380,12 +417,27 @@ test('only known unlocked monthly expeditions collapse prerequisites and preserv
     if(state==='unknown')delete missionProgress.list;
     if(state==='completed')missionProgress.records[43]={state:2,period:'2026-10'};
     const tree=view.overview({...props,missionProgress,fleets:state==='running'?[{api_mission:[1,43]}]:[]});
-    const details=all(tree,n=>n.props.className==='paa-exp-unlock-details');
-    assert.equal(details.length,['listed','completed','running'].includes(state)?1:0,state);
-    if(details.length){assert.equal(details[0].props.open,undefined);assert.equal(details[0].props.key,43);}
+    assert.equal(all(tree,n=>n.props['aria-label']==='远征链').length,1,state);
     const link=all(tree,n=>n.props['data-mission-id']===42)[0];assert(link,state);link.props.onClick();
   }
   assert.deepEqual(calls,[42,42,42,42,42,42]);
+});
+
+test('expedition chain shows direct predecessors and successors without implying alternative prerequisites',()=>{
+  const React={Fragment:'fragment',createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})};
+  const view=require('../../src/ui/expedition/expedition_view')(React),all=(n,p)=>!n||typeof n!=='object'?[]:[...(p(n)?[n]:[]),...(n.children||[]).flatMap(c=>all(c,p))];
+  const {downstreamPaths}=require('../../src/ui/expedition/expedition_model');
+  assert.deepEqual(downstreamPaths(103).map(row=>row.map(item=>item.missionId)),[[44],[104,105],[115]]);
+  const calls=[],tree=view.overview({mission:{missionId:103},master:{api_reset_type:1},missionMasters:{104:{api_disp_no:'A5',api_name:'测试远征',api_reset_type:1}},missionProgress:{period:'2026-10',records:{104:{state:2,period:'2026-10'}}},onMissionChange:id=>calls.push(id)});
+  const region=all(tree,n=>n.props['aria-label']==='远征链')[0];assert(region);
+  const link=all(region,n=>n.props['data-mission-id']===104)[0];assert(link);assert.equal(link.props['aria-label'],'✓ A5 测试远征（本期已完成）');assert.equal(link.props['data-completed'],true);link.props.onClick();assert.deepEqual(calls,[104]);
+  assert.equal(all(region,n=>n.props['aria-current']==='true').length,0,'the selected mission is already shown in the picker');
+  const multi=view.overview({mission:{missionId:104},master:{api_reset_type:1}}),chain=all(multi,n=>n.props['aria-label']==='远征链')[0];
+  assert.deepEqual(all(chain,n=>n.props['data-mission-id']).map(n=>n.props['data-mission-id']),[103,112,105]);
+  assert.equal(all(chain,n=>n.props.className==='paa-exp-chain-plus').length,1);
+  const terminal=view.overview({mission:{missionId:105},master:{api_reset_type:1}});
+  const terminalChain=all(terminal,n=>n.props['aria-label']==='远征链')[0];assert(terminalChain);
+  assert.equal(all(terminalChain,n=>n.props.className==='paa-exp-chain-row').length,1);
 });
 
 test('empty drafts show local base rewards and actual drafts show net income with fleet bonus in top metrics',()=>{

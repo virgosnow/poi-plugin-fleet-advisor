@@ -34,7 +34,7 @@ module.exports=React=>{
     const ready=!expedition?'待核对':expedition.eligible?'全部满足':`${missing.length} 项待调整`;
     const duration=E.durationText(master?.api_time);
     const summary=mission?E.missionSummary(mission,master,useItems,missionProgress,fleets):null;
-    const items=E.rewardItems(master,useItems),showUnlock=summary&&(summary.monthly||summary.completion==='locked');
+    const items=E.rewardItems(master,useItems),chain=mission?E.missionChain(mission.missionId,missionMasters,missionProgress):null;
     const rateState=!Number.isFinite(rate)?'unknown':rate===0?'zero':rate>=100?'full':'partial';
     const showGreat=rate>0||!Number.isFinite(rate)&&items.length>0,showSuccess=!(Number.isFinite(rate)&&rate>=100);
     const greatPercent=Number.isFinite(rate)?Math.round(Math.min(100,Math.max(0,rate))):null;
@@ -42,15 +42,17 @@ module.exports=React=>{
     const basePreview=!hasShips&&!income,baseRows=basePreview?E.baseRewardRows(mission?.missionId):null;
     const incomeLabel=basePreview?'基础奖励':expedition?.eligible===false?'达标后净收益':'净收益';
     const rewardRows=income?.rows||baseRows||['燃料','弹药','钢材','铝土'].map(name=>({name,net:null,greatNet:null}));
-    const unlock=showUnlock?E.unlockItems(mission.missionId,missionMasters,missionProgress):[];
-    const unlockList=showUnlock?h('div',{className:'paa-exp-unlock-list'},!summary.unlocked?h('span',{className:'paa-exp-unlock-caption'},'解锁前置'):null,
-      ...unlock.map((item,index)=>item.missionId&&onMissionChange?h('button',{key:index,type:'button',className:'paa-exp-unlock-link',
-        'data-mission-id':item.missionId,'data-completed':item.completed,disabled,onClick:()=>{if(!disabled)onMissionChange(item.missionId);}},item.text):
-        h('span',{key:index,'data-completed':item.completed},item.text))):null;
+    const chainItem=(item,index)=>item.missionId?h('button',{key:index,type:'button',className:'paa-exp-chain-item',
+      'data-mission-id':item.missionId,'data-completed':item.completed,'data-tooltip':item.name||undefined,'aria-label':item.text,disabled:disabled||!onMissionChange,
+      onClick:()=>{if(!disabled)onMissionChange?.(item.missionId);}},h('strong',null,item.number),h('span',null,item.status)):
+      h('span',{key:index,className:'paa-exp-chain-condition'},item.text);
+    const chainRow=(label,items,all=false)=>items.length?h('div',{className:'paa-exp-chain-row',role:'group','aria-label':all?'前置条件，全部需要':label+'远征'},h('span',{className:'paa-exp-chain-label'},label),
+      h('div',{className:'paa-exp-chain-items'},...items.flatMap((item,i)=>[all&&i?h('span',{key:`plus-${i}`,className:'paa-exp-chain-plus','aria-hidden':true},'＋'):null,chainItem(item,i)]))):null;
     return h(React.Fragment,null,
-      summary&&(summary.monthly||summary.completion==='locked'||summary.status==='running')?h('section',{className:'paa-exp-unlock','aria-label':'远征状态与前置'},
+      summary&&(summary.monthly||summary.completion==='locked'||summary.status==='running'||chain&&(chain.before.length||chain.after.length))?h('section',{className:'paa-exp-unlock','aria-label':'远征状态与前置'},
         h('div',{className:'paa-exp-section-head'},h('h4',null,summary.monthly?'月度远征':'远征状态'),h('span',{'data-state':summary.status},summary.statusText)),
-        showUnlock&&summary.unlocked?h('details',{key:mission.missionId,className:'paa-exp-unlock-details'},h('summary',null,'解锁前置'),unlockList):unlockList):null,
+        chain&&(chain.before.length||chain.after.length)?h('div',{className:'paa-exp-chain','aria-label':'远征链'},
+          chainRow('前置',chain.before,true),chainRow('后续',chain.after)):null):null,
       h('section',{className:'paa-exp-time','aria-label':'远征时间'},
         h('div',{className:'paa-exp-section-head'},h('h4',null,'远征时间'),h('span',{className:'paa-exp-duration'},
           h('svg',{viewBox:'0 0 16 16',width:14,height:14,fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('circle',{cx:8,cy:8,r:6}),h('path',{d:'M8 4v4l3 2'})),duration||'—'))),
