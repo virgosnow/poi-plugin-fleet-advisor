@@ -70,6 +70,8 @@ MCP 服务采用 Node.js 内置 HTTP 实现，不捆绑协议 SDK 或客户端�
 
 ## 装备、资源与识别图像
 
+`src/domain/combat/gun_fit.js` 的昼战主炮适重参考[日文 Wiki 命中与回避](https://wikiwiki.jp/kancolle/命中と回避について#fitarms)和[英文 Wiki 适重炮](https://en.kancollewiki.net/Hidden_Fit_Bonuses)独立整理。系数为社区验证与估算；已识别但资料不足的主炮组合及提速状态显示待确认，未确认修正不作为已知零修正计入评分。适重属于舰娘整套配装的昼战命中项修正，不是装备固有的面板命中或实际命中率。
+
 `data/org_clear_escorts.json` 的 `detach` 来自游戏原版 `organize_filter.png` 的 `organize_filter_48/49`（选舰面板「はずす」按钮），按原版 `organize_filter_6` 背景合成，仅保存识别用色彩参考、来源地址、图集 SHA-256 和权利说明。`tools/vision/build-organization-detach.py` 从项目外图集重建参考；`tests/fixtures/org/detach.png` 使用已脱敏选舰页锚点与该按钮合成，不作为真实点击验收证据。原图集不随插件分发，素材权利归游戏权利方。
 
 `data/equip_clear_all.json` 的 `normalRemove` 来自游戏原版 `remodel_main.png` 中 `remodel_main_56`（普通槽卸下叉号），保留来源地址、图集 SHA-256 和权利说明。`tools/vision/build-equipment-remove.py` 从项目外图集重建 15×15 掩码，原图集不随插件分发。`tests/fixtures/equip/normal-remove.png`、`normal-remove-3.png`、`normal-remove-4.png` 来自五槽、三槽和四槽的真实改装画面，只保留基础页面锚点、舰队页签及卸装控件区域；其余像素清空，不含账号 HUD 或图片元数据。这些素材验证识别，不代表已执行卸装。游戏素材权利归游戏权利方。

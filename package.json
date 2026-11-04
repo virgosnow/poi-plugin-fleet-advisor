@@ -58,6 +58,7 @@
     "data/sortie/",
     "data/expedition_rewards.json",
     "docs/ARCHITECTURE.md",
+    "docs/DATA_SOURCES.md",
     "docs/MCP_API.md"
   ],
   "scripts": {
