@@ -178,7 +178,7 @@ test('snapshot worker searches only the observed phase while the UI retains the 
   buttons[1].props.onClick();
   assert.equal(changed.expedition.defaultGoal,'success');assert.deepEqual(changed.normal,F.DEFAULTS.normal);
   const helps=nodes(tree).filter(n=>n.props['data-tooltip']);
-  assert.deepEqual(helps.map(n=>n.props['aria-label']),['出击设置说明','远征设置说明']);
+  assert.deepEqual(helps.map(n=>n.props['aria-label']),['出击设置说明','演习设置说明','远征设置说明']);
   assert(helps.every(n=>n.type==='button'&&n.props.className==='paa-settings-help'));
   assert(nodes(tree).filter(n=>n.props.className==='paa-selection-options').every(n=>!nodes(n).some(c=>c.props.className==='paa-settings-help')),'individual filters have no question marks');
   changed=undefined;
@@ -187,7 +187,7 @@ test('snapshot worker searches only the observed phase while the UI retains the 
   const disabledBorrowing=nodes(view({...props,disabled:true})).find(n=>n.props['aria-label']==='出击装备借用');
   assert(disabledBorrowing.children.every(n=>n.props.disabled));disabledBorrowing.children[1].props.onClick();assert.equal(changed,undefined);
   const strings=nodes(tree).flatMap(n=>n.children.filter(c=>typeof c==='string'));
-  assert.equal(strings.filter(s=>s==='排除以下舰娘').length,2);
+  assert.equal(strings.filter(s=>s==='排除以下舰娘').length,3);
   assert(!strings.some(s=>/^排除.*舰$/.test(s)));assert(strings.includes('第一舰队成员'));
  });
 

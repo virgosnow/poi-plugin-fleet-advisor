@@ -48,6 +48,68 @@ function adaptiveHullGroups(option){
   return groups.map((paths,index)=>({...option,key:`${option.key}:coverage:${index}`,nodes:paths[0],paths}));
 }
 
+// Fixed hulls are membership constraints, not a fixed flagship. Hull beams
+// otherwise begin with the fixed prefix and can miss flagship-based branches.
+// Seed a bounded set of alternative flagships only where the requested paths
+// actually contain such rules; explicit draft positions remain authoritative.
+function flagshipRouteSeeds(ctx,args,options,seeds){
+  if(!ctx.fixed.length)return [];
+  const locked=specialPositionLocks(ctx,args.heldSlots);
+  if(locked.has(0))return [];
+  const map=require(`../../data/normal_routes/${args.area}.json`),nodes=new Set(['start',
+    ...options.flatMap(option=>routePlans.optionPaths(option).flatMap(path=>path.slice(0,-1)))]);
+  const types=new Set(),names=new Set();
+  const scan=value=>{
+    if(!value||typeof value!=='object')return;
+    if(Array.isArray(value.flagshipStype))for(const type of value.flagshipStype)types.add(Number(type));
+    if(Array.isArray(value.flagshipName?.prefixes))for(const name of value.flagshipName.prefixes)names.add(name);
+    for(const child of Object.values(value))if(Array.isArray(child))child.forEach(scan);else scan(child);
+  };
+  for(const [key,rules] of Object.entries(map.machineRules||{})){
+    const [node,phase]=key.split('#');
+    // Some non-Boss route requests do not specify a phase. Keep any
+    // phase-specific flagship rules in that case; route evaluation will
+    // still validate the actual phase and path for each candidate.
+    if(nodes.has(node)&&(!phase||!args.phase||phase===args.phase||options.some(option=>option.phase===phase)))scan(rules);
+  }
+  options.forEach(option=>scan(option.fleetRequirement));
+  if(!types.size&&!names.size)return [];
+  const required=new Set([...ctx.fixed,...(args.heldSlots||[]).filter(slot=>slot&&(slot.pin||Object.keys(slot.keep||{}).length)).map(slot=>slot.id)]);
+  const fixedRows=ctx.fixed.map(id=>ctx.byId.get(id));
+  const sorted=ctx.roster.slice().sort((a,b)=>b.power-a.power||a.id-b.id);
+  const groups=new Map();
+  for(const row of sorted){
+    const key=JSON.stringify([row.stype,[...names].filter(name=>row.name.startsWith(name))]);
+    if(!groups.has(key))groups.set(key,[]);
+    const group=groups.get(key);
+    if(group.length<3&&!group.some(other=>shipFamilyKey(other)===shipFamilyKey(row)))group.push(row);
+  }
+  const flags=[...new Map([...fixedRows,...[...groups.values()].flat()].map(row=>[row.id,row])).values()]
+    .filter(row=>![...locked].some(([position,id])=>position!==0&&id===row.id))
+    .sort((a,b)=>Number(types.has(b.stype)||[...names].some(name=>b.name.startsWith(name)))-
+      Number(types.has(a.stype)||[...names].some(name=>a.name.startsWith(name))));
+  const result=[],known=new Set(seeds.map(ids=>ids.join(',')));
+  for(const flag of flags){
+    let added=0;
+    for(const seed of seeds){
+      const ids=seed.slice(),index=ids.indexOf(flag.id);
+      if(index===0)continue;
+      if(index<0){
+        let replace=ids.length-1;while(replace>=0&&required.has(ids[replace]))replace--;
+        if(replace<0)continue;
+        ids[replace]=flag.id;
+      }
+      const position=ids.indexOf(flag.id);ids.splice(position,1);ids.unshift(flag.id);
+      const rows=ids.map(id=>ctx.byId.get(id));
+      if(rows.some(row=>!row)||hasDuplicateShipFamily(rows))continue;
+      const key=idsKey(rows);if(known.has(key))continue;known.add(key);
+      result.push(rows);if(++added>=4||result.length>=128)break;
+    }
+    if(result.length>=128)break;
+  }
+  return result;
+}
+
 // Combat-first submarine fleets may use spare aircraft slots, but an air
 // trial cannot consume either of the first two available torpedo positions.
 function fitAirForPriority(store,scheme,inventory,required,reference,goal,heldSlots,score){
@@ -526,8 +588,8 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   }
   for(const rows of (fallbackOnly?pathSeeds?.rows:pathSeeds?.baselineRows)||[])evaluate(rows);
   const combatSeedRows=(pathSeeds?.rows||[]).filter(rows=>!seen.has(idsKey(rows)));
-  // Deterministic coverage across fleet size and ship-type mix. Preserve the
-  // user's fixed order, which determines the flagship when provided.
+  // Deterministic coverage across fleet size and ship-type mix. Fixed hulls
+  // start as a prefix for sampling; flagshipRouteSeeds also tries legal orders.
   const loose=pool.filter(row=>!ctx.fixed.includes(row.id));
   // The literal highest-graded fleet must always be among the candidates,
   // otherwise the bounded random search below can miss it entirely.
@@ -567,6 +629,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       if(rows.length===count)evaluate(rows);
     }
   }
+  for(const rows of flagshipRouteSeeds(ctx,args,requestedRoutes,pendingSeeds))evaluate(rows);
   deferSeeds=false;
   const seedResults=yield {kind:'seeds',args,routes:requestedRoutes,items:pendingSeeds};
   for(const {candidate,paths} of seedResults)collectCandidate(candidate,true,paths);
@@ -891,6 +954,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   // seeds were generated. Try only permutations of the equipped finalists;
   // retain hulls, gear ownership and held positions, then recheck actual routes.
   const positioning={tried:0,improved:0},positionLocks=specialPositionLocks(ctx,args.heldSlots);
+  const fleetOrdering={tried:0,improved:0,protected:0},auxiliaryRefinement={tried:0,improved:0};
   const orderTargets=(fallbackOnly?[]:requestedRoutes).flatMap(option=>candidates.filter(row=>validFor(row,option))
     .sort((a,b)=>pathRank(b,option)-pathRank(a,option)).slice(0,2).map(row=>({row,option})));
   const orderedCandidates=new Map();
@@ -973,6 +1037,68 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       candidates.push(trial);lightening.improved++;
     }
   }
+  // Adaptive searches still need to refine the equipped winner. Do this
+  // after all fitting passes and before building routeResults so its displayed
+  // path, probability, diagnostics and scores describe the actual winner.
+  // The path is intentionally held fixed: a different adaptive path may
+  // require a different equipment plan even when both reach the same Boss.
+  if(fallbackOnly){
+    const option=requestedRoutes[0];
+    const arrival=row=>row.route.probability??row.route.chanceRange?.[0]??0;
+    const winners=()=>candidates.filter(row=>row.profile?.routePaths?.some(p=>routePlans.optionPaths(option)
+      .some(nodes=>p.nodes.join('>')===nodes.join('>')))&&pathRank(row,option)>-Infinity&&validFor(row,option))
+      .sort((a,b)=>(option.arrivalMode==='boss'?arrival(b)-arrival(a):0)||pathRank(b,option)-pathRank(a,option));
+    const compatible=(base,trial)=>{
+      if(!trial||!validFor(trial,option)||!reachable(trial,option))return false;
+      const before=planning(base,option),after=planning(trial,option);
+      const oldChance=strictChance(base,option),newChance=strictChance(trial,option);
+      const old=pathScores(base,option),next=pathScores(trial,option);
+      return before.nodes.join('>')===after.nodes.join('>')&&
+        newChance.min>=oldChance.min&&newChance.max>=oldChance.max&&arrival(trial)>=arrival(base)&&
+        after.losShortfall<=before.losShortfall&&next.airRankingTier>=old.airRankingTier&&
+        (old.airPriority==='combat'||!(old.routeAirEstimate?.margins?.supremacy?.min>=0)||next.routeAirEstimate?.margins?.supremacy?.min>=0)&&
+        next.specialAttack.bonus>=old.specialAttack.bonus&&
+        (next.aswCombat?.readiness??1)>=(old.aswCombat?.readiness??1)&&
+        (!base.guideSuitable||trial.guideSuitable)&&executable(trial);
+    };
+    for(const base of winners().filter(executable).slice(0,2)){
+      const rows=base.scheme.ships.map(entry=>ctx.byId.get(entry.id));
+      const entries=new Map(base.scheme.ships.map(entry=>[entry.id,entry]));
+      for(const core of specialAttackCores(rows).slice(0,16)){
+        const ordered=arrangeSpecialAttack(rows,core,{locked:positionLocks,
+          power:row=>plannedCombatStat(store,row,base.scheme,'api_karyoku','api_houg')});
+        if(!ordered||idsKey(ordered)===idsKey(rows))continue;
+        positioning.tried++;
+        const trial=evaluateCandidate(ordered,{...base.scheme,ships:ordered.map(row=>entries.get(row.id))},true);
+        if(!compatible(base,trial)||pathScores(trial,option).specialAttack.bonus<=pathScores(base,option).specialAttack.bonus||
+          pathRank(trial,option)<=pathRank(base,option))continue;
+        candidates.push(trial);positioning.improved++;
+      }
+    }
+    // Apply the same bounded final equipment and order proposals as preset
+    // routes. Keep each accepted proposal as the base for the next one.
+    let base=winners().find(executable);
+    if(base){
+      let profile=profileForRoute(area,base.route,[planning(base,option).nodes]);
+      for(const proposal of auxiliaryVariants(store,base.scheme,equipmentForFleet(inventory,base.scheme.ships,args.automaticFilters),
+        {profile,heldSlots:args.heldSlots})){
+        auxiliaryRefinement.tried++;
+        const trial=evaluateCandidate(base.scheme.ships.map(entry=>ctx.byId.get(entry.id)),proposal.scheme,true);
+        if(!compatible(base,trial)||pathScores(trial,option).rank<=pathScores(base,option).rank||
+          pathRank(trial,option)<pathRank(base,option))continue;
+        candidates.unshift(trial);base=trial;auxiliaryRefinement.improved++;
+        profile=profileForRoute(area,base.route,[planning(base,option).nodes]);
+      }
+      for(const choice of fleetOrderChoices(store,base.scheme,profile,base.scheme.ships.map(entry=>ctx.byId.get(entry.id)),
+        {locked:positionLocks,air:pathScores(base,option)})){
+        fleetOrdering.tried++;
+        const trial=evaluateCandidate(choice.scheme.ships.map(entry=>ctx.byId.get(entry.id)),choice.scheme,true);
+        if(!compatible(base,trial)||pathRank(trial,option)<pathRank(base,option))continue;
+        candidates.unshift({...trial,fleetOrderReason:choice.reason});
+        fleetOrdering.improved++;if(choice.protection)fleetOrdering.protected++;break;
+      }
+    }
+  }
   const routeResults=requestedRoutes.map(option=>{
     const possible=candidates.filter(row=>row.profile?.routePaths?.some(p=>routePlans.optionPaths(option).some(nodes=>p.nodes.join('>')===nodes.join('>')))&&pathRank(row,option)>-Infinity);
     const viable=possible.filter(row=>reachable(row,option)&&(!option.strategy||routePlans.strategyAssessment(row.route,option).eligible))
@@ -1014,8 +1140,6 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   const options=picked;
   const confirmedCount=options.filter(item=>item.scores.airGoalTier===3).length;
   const combatPriorityCount=options.filter(item=>item.scores.airPriority==='combat').length;
-  const fleetOrdering={tried:0,improved:0,protected:0};
-  const auxiliaryRefinement={tried:0,improved:0};
   return {area,target,phase:phase||null,airGoal,fleet:ctx.fleet,
     routeResults:routeResults.map(({item,...result})=>({...result,recommendationIndex:item?options.findIndex(o=>o.routeKey===result.key):null})),
     airGoalSummary:{confirmedCount,combatPriorityCount,returnedCount:options.length,
@@ -1033,7 +1157,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       // restarted, and all route/air/LoS/preview constraints are checked again.
       const base={...item,scheme,route,profile,scores},oldPlan=planning(base,option);
       const oldChance=strictChance(base,option);
-      let orderReason=null;
+      let orderReason=item.fleetOrderReason||null;
       perf.stage('selection.fleet-order',()=>{
       // Reuse the existing equipped-winner evaluator. No new batch, hull
       // generation, or specialist fitting chain is started for these trials.

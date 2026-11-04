@@ -407,7 +407,8 @@ test('ordinary night aviation supplies a named per-hit power row and preserves u
  f.draft.slots[2]=f.equip('夜攻',8,{api_type:[3,5,8,46],api_houg:2,api_raig:5,api_baku:3});
  const before=JSON.stringify([f.store,f.draft]),badge=f.read('night-air');
  assert.deepEqual(badge.attacks,[{label:'夜间航空攻击',power:91,hits:1}]);assert.match(badge.detail,/夜间航空攻击\n攻击力：91 × 1击/);assert.equal(JSON.stringify([f.store,f.draft]),before);
- delete f.store.const.$ships[1].api_maxeq;assert.equal(f.read('night-air').attacks[0].power,null);
+ assert(Number.isFinite(badge.basePower));
+ delete f.store.const.$ships[1].api_maxeq;assert.equal(f.read('night-air').attacks[0].power,null);assert.equal(f.read('night-air').basePower,null);
 });
 
 test('night aviation handles normal versus armored carrier damage and does not mutate the draft or store',()=>{

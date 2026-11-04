@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const make=require('../../helpers/workbench_fixture');
 const {previewForMap}=require('../../../src/domain/routes/sortie_profile');
 const plans=require('../../../src/domain/routes/route_plans');
-const {evaluateRoute,enemyFormation,groundReferenceSlots,laterBattleExists}=require('../../../src/domain/combat/route_estimate');
+const {evaluateRoute,enemyFormation,groundReferenceSlots,laterBattleExists,advanceSupply}=require('../../../src/domain/combat/route_estimate');
 const {routeEncounters}=require('../../../src/domain/combat/combat_encounters');
 const {projectedHull}=require('../../../src/domain/combat/combat_projection');
 const {nodeThreat,equipmentLookup}=require('../../../src/domain/combat/combat_threat');
@@ -36,6 +36,14 @@ test('1-6 terminal resource consumption cannot affect a later battle',()=>{
   assert.equal(laterBattleExists(path,path.indexOf('G'),nodes),true);
   assert.equal(laterBattleExists(path,path.indexOf('B'),nodes),false);
 });
+test('remaining supply is tracked independently and unknown costs propagate',()=>{
+  const full={fuel:1,ammo:1};
+  const battle=advanceSupply(full,{fuel:.2,ammo:.2});assert.deepEqual(battle,{fuel:.8,ammo:.8});
+  const asw=advanceSupply(battle,{fuel:.08,ammo:0});assert(Math.abs(asw.fuel-.72)<1e-9);assert.equal(asw.ammo,.8);
+  const whirlpool=advanceSupply(asw,{fuel:null,ammo:0});assert.equal(whirlpool.fuel,null);assert.equal(whirlpool.ammo,.8);
+  const later=advanceSupply(whirlpool,{fuel:.2,ammo:.2});assert.equal(later.fuel,null);assert(Math.abs(later.ammo-.6)<1e-9);
+  assert.deepEqual(advanceSupply({fuel:.1,ammo:.1},{fuel:.2,ammo:.2}),{fuel:0,ammo:0});
+});
 test('1-6 noncombat destination keeps two distinct evaluated enroute threats',()=>{
   const f=fixture({count:6,type:2,fire:50,torpedo:50,armor:20,hp:35});
   for(const ship of f.scheme.ships){
@@ -58,6 +66,7 @@ test('the same real 1-1 route distinguishes strong and weak synthetic fleets',()
   const weak=assess(fixture({fire:15,torpedo:10,armor:5,hp:20}),p);
   const strong=assess(fixture({fire:70,torpedo:50,armor:35,hp:60}),p);
   assert.equal(weak.status,'estimated');assert.equal(strong.status,'estimated');
+  assert.deepEqual(strong.diagnostics.nodes.map(node=>node.supplyBefore),[{fuel:1,ammo:1},{fuel:.8,ammo:.8}]);
   assert(strong.balance.ratio>weak.balance.ratio);
   assert(weak.reasons.some(reason=>reason.includes('不是实际通过率')));
 });
@@ -165,13 +174,88 @@ test('unvisited battles do not double-penalize a retreat, while severe damage re
     assert.equal(long.diagnostics.nodes[0].ownHpLoss,.75);
     assert(Math.abs(long.diagnostics.nodes[0].enemyHpLoss-.8)<1e-12);
     assert.deepEqual(long.diagnostics.nodes[1],
-      {id:'C',kind:'battle',visits:0,severe:0,ownHpLoss:null,enemyHpLoss:null},
+      {id:'C',kind:'battle',supplyBefore:{fuel:.8,ammo:.8},visits:0,severe:0,ownHpLoss:null,enemyHpLoss:null},
       'unvisited battles must not be presented as zero damage');
     severe=false;
     const safe=assess(f,path(['A','C']));
     assert(safe.balance.ratio>long.balance.ratio,'severe damage is still penalized as a route risk');
     assert.equal(safe.diagnostics.nodes[1].visits,32);
     assert.equal(safe.diagnostics.nodes[1].severe,0);
+  }finally{battle.runScenario=original;}
+});
+
+test('all journeys stopping before the target are not an even route despite high enemy damage',()=>{
+  const battle=require('../../../src/domain/combat/combat_battle'),original=battle.runScenario;
+  const f=fixture({hp:40}),base=profile('1-1','雷巡流');
+  f.store.info.ships[1].api_nowhp=20;
+  // Synthetic order of recorded fights, not a claim about the real 1-1 map.
+  const p={...base,routePaths:[{nodes:['A','B','C']}],targetNodes:['C'],
+    mapPreview:{...base.mapPreview,nodes:[...base.mapPreview.nodes,{id:'B'}]}};
+  let sample=0,step=0;
+  battle.runScenario=(prepared,rng,{initialHp,specialUsed}={})=>{
+    if(!initialHp)return original(prepared,rng);
+    if(step===0){sample++;assert.equal(initialHp[0],20,'use current medium-damaged HP');}
+    const severe=sample<=14||step===1;
+    step=severe?0:step+1;
+    return {status:'estimated',ownHp:[severe?10:19],enemyLost:.87,severe,
+      specialUsed:!!specialUsed,damageByEnemy:prepared.foes.map(()=>0)};
+  };
+  try{
+    const result=assess(f,p);
+    assert.equal(result.status,'estimated');assert.equal(result.balance.label,'压倒性劣势');
+    assert.deepEqual(result.diagnostics.journeys,{samples:32,completed:0,stoppedBeforeTarget:32});
+    assert.deepEqual(result.diagnostics.nodes.map(n=>[n.id,n.visits,n.severe]),[['A',32,14],['B',18,18],['C',0,0]]);
+    assert(result.diagnostics.nodes[0].enemyHpLoss>.8,'retain damage actually inflicted before retreat');
+  }finally{battle.runScenario=original;}
+});
+
+test('heavy damage after the final target battle differs from retreating before it',()=>{
+  const battle=require('../../../src/domain/combat/combat_battle'),original=battle.runScenario;
+  const f=fixture({hp:40}),p=profile('1-1','雷巡流');let step=0,beforeTarget=true;
+  battle.runScenario=(prepared,rng,{initialHp,specialUsed}={})=>{
+    if(!initialHp)return original(prepared,rng);
+    const severe=beforeTarget||step===1;step=severe?0:step+1;
+    return {status:'estimated',ownHp:initialHp.map(n=>severe?10:n),enemyHp:prepared.foes.map(()=>0),enemyLost:1,severe,
+      specialUsed:!!specialUsed,damageByEnemy:prepared.foes.map(()=>0)};
+  };
+  try{
+    const retreat=assess(f,p);beforeTarget=false;
+    const target=assess(f,p);
+    assert.equal(retreat.diagnostics.journeys.stoppedBeforeTarget,32);
+    assert.deepEqual(target.diagnostics.journeys,{samples:32,completed:32,stoppedBeforeTarget:0});
+    assert(target.balance.ratio>retreat.balance.ratio);
+    assert.equal(target.diagnostics.nodes.at(-1).severe,32);
+    assert.equal(target.diagnostics.nodes.at(-1).visits,32);
+  }finally{battle.runScenario=original;}
+});
+
+test('safe journeys with final S victories keep their grade despite heavy boss repair costs',()=>{
+  const battle=require('../../../src/domain/combat/combat_battle'),original=battle.runScenario;
+  const f=fixture({hp:40}),p=profile('1-1','雷巡流');let bossHeavy=false,bossCleared=true,escortOnly=false,nightBattles=0;
+  battle.runScenario=(prepared,rng,{initialHp,specialUsed}={})=>{
+    if(!initialHp)return original(prepared,rng);
+    const target=prepared.includeNight;
+    if(target)nightBattles++;
+    return {status:'estimated',ownHp:initialHp.map(n=>target&&bossHeavy?10:Math.max(11,n-1)),
+      enemyHp:prepared.foes.map((s,i)=>target&&escortOnly?(i===0?s.hp:0):target&&!bossCleared?s.hp*.9:0),
+      enemyLost:target&&escortOnly?(prepared.foes.length-1)/prepared.foes.length:target&&!bossCleared?.1:1,
+      severe:!!target&&bossHeavy,specialUsed:!!specialUsed,damageByEnemy:prepared.foes.map(()=>0)};
+  };
+  try{
+    const light=assess(f,p);bossHeavy=true;
+    const heavy=assess(f,p);
+    assert.equal(light.status,'estimated');assert.equal(heavy.status,'estimated');
+    assert.equal(light.balance.label,'压倒性优势');assert.deepEqual(heavy.balance,light.balance);
+    assert.deepEqual(heavy.diagnostics.journeys,{samples:32,completed:32,stoppedBeforeTarget:0});
+    assert.deepEqual(heavy.diagnostics.target,{id:'C',visits:32,sVictories:32,severe:32,includeNight:true});
+    assert.equal(light.diagnostics.target.severe,0);assert(nightBattles>=64);
+    bossHeavy=false;bossCleared=false;
+    const failed=assess(f,p);
+    assert.equal(failed.diagnostics.target.sVictories,0);
+    assert(failed.balance.rank<2,'easy en-route victories cannot conceal a failed boss attack');
+    escortOnly=true;
+    const escorts=assess(f,p);
+    assert.equal(escorts.balance.label,'压倒性劣势','destroying escorts alone cannot conceal an untouched boss');
   }finally{battle.runScenario=original;}
 });
 test('land aviation uses an explicit zero-damage reference but missing land capability remains unknown',()=>{

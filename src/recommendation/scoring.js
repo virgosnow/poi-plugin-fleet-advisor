@@ -92,7 +92,10 @@ function combatCapabilityCore(rows,result,profile,store,scheme,airExposure){
   // destroyer alone must not outscore a battleship on surface-only maps.
   const panels=new Map(rows.map(row=>[row.id,combatValue.plannedStats(store,
     scheme.ships.find(e=>e.id===row.id)||{id:row.id})]));
-  const surfaceValues=rows.map(row=>{const stats=panels.get(row.id);return stats.firePower*1.5+stats.torpedo*0.8+
+  const daySurfaceNodes=profile?Math.max(0,(profile.counts?.surface?.maximum||0)-(profile.counts?.night?.maximum||0)):1;
+  const surfaceValues=rows.map(row=>{const stats=panels.get(row.id),entry=scheme.ships.find(e=>e.id===row.id),fit=entry?combatValue.gunFit(store,entry):null;
+    const fitValue=daySurfaceNodes&&fit?.known?Math.max(-12,Math.min(12,fit.value))*0.5:0;
+    return stats.firePower*1.5+stats.torpedo*0.8+fitValue+
     stats.armor*0.45+(airExposure?stats.antiAir:num(row.ship.api_taiku))*0.15+
       row.level*0.25+([7,11,18].includes(row.stype)?60:0);});
   const surface=surfaceValues.reduce((n,value)=>n+value,0);

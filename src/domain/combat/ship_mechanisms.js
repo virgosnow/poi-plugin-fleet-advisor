@@ -96,7 +96,7 @@ function nightAviation(target,store){
     unknown?'夜间飞机的槽位容量：待确认。':!capacity?'夜间飞机槽位容量：0 架；需换槽。':!healthKnown?'当前损伤状态待确认。':'';
   const power=nightCI.aviationPower(target,planes.map(p=>({...p,kind:nightAircraftKind(p.equipment)})),store);
   const value=!capacity||unknown||power.basePower==null?null:cap(power.basePower,360);
-  return {key:'night-air',label:'夜间航空攻击',effect:'aviation',state,attacks:[{label:'夜间航空攻击',power:value,hits:1}],detail:
+  return {key:'night-air',label:'夜间航空攻击',effect:'aviation',state,basePower:!capacity||unknown?null:power.basePower,attacks:[{label:'夜间航空攻击',power:value,hits:1}],detail:
     tooltip(state==='ready'?'满足夜间发舰条件时固定发动':state==='blocked'?'当前无法发动':'发动情况：待确认',
       `夜间航空攻击\n攻击力：${value??'待确认'} × 1击`,[`不要求空优。需夜间飞机${native?'':'＋夜间要员'}。${reason}`,...power.reasons||[]])};
 }
@@ -154,7 +154,7 @@ function nightZuiunAttack(target,lighting,flagship,store){
 
 // 九八式水上偵察機(夜偵)#NightContact, checked 2026-10-16.
 // API icon 50 identifies all night scouts; ordinary scouts and night Zuiun do not qualify.
-function nightContact(target){
+function nightContact(target,{practice=false}={}){
   const planes=aircraftSlots(target).filter(({equipment:e})=>e.type===10&&Number(e.master?.api_type?.[3])===50);
   if(!planes.length)return null;
   const live=planes.some(p=>p.planes>0),unknown=planes.some(p=>p.planes===null);
@@ -162,7 +162,7 @@ function nightContact(target){
   const reason=live?'':unknown?'夜侦槽位容量：待确认。':'夜侦槽位容量：0 架；需换槽。';
   return {key:'night-contact',label:'夜间接触',state,detail:
     tooltip(state==='blocked'?'发动率：0.0%':'发动率：待确认','提高全队夜战攻击力与命中。',
-      `昼转夜需空优／空确／空劣，均衡与空丧不可；开幕夜战不限。${reason}`)};
+      `${practice?'演习时空优／空确／空劣可发动，空丧不可；均衡时条件待确认。':'昼转夜需空优／空确／空劣，均衡与空丧不可；开幕夜战不限。'}${reason}`)};
 }
 
 function illumination(target){
@@ -255,7 +255,7 @@ function fleetSpeed(store,entries){
     detail:ships.map(s=>`${s.name}：${s.label}\n${s.detail}`).join('\n')};
 }
 
-function fleetMechanisms(store,entries,speedReading,profile,{conditionalGroundDouble=false}={}){
+function fleetMechanisms(store,entries,speedReading,profile,{conditionalGroundDouble=false,practice=false}={}){
   const targets=draftTargets(store,entries),aswRows=asw(store,targets).ships;
   const speedRows=(speedReading||fleetSpeed(store,entries)).ships;
   const specialAttacks=fleetSpecialAttacks(targets,entries,{store});
@@ -322,7 +322,7 @@ function fleetMechanisms(store,entries,speedReading,profile,{conditionalGroundDo
     const jet=jets.assaultBadge(target,store,profile);if(jet)badges.push(jet);
     const carrier=carrierCutIn(target,flagship,carrierContext,store);if(carrier)badges.push(carrier);
     const nightAir=nightAviation(target,store);if(nightAir)badges.push(carrierNightCutIn(target,nightAir,flagship,store)||nightAir);
-    const contact=nightContact(target);if(contact)badges.push(contact);
+    const contact=nightContact(target,{practice});if(contact)badges.push(contact);
     const nightZuiun=nightZuiunAttack(target,lighting,flagship,store);if(nightZuiun)badges.push(nightZuiun);
     const night=nightAttack(target,flagship,store);if(night)badges.push(night);
     return [target.id,badges];

@@ -178,9 +178,8 @@ function specialPositionLocks(ctx,heldSlots){
   const locked=new Map();
   const held=(heldSlots||[]).filter(s=>s&&(s.pin||Object.keys(s.keep||{}).length));
   (heldSlots||[]).forEach((s,i)=>{if(held.includes(s)&&s.holdPosition!==false)locked.set(i,s.id);});
-  // Explicit held positions take precedence; legacy fixedShipIds retain their
-  // existing prefix positions when there is no draft-position information.
-  if(!held.length)ctx.fixed.forEach((id,i)=>locked.set(i,id));
+  // fixedShipIds only requires hull inclusion. A position becomes immutable
+  // only when the caller supplies an explicit held slot for that position.
   return locked;
 }
 function specialFleetSeeds(ctx,policies,heldSlots,night){

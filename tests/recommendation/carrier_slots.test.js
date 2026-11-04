@@ -535,7 +535,9 @@ test('5-2 equipment and full-fleet recommendations retain large-slot BA once LoS
   const full=recommendNormalFleet(store,{...args,airGoal:'superiority',fixedShipIds:[1,2,3,4,5,6]});
   assert(full.recommendations.length>0);
   for(const fitted of [equipment.scheme,...full.recommendations.map(r=>r.scheme)]){
-    for(const entry of fitted.ships.slice(0,2)){
+    const carriers=fitted.ships.filter(entry=>[1,2].includes(entry.id));
+    assert.equal(carriers.length,2,'both fixed carriers remain in the fleet');
+    for(const entry of carriers){
       assert(types(store,entry).slice(0,2).includes(7));
       assert(types(store,entry).slice(0,2).includes(8));
       assert(entry.slots.every((id,k)=>store.info.ships[entry.id].api_onslot[k]>10||![7,8].includes(type(store,id))));
@@ -562,7 +564,9 @@ test('5-2 full and equipment searches retain FBA with optional jets and preserve
   const full=recommendNormalFleet(store,{...args,airGoal:'superiority',fixedShipIds:[1,2,3,4,5,6]});
   assert(full.recommendations.length>0);
   for(const fitted of [equipment.scheme,...full.recommendations.map(r=>r.scheme)]){
-    for(const e of fitted.ships.slice(0,2)){
+    const carriers=fitted.ships.filter(entry=>[1,2].includes(entry.id));
+    assert.equal(carriers.length,2,'both fixed carriers remain in the fleet');
+    for(const e of carriers){
       assert(require('../../src/domain/combat/jet_aviation').carrierModes(types(store,e)).includes('FBA'));
     }
     const ids=fitted.ships.flatMap(e=>e.slots.concat(e.ex)).filter(id=>id>0);

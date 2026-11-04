@@ -3,7 +3,7 @@ const workerStarted=performance.now();
 const perf=require('../../shared/performance_trace');
 const reapingDiagnostics=require('../../shared/reaping_diagnostics');
 const {Worker,isMainThread,parentPort,workerData}=require('worker_threads');
-const METHODS=new Set(['recommendNormalFleet','recommendNormalEquipment','recommendExpeditionFleet','recommendExpeditionEquipment']);
+const METHODS=new Set(['recommendNormalFleet','recommendNormalEquipment','recommendExpeditionFleet','recommendExpeditionEquipment','recommendPracticeFleet']);
 const cancelled=()=>Object.assign(Error('推荐计算已取消'),{code:'RECOMMENDATION_CANCELLED'});
 
 // The existing worker computes success while ONE child computes great success.

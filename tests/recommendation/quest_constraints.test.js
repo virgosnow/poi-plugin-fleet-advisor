@@ -155,6 +155,126 @@ test('pumpkin escort task finds a compatible real path with unremodeled ships ex
   assert.match(impossible.reason,/任务/);
 });
 
+function adaptiveYamatoStore(){
+  const store=fixture();
+  const ships=[[1,'大和改二重',10],[2,'朧改',2],[3,'秋雲改',2],
+    [4,'瑞鶴改二甲',11],[5,'翔鶴改二甲',11],[6,'武蔵改二',9]];
+  for(const id of [7,8]){delete store.const.$ships[id];delete store.info.ships[id];}
+  for(const [id,name,type] of ships){
+    const planes=type===11?[34,24,12,9]:type===2?[0,0,0]:[0,0,5,22,5];
+    const speed=type===11||type===2?10:5;
+    Object.assign(store.const.$ships[id],{api_name:name,api_stype:type,api_slot_num:planes.length,api_maxeq:planes,
+      api_soku:speed,api_fuel_max:100,api_bull_max:100});
+    Object.assign(store.info.ships[id],{api_lv:99,api_cond:60,api_fuel:100,api_bull:100,
+      api_slot:planes.map(()=>-1),api_slot_ex:-1,api_onslot:planes.slice(),api_soku:speed,
+      api_karyoku:[120,120],api_raisou:[80,80],api_soukou:[90,90],api_sakuteki:[100,100],
+      api_taiku:[80,80],api_taisen:[60,60]});
+    store.const.$shipTypes[type]={api_equip_type:Object.fromEntries(
+      [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,25,29,33,39,45].map(t=>[t,1]))};
+  }
+  // Synthetic inventory with enough air power to isolate position from air fit.
+  for(let id=101;id<141;id++){
+    const type=id<111?3:id<121?6:id<131?45:10;
+    const name=type===3?'46cm三連装砲':type===6?'烈風':type===45?'二式水戦改':'零式水上偵察機';
+    store.info.equips[id]={api_slotitem_id:id,api_level:0};
+    store.const.$equips[id]={api_id:id,api_type:[0,0,type,type],api_name:name,
+      api_houg:type===3?20:0,api_tyku:[6,45].includes(type)?12:0,api_saku:type===10?8:0};
+  }
+  store.info.equips[141]={api_slotitem_id:141,api_level:0};
+  store.const.$equips[141]={api_id:141,api_type:[0,0,1,1],api_name:'小口径主砲',api_houg:5};
+  return store;
+}
+
+test('adaptive 6-5 positions a movable Yamato pair for two quests without breaking the chosen path or held positions',async()=>{
+  const store=adaptiveYamatoStore(),before=JSON.stringify(store);
+  const args={area:'6-5',fleet:1,questCodes:['B143','B182'],airGoal:'superiority',
+    automaticFilters:{minLevel:0,excludeUnremodeled:false,excludeFatigued:false},
+    fixedShipIds:[1,2,3,4,5,6],heldSlots:[{id:1,pin:true,holdPosition:false,keep:{}}]};
+  const pick=result=>{
+    const route=result.routeResults.find(r=>r.fallback);assert(route);assert.equal(route.status,'available');
+    const row=result.recommendations[route.recommendationIndex];assert(row);
+    assert.equal(route.chance.probability,1);assert.deepEqual(row.pathChance,route.chance);
+    assert.deepEqual(route.displayPaths,[row.selectedPath]);
+    assert.equal(row.scores.airGoalTier,3);
+    assert(satisfiesQuests(store,row.scheme,questRequirements(args.questCodes)));
+    const plans=require('../../src/domain/routes/route_plans');
+    assert.deepEqual(plans.optionPlanning(row.route,route).nodes,row.selectedPath);
+    assert.deepEqual(plans.planningPath(row.route,row.selectedPath,{allowTentative:false}).chance,route.chance);
+    const actual=require('../../src/domain/routes/normal_routes').evaluateSearchRoute(store,
+      {area:'6-5',target:'boss',fleet:1,scheme:row.scheme});
+    assert.deepEqual(plans.optionPlanning(actual,route).nodes,row.selectedPath);
+    assert.deepEqual(plans.planningPath(actual,row.selectedPath,{allowTentative:false}).chance,route.chance);
+    assert.doesNotThrow(()=>new (require('../../src/application/controller').Controller)({getStore:()=>store}).preview('fleet',row.scheme));
+    return row;
+  };
+  const result=recommendNormalFleet(store,args),row=pick(result);
+  assert.deepEqual(row.scheme.ships.slice(0,2).map(ship=>ship.id),[1,6]);
+  assert.equal(row.scores.specialAttack.label,'大和型齐射');assert(row.scores.specialAttack.bonus>0);
+  const parallel=await recommendNormalFleetParallel(store,args,(_batch,run)=>run());
+  const parallelRow=pick(parallel);
+  assert.deepEqual(parallelRow.scheme,row.scheme);
+  // The player explicitly locks the second position; a higher touch score must
+  // never move that hull. Merely fixing hull membership above is different.
+  const held=pick(recommendNormalFleet(store,{...args,heldSlots:[null,
+    {id:2,pin:true,slots:[141,-1,-1],keep:{0:true}}]}));
+  assert.equal(held.scheme.ships[1].id,2);assert.equal(held.scheme.ships[1].slots[0],141);
+  assert.equal(held.scores.specialAttack.bonus,0);
+  assert.equal(JSON.stringify(store),before,'recommendation never mutates the snapshot');
+});
+
+test('adaptive special positioning also gives Nelson a strong participant without changing the physical path',()=>{
+  const store=adaptiveYamatoStore();
+  Object.assign(store.const.$ships[1],{api_name:'Nelson改',api_stype:9});
+  store.info.ships[6].api_karyoku=[180,180];
+  for(const id of [2,3])store.info.ships[id].api_karyoku=[40,40];
+  const args={area:'6-5',fleet:1,questCodes:['B143'],airGoal:'superiority',
+    automaticFilters:{minLevel:0,excludeUnremodeled:false,excludeFatigued:false},
+    fixedShipIds:[1,2,3,4,5,6],heldSlots:[{id:1,pin:true,holdPosition:false,keep:{}}]};
+  const result=recommendNormalFleet(store,args),option=result.routeResults.find(r=>r.fallback);
+  assert.equal(option.status,'available');
+  const row=result.recommendations[option.recommendationIndex];assert(row);
+  assert.equal(row.scores.specialAttack.label,'Nelson Touch');
+  assert(row.scores.specialAttack.participants.some(ship=>ship.id===6&&[3,5].includes(ship.position)));
+  assert(satisfiesQuests(store,row.scheme,questRequirements(args.questCodes)));
+  assert.deepEqual(row.pathChance,option.chance);assert.deepEqual(option.displayPaths,[row.selectedPath]);
+  const plans=require('../../src/domain/routes/route_plans');
+  assert.deepEqual(plans.optionPlanning(row.route,option).nodes,row.selectedPath);
+  assert.deepEqual(plans.planningPath(row.route,row.selectedPath,{allowTentative:false}).chance,option.chance);
+});
+
+test('adaptive route reporting follows the final order when a flagship swap changes the physical path',()=>{
+  const store=adaptiveYamatoStore();
+  for(const [id,name,type] of [[1,'轻巡改',3],[2,'Nelson改',9],[3,'驱逐甲改',2],
+    [4,'驱逐乙改',2],[5,'驱逐丙改',2],[6,'秋津洲改',16]]){
+    const planes=type===9?[0,0,3,6]:type===2?[0,0,0]:[0,2,2];
+    Object.assign(store.const.$ships[id],{api_name:name,api_stype:type,api_soku:10,
+      api_slot_num:planes.length,api_maxeq:planes});
+    Object.assign(store.info.ships[id],{api_soku:10,api_onslot:planes,api_slot:planes.map(()=>-1)});
+    store.const.$shipTypes[type]={api_equip_type:Object.fromEntries(
+      [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,25,29,33,39,45].map(t=>[t,1]))};
+  }
+  const result=recommendNormalFleet(store,{area:'6-4',fleet:1,airGoal:'ignore',
+    automaticFilters:{minLevel:0,excludeUnremodeled:false,excludeFatigued:false},
+    fixedShipIds:[1,2,3,4,5,6],heldSlots:[{id:1,pin:true,holdPosition:false,keep:{}}]});
+  const option=result.routeResults.find(r=>r.fallback);assert.equal(option.status,'available');
+  const row=result.recommendations[option.recommendationIndex];assert(row);
+  const plans=require('../../src/domain/routes/route_plans');
+  assert.deepEqual(option.displayPaths,[row.selectedPath]);
+  assert.deepEqual(plans.optionPlanning(row.route,option).nodes,row.selectedPath);
+  assert.deepEqual(plans.planningPath(row.route,row.selectedPath,{allowTentative:false}).chance,option.chance);
+  const actual=require('../../src/domain/routes/normal_routes').evaluateSearchRoute(store,
+    {area:'6-4',target:'boss',fleet:1,scheme:row.scheme});
+  assert.deepEqual(plans.optionPlanning(actual,option).nodes,row.selectedPath);
+  assert.deepEqual(plans.planningPath(actual,row.selectedPath,{allowTentative:false}).chance,option.chance);
+  const otherId=row.scheme.ships[0].id===1?2:1;
+  const otherIndex=row.scheme.ships.findIndex(ship=>ship.id===otherId);assert(otherIndex>0);
+  const ships=row.scheme.ships.slice();[ships[0],ships[otherIndex]]=[ships[otherIndex],ships[0]];
+  const alternative=require('../../src/domain/routes/normal_routes').evaluateSearchRoute(store,
+    {area:'6-4',target:'boss',fleet:1,scheme:{...row.scheme,ships}});
+  assert.notDeepEqual(plans.optionPlanning(alternative,option).nodes,row.selectedPath,
+    'this is a real flagship-dependent route, not merely a change in the displayed labels');
+});
+
 test('the recommendation worker retains selected quests across worker boundaries',async()=>{
   const store=storeWithShips(),quests=questRequirements(['2610B1','2610B5']);
   const {RecommendationWorker}=require('../../src/infrastructure/workers/recommendation_worker');

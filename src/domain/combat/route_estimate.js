@@ -26,6 +26,14 @@ function enemyFormation(formation,fleet,kind){
 }
 function unknown(reason,threats){return {status:'unknown',reasons:[reason],threats};}
 function laterBattleExists(path,pathStep,nodes){return path.slice(pathStep+1).some(id=>nodes.has(id));}
+// Track each resource independently: a whirlpool or unknown node cannot turn
+// into a precise remaining percentage on later nodes. These are reference
+// fractions from full supply, before ship-specific rounding.
+function advanceSupply(remaining,used){
+  const next=key=>Number.isFinite(remaining[key])&&Number.isFinite(used[key])?
+    Math.max(0,Math.min(1,remaining[key]-used[key])):null;
+  return {fuel:next('fuel'),ammo:next('ammo')};
+}
 // A reference scenario can use midpoint aircraft counts when attrition is
 // unresolved, just as the opening-air model does. Keep known empty slots at
 // zero and never invent a capacity. This does not assert a loss probability.
@@ -188,7 +196,7 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
       ()=>now()-start>LIMITS.timeMs);
     if(checked.status!=='known')return unknown(checked.reason,threats);
   }
-  let remainingAmmo=1;const prepared=[],warnings=new Set(['按当前舰队及可达分支的较高威胁编成估计',
+  let remainingAmmo=1,supply={fuel:1,ammo:1};const prepared=[],warnings=new Set(['按当前舰队及可达分支的较高威胁编成估计',
     '模型使用参考命中条件，不是实际通过率或大破率',
     '航空损耗范围按中间架数参考，不代表实际损耗概率',
     `未计支援、基地航空队${specialReady?'':'、特殊炮击'}、弹着观测及燃料回避修正`]);
@@ -212,56 +220,87 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
       for(const reason of prep.reasons)warnings.add(`${id} 点：${reason}`);
       if((formation.formation?.length||0)>1)warnings.add(`${id} 点有多种敌方阵形，按较高攻击修正参考`);
       if(includeNight)warnings.add('目标点敌舰仍在时按进入夜战参考');
-      prepared.push({id,prep,ammo:remainingAmmo,target:node.target,enemies:allEnemies,
+      prepared.push({id,prep,ammo:remainingAmmo,supplyBefore:{...supply},target:node.target,enemies:allEnemies,
         observed:{visits:0,severe:0,loss:0,enemyLoss:0,damage:allEnemies.map(()=>0)}});
     }
     const used=consumption(map.nodes[id],profile.area);
+    supply=advanceSupply(supply,used);
     if(used.ammo===null){if(laterBattleExists(chosen.path.nodes,pathStep,nodes))warnings.add(`${id} 点弹药消耗待确认`);}
     else remainingAmmo=Math.max(0,remainingAmmo-used.ammo);
     if(now()-start>LIMITS.timeMs)return unknown('战力计算超过时间预算',threats);
   }
   if(!prepared.length)return unknown('所选路线没有可比较的战斗',threats);
   // An air-raid node offers no opportunity to damage the enemy fleet. It
-  // contributes incoming damage but must not count as a failed attack when
-  // averaging own combat impact across the other nodes.
+  // affects subsequent HP and retreat but is not a failed friendly attack.
   const attackableSteps=prepared.filter(step=>step.prep.kind!=='aerialRaid').length;
   if(!attackableSteps)return unknown('所选路线只有空袭，缺少可比较的交战节点',threats);
-  let enemyLoss=0,ownLoss=0,severe=0,ran=0;
-  const batches=[{enemyLoss:0,ownLoss:0,severe:0,count:0},{enemyLoss:0,ownLoss:0,severe:0,count:0}];
+  const destination=chosen.path.nodes.at(-1);
+  const targetBattle=prepared.find(step=>step.target&&step.id===destination);
+  const targetResults=targetBattle?{id:destination,visits:0,sVictories:0,severe:0,includeNight:targetBattle.prep.includeNight||targetBattle.prep.kind==='nightBattle'}:null;
+  let objectiveProgress=0,ran=0,completed=0,stoppedBeforeTarget=0;
+  const batches=[{progress:0,count:0},{progress:0,count:0}];
   for(let sample=0;sample<LIMITS.samples;sample++){
     const rng=battle.random(0x4b414e43+sample*7919+seed),initial=fleet.map(s=>s.initialHp);
-    let hp=initial.slice(),hit=0,visitedAttackable=0,stopped=false,specialUsed=false;
+    let hp=initial.slice(),stopped=false,specialUsed=false,reachedTarget=false,targetProgress=0;
     for(const step of prepared){
       const before=hp;
       const result=battle.runScenario(step.prep,rng,{initialHp:hp,ammo:Math.min(1,step.ammo*2),specialUsed});
       if(result.status==='unknown')return unknown(`${step.id} 点战斗状态待确认`,threats);
       if(result.status==='partial')return unknown(`${step.id} 点部分攻击能力待确认`,threats);
-      hp=result.ownHp;hit+=result.enemyLost;specialUsed=result.specialUsed;
-      if(step.prep.kind!=='aerialRaid'&&!result.stopped)visitedAttackable++;
+      hp=result.ownHp;specialUsed=result.specialUsed;
+      // Damage sustained during the final target battle cannot prevent a
+      // battle already fought. A pre-battle stop, or damage on the way to a
+      // noncombat destination, does prevent reaching the selected target.
+      if(step===targetBattle&&!result.stopped){
+        if(!Array.isArray(result.enemyHp)||result.enemyHp.length!==step.prep.foes.length||
+          result.enemyHp.some(value=>!Number.isFinite(value)||value<0))return unknown(`${step.id} 点最终战果资料不足`,threats);
+        reachedTarget=true;
+        // A final-node S victory is determined after the complete battle,
+        // including night combat. Heavy damage afterwards is repair cost,
+        // not an en-route retreat or an automatic failure of this victory.
+        const targetCleared=result.enemyHp.every(value=>value===0)&&hp.every(value=>value>0);
+        // Use both flagship damage and fleet-wide damage. Destroying escorts
+        // cannot conceal an untouched boss; near-clears still differ from a
+        // fleet that cannot hurt the target. Exact S results are kept apart
+        // rather than converting finite samples into a guarantee of victory.
+        targetProgress=hp.every(value=>value>0)?Math.max(0,Math.min(1,result.enemyLost,
+          1-result.enemyHp[0]/step.prep.foes[0].hp)):0;
+        targetResults.visits++;targetResults.sVictories+=Number(targetCleared);targetResults.severe+=Number(result.severe);
+      }
       step.observed.visits++;
       step.observed.loss+=fleet.reduce((sum,ship,i)=>sum+Math.max(0,(before[i]-hp[i])/ship.hp),0)/fleet.length;
       step.observed.enemyLoss+=result.enemyLost;
       step.observed.severe+=Number(result.severe);
       result.damageByEnemy.forEach((damage,i)=>{if(Number.isFinite(damage))step.observed.damage[i]+=damage;});
-      if(result.severe){severe++;stopped=true;break;}
+      if(result.severe){stopped=true;break;}
     }
-    // Once a severe-damage scenario retreats, later unvisited battles are not
-    // zero-output fights. Its retreat risk is already in enemyImpact below;
-    // dividing by the full route would count that same event twice.
-    const dealt=visitedAttackable?hit/visitedAttackable:0,
-      received=fleet.reduce((sum,ship,i)=>sum+Math.max(0,(ship.hp-hp[i])/ship.hp),0)/fleet.length;
-    enemyLoss+=dealt;ownLoss+=received;
-    const batch=batches[sample%2];batch.enemyLoss+=dealt;batch.ownLoss+=received;batch.severe+=Number(stopped);batch.count++;
+    // A route assessment must not credit a failed journey as a successful
+    // one merely because it damaged the enemy before retreating. Keep the
+    // actual exchange in node diagnostics; credit its combat impact only
+    // when the journey reaches its target. Do not invent zero-damage rows
+    // for later unvisited battles.
+    const finished=reachedTarget||!stopped;
+    completed+=Number(finished);stoppedBeforeTarget+=Number(!finished);
+    const progress=finished?(targetBattle?targetProgress:1):0;
+    objectiveProgress+=progress;
+    const batch=batches[sample%2];batch.progress+=progress;batch.count++;
     ran++;
     if(now()-start>LIMITS.timeMs)return unknown('战力计算超过时间预算',threats);
   }
-  // The model's severe fraction is a weighted scenario indicator only, never
-  // exposed as a real probability. Stop early on a severe-damage scenario.
-  const ownImpact=enemyLoss/ran,enemyImpact=.45*ownLoss/ran+.55*severe/ran;
+  // Compare getting through the route and the final target's actual result.
+  // Easy en-route victories cannot conceal an ineffective boss battle, and
+  // repair costs after a successful boss battle cannot masquerade as retreat.
+  // These bounded sample frequencies remain model references, not real odds.
+  // HP attrition already changes attacks, target selection and retreat in
+  // these same scenarios. Do not penalize it a second time in the outcome
+  // comparison. A combat target uses final flagship/fleet damage; a passive
+  // target uses safe arrival. S victories and repair costs stay explicit in
+  // diagnostics instead of being confused with en-route retreat.
+  const ownImpact=objectiveProgress/ran,enemyImpact=1-ownImpact;
   const balance=fromRatio((ownImpact+.05)/(enemyImpact+.05));
   if(!balance)return unknown('战力资料不足',threats);
-  const batchRanks=batches.map(batch=>fromRatio((batch.enemyLoss/batch.count+.05)/
-    (.45*batch.ownLoss/batch.count+.55*batch.severe/batch.count+.05))?.rank);
+  const batchRanks=batches.map(batch=>fromRatio((batch.progress/batch.count+.05)/
+    (1-batch.progress/batch.count+.05))?.rank);
   const uncertain=batchRanks.some(rank=>rank!==balance.rank);
   if(uncertain)warnings.add('不同参考场景的档位接近边界，结果可能变化');
   if(evidence.paths.length===1){
@@ -286,7 +325,7 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
   }
   // These are the existing bounded scenario observations, not actual damage
   // forecasts or event probabilities. Unvisited nodes have no average.
-  const diagnostics={nodes:prepared.map(step=>({id:step.id,kind:step.prep.kind,
+  const diagnostics={journeys:{samples:ran,completed,stoppedBeforeTarget},target:targetResults,nodes:prepared.map(step=>({id:step.id,kind:step.prep.kind,supplyBefore:step.supplyBefore,
     visits:step.observed.visits,severe:step.observed.severe,
     ownHpLoss:step.observed.visits?step.observed.loss/step.observed.visits:null,
     enemyHpLoss:step.prep.kind==='aerialRaid'||!step.observed.visits?null:
@@ -294,4 +333,4 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
   return {status:'estimated',balance,threats,reasons:[...warnings],samples:ran,uncertain,diagnostics,
     path:chosen.path.nodes,elapsedMs:now()-start};
 }
-module.exports={LIMITS,enemyFormation,groundReferenceSlots,laterBattleExists,preflightAlternatives,evaluateRoute};
+module.exports={LIMITS,enemyFormation,groundReferenceSlots,laterBattleExists,preflightAlternatives,advanceSupply,evaluateRoute};

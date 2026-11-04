@@ -9,6 +9,7 @@ const {enemyOpeningTorpedo,enemyAswPower}=require('./combat_air_asw');
 const {projectShip}=require('../fleet/fleet_metrics');
 const {nightAviation,carrierNightCutIn}=require('./ship_mechanisms');
 const nightCombat=require('./night_cutin');
+const practiceNightContact=require('./practice_night_contact');
 const {fleetSpecialAttacks}=require('./special_attacks');
 const {groundAttackPower}=require('./combat_ground');
 const catalog=new Map(require('../../../data/sortie/enemy_catalog.json').enemies.map(e=>[e.apiId,e]));
@@ -110,19 +111,20 @@ function deriveOwnNight(store,entry,{flagship=false,slotRemaining}={}){
     if(!surfaceNight)return {status:'known',available:false,reasons:[]};
     const power=nightCombat.surfacePower(hi,store);
     if(!FINITE(power?.basePower))return {status:'unknown',available:null,reasons:['普通空母夜战攻击力资料缺失']};
-    return {status:'known',available:true,power:cap(power.basePower,360),mode:'surface',modes:[],reasons:[]};
+    return {status:'known',available:true,power:cap(power.basePower,360),basePowerRaw:power.basePower,mode:'surface',modes:[],reasons:[]};
   }
   const upperPower=aviation.attacks?.[0]?.power;
   if(!FINITE(upperPower))return {status:'unknown',available:null,reasons:['夜间航空攻击力资料不足']};
   const lowAviation=nightAviation(lo,store),lowPower=lowAviation?.attacks?.[0]?.power;
   const minimum=FINITE(lowPower)?lowPower:0;
   const ci=carrierNightCutIn(hi,aviation,!!flagship,store);
-  const modes=(ci?.ci?.rows||[]).map(row=>({power:row.power,rate:row.rate,hits:row.hits}));
+  const modes=(ci?.ci?.rows||[]).map(row=>({power:row.power,rate:row.rate,hits:row.hits,multiplier:row.multiplier,basePower:ci.ci.basePower,fit:ci.ci.fit}));
   const unresolved=modes.some(mode=>!FINITE(mode.power)||!FINITE(mode.rate));
   const ranges=sizes.some(range=>Array.isArray(range)&&range[0]!==range[1]);
   const reasons=[...(ranges?['夜间飞机沿途损耗按范围参考']:[]),...(unresolved?['空母夜袭发动资料待确认']:[])];
   return {status:reasons.length?'partial':'known',available:minimum>0?true:upperPower>0?null:false,
-    power:upperPower,powerMin:minimum,powerMax:upperPower,mode:'aviation',modes:unresolved?[]:modes,reasons};
+    power:upperPower,powerMin:minimum,powerMax:upperPower,basePowerRaw:aviation.basePower,
+    basePowerRawMin:lowAviation?.basePower??null,mode:'aviation',modes:unresolved?[]:modes,reasons};
 }
 // This is a candidate tactic, not a claim about the formation the player will
 // choose. The caller must explicitly opt into the exact required formation.
@@ -310,7 +312,7 @@ function applyDamage(actor,hp,damage,rng){
   }
   return Math.max(0,hp-damage);
 }
-function scenarioPower(actor,hp,phase,formation,rng,adjust=0){
+function scenarioPower(actor,hp,phase,formation,rng,adjust=0,nightBonus=0){
   if(phase==='openingAsw'||phase==='asw'||phase==='nightAsw'){
     if(actor.side==='enemy'){
       const reading=phase==='nightAsw'?actor.nightAsw:actor.enemyAsw;
@@ -342,13 +344,14 @@ function scenarioPower(actor,hp,phase,formation,rng,adjust=0){
     if(actor.side==='own'&&actor.carrier){
       if(actor.nightPowerRange&&rng()<.5){
         if(actor.nightPowerRange[0]===0)return 0;
-        return {power:Math.floor(actor.nightPowerRange[0]*damageMultiplier),hits:1};
+        const raw=actor.nightRawRange?.[0];
+        return {power:nightBonus&&FINITE(raw)?cap((raw+nightBonus)*damageMultiplier,360):Math.floor(actor.nightPowerRange[0]*damageMultiplier),hits:1};
       }
       for(const option of actor.nightOptions||[]){
         if(!FINITE(option.power)||!FINITE(option.rate))return null;
-        if(rng()<option.rate)return {power:Math.floor(option.power*damageMultiplier),hits:option.hits||1};
+        if(rng()<option.rate)return {power:nightBonus&&FINITE(option.basePower)&&FINITE(option.multiplier)?cap(((option.basePower+nightBonus)*option.multiplier+(option.fit||0))*damageMultiplier,360):Math.floor(option.power*damageMultiplier),hits:option.hits||1};
       }
-      return {power:Math.floor(base*damageMultiplier),hits:1};
+      return {power:nightBonus&&FINITE(actor.nightRawBase)?cap((actor.nightRawBase+nightBonus)*damageMultiplier,360):Math.floor(base*damageMultiplier),hits:1};
     }
     let mode=actor.nightMode;
     if(actor.side==='own'&&actor.nightModes?.length){
@@ -356,7 +359,7 @@ function scenarioPower(actor,hp,phase,formation,rng,adjust=0){
       mode={multiplier:raw.multiplier,hits:raw.hits,rate:raw.coefficient&&FINITE(fixed)?clamp((fixed+(actor.index===0?15:0))/raw.coefficient,0,1):raw.coefficient?.4:.7};
     }
     const activated=mode&&rng()<mode.rate;
-    return {power:cap(base*damageMultiplier*(activated?mode.multiplier:1),360),hits:activated?(typeof mode.hits==='number'?mode.hits:1+(rng()<.5?1:0)):1};
+    return {power:cap((base+nightBonus)*damageMultiplier*(activated?mode.multiplier:1),360),hits:activated?(typeof mode.hits==='number'?mode.hits:1+(rng()<.5?1:0)):1};
   }
   if(phase==='shelling'){
     if(actor.submarine)return 0;
@@ -405,7 +408,12 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
   if(own.some((s,i)=>isSevere(s,ohp[i])))return {status:'estimated',ownHp:ohp,enemyHp:ehp,
     ...(prepared.combined?{enemyMainHp:ehp.slice(0,prepared.mainCount),enemyEscortHp:ehp.slice(prepared.mainCount)}:{}),severe:true,stopped:true,
     specialUsed:!!specialUsed,damageByEnemy,enemyLost:0,ownLost:own.reduce((n,s,i)=>n+(s.hp-ohp[i])/s.hp,0)/own.length};
-  let partial=false,stage='',nightTarget=null;
+  let partial=false,stage='',nightTarget=null,nightBonuses={own:0,enemy:0};
+  const startNightContact=()=>{
+    const contact=prepared.practiceNightContact;if(!contact?.states?.length)return;
+    const state=contact.states.length===1?contact.states[0]:contact.states[Math.floor(rng()*contact.states.length)];
+    nightBonuses={own:practiceNightContact.activate(contact.own,state,'own',rng),enemy:practiceNightContact.activate(contact.enemy,state,'enemy',rng)};
+  };
   const fire=(attacker,attackerHp,defenders,defenderHp,phase,formation,power,record,selectionHp=defenderHp)=>{
     const targets=targetPool(attacker,defenders,selectionHp,phase);
     if(!targets.length||!canAct(attacker,attackerHp,phase))return;
@@ -433,7 +441,7 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
       if(result.status==='blocked')return;
       if(result.status!=='known'){partial=true;return;}
       p={power:result.power,hits:result.hits};
-    }else p=power??scenarioPower(attacker,attackerHp,phase,formation,rng,adjust);
+    }else p=power??scenarioPower(attacker,attackerHp,phase,formation,rng,adjust,phase==='night'?nightBonuses[attacker.side]||0:0);
     // Combined-fleet aviation has different power terms against main/escort.
     // The per-slot input is already capped, so the correction is approximate.
     if(prepared.combined&&phase==='air'&&attacker.side==='own'&&FINITE(p))p=Math.max(0,p-(target.i<prepared.mainCount?10:20));
@@ -475,13 +483,13 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
     }
     fire(own[i],ohp[i],enemy,ehp,phase,prepared.ownFormation,undefined,undefined,selection());
   };
-  const air=(ownAir=prepared.ownAir)=>{
+  const air=(ownAir=prepared.ownAir,enemyAir=prepared.enemyAir)=>{
     // Aircraft stages are simultaneous: build and resolve the launch list
     // before using any damage to decide which slots were launched.
     const launches=[];
     if(prepared.kind!=='aerialRaid')for(let i=0;i<own.length;i++)for(const p of airByShip(ownAir,i))launches.push({side:'own',i,p});
     const enemyLaunchers=prepared.combined?prepared.mainCount:enemy.length;
-    for(let i=0;i<enemyLaunchers;i++)for(const p of airByShip(prepared.enemyAir,i))launches.push({side:'enemy',i,p});
+    for(let i=0;i<enemyLaunchers;i++)for(const p of airByShip(enemyAir,i))launches.push({side:'enemy',i,p});
     const ownBefore=ohp.slice(),enemyBefore=ehp.slice(),ownAfter=ohp.slice(),enemyAfter=ehp.slice();
     for(const launch of launches){
       const p=launch.p,lo=p.powerMin,hi=p.powerMax;if(!FINITE(lo)||!FINITE(hi)){partial=true;continue;}
@@ -497,12 +505,14 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
   };
   if(prepared.kind==='nightBattle'){
     stage='night';
+    startNightContact();
     const rounds=Math.max(own.length,enemy.length);
     for(let i=0;i<rounds;i++){
       if(i<own.length){const phase=targetPool(own[i],enemy,ehp,'night')[0]?.s.submarine?'nightAsw':'night';ownTurn(i,phase);}
       if(i<enemy.length){const phase=targetPool(enemy[i],own,ohp,'night')[0]?.s.submarine?'nightAsw':'night';enemyAttack(i,phase);}
     }
   }else{
+    if(prepared.ownJet){stage='jet';air(prepared.ownJet,[]);}
     stage='air';air();if(prepared.kind==='aerialCombat'){stage='air2';air(prepared.ownAirSecond||prepared.ownAir);}
     if(prepared.kind!=='aerialRaid'&&prepared.kind!=='aerialCombat'){
       stage='openingAsw';
@@ -557,6 +567,7 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
           const start=nightTarget==='main'?0:prepared.mainCount;
           const size=nightTarget==='main'?prepared.mainCount:enemy.length-prepared.mainCount;
           stage='night';
+          startNightContact();
           for(let i=0;i<Math.max(own.length,size);i++){
             if(i<own.length){const phase=targetPool(own[i],enemy,select(ehp),'night')[0]?.s.submarine?'nightAsw':'night';ownTurn(i,phase,()=>select(ehp));}
             if(i<size){const id=start+i,phase=targetPool(enemy[id],own,ohp,'night')[0]?.s.submarine?'nightAsw':'night';enemyAttack(id,phase);}
@@ -581,6 +592,7 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
       ohp.splice(0,ohp.length,...afterOwn);ehp.splice(0,ehp.length,...afterEnemy);
       if(prepared.includeNight){
         stage='night';
+        startNightContact();
         for(let i=0;i<Math.max(own.length,enemy.length);i++){
           if(i<own.length){const phase=targetPool(own[i],enemy,ehp,'night')[0]?.s.submarine?'nightAsw':'night';ownTurn(i,phase);}
           if(i<enemy.length){const phase=targetPool(enemy[i],own,ohp,'night')[0]?.s.submarine?'nightAsw':'night';enemyAttack(i,phase);}

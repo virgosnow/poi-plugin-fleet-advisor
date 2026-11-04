@@ -115,10 +115,11 @@ function combatPools(inventory){
 
 // Complete the whole fleet together so an instance cannot be assigned twice.
 // Route-specific air/LoS/engine/ground variants may replace these utility slots.
-function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,heldSlots=[]}={}){
+function completeCombatLoadout(store,scheme,inventory,{area,asw=false,pureAsw=false,profile,heldSlots=[]}={}){
   const pool=combatPools(inventory),locks=new Map(heldSlots.filter(Boolean).map(s=>[s.id,s.keep||{}]));
   const entries=scheme.ships.map(s=>({...s,slots:s.slots.slice()}));
   const airDemand=combatValue.airExposure(store,profile),losDemand=combatValue.losNeeded(store,profile,area);
+  const dayFit=!profile?.counts?.surface||Math.max(0,(profile.counts.surface.maximum||0)-(profile.counts.night?.maximum||0))>0;
   const used=new Set(entries.flatMap(s=>s.slots.concat(s.ex)).filter(id=>id>0));
   const limit=profile?aswEscortLimit(profile,store):area==='1-5'?Infinity:2;
   const escorts=aswEscortIds(store,entries,asw?limit:0);
@@ -128,7 +129,7 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
   const escortSeed=selectedCombatNodes(profile,store).some(node=>profile?.targetNodes?.includes(node.id)&&node.submarines?.maximum>0);
   for(const entry of entries){
     const ship=store.info.ships[entry.id],sm=store.const.$ships[ship.api_ship_id],stype=Number(sm.api_stype),keep=locks.get(entry.id)||{};
-    const carrier=[7,11,18].includes(stype),sub=[13,14].includes(stype),pure=area==='1-5';
+    const carrier=[7,11,18].includes(stype),sub=[13,14].includes(stype),pure=area==='1-5'||pureAsw;
     const capacity=k=>Number(sm.api_maxeq?.[k]??ship.api_onslot?.[k]??0);
     const count=types=>entry.slots.filter(id=>types.includes(type(master(store,id)))).length;
     const positions=entry.slots.map((_,k)=>k);
@@ -203,10 +204,10 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
       for(const k of utilitySlots)assign(pool.carrierUtility.filter(i=>type(i.master)!==9||
         !entries.some(e=>e.slots.some(id=>type(master(store,id))===9))),[k]);
     }else if(!pure){
-      const target=asw&&(submarineObjective(profile,store)||escortSeed)&&[1,2,21,22].includes(stype)?1:2;
+      const target=asw&&(submarineObjective(profile,store)||escortSeed)&&([1,2,21,22].includes(stype)||area==='practice'&&[3,4].includes(stype))?1:2;
       while(count([1,2,3])<target){
         const slot=positions.find(k=>!keep[k]&&entry.slots[k]<=0);
-        if(slot===undefined||!assign(combatValue.rankGuns(store,entry,pool.guns,slot,airDemand)))break;
+        if(slot===undefined||!assign(combatValue.rankGuns(store,entry,pool.guns,slot,airDemand,dayFit)))break;
       }
       // Water tenders and aviation hulls need useful aircraft, not inherited cargo.
       if(stype===10&&!count([10,11])){
@@ -218,7 +219,20 @@ function completeCombatLoadout(store,scheme,inventory,{area,asw=false,profile,he
       if(area!=='1-1'&&[8,9,10].includes(stype)&&!count([19]))assign(pool.shell);
     }
     if(asw&&!pure&&escorts.has(entry.id)&&!count([14,40]))assign(pool.sonar);
-    if(pure&&escorts.has(entry.id)&&[1,2,3,4,21,22].includes(stype)){while(assign([...pool.depth,...pool.sonar])){};}
+    if(area==='practice'&&asw&&!pure&&escorts.has(entry.id)&&count([14,40])&&!count([15]))assign(pool.depth);
+    if(pure&&!pureAsw&&escorts.has(entry.id)&&[1,2,3,4,21,22].includes(stype)){while(assign([...pool.depth,...pool.sonar])){};}
+  }
+  // In pure-submarine practice, seed every eligible ship before consuming
+  // spare ASW items; otherwise early ships exhaust depth charges needed later.
+  if(pureAsw)for(const entry of entries){
+    const ship=store.info.ships[entry.id],stype=Number(store.const.$ships[ship.api_ship_id]?.api_stype),keep=locks.get(entry.id)||{};
+    if(!escorts.has(entry.id)||![1,2,3,4,21,22].includes(stype))continue;
+    for(let k=0;k<entry.slots.length;k++){
+      if(keep[k]||entry.slots[k]>0)continue;
+      const item=[...pool.depth,...pool.sonar].find(i=>{if(used.has(i.id))return false;
+        try{return canEquip(store,entry.id,i.id,k)&&(!i.sourceShipId||i.sourceShipId===entry.id||acceptsOtherSlot(store,entry.id,i.id,k));}catch(_){return false;}});
+      if(item){entry.slots[k]=item.id;used.add(item.id);}
+    }
   }
   // Allocate scarce auxiliary permissions first (e.g. Yubari's fifth slot),
   // across the whole fleet. A flexible earlier slot must not consume the only

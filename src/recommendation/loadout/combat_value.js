@@ -4,6 +4,7 @@
 const {projectShip}=require('../../domain/fleet/fleet_metrics');
 const perf=require('../../shared/performance_trace');
 const {combatBonuses}=require('../../domain/combat/equipment_bonuses');
+const {fitChange,fitForLoadout}=require('../../domain/combat/gun_fit');
 const {fleetAntiAir,antiAirCutins}=require('../../domain/combat/anti_air_cutin');
 const {snapshotMemo}=require('../../domain/fleet/equipment_planner');
 const {canEquip,acceptsOtherSlot}=require('../../domain/fleet/equipment_rules');
@@ -94,9 +95,12 @@ function utilityRoles(store,entry){
   return {radars:items.filter(m=>[12,13,93].includes(type(m))).length,
     aaCore:items.some(m=>Number(m?.api_type?.[3])===16||[21,36].includes(type(m)))};
 }
-function equipmentValue(store,entry,item,slot,{air=0,los=false,auxiliary=false}={},roles){
+function equipmentValue(store,entry,item,slot,{air=0,los=false,auxiliary=false,dayFit=true}={},roles){
     const m=item.master,t=type(m),blueValue=equipmentAffinity(store,entry,item,air);
-    if(!auxiliary)return rawAttack(m)+blueValue+.2*air*Number(m.api_tyku||0);
+    if(!auxiliary){
+      const fit=dayFit&&[1,2,3].includes(type(m))?fitChange(store,entry.id,entry,slot,item.id):null;
+      return rawAttack(m)+blueValue+.2*air*Number(m.api_tyku||0)+(fit?.known?fit.delta*2:0);
+    }
     const radar=[12,13,93].includes(t),{radars,aaCore}=roles||utilityRoles(store,entry);
     // Prefer a complementary role once a ship already has a radar. This is a
     // bounded loadout preference; radar accuracy still stacks in the game.
@@ -117,7 +121,7 @@ function rankEquipment(store,entry,items,slot,options){
   // The current outfit cannot change during this synchronous ranking. Read its
   // complementary radar/AA roles once, instead of once per equipment group.
   const roles=options.auxiliary?utilityRoles(store,entry):null;
-  const key=JSON.stringify([entry.id,slot,options,roles]);
+  const key=JSON.stringify([entry.id,slot,options,roles,...(!options.auxiliary?[entry.slots,entry.ex]:[])]);
   if(cache.has(key)){perf.count('loadout.rank.hit');return cache.get(key);}
   perf.count('loadout.rank.build');
   const groups=new Map(),scores=new Map(),legal=[];
@@ -138,5 +142,8 @@ function rankEquipment(store,entry,items,slot,options){
   if(cache.size>=2048)cache.delete(cache.keys().next().value);cache.set(key,result);return result;
   }finally{perf.end(timing);}
 }
-const rankGuns=(store,entry,items,slot,air)=>rankEquipment(store,entry,items,slot,{air});
-module.exports={targetFor,blueStats,plannedStats,airExposure,losNeeded,antiAirScore,equipmentValue,rankGuns,rankEquipment};
+const rankGuns=(store,entry,items,slot,air,dayFit=true)=>rankEquipment(store,entry,items,slot,{air,dayFit});
+function gunFit(store,entry){
+  return snapshotMemo(store,'combatValue.gunFit',JSON.stringify([entry.id,entry.slots,entry.ex]),()=>fitForLoadout(store,entry.id,entry));
+}
+module.exports={targetFor,blueStats,plannedStats,airExposure,losNeeded,antiAirScore,equipmentValue,rankGuns,rankEquipment,gunFit};

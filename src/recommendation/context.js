@@ -116,6 +116,10 @@ function holdDraftEquipment(store,scheme,slots){
   if(!held.length)return scheme;
   const entries=scheme.ships.map(s=>({...s,slots:(s.slots||usableSlots(store,s.id)).slice(),ex:(s.ex??store.info.ships[s.id].api_slot_ex)>0?s.ex??store.info.ships[s.id].api_slot_ex:-1}));
   if(held.some(h=>!entries.some(s=>s.id===h.id)))throw error('INVALID_QUERY','固定舰娘未保留');
+  // A compact fleet cannot represent a hole before a held position. Reject
+  // the candidate instead of silently moving a later held ship forward.
+  if(slots.some((h,i)=>held.includes(h)&&h.holdPosition!==false&&i>=entries.length))
+    throw error('INVALID_QUERY','固定舰位超出当前舰队长度');
   const owners=new Map(),output=Array(6).fill(null);
   slots.forEach((h,i)=>{if(!held.includes(h))return;const entry=entries.find(s=>s.id===h.id);if(h.holdPosition!==false)output[i]=entry;
     for(const key of Object.keys(h.keep||{})){const id=(key==='ex'?h.ex:h.slots[key])>0?(key==='ex'?h.ex:h.slots[key]):-1;if(key==='ex')entry.ex=id;else entry.slots[key]=id;

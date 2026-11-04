@@ -205,6 +205,10 @@ function searchExpeditionFleet(store,args,shared={}){
   if(!Number.isInteger(limit)||limit<1||limit>5)throw error('INVALID_QUERY','limit 须为 1–5');
   if(args.fixedFlagshipId!==undefined){
     if(!Number.isInteger(args.fixedFlagshipId)||args.fixedFlagshipId<1)throw error('INVALID_QUERY','固定旗舰须为舰娘实例 ID');
+    if((args.heldSlots||[]).some((ship,index)=>ship&&ship.holdPosition!==false&&
+      (ship.pin||Object.keys(ship.keep||{}).length)&&
+      (index===0&&ship.id!==args.fixedFlagshipId||index!==0&&ship.id===args.fixedFlagshipId)))
+      throw error('INVALID_QUERY','固定旗舰与保留舰位冲突');
     args={...args,fixedShipIds:[...new Set([...(args.fixedShipIds||[]),args.fixedFlagshipId])]};
   }
   if(!shared.prepared)shared.prepared=prepareExpeditionSearch(store,args,spec,missionId);
@@ -251,10 +255,14 @@ function searchExpeditionFleet(store,args,shared={}){
   // only hulls capable of meeting a monthly expedition's stat requirements.
   const sparkleTargets=goal==='great'?[0,1,2,3,4,5,6]:[0,-1];
   const variants=spec.totals||spec.levelSum?weights.map((_,i)=>i):[0];
+  // An explicitly held sixth position needs a six-ship candidate before the
+  // bounded shortlist; shorter fleets cannot preserve that position.
+  const minHeldSize=(args.heldSlots||[]).reduce((size,ship,index)=>
+    ship&&ship.holdPosition!==false&&(ship.pin||Object.keys(ship.keep||{}).length)?Math.max(size,index+1):size,0);
   const collect=(candidateVariants,candidateFlags,onRow)=>{
     const passSeen=new Set();
     for(const ordered of questSeedRows){
-      if(ordered.length<spec.shipCount||!flagshipEligible(ordered[0]))continue;
+      if(ordered.length<Math.max(spec.shipCount,minHeldSize)||!flagshipEligible(ordered[0]))continue;
       const key=idsKey(ordered);if(passSeen.has(key))continue;passSeen.add(key);seen.add(key);
       let scheme=schemeOf(ctx.fleet,ordered);
       try{
@@ -265,7 +273,7 @@ function searchExpeditionFleet(store,args,shared={}){
       }catch(_){/* unavailable or incompatible seed */}
     }
     for(const incomeMode of incomeSearch.active?[false,true]:[false])
-      for(const parts of compositions)for(let count=Math.max(spec.shipCount,ctx.fixed.length);count<=6;count++)
+      for(const parts of compositions)for(let count=Math.max(spec.shipCount,ctx.fixed.length,minHeldSize);count<=6;count++)
       for(const sparkleTarget of sparkleTargets)for(const variant of candidateVariants)for(const selectedFlagship of candidateFlags){
       const rows=expeditionCandidate(prepared,parts,selectedFlagship,count,goal,variant,sparkleTarget,incomeMode);
       if(!rows)continue;
