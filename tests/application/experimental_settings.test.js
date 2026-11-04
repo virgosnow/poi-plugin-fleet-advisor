@@ -123,30 +123,22 @@ test('queued log clearing runs after a completed calculation has persisted its r
   assert((await s.getComputationStatus()).cache.logs.writeError,'logging failure is visible without failing the recommendation');
 });
 
-test('developer performance logging is not exposed in player settings',()=>{
-  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})};
-  const Controls=require('../../src/ui/settings/experimental_settings')(React);
-  const tree=Controls({value:settings.normalize({performanceDebug:true}),onChange:()=>assert.fail('Rendering cannot change developer settings'),statuses:{performanceDebug:{kind:'success',text:'已保存'}}});
-  const find=(n,p)=>n&&typeof n==='object'&&(p(n)?n:n.children?.map(c=>find(c,p)).find(Boolean));
-  assert(!find(tree,n=>n.props['aria-label']==='性能调试开关'));
-  assert(!find(tree,n=>n.props['aria-label']==='性能调试说明'));
-  assert(!JSON.stringify(tree).includes('性能调试'));
-});
-
 test('three extra waits persist and reach panel and MCP execution without changing permissions',async t=>{
   const {service:s,controller,preview,storageDir}=setup(t),options=[];
   controller.run=async(kind,scheme,settings)=>{options.push(settings);return {ok:true,done:true,changed:0};};
   assert.deepEqual(settings.OPERATION_WAITS,[0,300,800]);
+  s.setExperimentalSettings({automaticOperations:true});
   for(const operationWaitMs of settings.OPERATION_WAITS){
     settings.validate({operationWaitMs});
-    s.setExperimentalSettings({operationWaitMs});assert.equal(s.getExperimentalSettings().automaticOperations,false);
+    s.setExperimentalSettings({operationWaitMs});assert.equal(s.getExperimentalSettings().automaticOperations,true);
     assert.equal(JSON.parse(fs.readFileSync(s.stateFile)).experimentalSettings.operationWaitMs,operationWaitMs);
-    s.setExperimentalSettings({automaticOperations:true});
     await s.run('fleet',{fleet:2,ships:[1,2]});assert.deepEqual(options.at(-1),{operationWaitMs,recognitionMode:'controls'});
-    s.setMcpEnabled(true);const job=s.executePlan({planId:preview().planId,idempotencyKey:'wait-'+operationWaitMs});await tick();
-    assert.equal(s.getJob({jobId:job.jobId}).state,'succeeded');assert.deepEqual(options.at(-1),{operationWaitMs,recognitionMode:'controls'});
-    s.setExperimentalSettings({automaticOperations:false});
   }
+  // MCP and panel share the execution options path; a single MCP execution
+  // verifies that handoff without repeating three identical job lifecycles.
+  s.setMcpEnabled(true);const job=s.executePlan({planId:preview().planId,idempotencyKey:'wait-800'});await tick();
+  assert.equal(s.getJob({jobId:job.jobId}).state,'succeeded');assert.deepEqual(options.at(-1),{operationWaitMs:800,recognitionMode:'controls'});
+  s.setExperimentalSettings({automaticOperations:false});
   const reopened=new FleetAdvisorService({storageDir,getStore:s.getStore,controller:{dispose(){}}});
   try{assert.equal(reopened.getExperimentalSettings().operationWaitMs,800);}finally{await reopened.dispose();}
   await s.resetRecommendationSettings();assert.equal(s.getExperimentalSettings().operationWaitMs,800);
@@ -188,13 +180,15 @@ test('recognition mode persists independently and both panel and MCP executions 
   assert.equal(settings.normalize({recognitionMode:'unknown'}).recognitionMode,'controls');
 });
 
-test('developer recognition override is hidden while automatic operation and extra wait controls remain visible',()=>{
+test('developer settings stay hidden while automatic operation and extra wait controls remain visible',()=>{
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})};
   const Controls=require('../../src/ui/settings/experimental_settings')(React),find=(n,p)=>n&&typeof n==='object'&&(p(n)?n:n.children?.map(c=>find(c,p)).find(Boolean));
   for(const recognitionMode of ['controls','image'])for(const automaticOperations of [true,false])for(const disabled of [true,false]){
-    const patches=[],tree=Controls({value:settings.normalize({automaticOperations,recognitionMode}),disabled,onChange:p=>patches.push(p),statuses:{recognitionMode:{kind:'success',text:'已保存'}}});
+    const patches=[],tree=Controls({value:settings.normalize({automaticOperations,recognitionMode,performanceDebug:true}),disabled,onChange:p=>patches.push(p),statuses:{recognitionMode:{kind:'success',text:'已保存'},performanceDebug:{kind:'success',text:'已保存'}}});
     assert(!find(tree,n=>n.props.id==='paa-operation-recognition'||n.props.className==='paa-settings-row paa-automatic-mode'));
     assert(!JSON.stringify(tree).includes('识别方式'));assert(!find(tree,n=>n.type==='select'));
+    assert(!find(tree,n=>n.props['aria-label']==='性能调试开关'||n.props['aria-label']==='性能调试说明'));
+    assert(!JSON.stringify(tree).includes('性能调试'));
     assert(find(tree,n=>n.props['aria-label']==='自动操作开关'));assert(find(tree,n=>n.props.id==='paa-operation-wait'));
     assert.deepEqual(patches,[],'rendering must not reset the developer override');
   }

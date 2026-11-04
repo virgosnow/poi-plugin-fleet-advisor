@@ -5,6 +5,7 @@ const PERIODS={once:'单次',single:'单次',oneTime:'单次','one-time':'单次
 module.exports=function createOverviewQuests(React,{getController=()=>null,subscribe=()=>()=>{}}={}){
   const h=React.createElement,resourceIcon=require('../components/resource_icon'),ResourceIcon=resourceIcon(React),equipmentIconUrl=require('../models/presentation_model').equipmentIconUrl;
   function OverviewQuests({state,questState,onNavigate,disabled=false}){
+    const incomplete=(questState??state?.questState)?.complete===false;
     const [revision,setRevision]=React.useState?React.useState(0):[0,()=>{}];
     const [category,setCategory]=React.useState?React.useState('B'):['B',()=>{}];
     const [rewardOpen,setRewardOpen]=React.useState?React.useState({}):[{},()=>{}];
@@ -28,14 +29,26 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
     const counts=tasks.length?service?.getQuestGoalProgressForTasks?.(tasks):null;
     const goalView=(task,goal,index)=>{
       const choices=goal.destinations||[],observed=goal.key?(counts?counts.get(`${task.id}:${goal.key}`):service?.getQuestGoalProgress?.(task,goal)):0;
-      const count=Number.isSafeInteger(observed)?Math.max(0,Math.min(observed,goal.count)):0,complete=!!goal.key&&count>=goal.count;
-      const status=goal.key?h('span',{className:'paa-overview-goal-status','data-complete':complete,'aria-label':`目标进度 ${count}/${goal.count}`},
-        complete?`✓ ${count}/${goal.count}`:`${count}/${goal.count}`):null;
+      const count=Number.isSafeInteger(observed)?Math.max(0,Math.min(observed,goal.count)):0;
+      // This particular task has exactly one objective and its documented
+      // 50% marker means one of the two required expedition returns. Other
+      // tasks can have multiple objectives, so their markers cannot identify
+      // an individual objective's count.
+      const gameConfirmed=task.id===443&&task.code==='D39'&&task.progressFlag===1&&task.goals.length===1&&
+        goal.count===2&&choices.length===1&&choices[0].kind==='expedition'&&choices[0].missionId===30&&count<2;
+      const complete=!!goal.key&&count>=goal.count;
+      const progressText=gameConfirmed?'1/2':complete?`✓ ${count}/${goal.count}`:
+        count>0?`至少 ${count}/${goal.count}`:'进度未确认';
+      const progressDescription=gameConfirmed?'目标进度 1/2，依据游戏任务进度':complete?
+        `已观察目标进度 ${count}/${goal.count}`:count>0?`已观察目标进度至少 ${count}/${goal.count}`:'目标进度未确认';
+      const status=goal.key?h('span',{className:'paa-overview-goal-status','data-complete':complete,
+        'data-progress-source':gameConfirmed?'game':count>0?'observed':'unknown','aria-label':progressDescription,
+        ...gameConfirmed?{title:'依据游戏任务进度'}:count>0&&!complete?{title:'根据已观察到的记录，实际进度可能更高'}:{}},progressText):null;
       const button=(destination,label,key,showStatus=false)=>{
         const area=String(label).match(/^(\d+-\d+)(.*)$/);
-        return h('button',{key,type:'button',disabled:disabled||!task.code,
+        return h('button',{key,type:'button',disabled:disabled||incomplete||!task.code,
         className:'paa-overview-quest-target',onClick:()=>onNavigate?.({...destination,code:task.code}),
-        'aria-label':`${label}：前往${destination.kind==='normal'?'海域':'远征'}并预选${task.title}${showStatus&&goal.key?`，目标进度 ${count}/${goal.count}`:''}`},
+        'aria-label':`${label}：前往${destination.kind==='normal'?'海域':'远征'}并预选${task.title}${showStatus&&goal.key?`，${progressDescription}`:''}`},
         h('span',{className:'paa-overview-target-label'},area?h(React.Fragment||'span',null,h('strong',null,area[1]),area[2]):label),
         showStatus?status:null,h('span',{className:'paa-overview-target-arrow','aria-hidden':true},'›'));
       };
@@ -78,9 +91,10 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
         expanded&&result.status==='ready'?h('div',{className:'paa-overview-quest-tabs','aria-label':'任务类型'},
         ...[['B','出击'],['D','远征']].map(([key,label])=>h('button',{key,type:'button',disabled,'aria-pressed':category===key,onClick:()=>setCategory(key)},label,h('span',null,tasks.filter(task=>task.category===key).length)))):null),
       collapse(h,{open:expanded,id:'paa-overview-tasks-content'},
-      result.status!=='ready'?h('p',{className:'paa-overview-quests-empty'},'请在游戏中打开任务列表以同步'):
+      result.status!=='ready'||incomplete&&!tasks.some(task=>task.category===category)?h('p',{className:'paa-overview-quests-empty'},'任务资料正在后台同步'):
         !tasks.some(task=>task.category===category)?h('p',{className:'paa-overview-quests-empty'},`暂无进行中的${category==='B'?'出击':'远征'}任务`):
           h(React.Fragment||'div',null,
+          incomplete?h('p',{className:'paa-overview-quests-empty'},'已观察到部分任务，正在后台核实完整列表'):null,
           service?.getQuestProgressError?.()?h('p',{className:'paa-overview-quests-error',role:'alert'},service.getQuestProgressError()):null,
           h('div',{className:'paa-overview-quests-list',role:'region','aria-label':'进行中的任务列表',tabIndex:0},...tasks.filter(task=>task.category===category).map(task=>
             h('article',{key:task.id,className:'paa-overview-quest','data-quest-id':task.id},

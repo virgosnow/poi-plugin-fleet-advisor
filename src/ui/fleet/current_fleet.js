@@ -70,7 +70,7 @@ module.exports=(React,{getStore,setQuestPageActive,getController,subscribe})=>{
     const losValue=c=>Number.isFinite(los?.scoresByCoefficient?.[c])?los.scoresByCoefficient[c].toFixed(1):'—';
     const losDetail=T.los(los,null,{current:true});
     const portrait=row=>h(row.unknown?'div':'button',row.unknown?{className:'paa-wb-portrait'}:{type:'button',className:'paa-wb-portrait paa-fleet-portrait-toggle',disabled:busy,
-      'aria-expanded':!!shipDetails[row.id],'aria-controls':`paa-fleet-stats-${row.id}`,'aria-label':`${row.name}：属性`,'data-tooltip':'查看属性',
+      'aria-expanded':!!shipDetails[row.id],'aria-controls':`paa-fleet-stats-${row.id}`,'aria-label':`${row.name}：属性`,'data-tooltip':shipDetails[row.id]?undefined:'查看属性',
       onClick:event=>shipDetailsView.toggle(setShipDetails,row.id,event)},h('span',null,row.name.slice(0,2)),row.portrait?h('img',{src:row.portrait,alt:'',draggable:false,onError:e=>{e.currentTarget.style.display='none';}}):null);
     const supply=ship=>{
       const state=ship.supply.state,label=state==='full'?'已补给':state==='low'?'待补给':'待同步';

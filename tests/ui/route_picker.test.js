@@ -56,6 +56,19 @@ test('route picker clicks toggle the panel',()=>{
   assert.deepEqual(calls,[]);
 });
 
+test('keyboard route browsing stays open when the pointer leaves',t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const calls=[],ui=harness({options:[{key:'a',name:'路线',nodes:['A']}],value:'',onChange:key=>calls.push(key)});
+  const focused={},doc={activeElement:focused},anchor=()=>ui.find(n=>n.props.className==='paa-area-anchor');
+  anchor().props.ref.current={ownerDocument:doc};ui.open();
+  const panel=ui.find(n=>n.props.role==='dialog'),boundary={contains:node=>node===focused};
+  panel.props.onKeyDownCapture({key:'ArrowDown',currentTarget:boundary});
+  anchor().props.onPointerLeave({pointerType:'mouse'});t.mock.timers.tick(500);ui.render();
+  assert(ui.find(n=>n.props.role==='dialog'));assert.deepEqual(calls,[]);
+  doc.activeElement={};anchor().props.onPointerLeave({pointerType:'mouse'});t.mock.timers.tick(500);ui.render();
+  assert(!ui.find(n=>n.props.role==='dialog'));assert.deepEqual(calls,[]);
+});
+
 test('battle predictions replace priority labels and rank routes within each phase without changing selections',()=>{
   const {fromRatio}=require('../../src/domain/combat/combat_balance');
   const combat=ratio=>({status:'estimated',balance:fromRatio(ratio)});

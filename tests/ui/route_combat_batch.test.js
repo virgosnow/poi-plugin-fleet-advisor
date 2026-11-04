@@ -22,3 +22,10 @@ test('reports an error only for the requested phase',async()=>{
     isCancelled:()=>false,yieldControl:async()=>{}});
   assert.deepEqual(events,['error:a']);
 });
+
+test('returns the published assessments so default selection can use the picker ordering',async()=>{
+  const assessment={route:{status:'unknown'}};let published;
+  const result=await runRouteCombatBatch({firstPhase:'',firstResult:{},evaluate:async()=>assessment,
+    publish:(_phase,_result,combat)=>{published=combat;},isCancelled:()=>false,yieldControl:async()=>{}});
+  assert.equal(result,assessment);assert.equal(published,assessment);
+});

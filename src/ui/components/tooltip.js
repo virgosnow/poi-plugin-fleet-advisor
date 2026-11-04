@@ -1,6 +1,8 @@
 'use strict';
-const statIcon=require('./stat_icon');
+const {CLOSE_DELAY}=require('./hover_timing');
 let nextId=0;
+// Some labels need help only when their rendered text is actually clipped.
+function tooltipAllowed(node){return !node?.hasAttribute?.('data-tooltip-overflow')||node.scrollWidth>node.clientWidth;}
 // An SVG group can include a clipped, full-size game texture atlas. Browsers
 // include that image in its client bounds despite the visible clip, so map
 // tooltip placement must use the node's own circular hit/marker geometry.
@@ -30,7 +32,7 @@ function renderStructured(doc,tip,raw){
   let content;try{content=JSON.parse(raw);}catch(_){return false;}
   if(!content||!Array.isArray(content.sections)||content.sections.some(s=>!Array.isArray(s.columns)||!Array.isArray(s.rows)||s.rows.some(r=>!Array.isArray(r))))return false;
   const text=(tag,cls,value)=>{const el=doc.createElement(tag);el.className=cls;el.textContent=String(value??'—');return el;};
-  tip.className+=' paa-tooltip-structured'+(content.compact?' paa-tooltip-compact':'');
+  tip.className+=' paa-tooltip-structured'+(content.compact?' paa-tooltip-compact':'')+(content.kind==='equipment'?' paa-tooltip-equipment':'');
   if(content.title)tip.appendChild(text('div','paa-tooltip-heading',content.title));
   for(const s of content.sections){
     if(!s.rows.length)continue;
@@ -41,9 +43,10 @@ function renderStructured(doc,tip,raw){
       for(const values of s.rows)for(let i=0;i<values.length;i+=2){
         if(!values[i])continue;
         const pair=doc.createElement('div');pair.className='paa-tooltip-equipment-stat';
-        const label=text('dt','paa-tooltip-equipment-label',''),icon=statIcon.dom(doc,values[i]);
-        if(icon)label.appendChild(icon);label.appendChild(text('span','',values[i]));pair.appendChild(label);
-        pair.appendChild(text('dd','paa-tooltip-equipment-value'+(/^[−-]/.test(String(values[i+1]))?' is-negative':''),values[i+1]));
+        pair.appendChild(text('dt','paa-tooltip-equipment-label',values[i]));
+        const fitTone=values[i]==='命中'&&['positive','negative'].includes(s.fitTone)?s.fitTone:null;
+        const tone=fitTone?' is-fit-'+fitTone:/^[−-]/.test(String(values[i+1]))?' is-negative':'';
+        pair.appendChild(text('dd','paa-tooltip-equipment-value'+tone,values[i+1]));
         list.appendChild(pair);
       }
       section.appendChild(list);if(s.note)section.appendChild(text('div','paa-tooltip-notes',s.note));tip.appendChild(section);continue;
@@ -64,6 +67,14 @@ function position(rect,size,viewport){
   const gap=8,pad=8;
   return {left:Math.max(pad,Math.min(rect.left,viewport.width-size.width-pad)),
     top:Math.max(pad,Math.min(rect.bottom+gap+size.height<=viewport.height-pad?rect.bottom+gap:rect.top-size.height-gap,viewport.height-size.height-pad))};
+}
+function structuredWidth(content,viewportWidth){
+  const columns=Math.max(0,...content.sections.map(s=>s.columns.length));
+  const stats=content.kind==='equipment'?content.sections.filter(s=>s.layout==='equipment-stats').reduce((sum,s)=>sum+s.rows.reduce((count,row)=>{
+    for(let i=0;i<row.length;i+=2)if(row[i])count++;return count;
+  },0),0):0;
+  const limit=content.kind==='equipment'?250+35*Math.max(0,Math.min(4,stats)-2):content.compact?360:columns>=5?620:columns>=4?520:360;
+  return Math.max(40,Math.min(limit,viewportWidth-16));
 }
 function renderAttackTable(doc,section,groups,kind,rowHeading){
   const single=groups.length===1&&!groups[0].title&&groups[0].rows.length===1;
@@ -183,24 +194,29 @@ module.exports=function useTooltip(React,root,scope){
       if(anchor&&descriptionAdded){if(previousDescription===null)anchor.removeAttribute('aria-describedby');else anchor.setAttribute('aria-describedby',previousDescription);}
       target=null;anchor=null;descriptionAdded=false;
     };
+    const cancelLeave=()=>{if(leaveTimer!==null){win.clearTimeout(leaveTimer);leaveTimer=null;}};
+    const scheduleLeave=()=>{
+      if(!tip){hide();return;}
+      if(leaveTimer===null)leaveTimer=win.setTimeout(hide,CLOSE_DELAY);
+    };
     const visible=node=>node?.isConnected&&page.contains(node)&&node.getClientRects().length>0&&!node.closest('[hidden],[inert],[aria-hidden="true"]');
     const display=()=>{
       timer=null;
-      if(!visible(target)||!visible(anchor)){hide();return;}
+      if(!visible(target)||!visible(anchor)||!tooltipAllowed(target)){hide();return;}
       tip=doc.createElement('div');tip.className='paa-tooltip';tip.id=`paa-tip-${++nextId}`;tip.setAttribute('role','tooltip');
       shownText=target.dataset.tooltip;shownContent=target.dataset.tooltipContent;
       const structured=shownContent&&renderStructured(doc,tip,shownContent);
       if(!structured)renderContent(doc,tip,shownText,target.dataset.mechanism);
       const theme=win.getComputedStyle(page);
       for(const key of ['--paa-card','--paa-text','--paa-line'])tip.style.setProperty(key,theme.getPropertyValue(key));
-      const columns=structured?Math.max(0,...JSON.parse(shownContent).sections.map(s=>s.columns.length)):0;
-      const compact=structured&&JSON.parse(shownContent).compact;
-      tip.style.maxWidth=Math.max(40,Math.min(compact?360:columns>=5?620:columns>=4?520:360,win.innerWidth-16))+'px';tip.style.maxHeight=Math.max(40,Math.min(structured?480:Infinity,win.innerHeight-16))+'px';
+      const content=structured?JSON.parse(shownContent):null;
+      const columns=structured?Math.max(0,...content.sections.map(s=>s.columns.length)):0;
+      tip.style.maxWidth=(structured?structuredWidth(content,win.innerWidth):Math.max(40,Math.min(360,win.innerWidth-16)))+'px';tip.style.maxHeight=Math.max(40,Math.min(structured?480:Infinity,win.innerHeight-16))+'px';
       if(structured){
-        if(columns>=4)tip.style.width=tip.style.maxWidth;
-        tip.addEventListener('pointerenter',()=>{if(leaveTimer!==null){win.clearTimeout(leaveTimer);leaveTimer=null;}});
-        tip.addEventListener('pointerleave',event=>{if(!target?.contains(event.relatedTarget))hide();});
+        if(columns>=4||content.kind==='equipment')tip.style.width=tip.style.maxWidth;
       }
+      tip.addEventListener('pointerenter',cancelLeave);
+      tip.addEventListener('pointerleave',event=>{if(!target?.contains(event.relatedTarget))scheduleLeave();});
       const attack=tip.querySelector('.paa-tooltip-attack-indexed');
       if(attack){
         if(attack.querySelectorAll('thead th').length>=4)tip.style.maxWidth=Math.max(40,Math.min(440,win.innerWidth-16))+'px';
@@ -216,16 +232,15 @@ module.exports=function useTooltip(React,root,scope){
     const show=event=>{
       if(event.buttons){hide();return;}
       const next=event.target.closest?.('[data-tooltip]');
-      if(!next||!page.contains(next)||!next.dataset.tooltip){hide();return;}
-      if(next===target){if(leaveTimer!==null){win.clearTimeout(leaveTimer);leaveTimer=null;}return;}
+      if(!next||!page.contains(next)||!next.dataset.tooltip||!tooltipAllowed(next)){scheduleLeave();return;}
+      if(next===target){cancelLeave();return;}
       hide();target=next;
       const control=event.target.closest('button,input,select');
       anchor=control&&next.contains(control)?control:next.querySelector('button,input,select')||next;
       // Do not restart the timer as the pointer moves within the same control.
       timer=win.setTimeout(display,350);
     };
-    const leave=event=>{if(target?.contains(event.relatedTarget)||tip?.contains(event.relatedTarget))return;
-      if(tip&&shownContent){if(leaveTimer!==null)win.clearTimeout(leaveTimer);leaveTimer=win.setTimeout(hide,150);}else hide();};
+    const leave=event=>{if(target?.contains(event.relatedTarget)||tip?.contains(event.relatedTarget))return;scheduleLeave();};
     const dismiss=event=>{if(!tip?.contains(event.target))hide();};
     const escape=event=>{if(event.key==='Escape')hide();};
     page.addEventListener('pointerover',show);page.addEventListener('pointermove',show);page.addEventListener('pointerout',leave);
@@ -243,5 +258,7 @@ module.exports=function useTooltip(React,root,scope){
 };
 module.exports.position=position;
 module.exports.anchorRect=anchorRect;
+module.exports.tooltipAllowed=tooltipAllowed;
 module.exports.renderContent=renderContent;
 module.exports.renderStructured=renderStructured;
+module.exports.structuredWidth=structuredWidth;

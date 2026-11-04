@@ -67,16 +67,44 @@ test('pending comparison has no hover tooltip',()=>{
 
 test('per-node details distinguish simulated losses and unvisited or air raid nodes',()=>{
   const v=render.renderDetails(h,{diagnostics:{nodes:[
-    {id:'A',visits:32,ownHpLoss:.125,enemyHpLoss:.4,severe:3},
-    {id:'B',kind:'aerialRaid',visits:29,ownHpLoss:.01,enemyHpLoss:null,severe:1},
-    {id:'C',visits:0,ownHpLoss:null,enemyHpLoss:null,severe:0} ]}});
+    {id:'A',visits:32,ownHpLoss:.125,enemyHpLoss:.4,severe:3,supplyBefore:{fuel:1,ammo:1}},
+    {id:'B',kind:'aerialRaid',visits:29,ownHpLoss:.01,enemyHpLoss:null,severe:1,supplyBefore:{fuel:.8,ammo:.8}},
+    {id:'C',visits:0,ownHpLoss:null,enemyHpLoss:null,severe:0,supplyBefore:{fuel:null,ammo:.76}},
+    {id:'D',visits:1,ownHpLoss:0,enemyHpLoss:0,severe:0,supplyBefore:{fuel:1,ammo:.8}},
+    {id:'E',visits:1,ownHpLoss:0,enemyHpLoss:0,severe:0,supplyBefore:{fuel:.9999,ammo:1}} ]}});
   const body=v.children[1].children[1];
-  assert.deepEqual(body.children.map(row=>row.children.map(cell=>cell.children[0])),[
-    ['A 点','12.5%','40.0%','3 / 32'],['B 点','1.0%','—','1 / 29'],['C 点','—','—','—']]);
+  const cellText=cell=>cell.children[0]?.props?.['aria-label']??cell.children[0]?.children?.[0]??cell.children[0];
+  assert.deepEqual(body.children.map(row=>row.children.map(cellText)),[
+    ['A 点','满 / 满','12.5%','40.0%','3 / 32'],['B 点','80% / 80%','1.0%','—','1 / 29'],['C 点','— / 76%','—','—','—'],
+    ['D 点','满 / 80%','0.0%','0.0%','0 / 1'],['E 点','100% / 满','0.0%','0.0%','0 / 1']]);
   assert.match(v.children[0].children[0],/并非实际概率/);
+  assert.match(v.children[0].children[0],/油弹按满补给出发和参考分支估算/);
+  const styles=require('../../src/ui/workbench/workbench_styles');
+  assert.match(styles,/\.paa-balance-details table\{[^}]*table-layout:fixed/);
+  assert.match(styles,/\.paa-balance-details :is\(th,td\)\{[^}]*text-align:center/);
+  assert.match(styles,/\.paa-balance-details \.paa-balance-ratio\{[^}]*grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\)/);
+  assert.match(styles,/\.paa-balance-details td\.paa-balance-percent>span\{[^}]*text-align:right/);
+  assert.match(styles,/\.paa-balance-details thead\{border-bottom:1px solid/);
+  assert.match(styles,/\.paa-balance-details tbody tr\+tr\{border-top:1px solid/);
+  assert.match(styles,/\.paa-balance-details\{[^}]*overflow-x:auto/);
 });
 
 test('a newly selected stage prompts for explicit completion instead of claiming to be calculating',()=>{
   const v=render(h,{status:'awaitingCompletion'});
   assert.equal(v.props.className,'paa-balance-pending');assert.equal(v.children[0].children[1].children[0],'一键补全后计算');
+});
+
+test('route details state why the target is not reached without calling scene counts a probability',()=>{
+  const v=render.renderDetails(h,{diagnostics:{journeys:{samples:32,completed:0,stoppedBeforeTarget:32},nodes:[]}});
+  assert.match(v.children[0].children[0],/32 \/ 32 个参考场景在目标前大破停止/);
+  assert.match(v.children[0].children[0],/从当前耐久出发/);
+  assert.match(v.children[0].children[0],/并非实际概率/);
+});
+
+test('target victory details distinguish post-battle repairs from en-route retreat',()=>{
+  const v=render.renderDetails(h,{diagnostics:{journeys:{samples:32,completed:32,stoppedBeforeTarget:0},
+    target:{id:'C',visits:32,sVictories:32,severe:32,includeNight:true},nodes:[]}});
+  assert.match(v.children[0].children[0],/目标战 S 胜参考：32 \/ 32（含夜战）/);
+  assert.match(v.children[0].children[0],/战后大破只计损耗/);
+  assert(!v.children[0].children[0].includes('目标前大破停止'));
 });

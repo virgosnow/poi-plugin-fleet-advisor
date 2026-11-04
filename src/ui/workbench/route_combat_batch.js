@@ -9,6 +9,7 @@ async function runRouteCombatBatch({firstPhase,firstResult,evaluate,publish,onEr
     const assessment=await evaluate(firstPhase,firstResult);
     if(cancelled()||assessment===null)return;
     publish(firstPhase,firstResult,assessment);
+    return assessment;
   }catch(error){if(cancelled())return;onError?.(firstPhase,error);}
 }
 module.exports={runRouteCombatBatch};

@@ -9,10 +9,11 @@ function equipmentTooltip(item){return [item?.tooltip,item?.statsText].filter(Bo
 function equipmentTooltipProps(item,notes=[]){
   if(!item)return {'data-tooltip':'空槽'};
   const values=[...(item.stats||[]),...(item.airPowerText!==undefined?[['制空值',item.airPowerText]]:[])],rows=[];
+  const fitDelta=item.gunFit?.known?Number(item.gunFit.delta):0,roundedFit=Number.isFinite(fitDelta)?Number(fitDelta.toFixed(1)):0;
   for(let i=0;i<values.length;i+=2)rows.push([...values[i],...(values[i+1]||['',''])]);
-  return require('./metric_tooltips').attributes({title:item.tooltip||item.name,compact:true,sections:values.length?
-    [{layout:'equipment-stats',columns:['属性','数值','属性','数值'],rows,numeric:[1,3]}]:[],notes:[...notes,item.airPowerBasis,
-      item.stats?.length?'基础属性；改修与舰娘适配加成另计。':item.stats?'无基础数值加成。':'装备属性资料待同步。'].filter(Boolean)},
+  return require('./metric_tooltips').attributes({kind:'equipment',title:item.tooltip||item.name,compact:true,sections:values.length?
+    [{layout:'equipment-stats',columns:['属性','数值','属性','数值'],rows,numeric:[1,3],fitTone:roundedFit>0?'positive':roundedFit<0?'negative':null}]:[],notes:[...notes,item.airPowerBasis,item.gunFitNote,
+      item.stats?.length?'':item.stats?'无属性加成':'装备属性资料待同步'].filter(Boolean)},
     [equipmentTooltip(item),item.airPowerText!==undefined?`制空值：${item.airPowerText}`:'',...notes].filter(Boolean).join('\n'));
 }
 function withAirPower(item,reading,shipId,{current=false}={}){
@@ -21,7 +22,7 @@ function withAirPower(item,reading,shipId,{current=false}={}){
   const slot=reading?.slots?.find(s=>s.shipId===shipId&&s.slot===item.slot&&s.itemId===item.id);
   const known=slot&&!slot.unknown&&Number.isFinite(slot.min)&&Number.isFinite(slot.max);
   const text=!participates?'0':!reading?'待计算':!known?'待确认':slot.min===slot.max?String(slot.min):`${slot.min}–${slot.max}`;
-  return {...item,airPowerText:text,airPowerBasis:current?'制空值按本槽当前搭载计算。':'制空值按本槽出击前满载计算。'};
+  return {...item,airPowerText:text,airPowerBasis:current?'制空按当前搭载':'制空按出击前满载'};
 }
 function equipmentItem(store,id,slot){
   const item=store.info?.equips?.[id],master=store.const?.$equips?.[item?.api_slotitem_id];
@@ -35,6 +36,19 @@ function equipmentItem(store,id,slot){
   const stats=values.map(row=>row.join(' '));
   return {id,slot,extra,name,aircraftType:Number(master.api_type?.[2]),stats:values,statsSummary:stats.map(s=>s.replace(' ','')).join(' '),statsText:stats.length?'基础属性：'+stats.join(' · '):'',icon:equipmentIconUrl(master.api_type?.[3]),
     tooltip:`${extra?'增设':`${Number(slot)+1} 槽`} · ${name}`+(item.api_level>0?` ★${item.api_level}`:'')+(item.api_alv>0?` · 熟练度 ${item.api_alv}`:'')};
+}
+function withGunFit(store,entry,item){
+  if(!item||![1,2,3].includes(item.aircraftType)||!entry?.id)return item;
+  const result=require('../../domain/combat/gun_fit').fitChange(store,entry.id,entry,item.slot,item.id);
+  if(!result.applicable)return item;
+  const rounded=n=>Number(n.toFixed(1));
+  const signed=n=>`${rounded(n)>=0?'+':''}${rounded(n)}`;
+  const base=Number(store.const?.$equips?.[store.info?.equips?.[item.id]?.api_slotitem_id]?.api_houm||0);
+  const hasFit=result.known&&rounded(result.delta)!==0;
+  const accuracy=result.known?`${signed(base+result.delta)}${hasFit?`（${signed(result.delta)}）`:''}`:`${signed(base)}（待确认）`;
+  const stats=(item.stats||[]).filter(([name])=>name!=='命中'&&name!=='适重'&&name!=='适重总计');stats.push(['命中',accuracy]);
+  return {...item,gunFit:result,stats,statsSummary:stats.map(row=>row.join('')).join(' '),
+    gunFitNote:result.known?(hasFit?`括号内为昼战适重${result.estimated?'（预估）':''}`:result.estimated?'适重预估':''):'适重待确认'};
 }
 
 function rosterRows(store){
@@ -72,7 +86,7 @@ function fleetRows(store,scheme){
       const tooltip=`${extra?'增设':`${slot+1} 槽`} · ${name}`+
         (item?.api_level>0?` ★${item.api_level}`:'')+
         (item?.api_alv>0?` · 熟练度 ${item.api_alv}`:'');
-      gearIcons.push(equipmentItem(store,id,slot)||{id,slot,extra,name,tooltip,
+      gearIcons.push(withGunFit(store,entry,equipmentItem(store,id,slot))||{id,slot,extra,name,tooltip,
         icon:equipmentIconUrl(equipment?.api_type?.[3])});
       return tooltip;
     };
@@ -161,4 +175,4 @@ function mapLayout(preview){
     x:28+d*(width-56)/Math.max(1,layers-1),y:height/2+(i-(group.length-1)/2)*66})));
   return {width,height,nodes,edges:(preview.edges||[]).filter(e=>depth.has(e.from)&&depth.has(e.to))};
 }
-module.exports={equipmentIconUrl,equipmentItem,equipmentTooltip,equipmentTooltipProps,withAirPower,rosterRows,nodeKind,portraitUrl,fleetRows,routeReasons,mapLayout};
+module.exports={equipmentIconUrl,equipmentItem,equipmentTooltip,equipmentTooltipProps,withAirPower,withGunFit,rosterRows,nodeKind,portraitUrl,fleetRows,routeReasons,mapLayout};

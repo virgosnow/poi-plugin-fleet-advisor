@@ -42,16 +42,28 @@ function renderCombatBalance(h,assessment){
 // or unvisited data is shown as a dash instead of an invented zero.
 function renderDetails(h,assessment){
   const rows=Array.isArray(assessment?.diagnostics?.nodes)?assessment.diagnostics.nodes:[];
+  const journeys=assessment?.diagnostics?.journeys;
+  const stopped=Number.isInteger(journeys?.stoppedBeforeTarget)&&journeys.stoppedBeforeTarget>0&&
+    Number.isInteger(journeys.samples)&&journeys.samples>=journeys.stoppedBeforeTarget?
+    `${journeys.stoppedBeforeTarget} / ${journeys.samples} 个参考场景在目标前大破停止。`:'';
+  const target=assessment?.diagnostics?.target;
+  const outcome=Number.isInteger(target?.visits)&&target.visits>0&&Number.isInteger(target.sVictories)&&
+    target.sVictories>=0&&target.sVictories<=target.visits?
+    `目标战 S 胜参考：${target.sVictories} / ${target.visits}${target.includeNight?'（含夜战）':''}；战后大破只计损耗。`:'';
   const percent=value=>Number.isFinite(value)&&value>=0?`${(value*100).toFixed(1)}%`:'—';
+  const supply=value=>Number.isFinite(value)&&value>=0?(value>=1?'满':`${Math.round(value*100)}%`):'—';
+  const ratio=(left,right)=>h('span',{className:'paa-balance-ratio','aria-label':`${left} / ${right}`},
+    h('span',null,left),h('span',{'aria-hidden':true},'/'),h('span',null,right));
   return h('div',{className:'paa-balance-details'},
-    h('p',null,'参考场景：按各舰最大耐久计算平均损失；大破场景是模拟次数，并非实际概率'),
+    h('p',null,`${stopped}${outcome}从当前耐久出发，损失为该点新增战损占最大耐久的比例；场景次数并非实际概率。油弹按满补给出发和参考分支估算。`),
     rows.length?h('table',{'aria-label':'逐点敌我战况参考'},
-      h('thead',null,h('tr',null,...['节点','我方损失','敌方损失','大破场景'].map(label=>h('th',{key:label,scope:'col'},label)))),
+      h('thead',null,h('tr',null,...['节点','战前油弹','我方损失','敌方损失','大破场景'].map(label=>h('th',{key:label,scope:'col'},label)))),
       h('tbody',null,...rows.map((row,i)=>h('tr',{key:`${row.id}:${i}`},
         h('th',{scope:'row'},`${row.id} 点`),
-        h('td',null,row.visits>0?percent(row.ownHpLoss):'—'),
-        h('td',null,row.visits>0?percent(row.enemyHpLoss):'—'),
-        h('td',null,row.visits>0&&Number.isInteger(row.severe)?`${row.severe} / ${row.visits}`:'—'))))):
+        h('td',null,ratio(supply(row.supplyBefore?.fuel),supply(row.supplyBefore?.ammo))),
+        h('td',{className:'paa-balance-percent'},h('span',null,row.visits>0?percent(row.ownHpLoss):'—')),
+        h('td',{className:'paa-balance-percent'},h('span',null,row.visits>0?percent(row.enemyHpLoss):'—')),
+        h('td',null,row.visits>0&&Number.isInteger(row.severe)?ratio(row.severe,row.visits):'—'))))):
       h('p',{className:'paa-muted'},'暂无逐点参考数据'));
 }
 module.exports=renderCombatBalance;

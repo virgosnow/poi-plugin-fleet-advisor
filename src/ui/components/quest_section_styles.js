@@ -45,17 +45,17 @@ module.exports=`
 .paa-quest-condition-status[data-status=unmet]{color:#ce934c}
 .paa .paa-quest-empty{margin:0;color:var(--paa-muted);font-size:12px;line-height:20px}
 /* Normal-map tasks share the overview cards' hierarchy, while the whole card remains selectable. */
-.paa .paa-workbench[data-kind=normal] .paa-quest-list{gap:12px;padding:10px 3px 2px 2px}
-.paa .paa-workbench[data-kind=normal] .paa-quest-item,.paa .paa-workbench[data-kind=normal] .paa-quest-item+.paa-quest-item{padding:10px 11px;border:1px solid var(--paa-line);border-radius:9px;background:color-mix(in srgb,var(--paa-bg) 70%,var(--paa-card))}
-.paa .paa-workbench[data-kind=normal] .paa-quest-item:hover:not([aria-disabled=true]){border-color:color-mix(in srgb,var(--paa-accent) 45%,var(--paa-line))}
-.paa .paa-workbench[data-kind=normal] .paa-quest-item[data-selected=true],.paa .paa-workbench[data-kind=normal] .paa-quest-item[data-selected=true]:hover{border-color:#d6ae50}
-.paa .paa-workbench[data-kind=normal] .paa-quest-meta{align-items:center;gap:6px;margin-bottom:4px}
-.paa .paa-workbench[data-kind=normal] .paa-quest-period{padding:0 5px;border-radius:4px;background:var(--paa-soft);font-size:10px;line-height:16px}
-.paa .paa-workbench[data-kind=normal] .paa-quest-state,.paa .paa-workbench[data-kind=normal] .paa-quest-condition-status{font-size:11px;line-height:16px}
-.paa .paa-workbench[data-kind=normal] .paa-quest-heading{margin:0 0 8px}
-.paa .paa-workbench[data-kind=normal] .paa-quest-heading h4{font-size:13px;line-height:19px}
-.paa .paa-workbench[data-kind=normal] .paa-quest-goals,.paa .paa-workbench[data-kind=normal] .paa-quest-requirements{font-size:12px;line-height:18px}
-.paa .paa-workbench[data-kind=normal] .paa-quest-goals li[data-related=true]>strong{color:var(--paa-accent);font-size:13px;font-variant-numeric:tabular-nums}
-.paa .paa-workbench[data-kind=normal] .paa-quest-checks>li{font-size:12px;line-height:18px}
+.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-list{gap:12px;padding:10px 3px 2px 2px}
+.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-item,.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-item+.paa-quest-item{padding:10px 11px;border:1px solid var(--paa-line);border-radius:9px;background:color-mix(in srgb,var(--paa-bg) 70%,var(--paa-card))}
+.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-item:hover:not([aria-disabled=true]){border-color:color-mix(in srgb,var(--paa-accent) 45%,var(--paa-line))}
+.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-item[data-selected=true],.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-item[data-selected=true]:hover{border-color:#d6ae50}
+.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-meta{align-items:center;gap:6px;margin-bottom:4px}
+.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-period{padding:0 5px;border-radius:4px;background:var(--paa-soft);font-size:10px;line-height:16px}
+.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-state,.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-condition-status{font-size:11px;line-height:16px}
+.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-heading{margin:0 0 8px}
+.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-heading h4{font-size:13px;line-height:19px}
+.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-goals,.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-requirements{font-size:12px;line-height:18px}
+.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-goals li[data-related=true]>strong{color:var(--paa-accent);font-size:13px;font-variant-numeric:tabular-nums}
+.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-checks>li{font-size:12px;line-height:18px}
 @container(max-width:780px){.paa-workbench[data-kind=expedition] .paa-quest-section{order:2}}
 `;

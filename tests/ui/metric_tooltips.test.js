@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const T=require('../../src/ui/models/metric_tooltips'),V=require('../../src/ui/models/presentation_model');
-const {renderStructured}=require('../../src/ui/components/tooltip');
+const {renderStructured,structuredWidth}=require('../../src/ui/components/tooltip');
 const fixture=require('../helpers/workbench_fixture');
 const doc={createElement:tag=>({tag,className:'',style:{},children:[],textContent:'',appendChild(child){this.children.push(child);}}),
  createElementNS:(_ns,tag)=>({tag,className:'',children:[],setAttribute(name,value){this[name]=value;},appendChild(child){this.children.push(child);}})};
@@ -50,22 +50,54 @@ test('equipment card rows, picker items and icon tooltips share signed base stat
  const card=V.fleetRows(store,{ships:[{id:1,slots:[101],ex:0}]}).flatMap(s=>s.gearIcons)[0];
  const picker=V.equipmentItem(store,101,0);assert.deepEqual(card,picker);
  const props=V.equipmentTooltipProps(card),data=JSON.parse(props['data-tooltip-content']);
+ assert.deepEqual(data.notes,[],'ordinary equipment does not repeat a generic explanatory paragraph');
  assert.deepEqual(data.sections[0].rows,[['火力','+2','爆装','+11'],['回避','-2','射程','长'],['航程','5','','']]);
- assert(data.compact);assert.deepEqual(data.sections[0].numeric,[1,3]);
+ assert(data.compact);assert.equal(data.kind,'equipment');assert.deepEqual(data.sections[0].numeric,[1,3]);
  const tip=doc.createElement('div');renderStructured(doc,tip,JSON.stringify(data));
+ assert.match(tip.className,/paa-tooltip-equipment/);assert.equal(structuredWidth(data,1200),320);assert.equal(structuredWidth(data,210),194);
  const rendered=all(tip);assert.equal(rendered.filter(n=>n.tag==='dt').length,5);
- assert.equal(rendered.filter(n=>n.tag==='svg'&&n.class==='paa-stat-icon').length,5);
+ assert.equal(rendered.filter(n=>n.tag==='svg').length,0);
  assert.equal(rendered.filter(n=>n.tag==='dd').length,5);assert(!rendered.some(n=>n.tag==='th'));
+ assert.deepEqual(rendered.filter(n=>n.className==='paa-tooltip-equipment-stat').map(n=>n.children.map(c=>[c.tag,c.textContent])),
+   [[['dt','火力'],['dd','+2']],[['dt','爆装'],['dd','+11']],[['dt','回避'],['dd','-2']],[['dt','射程'],['dd','长']],[['dt','航程'],['dd','5']]]);
  assert(rendered.some(n=>n.textContent==='-2'&&n.className.includes('is-negative')));
  assert.match(data.title,/★6.*熟练度 7/);assert.match(props['data-tooltip'],/爆装 \+11/);
  const icon=require('../../src/ui/components/equipment_icon')({createElement:(type,props,...children)=>({type,props,children})})({item:card});
  assert.equal(icon.props['data-tooltip-content'],props['data-tooltip-content']);
 });
 
+test('equipment tooltip stays compact with no stats without affecting other structured tables',()=>{
+ const data=JSON.parse(V.equipmentTooltipProps({name:'没有属性',stats:[]})['data-tooltip-content']);
+ const tip=doc.createElement('div');assert(renderStructured(doc,tip,JSON.stringify(data)));
+ assert.match(tip.className,/paa-tooltip-equipment/);assert.equal(data.notes[0],'无属性加成');
+ assert.equal(structuredWidth(data,800),250);
+ const equip=count=>({kind:'equipment',sections:[{layout:'equipment-stats',columns:['属性','数值','属性','数值'],rows:Array.from({length:count},(_,i)=>[`属性${i}`,String(i)])}]});
+ assert.equal(structuredWidth(equip(1),800),250);assert.equal(structuredWidth(equip(2),800),250);
+ assert.equal(structuredWidth(equip(3),800),285);assert.equal(structuredWidth(equip(4),800),320);assert.equal(structuredWidth(equip(8),800),320);
+ assert.equal(structuredWidth(equip(4),320),304);
+ assert.equal(structuredWidth({compact:true,sections:[{columns:['a','b','c','d'],rows:[]}]},800),360);
+ assert.equal(structuredWidth({sections:[{columns:['a','b','c','d'],rows:[]}]},800),520);
+});
+
+test('equipment accuracy colors follow fit adjustment rather than total accuracy',()=>{
+ const render=(accuracy,delta)=>{
+   const props=V.equipmentTooltipProps({name:'主炮',stats:[['命中',accuracy],['火力','+3']],gunFit:{known:true,delta}});
+   const data=JSON.parse(props['data-tooltip-content']),tip=doc.createElement('div');
+   assert(renderStructured(doc,tip,JSON.stringify(data)));
+   return {data,accuracy:all(tip).find(n=>n.tag==='dd'&&n.textContent===accuracy),fire:all(tip).find(n=>n.tag==='dd'&&n.textContent==='+3')};
+ };
+ const positive=render('-1（+5）',5);assert.equal(positive.data.sections[0].fitTone,'positive');
+ assert.match(positive.accuracy.className,/is-fit-positive/);assert.doesNotMatch(positive.accuracy.className,/is-negative/);
+ const negative=render('+1（-5）',-5);assert.equal(negative.data.sections[0].fitTone,'negative');
+ assert.match(negative.accuracy.className,/is-fit-negative/);assert.doesNotMatch(negative.fire.className,/is-fit/);
+ const zero=render('+3',0);assert.equal(zero.data.sections[0].fitTone,null);assert.doesNotMatch(zero.accuracy.className,/is-fit/);
+});
+
 test('equipment hover air power belongs to its ship, destination slot and exact equipment instance',()=>{
  const store=fixture();store.info.equips[101]={api_id:101,api_slotitem_id:501,api_level:6,api_alv:7};store.const.$equips[501]={api_name:'测试舰战',api_type:[0,0,6,6],api_tyku:10};
  const item=V.equipmentItem(store,101,2),reading={status:'range',slots:[{shipId:1,slot:2,itemId:101,min:47,max:49},{shipId:2,slot:2,itemId:102,min:80,max:81}]};
  const contextual=V.withAirPower(item,reading,1),props=V.equipmentTooltipProps(contextual),data=JSON.parse(props['data-tooltip-content']);
+ assert.deepEqual(data.notes,['制空按出击前满载']);
  assert.deepEqual(data.sections[0].rows,[['对空','+10','制空值','47–49']]);assert.match(props['data-tooltip'],/制空值：47–49/);assert.equal(item.airPowerText,undefined);
  assert.equal(V.withAirPower(item,reading,2).airPowerText,'待确认','same slot on another ship does not reuse a different instance');
  assert.equal(V.withAirPower({...item,slot:1},reading,1).airPowerText,'待确认');

@@ -8,6 +8,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
   const h=React.createElement,settingFeedback=require('../settings/settings_feedback');
   const Workbench=createWorkbench(React,{getController,getStore,subscribe,setQuestPageActive});
   const CurrentFleet=require('../fleet/current_fleet')(React,{getStore,setQuestPageActive,getController,subscribe});
+  const PracticePage=require('../practice/practice_page')(React,{getStore,setQuestPageActive,getController});
   const ExecutionFeedback=require('../components/execution_feedback')(React,{subscribe,getStore});
   const filterSettings=require('../settings/recommendation_settings')(React);
   const experimentalControls=require('../settings/experimental_settings')(React);
@@ -180,7 +181,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
         const maintenance=result.computation.maintenance;
         setSettingsFeedbacks(previous=>Object.fromEntries(Object.entries(previous).filter(([key])=>key.startsWith('agent'))));
         reportSetting('reset',maintenance?.failed||maintenance?.error?'error':'success',maintenance?.failed||maintenance?.error?
-          '默认设置已恢复，部分缓存未能整理：'+(maintenance.error||`${maintenance.failed} 个文件被占用`):'已恢复出击、远征、计算和缓存默认设置');
+          '默认设置已恢复，部分缓存未能整理：'+(maintenance.error||`${maintenance.failed} 个文件被占用`):'已恢复出击、演习、远征、计算和缓存默认设置');
       }catch(e){if(mounted.current)reportSetting('reset','error',e.message);}
       finally{resetInFlight.current=false;if(mounted.current)setResettingSettings(false);}
     };
@@ -195,7 +196,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
           h('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
             h('path',{d:'m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9'}))),
         h('span',{className:'paa-tab-indicator','aria-hidden':true}),
-        ...[['manual','当前舰队'],['normal','常规海域'],['expedition','远征']].map(([value,label])=>
+        ...[['manual','当前舰队'],['normal','常规海域'],['practice','演习'],['expedition','远征']].map(([value,label])=>
           h('button',{key:value,type:'button','aria-pressed':mode===value,disabled:busy||!!externalJob,
             onClick:()=>{setMode(value);if(mode!=='settings')reset();}},label)),
         h('div',{className:'paa-settings-tools',role:'group','aria-label':'设置操作','data-expanded':mode==='settings'},
@@ -203,13 +204,13 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
           h('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
             h('path',{d:'M9.5 3h5l.6 2.4 1.5.9 2.4-.7 2.5 4.3-1.8 1.7v1.8l1.8 1.7-2.5 4.3-2.4-.7-1.5.9-.6 2.4h-5l-.6-2.4-1.5-.9-2.4.7-2.5-4.3 1.8-1.7v-1.8L2 9.9l2.5-4.3 2.4.7 1.5-.9z'}),h('circle',{cx:12,cy:12,r:3})),...(mode==='settings'?['设置']:[])),
         ...(mode==='settings'?[h('div',{className:'paa-settings-reset-actions'},
-          h('button',{type:'button',className:'paa-settings-reset','aria-label':'恢复默认设置','data-tooltip':'恢复默认：恢复出击、远征、计算和缓存设置，不改变实验功能开关和 MCP 端口。',disabled:running||resettingSettings||resourceBusy,onClick:resetSettings},
+          h('button',{type:'button',className:'paa-settings-reset','aria-label':'恢复默认设置','data-tooltip':'恢复默认：恢复出击、演习、远征、计算和缓存设置，不改变实验功能开关和 MCP 端口。',disabled:running||resettingSettings||resourceBusy,onClick:resetSettings},
             h('svg',{width:18,height:18,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
               h('path',{d:'M4 7a6 6 0 1 1 0 6M4 3v4h4'})),'恢复默认'),
           settingFeedback(React,settingsFeedbacks.reset))]:[])))),
       h('div',{className:'paa-workspace','aria-busy':running},
       h('div',{className:'paa-workspace-content',ref:workspace,tabIndex:-1},
-      ...['normal','expedition','manual'].map(kind=>h(kind==='manual'?CurrentFleet:Workbench,{key:`${kind}:${draftEpoch}`,kind,automaticFilters:recommendationFilters[kind],automaticOperations:experimentalSettings.automaticOperations,hidden:mode!==kind,busy:running,stopping,onStop:stop,stopButtonRef:mode===kind?stopButton:undefined,operationFeedback:mode===kind?feedback:null,executionPlan:busy?executionPlan.current:null,...(kind!=='manual'?{onApply:candidate=>action(true,M.format(candidate)),navigationIntent:questNavigation?.kind===kind?questNavigation:null}:{onNavigateQuest:navigateQuest})})),
+      ...['normal','practice','expedition','manual'].map(kind=>h(kind==='manual'?CurrentFleet:kind==='practice'?PracticePage:Workbench,{key:`${kind}:${draftEpoch}`,kind,automaticFilters:recommendationFilters[kind],automaticOperations:experimentalSettings.automaticOperations,hidden:mode!==kind,busy:running,stopping,onStop:stop,stopButtonRef:mode===kind?stopButton:undefined,operationFeedback:mode===kind?feedback:null,executionPlan:busy?executionPlan.current:null,...(kind!=='manual'?{onApply:candidate=>action(true,M.format(candidate)),navigationIntent:questNavigation?.kind===kind?questNavigation:null}:{onNavigateQuest:navigateQuest})})),
       h('section',{className:'paa-settings-page',hidden:mode!=='settings','aria-label':'设置面板'},
       filterSettings({value:recommendationFilters,disabled:running||resettingSettings,feedbacks:settingsFeedbacks,onChange:(value,target)=>{
         try{setRecommendationFilters(getController().setRecommendationFilters(value));reportSetting(target,'success','已保存');}

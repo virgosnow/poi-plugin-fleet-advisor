@@ -52,8 +52,10 @@ test('all merged catalogs render exactly the possible branches for hull, speed a
     if(!expected.length)blocked++;
     else if(expected.length<plans.optionPaths(option).length)filtered++;
     if(expected.length>1)multiple++;
-    // Verify both renderers for every combination, including the zero-path case.
-    for(const expanded of [false,true])assert.deepEqual(drawnEdges(profile,expanded),edges(expected),`${area} fleet ${expanded}`);
+    // The node-size option does not affect edges. Cover both values across
+    // each route's LoS variants instead of drawing the same edge set twice.
+    const fixedNodes=los>1;
+    assert.deepEqual(drawnEdges(profile,fixedNodes),edges(expected),`${area} fleet ${fixedNodes}`);
   }
   assert(blocked>0);assert(filtered>0);assert(multiple>0,'real random alternatives must survive the filter');
 });

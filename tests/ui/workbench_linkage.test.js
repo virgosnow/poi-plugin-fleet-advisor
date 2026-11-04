@@ -165,7 +165,7 @@ test('expedition chain navigation preserves drafts and does not start recommenda
   assert.equal(searches,0);assert.equal(JSON.stringify(h.store),before);
 });
 
-function harness(kind='normal',automaticFilters){
+function harness(kind='normal',automaticFilters,storeView=store=>store){
   const state=[],refs=[],effects=[];let index=0,refIndex=0;
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
     useState(initial){const i=index++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;
@@ -176,7 +176,7 @@ function harness(kind='normal',automaticFilters){
   const service={createSnapshot:()=>({snapshotId:'test'}),preview:(...args)=>controller.preview(...args),
     recommendNormalFleet:()=>{calls.fleet++;return {recommendations:[plan(2,'guide:3-5-01'),plan(1,'guide:3-5-05')]};},
     recommendNormalEquipment:args=>{calls.equipment++;return {scheme:args.scheme};}};
-  const Workbench=require('../../src/ui/workbench/workbench')(React,{getController:()=>service,getStore:()=>store});
+  const Workbench=require('../../src/ui/workbench/workbench')(React,{getController:()=>service,getStore:()=>storeView(store)});
   const names=[...String(Workbench).split('React.useRef')[0].matchAll(/\[\s*(\w+)\s*,\s*\w+\s*\]\s*=\s*React\.useState\(/g)].map(m=>m[1]);
   const stateIndex=name=>{const index=names.indexOf(name);assert(index>=0,'Unknown workbench state: '+name);return index;};
   const get=name=>state[stateIndex(name)],set=(name,value)=>{state[stateIndex(name)]=value;};
@@ -205,16 +205,17 @@ test('normal and expedition ship portraits reveal attributes for the same visibl
     const event=id=>({currentTarget:{closest:()=>grid.children[id-1]}});
     const button=(tree,id)=>h.find(tree,n=>n.props['aria-controls']===`paa-workbench-stats-${kind}-${id}`);
     const detail=(tree,id)=>h.find(tree,n=>n.props.id===`paa-workbench-stats-${kind}-${id}`);
-    let tree=h.render();assert.equal(button(tree,1).props['aria-expanded'],false);
+    let tree=h.render();assert.equal(button(tree,1).props['aria-expanded'],false);assert.equal(button(tree,1).props['data-tooltip'],'查看属性');
     button(tree,1).props.onClick(event(1));tree=h.render();
     assert.equal(button(tree,1).props['aria-expanded'],true);assert.equal(button(tree,2).props['aria-expanded'],true);
     assert.equal(button(tree,3).props['aria-expanded'],false);assert.equal(detail(tree,1).props.inert,undefined);
+    assert.equal(button(tree,1).props['data-tooltip'],undefined);assert.equal(button(tree,2).props['data-tooltip'],undefined);assert.equal(button(tree,3).props['data-tooltip'],'查看属性');
     const attrs=h.find(detail(tree,1),n=>n.props.className==='paa-fleet-ship-stats');
     assert.equal(attrs.props['aria-label'],'舰娘当前属性');assert.match(attrs.props['data-tooltip'],/尚未应用/);
     assert(h.find(attrs,n=>n.type==='dd'&&n.children.includes(20)));
     assert(h.find(attrs,n=>n.type==='dt'&&h.find(n,x=>x.type==='svg'&&x.props.className==='paa-stat-icon')));
     button(tree,2).props.onClick(event(2));tree=h.render();assert.equal(button(tree,1).props['aria-expanded'],false);
-    assert.equal(button(tree,2).props['aria-expanded'],false);assert.equal(JSON.stringify(h.get('slots')),draft);
+    assert.equal(button(tree,2).props['aria-expanded'],false);assert.equal(button(tree,1).props['data-tooltip'],'查看属性');assert.equal(JSON.stringify(h.get('slots')),draft);
     assert.equal(h.calls.equipment+h.calls.fleet,0);assert.equal(button(h.render({busy:true}),1).props.disabled,true);
   }
 });
@@ -365,6 +366,11 @@ test('battle target keeps target then enroute threat as independent cards',()=>{
   const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
   assert.equal(cards.length,2);assert.match(text(cards[0]),/C 点/);assert.match(text(cards[1]),/A 点/);
   assert.match(text(cards[0]),/轻巡|軽巡/,'Boss card shows the first main-fleet flagship');
+  for(const card of cards){const meta=findAll(card,n=>n.props?.className==='paa-threat-meta')[0];
+    assert(meta);assert.equal(meta.children.length,1);assert.equal(meta.children[0].props.className,'paa-threat-node');
+    assert.doesNotMatch(text(card),/\bHP\b/);assert.equal(findAll(card,n=>n.props?.className==='paa-threat-hp-track').length,0);}
+  for(const card of cards){const name=findAll(card,n=>n.props?.className==='paa-threat-name')[0];
+    assert(name);assert.equal(name.props['data-tooltip'],name.children[0]);assert.equal(name.props['data-tooltip-overflow'],true);}
 });
 
 test('route selection uses a grouped anchored component and keeps names separate from path letters',()=>{
@@ -500,6 +506,67 @@ test('one-click completion without a selected route uses the anchored stage',asy
   assert.equal(query.phase,'gauge1');assert.deepEqual(query.fixedShipIds,[2]);assert.equal(h.get('slots')[0].id,2);
 });
 
+test('completion without a preselected route chooses the first ranked option and its matching fleet',async()=>{
+  const assessment=require('../../src/application/route_combat_assessments'),original=assessment.assessRouteChoices;
+  const workbenchPath=require.resolve('../../src/ui/workbench/workbench'),cached=require.cache[workbenchPath];
+  const {fromRatio}=require('../../src/domain/combat/combat_balance');
+  try{
+    const plans=require('../../src/domain/routes/route_plans'),options=plans.recommendedOptions('3-5').filter(o=>!o.fallback);
+    const combat={[options[0].key]:{status:'estimated',balance:fromRatio(.5)},[options[1].key]:{status:'estimated',balance:fromRatio(4)}};
+    let evaluations=0;assessment.assessRouteChoices=async()=>{evaluations++;return combat;};
+    delete require.cache[workbenchPath];const h=harness();
+    const held={...W.entry(h.store,2),pin:true};h.set('slots',[held,null,null,null,null,null]);
+    h.service.recommendNormalFleet=()=>({routeResults:options.slice(0,2).map((option,i)=>({...option,status:'available',chance:{probability:1},recommendationIndex:i})),
+      recommendations:options.slice(0,2).map((option,i)=>({routeKey:option.key,scheme:W.scheme([held,W.entry(h.store,i===0?1:3)],1)}))});
+    await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+    assert.equal(h.get('mapRoute'),options[1].key);assert.equal(evaluations,1);
+    assert.deepEqual(h.get('slots').filter(Boolean).map(s=>s.id),[2,3]);assert(h.get('slots').find(s=>s?.id===2).pin);
+    const picker=h.find(h.render(),n=>n.type?.name==='RoutePicker');
+    assert.equal(require('../../src/ui/components/route_picker').routeNeighbor(picker.props.options,'','',1),h.get('mapRoute'));
+    assert.deepEqual(h.get('report').scheme,W.scheme(h.get('slots'),1));
+    // A player-selected route continues to be an explicit request.
+    h.set('mapRoute',options[0].key);
+    await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+    assert.equal(h.get('mapRoute'),options[0].key);
+  }finally{assessment.assessRouteChoices=original;delete require.cache[workbenchPath];if(cached)require.cache[workbenchPath]=cached;}
+});
+
+test('default route selection waits for assessments and discards a changed game snapshot',async()=>{
+  const assessment=require('../../src/application/route_combat_assessments'),original=assessment.assessRouteChoices;
+  const workbenchPath=require.resolve('../../src/ui/workbench/workbench'),cached=require.cache[workbenchPath];
+  try{
+    let finish;assessment.assessRouteChoices=()=>new Promise(resolve=>{finish=resolve;});
+    delete require.cache[workbenchPath];const h=harness(),option=require('../../src/domain/routes/route_plans').recommendedOptions('3-5')[0];
+    const held={...W.entry(h.store,2),pin:true};h.set('slots',[held,null,null,null,null,null]);
+    h.service.recommendNormalFleet=()=>({routeResults:[{...option,status:'available',chance:{probability:1},recommendationIndex:0}],
+      recommendations:[{routeKey:option.key,scheme:W.scheme([held,W.entry(h.store,1)],1)}]});
+    const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+    for(let i=0;!finish&&i<30;i++)await new Promise(resolve=>setTimeout(resolve,5));
+    assert(finish);assert.equal(h.get('working'),true);assert.equal(h.get('mapRoute'),'');
+    assert.deepEqual(h.get('slots').filter(Boolean).map(s=>s.id),[2],'do not display a provisional fleet');
+    h.store.info={...h.store.info};finish({});await pending;
+    assert.equal(h.get('mapRoute'),'');assert.deepEqual(h.get('slots').filter(Boolean).map(s=>s.id),[2]);
+    assert.match(h.get('error'),/资料已变化/);
+  }finally{assessment.assessRouteChoices=original;delete require.cache[workbenchPath];if(cached)require.cache[workbenchPath]=cached;}
+});
+
+test('ranked default selection stays within the phase being completed',async()=>{
+  const assessment=require('../../src/application/route_combat_assessments'),original=assessment.assessRouteChoices;
+  const workbenchPath=require.resolve('../../src/ui/workbench/workbench'),cached=require.cache[workbenchPath];
+  try{
+    const plans=require('../../src/domain/routes/route_plans'),{fromRatio}=require('../../src/domain/combat/combat_balance');
+    const current=plans.recommendedOptions('7-3','boss','gauge2').filter(o=>!o.fallback).slice(0,2),
+      other=plans.recommendedOptions('7-3','boss','gauge1').find(o=>!o.fallback);
+    const combat=Object.fromEntries([current[0],current[1],other].map((option,i)=>[option.key,{status:'estimated',balance:fromRatio([.5,4,20][i])}]));
+    assessment.assessRouteChoices=async()=>combat;delete require.cache[workbenchPath];const h=harness();
+    h.set('area','7-3');h.store.info.maps={73:{api_gauge_num:2}};
+    h.service.recommendNormalFleet=()=>({routeResults:[...current,other].map((option,i)=>({...option,status:'available',chance:{probability:1},recommendationIndex:i})),
+      recommendations:[...current,other].map((option,i)=>({routeKey:option.key,scheme:W.scheme([W.entry(h.store,i+2)],1)}))});
+    await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+    assert.equal(h.get('mapRoute'),current[1].key);assert.equal(h.get('slots')[0].id,3);
+  }finally{assessment.assessRouteChoices=original;delete require.cache[workbenchPath];if(cached)require.cache[workbenchPath]=cached;}
+});
+
 test('a delayed battle assessment cannot refill state after a phase change',async()=>{
   const modulePath=require.resolve('../../src/application/route_combat_assessments');
   const workbenchPath=require.resolve('../../src/ui/workbench/workbench'),cached=require.cache[workbenchPath];
@@ -510,6 +577,7 @@ test('a delayed battle assessment cannot refill state after a phase change',asyn
       delete require.cache[workbenchPath];const h=harness(),plans=require('../../src/domain/routes/route_plans');
       h.set('area','5-6');h.store.info.maps={56:{api_gauge_num:3}};
       const first=plans.recommendedOptions('5-6','boss','gauge1')[0],third=plans.recommendedOptions('5-6','boss','gauge3')[0];
+      h.set('mapRoute',third.key);
       h.service.recommendNormalFleet=()=>({routeResults:[{...third,status:'available',chance:{probability:1},recommendationIndex:0}],
         recommendations:[{routeKey:third.key,scheme:W.scheme([W.entry(h.store,2)],1)}]});
       await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();
@@ -562,6 +630,7 @@ test('hot reload includes the deferred phase gate and route phase anchor',()=>{
   const fields=source.match(/const draftFields=\[([^\]]+)\]/)?.[1]||'';
   assert.match(fields,/'combatDeferredPhase'/);
   assert.match(fields,/'routePhaseAnchor'/);
+  assert.match(fields,/'shipFleet'/);
 });
 
 test('a changed snapshot during foreground completion cannot apply a stale recommendation',async()=>{
@@ -575,6 +644,28 @@ test('a changed snapshot during foreground completion cannot apply a stale recom
   finish({recommendations:[{routeKey:'guide:1-1-01',scheme:W.scheme([W.entry(h.store,3)],1)}]});
   await pending;h.render();assert.equal(h.get('error'),'舰队资料已变化，请重新补全');
   assert.equal(JSON.stringify(h.get('slots')),before);assert.deepEqual(h.get('routeCombatResults'),{});
+});
+
+test('expedition completion accepts a freshly wrapped synchronized store with unchanged account data',async()=>{
+  const h=harness('expedition',undefined,store=>({...store,info:{...store.info,maps:{synced:true},presets:{synced:true}}}));
+  h.service.recommendExpeditionFleet=()=>({recommendations:[{scheme:W.scheme([W.entry(h.store,2)],2)}]});
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert.equal(h.get('error'),'');assert.equal(h.get('slots')[0].id,2);
+});
+
+test('expedition completion rejects in-place ship or equipment changes during calculation',async()=>{
+  for(const change of [store=>store.info.ships[2].api_cond--,store=>store.info.equips[101].api_level++]){
+    const h=harness('expedition',undefined,store=>({...store,info:{...store.info}}));let finish;
+    h.store.info.equips[101]={api_id:101,api_slotitem_id:75,api_level:0};
+    h.set('slots',[{...W.entry(h.store,2),pin:true},null,null,null,null,null]);
+    h.service.recommendExpeditionFleet=()=>new Promise(resolve=>{finish=resolve;});
+    const before=JSON.stringify(h.get('slots'));
+    const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+    for(let i=0;i<40&&!finish;i++)await new Promise(resolve=>setTimeout(resolve,5));
+    assert(finish);change(h.store);
+    finish({recommendations:[{scheme:W.scheme([W.entry(h.store,3)],2)}]});await pending;
+    assert.equal(h.get('error'),'舰队资料已变化，请重新补全');assert.equal(JSON.stringify(h.get('slots')),before);
+  }
 });
 
 test('resuming a hidden page clears completed battle results from an older snapshot',async()=>{
@@ -1000,7 +1091,8 @@ test('ship picker filters by fleet and broad ship groups and sorts without chang
   const levels=ids().map(id=>h.store.info.ships[id].api_lv);assert.deepEqual(levels,levels.slice().sort((a,b)=>a-b));
   h.control(h.render(),'搜索候选').props.onChange({target:{value:'朝潮'}});assert.deepEqual(ids(),[2]);
   const choice=list().children.find(n=>n?.props?.key===2);assert.equal(choice.props.disabled,false);
-  assert(h.find(choice,n=>n.type==='small'&&n.children.some(s=>typeof s==='string'&&s.includes('士气低于 40'))));
+  assert(h.find(choice,n=>n.type==='small'&&n.children.some(s=>typeof s==='string'&&s.includes('疲劳'))));
+  assert.equal(choice.props['data-tooltip'],undefined);
   await choice.props.onClick();assert.equal(h.get('slots')[0].id,2);assert.equal(h.calls.equipment,0);
   h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
   assert.equal(h.get('shipType'),'type:2');assert.equal(h.get('shipFleet'),'all');assert.equal(h.get('shipSort'),'level-desc');
@@ -1010,7 +1102,7 @@ test('ship picker filters by fleet and broad ship groups and sorts without chang
   assert.equal(h.calls.equipment+h.calls.fleet,0);assert.equal(JSON.stringify(h.store),before);
 });
 
-test('ship picker defaults to first fleet for empty slots and the exact type across all fleets for replacements',()=>{
+test('ship picker remembers the fleet filter across empty slots and replacements',()=>{
   for(const kind of ['normal','expedition']){
     const h=harness(kind);h.store.info.fleets.forEach((fleet,i)=>{fleet.api_ship=[[2,4],[3],[7],[8]][i];});
     h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
@@ -1023,13 +1115,28 @@ test('ship picker defaults to first fleet for empty slots and the exact type acr
     assert(ids().includes(3));assert(ids().includes(8));assert(!ids().includes(7));
     button('舰种筛选','驱逐／海防').props.onClick();assert(ids().includes(7));
     h.find(h.render(),n=>n.props.className==='paa-wb-empty').props.onClick();
-    assert.equal(h.get('shipType'),'all');assert.equal(h.get('shipFleet'),'1');assert.deepEqual(ids(),[2,4]);
+    assert.equal(h.get('shipType'),'all');assert.equal(h.get('shipFleet'),'all');assert.equal(ids().length,8);
     for(const [label,expected] of [['第一舰队',[2,4]],['第二舰队',[3]],['第三舰队',[7]],['第四舰队',[8]]]){
       button('舰队筛选',label).props.onClick();assert.deepEqual(ids(),expected,label);
     }
+    h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
+    assert.equal(h.get('shipFleet'),'4','switching slot keeps the selected fleet');
+    h.find(h.render(),n=>n.props.className==='paa-wb-empty').props.onClick();
+    assert.equal(h.get('shipFleet'),'4','opening an empty slot keeps the selected fleet');
     button('舰队筛选','全部').props.onClick();assert.equal(ids().length,8);
     h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
     assert.equal(h.get('shipType'),'type:2');assert.equal(h.get('shipFleet'),'all');assert.equal(h.calls.equipment+h.calls.fleet,0);
+  }
+});
+
+test('resetting a map or expedition and clearing the draft reset the temporary fleet filter',()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind);h.set('shipFleet','3');h.set('popup',null);
+    h.find(h.render(),n=>n.props.className==='paa-wb-quiet'&&n.children.includes('一键清空')).props.onClick();
+    assert.equal(h.get('shipFleet'),'all');
+    h.set('shipFleet','2');
+    h.find(h.render(),n=>n.type?.name==='AreaPicker').props.onChange(kind==='normal'?'1-1':37);
+    assert.equal(h.get('shipFleet'),'all');
   }
 });
 
@@ -1951,15 +2058,17 @@ test('equipment popup groups and filters categories without hiding equipment bey
   h.set('slots',[W.entry(h.store,1)]);h.set('popup',{index:0,slot:0});
   let tree=h.render(),list=h.find(tree,n=>n.props.className==='paa-wb-popup-list');
   assert.equal(list.children.filter(n=>n?.type==='button').length,82);
-  assert.deepEqual(list.children.filter(n=>n?.type==='h4').map(n=>n.children[0]),['舰上战斗机','电探']);
-  h.control(tree,'装备分类').props.onChange({target:{value:'9'}});
+  let categories=h.find(tree,n=>n.props['aria-label']==='装备细类');
+  assert(h.find(categories,n=>n.type==='button'&&n.children[0]==='舰上战斗机'));
+  h.find(categories,n=>n.type==='button'&&n.children[0]==='电探').props.onClick();
   tree=h.render();list=h.find(tree,n=>n.props.className==='paa-wb-popup-list');
   const buttons=list.children.filter(n=>n?.type==='button');assert.equal(buttons.length,1);
   buttons[0].props.onClick();assert.equal(h.get('slots')[0].slots[0],999);assert(h.get('slots')[0].keep[0]);
   assert.equal(h.get('popup'),null);
   h.store.info.equips[998]={api_id:998,api_slotitem_id:2000}; // same configuration, different instance
   tree=h.render();h.find(tree,n=>n.props.className==='paa-wb-gear kept').props.onClick();
-  tree=h.render();assert.equal(h.control(tree,'装备分类').props.value,'9');
+  tree=h.render();categories=h.find(tree,n=>n.props['aria-label']==='装备细类');
+  assert.equal(h.find(categories,n=>n.type==='button'&&n.children[0]==='电探').props['aria-pressed'],true);
   list=h.find(tree,n=>n.props.className==='paa-wb-popup-list');
   const option=list.children.find(n=>n?.type==='button');
   assert.equal(option.props.className,'paa-wb-equipment-option');assert.match(option.props['data-tooltip'],/测试电探/);
@@ -1969,7 +2078,8 @@ test('equipment popup groups and filters categories without hiding equipment bey
   assert.equal(list.children.filter(n=>n?.props?.['aria-current']==='true').length,1);
   assert(!h.find(option,n=>n.type==='small'));assert.equal(h.find(option,n=>n.type==='strong').children[0],'测试电探');
   h.set('popup',null);tree=h.render();h.find(tree,n=>n.props.className==='paa-wb-gear').props.onClick();
-  tree=h.render();assert.equal(h.control(tree,'装备分类').props.value,'all','empty slot resets the category');
+  tree=h.render();categories=h.find(tree,n=>n.props['aria-label']==='装备细类');
+  assert.equal(h.find(categories,n=>n.type==='button'&&n.children[0]==='全部').props['aria-pressed'],true,'empty slot resets the category');
   assert(!h.find(tree,n=>n.props.className==='paa-wb-equipment-current'),'empty slot must not highlight another slot or a duplicate');
   h.store.info.equips[101].api_level=6;h.store.info.equips[101].api_alv=7;
   tree=h.render();const upgraded=h.find(tree,n=>n.props.className==='paa-wb-equipment-quality');
@@ -2520,6 +2630,49 @@ function recommendationResult(h,kind='normal'){
   return {recommendations:[{...(kind==='normal'?{routeKey:'guide:3-5-01'}:{}),
     scheme:W.scheme([W.entry(h.store,2)],kind==='normal'?1:2)}],routeResults:[]};
 }
+
+test('committed recommendations keep the existing fleet geometry through the 100% overlay',async()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind);let finish;
+    h.set('slots',[W.entry(h.store,3),null,null,null,null,null]);
+    const method=kind==='normal'?'recommendNormalFleet':'recommendExpeditionFleet';
+    h.service[method]=()=>new Promise(resolve=>{finish=resolve;});
+    const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+    await progressDelay(40);assert(finish,'recommendation must be in progress');
+    const grid=tree=>h.find(tree,n=>n.props.className==='paa-wb-ships');
+    const before=grid(h.render()).children;
+    assert(before.some(node=>node.props['data-ship-id']===3));
+    finish(recommendationResult(h,kind));await progressDelay(20);
+    assert.equal(h.get('slots')[0].id,2,'the completed plan is committed before the veil ends');
+    assert.equal(h.get('working'),true);
+    const at100=h.render(),mask=h.find(at100,n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay');
+    assert(mask);assert.match(h.find(mask,n=>n.type?.name==='CalculationProgress').props.channel.value,/100%/);
+    assert.deepEqual(grid(at100).children,before,'old card elements stay mounted while the veil is visible');
+    await pending;const finished=h.render();
+    assert(!h.find(finished,n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay'));
+    assert(grid(finished).children.some(node=>node.props['data-ship-id']===2),'new card appears with the veil removed');
+  }
+});
+
+test('fleet freeze starts with the newly selected ship, supports an empty draft and releases during execution',()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind),grid=tree=>h.find(tree,n=>n.props.className==='paa-wb-ships');
+    const ids=tree=>grid(tree).children.map(node=>node.props['data-ship-id']||null);
+    h.set('slots',[W.entry(h.store,3),null,null,null,null,null]);h.render();
+    // A manual replacement commits the chosen hull before equipment fitting.
+    h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);h.set('working',true);h.set('activity','equipment');
+    assert.equal(ids(h.render())[0],2);
+    h.set('slots',[W.entry(h.store,1),null,null,null,null,null]);
+    assert.equal(ids(h.render())[0],2,'fitting preserves the initially selected ship until ready');
+    assert.equal(ids(h.render({busy:true}))[0],1,'an actual execution releases the stale snapshot');
+
+    const empty=harness(kind);empty.render();empty.set('working',true);empty.set('activity','complete');
+    assert(idsFor(empty.render()).every(id=>id===null));
+    empty.set('slots',[W.entry(empty.store,2),null,null,null,null,null]);
+    assert(idsFor(empty.render()).every(id=>id===null),'first completion keeps the empty card layout while pending');
+    function idsFor(tree){return empty.find(tree,n=>n.props.className==='paa-wb-ships').children.map(node=>node.props['data-ship-id']||null);}
+  }
+});
 
 test('slow calculations advance the estimated total without inventing a stage or completing early',async()=>{
   const h=harness(),oldInterval=global.setInterval,oldClear=global.clearInterval,cleared=[];

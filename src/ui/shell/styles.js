@@ -37,7 +37,7 @@ module.exports=`
 .paa-map-node.inactive{opacity:.58}.paa-map-node.inactive text:not(.paa-map-kind),.paa-map-real .paa-map-node.inactive text:not(.paa-map-kind){fill:#aab6c5}.paa-map-node .paa-map-boss-icon{pointer-events:none}.paa-map-node.inactive circle.paa-map-target-ring{stroke:#8593a5}
 .paa-map-node.active[data-boss] text.paa-map-node-label{fill:#ff7f90}
 .paa-map-edge:not(.active){opacity:.3}
-.paa-tooltip{margin:0;inset:auto;overflow:auto;position:fixed;z-index:2147483647;pointer-events:none;box-sizing:border-box;background:var(--paa-card,#222e3e);color:var(--paa-text,#e6edf7);border:1px solid var(--paa-line,#3b4a60);border-radius:6px;padding:8px 10px;box-shadow:0 4px 18px #0004;font:12px/1.5 system-ui,sans-serif;white-space:pre-line;overflow-wrap:anywhere}
+.paa-tooltip{margin:0;inset:auto;overflow:auto;position:fixed;z-index:2147483647;pointer-events:auto;box-sizing:border-box;background:var(--paa-card,#222e3e);color:var(--paa-text,#e6edf7);border:1px solid var(--paa-line,#3b4a60);border-radius:6px;padding:8px 10px;box-shadow:0 4px 18px #0004;font:12px/1.5 system-ui,sans-serif;white-space:pre-line;overflow-wrap:anywhere}
 .paa-tooltip-aa-grid{display:grid;grid-template-columns:minmax(0,24fr) minmax(0,28fr) minmax(0,48fr);column-gap:10px;margin-top:4px;white-space:normal;align-items:baseline}
 .paa-tooltip-section+.paa-tooltip-section{border-top:1px solid var(--paa-line,#3b4a60);margin-top:7px;padding-top:7px}
 .paa-tooltip-attack-group{white-space:normal;min-width:0}.paa-tooltip-attack-group+.paa-tooltip-attack-group{margin-top:8px}
@@ -73,6 +73,8 @@ module.exports=`
 .paa-stat-icon{display:inline-block;width:14px;height:14px;flex:none;vertical-align:middle}
 .paa-tooltip-equipment-value{margin:0;min-width:0;text-align:right;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .paa-tooltip-equipment-value.is-negative{color:#e68e99}
+.paa-tooltip-equipment-value.is-fit-positive{color:var(--paa-good,#80d8b4)}.paa-tooltip-equipment-value.is-fit-negative{color:var(--paa-bad,#e68e99)}
+.paa-tooltip-equipment{padding:6px 8px}.paa-tooltip-equipment .paa-tooltip-heading{margin-bottom:4px}.paa-tooltip-equipment .paa-tooltip-equipment-stats{grid-template-columns:repeat(auto-fit,minmax(min(66px,100%),1fr));gap:3px 8px}.paa-tooltip-equipment .paa-tooltip-equipment-stat{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:1px;padding:2px 5px;line-height:1.35}.paa-tooltip-equipment .paa-tooltip-equipment-value{text-align:left}.paa-tooltip-equipment .paa-tooltip-section+.paa-tooltip-section{margin-top:4px;padding-top:4px}
 @media(max-width:320px){.paa-tooltip-equipment-stats{column-gap:10px}.paa-tooltip-equipment-stat{padding-inline:4px;gap:4px}}
 .paa-tooltip-notes{font-size:11px;line-height:1.5;opacity:.75;white-space:pre-line}
 .paa-tooltip-compact .paa-tooltip-data-table th,.paa-tooltip-compact .paa-tooltip-data-table td{padding-top:3px;padding-bottom:3px}
@@ -168,6 +170,7 @@ module.exports+=`
 
 .paa-settings-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
 @container(min-width:860px){.paa-selection-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.paa-selection-grid .paa-selection-exclusions{grid-template-columns:minmax(0,1fr);gap:8px}.paa-selection-grid .paa-selection-caption{padding:0}.paa-selection-grid .paa-selection-options{margin-inline-start:var(--paa-setting-indent)}}
+@container(min-width:1350px){.paa-selection-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @container(max-width:700px){
  .paa-cache-row{grid-template-columns:minmax(0,1fr) var(--paa-cache-actions-width);gap:4px 12px}
  .paa-cache-row>.paa-cache-usage{grid-column:1;grid-row:2;padding-left:0;padding-right:0;text-align:left;white-space:normal;overflow-wrap:anywhere}
@@ -187,6 +190,7 @@ module.exports+=`
 
 module.exports+=require('../fleet/current_fleet_styles');
 module.exports+=require('../expedition/expedition_styles');
+module.exports+=require('../practice/practice_styles');
 module.exports+=require('../components/quest_section_styles');
 module.exports+=require('../components/disclosure_styles');
 

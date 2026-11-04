@@ -1,0 +1,264 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const fixture=require('../helpers/workbench_fixture'),W=require('../../src/ui/workbench/workbench_model');
+test('practice hides special attack badges while retaining ordinary combat mechanisms',()=>{
+ const mechanism=require('../../src/domain/combat/ship_mechanisms');
+ const cases=[['special-shelling',[['大和改二重',10],['武蔵改二',9]]],
+   ['special-night',[['金剛改二丙',8],['比叡改二丙',8]]],
+   ['special-submarine',[['迅鯨改',20],['伊58改',14],['伊168改',13]]]];
+ for(const [special,names] of cases){
+   const store=fixture(),states=[];let i=0;
+   names.forEach(([name,type],index)=>Object.assign(store.const.$ships[index+1],{api_name:name,api_stype:type}));
+   for(const ship of Object.values(store.info.ships))Object.assign(ship,{api_nowhp:100,api_maxhp:100});
+   store.info.useitems={95:{api_id:95,api_count:2}};
+   Object.assign(store.const.$ships[4],{api_slot_num:3,api_maxeq:[0,0,0]});
+   Object.assign(store.info.ships[4],{api_slot:[600,601,602],api_onslot:[0,0,0]});
+   Object.assign(store.info.ships[5],{api_slot:[603,604],api_lucky:[40,99]});
+   Object.assign(store.const.$ships[6],{api_maxeq:[0,2]});
+   Object.assign(store.info.ships[6],{api_slot:[605,606],api_onslot:[0,2]});
+   [['高角炮',1,10,16],['高角炮',1,10,16],['电探',12,4,11],['鱼雷',5,0,5],['鱼雷',5,0,5],
+     ['発煙装置(煙幕)',93,0,54],['九八式水上偵察機(夜偵)',10,0,50]].forEach(([name,type,aa,icon],index)=>{
+     const id=600+index;store.const.$equips[id]={api_id:id,api_name:name,api_type:[0,0,type,icon],api_tyku:aa,api_raig:type===5?8:0};
+     store.info.equips[id]={api_id:id,api_slotitem_id:id,api_level:0};
+   });
+   const slots=[1,2,3,4,5,6].map(id=>W.entry(store,id));states[0]=slots;
+   const actual=mechanism.fleetMechanisms(store,slots,mechanism.fleetSpeed(store,slots));
+   assert(actual.get(1).some(b=>b.key===special),`${special} exists outside practice`);
+   assert(actual.get(4).some(b=>b.key==='aaci'));assert(actual.get(5).some(b=>b.key==='night'&&b.label.includes('CI')));
+   assert(actual.get(6).some(b=>b.key==='smoke'),'smoke remains visible outside practice');
+   assert.match(actual.get(6).find(b=>b.key==='night-contact').detail,/均衡与空丧不可/);
+   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
+     useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],()=>{}];}};
+   const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
+   const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
+   const nodes=walk(Page({kind:'practice',automaticOperations:false}));
+   assert(!nodes.some(n=>['special-shelling','special-night','special-submarine','smoke'].includes(n.props['data-mechanism'])));
+   for(const key of ['speed','aaci','night','night-contact'])assert(nodes.some(n=>n.props['data-mechanism']===key),`${key} remains visible`);
+   assert.match(nodes.find(n=>n.props['data-mechanism']==='night-contact').props['data-tooltip'],/均衡时条件待确认/);
+ }
+});
+test('practice page displays observed opponents, preserves manual drafts and keeps unknowns explicit',async()=>{
+ const store=fixture(),states=[];let i=0;
+ store.practiceState={known:true,opponents:[{id:10,index:1,name:'对手',level:100,ships:[{masterId:1,level:55}]}],history:[],localHistory:[],revision:1};
+ store.questState={known:true,tasks:[{api_no:1,api_category:3,api_state:2,api_title:'演習任務',api_detail:'<b>演習で勝利</b>'},{api_no:2,api_category:4,api_state:2,api_title:'远征任务'}]};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
+   useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
+ const render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
+ let tree=render();assert(walk(tree).some(n=>n.type==='button'&&n.props['aria-pressed']===false));
+ const complete=walk(tree).find(n=>n.props.className==='paa-wb-complete');
+ assert(walk(complete).some(n=>n.type==='svg'&&n.props.width===15));assert(complete.children.includes('一键补全'));
+ const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
+ const initialMetrics=walk(tree).find(n=>n.props['aria-label']==='经验、制空与资源消耗');
+ assert.match(text(initialMetrics),/旗舰经验 —/);assert.match(text(initialMetrics),/综合制空/);assert.match(text(initialMetrics),/预计消耗/);
+ states[0]=[W.entry(store,1),null,null,null,null,null];tree=render();
+ const noOpponentAir=walk(tree).find(n=>n.props.className==='paa-wb-metric air');
+ assert.match(noOpponentAir.props['aria-label'],/综合制空 0/);assert.match(text(noOpponentAir),/选择对手后/);
+ states[0]=Array(6).fill(null);tree=render();
+ const quests=walk(tree).find(n=>n.type?.name==='QuestSection');
+ assert.equal(quests.props.readOnly,undefined);assert.equal(quests.props.kind,'practice');assert.equal(typeof quests.props.onToggleQuest,'function');
+ const practiceTask=quests.props.listTasks({state:store,questState:store.questState}).tasks[0];assert.equal(practiceTask.id,1);assert.equal(practiceTask.status,'unknown');assert.equal(practiceTask.supported,false);assert.equal(practiceTask.goals[0].label,'演習で勝利');
+ assert.equal(quests.props.listTasks({questState:{known:false}}).status,'unknown');
+ walk(tree).find(n=>n.type==='button'&&n.props['aria-pressed']===false).props.onClick();tree=render();
+ const opponentSection=walk(tree).find(n=>n.type==='section'&&n.children.some(c=>c?.type==='h3'&&c.children.includes('演习对手')));
+ assert(walk(opponentSection).some(n=>n.props['aria-label']==='对手编成'));assert.match(text(opponentSection),/Lv\.55/);
+ assert(!text(tree).includes('演习记录'));
+ assert(!text(tree).includes('火力'));assert(!text(tree).includes('装甲'));
+ assert(!text(tree).includes('历史配装'));
+ states[0]=[W.entry(store,1),null,null,null,null,null];tree=render();assert(walk(tree).some(n=>n.props['data-ship-id']===1));
+ assert.match(text(tree),/参考装备主数据缺失/);
+ assert(!walk(tree).some(n=>n.children.includes('应用编成')),'automation switch hides apply');
+ Object.assign(store.const.$ships[1],{api_taik:[30,40],api_houg:[10,40],api_raig:[10,70],api_souk:[10,30],api_leng:1});
+ store.const.$shipTypes[3]={api_equip_type:{2:1}};
+ store.const.$equips[340]={api_id:340,api_name:'测试主炮',api_type:[0,0,2,2],api_houg:8,api_souk:1,api_leng:2};
+ Object.assign(store.info.ships[1],{api_nowhp:30,api_maxhp:30,api_kyouka:[0,0,0,0,0],api_lucky:[20,99]});
+ tree=render();assert(walk(tree).some(n=>n.props.role==='img'&&/胜|败/.test(n.props['aria-label'])));
+ assert.match(text(tree),/参考模拟/);
+ assert(walk(tree).some(n=>n.props['aria-label']==='燃料 2'));assert(walk(tree).some(n=>n.props['aria-label']==='弹药 2–3'));
+ assert(walk(tree).some(n=>n.props['aria-label']==='铝土 参考 0'));assert.match(text(tree),/假设对手配装/);
+ const assumed=walk(tree).find(n=>n.props.className==='paa-practice-forecast-note');
+ assert.match(assumed.props['data-tooltip-content'],/测试主炮/);
+ const xp=walk(tree).find(n=>n.props.className==='paa-wb-metric speed');
+ assert.match(text(xp),/旗舰经验/);assert.match(xp.props['aria-label'],/旗舰/);assert.match(xp.props['data-tooltip'],/MVP/);
+ assert(!walk(tree).some(n=>n.props.className==='paa-practice-experience'));
+ const air=walk(tree).find(n=>n.props.className==='paa-wb-metric air');assert.match(air.props['data-tooltip'],/假设/);
+ assert(walk(tree).find(n=>n.props.className==='paa-wb-metric los paa-practice-resources').props['aria-label']==='预计资源消耗');
+ const table=JSON.parse(xp.props['data-tooltip-content']);assert.deepEqual(table.sections[0].columns,['舰娘','普通','MVP']);
+ i=0;const running=Page({kind:'practice',automaticOperations:false,busy:true,onStop:()=>{}});
+ assert(walk(running).some(n=>n.props.className==='paa-primary paa-wb-apply'&&n.children.includes('停止操作')));
+});
+
+test('opponent rows keep result alignment and distinguish known wins, losses and unknown ranks',()=>{
+ const store=fixture(),states=[];let i=0;
+ const ranks=[null,'S','SS','A','B','C','D','E','unrecognized'];
+ store.practiceState={known:true,opponents:ranks.map((rank,index)=>({id:index+10,index:index+1,name:`对手${index+1}`,level:100,rank})),revision:1};
+ store.questState={known:true,tasks:[]};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
+   useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],()=>{}];}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
+ const tree=Page({kind:'practice',automaticOperations:false}),list=walk(tree).find(node=>node.props.className==='paa-practice-opponents');
+ const buttons=walk(list).filter(node=>node.type==='button'&&node.props.className==='paa-practice-opponent-select');assert.equal(buttons.length,ranks.length);
+ for(let index=0;index<ranks.length;index++){
+   const rank=ranks[index],result=walk(buttons[index]).find(node=>node.props.className==='paa-practice-rank');assert(result);
+   if(!rank||rank==='unrecognized'){
+     assert.equal(result.props['data-outcome'],undefined);assert.equal(result.children.filter(Boolean).length,0);
+     assert.doesNotMatch(buttons[index].props['aria-label'],/胜|败|未演习/);
+   }else{
+     const win=['SS','S','A','B'].includes(rank);
+     assert.equal(result.props['data-outcome'],win?'win':'loss');
+     assert.match(buttons[index].props['aria-label'],new RegExp(`${rank}${win?'胜':'败'}`));
+     assert.equal(result.children[0].children[0],win?'胜利':'败北');assert.equal(result.children[1].children[0],rank);
+   }
+ }
+});
+
+test('each opponent lineup folds independently and its toggle does not select an opponent',()=>{
+ const store=fixture(),states=[];let i=0;
+ store.practiceState={known:true,opponents:[
+   {id:10,index:1,name:'甲',level:100,ships:[{masterId:1,level:55}]},
+   {id:20,index:2,name:'乙',level:90,ships:null}
+ ],revision:1};
+ store.questState={known:true,tasks:[]};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
+   useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
+ const render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
+ const items=tree=>walk(tree).filter(node=>node.props.className==='paa-practice-opponent-item');
+ const toggle=item=>walk(item).find(node=>node.props.className==='paa-practice-opponent-toggle');
+ const select=item=>walk(item).find(node=>node.props.className==='paa-practice-opponent-select');
+ const panel=item=>walk(item).find(node=>node.props.className==='paa-collapse');
+ let tree=render(),rows=items(tree);
+ assert.equal(rows.length,2);assert.equal(toggle(rows[0]).props['aria-expanded'],false);assert.equal(toggle(rows[1]).props['aria-expanded'],false);
+ assert.equal(panel(rows[0]).props['aria-hidden'],true);assert.equal(panel(rows[0]).props.inert,'');
+ toggle(rows[0]).props.onClick();tree=render();rows=items(tree);
+ assert.equal(toggle(rows[0]).props['aria-expanded'],true);assert.equal(toggle(rows[1]).props['aria-expanded'],false);
+ assert.equal(select(rows[0]).props['aria-pressed'],false);assert.equal(select(rows[1]).props['aria-pressed'],false);
+ assert.equal(panel(rows[0]).props['aria-hidden'],false);assert(walk(panel(rows[0])).some(node=>node.props['aria-label']==='对手编成'));
+ toggle(rows[1]).props.onClick();tree=render();rows=items(tree);
+ assert.equal(toggle(rows[0]).props['aria-expanded'],true);assert.equal(toggle(rows[1]).props['aria-expanded'],true);
+ assert(walk(panel(rows[1])).some(node=>node.children?.includes('对手舰队资料待同步。')));
+ select(rows[1]).props.onClick();tree=render();rows=items(tree);
+ assert.equal(select(rows[1]).props['aria-pressed'],true);assert.equal(toggle(rows[0]).props['aria-expanded'],true);
+ toggle(rows[0]).props.onClick();tree=render();rows=items(tree);
+ assert.equal(toggle(rows[0]).props['aria-expanded'],false);assert.equal(toggle(rows[1]).props['aria-expanded'],true);
+ assert.equal(select(rows[1]).props['aria-pressed'],true);
+});
+
+test('practice training targets can be searched and selected without altering the draft',async()=>{
+ const store=fixture(),states=[],requests=[],estimates=[];let i=0;
+ store.practiceState={known:true,opponents:[
+   {id:10,index:1,name:'甲',level:100,ships:[{masterId:1,level:55}]},
+   {id:20,index:2,name:'乙',level:90,ships:[{masterId:1,level:50}]}
+ ],revision:1};store.questState={known:true,tasks:[]};
+ store.const.$ships[1].api_aftershipid='2';store.const.$ships[1].api_afterlv=60;
+ store.const.$ships[2].api_aftershipid='0';
+ store.const.$ships[3].api_aftershipid='4';store.const.$ships[3].api_afterlv=40;
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
+   useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const ship=W.entry(store,1),service={preview:()=>({}),createSnapshot:()=>({snapshotId:'test'}),recommendPracticeFleet:async args=>{requests.push(args);return {scheme:{ships:[ship]},enemyKnown:true};}};
+ const forecast=require('../../src/domain/combat/practice_forecast'),originalRecommend=forecast.recommendFormation,originalEstimate=forecast.estimate;
+ forecast.recommendFormation=(s,scheme,enemy)=>enemy.known?'lineAbreast':null;
+ forecast.estimate=(s,scheme,enemy,options)=>{estimates.push(options);return {status:'unknown',reason:'测试预测'};};
+ try{
+   const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>service});
+   const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
+   const render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
+   const trigger=tree=>walk(tree).find(n=>n.props.className==='paa-practice-training-trigger');
+   const option=(tree,id)=>walk(tree).find(n=>n.type==='label'&&n.props.key===id);
+   const opponents=tree=>walk(tree).filter(n=>n.type==='button'&&n.props.className==='paa-practice-opponent-select');
+   let tree=render();
+   assert(!walk(tree).some(n=>['演习目标','演习阵形','舰队规模'].includes(n.props['aria-label'])));
+   states[0]=[{...ship,pin:true},null,null,null,null,null];
+   trigger(tree).props.onClick();tree=render();
+   const text=node=>walk(node).flatMap(n=>n.children||[]).filter(x=>typeof x==='string').join(' ');
+   assert.match(text(option(tree,1)),/下一改造 Lv\.60/);assert.doesNotMatch(text(option(tree,1)),/已达/);
+   assert.match(text(option(tree,2)),/无后续改造/);assert.match(text(option(tree,3)),/下一改造 Lv\.40（已达）/);assert.match(text(option(tree,4)),/改造等级待确认/);
+   walk(option(tree,2)).find(n=>n.type==='input').props.onChange();tree=render();
+   assert.equal(walk(option(tree,2)).find(n=>n.type==='input').props.checked,true);
+   assert.match(text(trigger(tree)),/测试舰2/);assert.equal(states[0][0].id,ship.id);assert.equal(requests.length,0);
+   states[0][1]={...W.entry(store,8),keep:{0:true}};tree=render();
+   for(const id of [3,4,5]){walk(option(tree,id)).find(n=>n.type==='input').props.onChange();tree=render();}
+   assert.equal(walk(option(tree,7)).find(n=>n.type==='input').props.disabled,true,'固定舰与目标共六舰时不能再选');
+   assert.equal(walk(option(tree,1)).find(n=>n.type==='input').props.disabled,false,'已固定舰可同时设为练级目标');
+   assert.equal(walk(option(tree,8)).find(n=>n.type==='input').props.disabled,false,'手动固定装备的舰可同时设为练级目标');
+   walk(option(tree,1)).find(n=>n.type==='input').props.onChange();tree=render();
+   assert.equal(walk(trigger(tree)).filter(n=>n.props.className==='paa-practice-training-portrait').length,4);
+   assert.match(text(trigger(tree)),/\+1/);assert.match(trigger(tree).props['aria-label'],/测试舰1/);
+   walk(option(tree,1)).find(n=>n.type==='input').props.onChange();tree=render();
+   for(const id of [3,4,5]){walk(option(tree,id)).find(n=>n.type==='input').props.onChange();tree=render();}
+   states[0][1]=null;tree=render();
+   const search=walk(tree).find(n=>n.props['aria-label']==='搜索舰娘');search.props.onChange({target:{value:'测试舰3'}});tree=render();
+   assert(option(tree,3));assert(!option(tree,2));
+   await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();
+   tree=render();assert.deepEqual(requests[0].trainingShipIds,[2]);
+   assert.equal(requests[0].goal,'balanced');assert.equal(requests[0].capacity,6);assert.equal(requests[0].slots[0].id,1);
+   opponents(tree)[0].props.onClick();tree=render();
+   await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();tree=render();
+   assert.equal(estimates.at(-1).ownFormation,'lineAbreast');
+   opponents(tree)[1].props.onClick();tree=render();assert.equal(estimates.at(-1).ownFormation,'auto');
+   assert.equal(states[0][0].id,1,'切换对手保留舰队草稿');
+   assert.match(text(trigger(tree)),/测试舰2/,'切换对手保留练级目标');
+ }finally{forecast.recommendFormation=originalRecommend;forecast.estimate=originalEstimate;}
+});
+
+test('training picker shares hover guard and filters and sorts the full roster without changing selections',()=>{
+ const store=fixture(),states=[];let i=0;store.practiceState={known:true,opponents:[],revision:1};store.questState={known:true,tasks:[]};
+ store.info.ships={1:store.info.ships[1],2:store.info.ships[2]};store.info.ships[1].api_lv=40;store.info.ships[2].api_lv=90;store.info.fleets[0].api_ship=[1,2,-1,-1,-1,-1];
+ store.const.$ships[2].api_name='翔鶴';store.info.ships[1].api_locked=1;store.info.ships[2].api_locked=0;
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
+   useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
+ const render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
+ let tree=render(),anchor=walk(tree).find(n=>n.props.className==='paa-practice-training');
+ assert.equal(typeof anchor.props.onPointerEnter,'function');assert.equal(typeof anchor.props.onPointerLeave,'function');assert.equal(typeof anchor.props.onClickCapture,'function');
+ walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props.onClick();tree=render();
+ const options=()=>walk(tree).filter(n=>n.type==='label'&&n.props.className==='paa-practice-training-option');
+ assert(options().every(option=>walk(option).every(n=>!n.props['data-tooltip']&&!n.props.title)));
+ assert.deepEqual(options().map(n=>n.props.key),[1,2],'default sort is level ascending');
+ assert(!walk(tree).some(n=>n.props['aria-label']==='舰队筛选'),'only ship type is a primary filter');
+ assert(options().every(option=>walk(option).some(n=>n.props.className==='paa-wb-portrait')),'list displays ship portraits');
+ assert.deepEqual(options().map(option=>walk(option).find(n=>n.props.className==='paa-practice-training-lock')?.props['aria-label']),['已锁定','未锁定']);
+ let types=walk(tree).find(n=>n.props['aria-label']==='舰种筛选');walk(types).find(n=>n.type==='button'&&n.children.includes('驱逐／海防')).props.onClick();tree=render();
+ assert.deepEqual(options().map(n=>n.props.key),[2]);
+ walk(tree).find(n=>n.props['aria-label']==='排序方式').props.onChange({target:{value:'level-desc'}});tree=render();
+ types=walk(tree).find(n=>n.props['aria-label']==='舰种筛选');walk(types).find(n=>n.type==='button'&&n.children.includes('全部')).props.onClick();tree=render();
+ assert.deepEqual(options().map(n=>n.props.key),[2,1],'manual sorting remains available');
+ walk(tree).find(n=>n.props['aria-label']==='搜索舰娘').props.onChange({target:{value:'翔鹤'}});tree=render();
+ assert.deepEqual(options().map(n=>n.props.key),[2],'search accepts simplified and original names');
+ assert(options().every(n=>walk(n).some(x=>x.type==='input'&&x.props.type==='checkbox')));
+ assert.match(walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props['aria-label'],/请添加要培养的舰娘/);
+});
+
+test('training picker waits for label focus before dismissing on blur',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const store=fixture(),states=[];let i=0;store.practiceState={known:true,opponents:[],revision:1};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
+  useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
+ const render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
+ let tree=render();walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props.onClick();tree=render();
+ const anchor=walk(tree).find(n=>n.props.className==='paa-practice-training'), checkbox={},outside={},doc={activeElement:outside};
+ const element={isConnected:true,ownerDocument:doc,contains:x=>x===checkbox};
+ anchor.props.onBlur({currentTarget:element,relatedTarget:null});doc.activeElement=checkbox;t.mock.timers.tick(0);tree=render();
+ assert(walk(tree).some(n=>n.props.className==='paa-practice-training-panel'),'label click keeps panel open');
+ anchor.props.onBlur({currentTarget:element,relatedTarget:null});doc.activeElement=outside;t.mock.timers.tick(0);tree=render();
+ assert(!walk(tree).some(n=>n.props.className==='paa-practice-training-panel'),'focus leaving closes panel');
+});
+
+test('practice quest preselection is passed into completion and unavailable task data is rejected',async()=>{
+ const store=fixture(),states=[],requests=[];let i=0;store.practiceState={known:true,opponents:[],revision:1};
+ store.questState={known:true,complete:true,tasks:[{api_no:368,api_category:3,api_state:2,api_title:'「十六駆」演習！'}]};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
+  useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const service={preview:()=>({}),createSnapshot:()=>({snapshotId:'test'}),recommendPracticeFleet:async args=>{requests.push(args);return {scheme:{ships:[W.entry(store,1)]},enemyKnown:true};}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>service});
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[],render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
+ let tree=render(),section=walk(tree).find(n=>n.type?.name==='QuestSection');section.props.onToggleQuest('P368');tree=render();
+ section=walk(tree).find(n=>n.type?.name==='QuestSection');assert.deepEqual(section.props.selectedQuests,['P368']);
+ await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();assert.deepEqual(requests[0].questCodes,['P368']);
+ store.questState={known:true,complete:false,tasks:store.questState.tasks};tree=render();await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();assert.equal(requests.length,1);
+});

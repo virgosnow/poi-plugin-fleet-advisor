@@ -52,7 +52,7 @@
   const statusFields=['sourceFleet','shipDetails'];
   // Capture only live fields, including when reloading an older mounted version
   // that still has the retired JSON editor and local-library state hooks.
-  const draftFields=['slots','fleet','area','purpose','target','phase','missionId','goal','incomeUnit','style','choices','excluded','sourceFleet','shipType','draftContext','pathIndex','nodeId','mapRoute','routeDrafts','routeRulesOpen','combatDeferredPhase','routePhaseAnchor','shipDetails','attributeDetails','selectedQuests','expeditionCompleted'];
+  const draftFields=['slots','fleet','area','purpose','target','phase','missionId','goal','incomeUnit','style','choices','excluded','sourceFleet','shipType','shipFleet','draftContext','pathIndex','nodeId','mapRoute','routeDrafts','routeRulesOpen','combatDeferredPhase','routePhaseAnchor','shipDetails','attributeDetails','selectedQuests','expeditionCompleted','opponentId','questsOpen','practiceGoal','practiceFormation','trainingShipIds','openOpponents'];
   function workbenchHooks() {
     const el=panel();let root=el?.[Object.keys(el||{}).find(k=>k.startsWith('__reactFiber$'))];
     if(!root)return [];
@@ -60,7 +60,7 @@
     const found=[];
     const walk=fiber=>{
       if(!fiber)return;
-      if(['Workbench','CurrentFleet'].includes(fiber.type?.name)){
+      if(['Workbench','CurrentFleet','PracticePage'].includes(fiber.type?.name)){
         const componentSource=String(fiber.type),source=componentSource.split('React.useRef')[0];
         const names=[...source.matchAll(/\[\s*(\w+)\s*,\s*\w+\s*\]\s*=\s*React\.useState\(/g)].map(m=>m[1]);
         const hooks={};let hook=fiber.memoizedState;
@@ -98,7 +98,7 @@
       const after=current.find(w=>w.kind===before.kind);
       if(after?.kind==='manual'&&!Object.hasOwn(after.values,'slots'))return after.values.sourceFleet===(before.values.sourceFleet||1)&&statusFields.filter(name=>Object.hasOwn(before.values,name)).every(name=>JSON.stringify(after.values[name])===JSON.stringify(before.values[name]));
       return after&&Object.entries(before.values).every(([name,value])=>JSON.stringify(after.values[name])===JSON.stringify(value));
-    })&&current.length===saved.length;
+    })&&current.every(after=>saved.some(before=>before.kind===after.kind)||after.kind==='practice');
   }
   async function restoreDraft(draft) {
     await until(()=>panel(),'Updated panel did not mount');

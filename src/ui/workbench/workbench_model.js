@@ -97,18 +97,20 @@ function equipmentOptions(store,slots,index,slot,search=''){
     const raw=store.info.equips[id],master={...store.const.$equips[raw.api_slotitem_id],api_id:raw.api_slotitem_id};
     const category=categories.get(R.filterType(master,rules))||
       {categoryId:14,category:labels[14],categoryOrder:rules.equipFilterCategories.length,typeOrder:999};
-    return {...item(store,id,slot),source:owners.get(id)||null,...category,masterId:raw.api_slotitem_id,
+    return {...V.withGunFit(store,ship,item(store,id,slot)),source:owners.get(id)||null,...category,masterId:raw.api_slotitem_id,
       sortNo:Number(master.api_sortno)||raw.api_slotitem_id,stars:Number(raw.api_level||0),proficiency:Number(raw.api_alv||0)};
-  }).filter(e=>e.name&&(!term||normalizeName(e.tooltip+' '+e.category).toLowerCase().includes(term)||String(e.id).includes(term)));
+  }).filter(e=>e.name);
+  const configurationKey=e=>{const raw=store.info.equips[e.id];return [raw.api_slotitem_id,Number(raw.api_level||0),Number(raw.api_alv||0)].join(':');};
+  const availableCounts=new Map();
+  for(const candidate of candidates){const key=configurationKey(candidate);availableCounts.set(key,(availableCounts.get(key)||0)+1);}
+  const matches=candidates.filter(e=>!term||normalizeName(e.tooltip+' '+e.category).toLowerCase().includes(term)||String(e.id).includes(term));
   // Merge only usable instances. Keep the current item where possible, then
   // prefer storage/self-owned copies to borrowing another ship's equipment.
   const priority=e=>e.id===current?0:!e.source?1:e.source===ship.id?2:3;
   const groups=new Map();
-  for(const candidate of candidates.sort((a,b)=>priority(a)-priority(b)||a.id-b.id)){
-    const raw=store.info.equips[candidate.id];
-    const key=[raw.api_slotitem_id,Number(raw.api_level||0),Number(raw.api_alv||0)].join(':');
-    if(groups.has(key))groups.get(key).count++;
-    else groups.set(key,{...candidate,count:1});
+  for(const candidate of matches.sort((a,b)=>priority(a)-priority(b)||a.id-b.id)){
+    const key=configurationKey(candidate);
+    if(!groups.has(key))groups.set(key,{...candidate,count:availableCounts.get(key)});
   }
   return [...groups.values()].map(e=>({...e,tooltip:e.tooltip+(e.count>1?` · 可用 ${e.count} 件`: '')}))
     .sort((a,b)=>a.categoryOrder-b.categoryOrder||a.typeOrder-b.typeOrder||a.sortNo-b.sortNo||

@@ -46,6 +46,7 @@ test('manual equipment choices merge equivalent instances but retain different m
   assert.match(rows.find(r=>r.id===101).tooltip,/可用 3 件/);
   assert(rows.some(r=>r.id===103));assert(rows.some(r=>r.id===104));assert(rows.some(r=>r.id===105));
   assert.equal(W.equipmentOptions(store,slots,0,0,'106')[0].id,106,'explicit instance search still works');
+  assert.equal(W.equipmentOptions(store,slots,0,0,'106')[0].count,3,'searching an instance still shows all equivalent available copies');
   assert.equal(JSON.stringify({store,slots}),before);
 });
 

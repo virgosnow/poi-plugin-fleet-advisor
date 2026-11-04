@@ -36,7 +36,7 @@ test('overview shows active tasks, progress hints and helpful empty states',()=>
   assert.match(content,/进行中的任务/);assert(!content.includes('点击目标'));assert.match(content,/进度 50% 以上/);
   assert.equal(walk(tree,node=>node.type==='article').length,1);
   assert.match(strings(Component({state:{questState:{known:true,tasks:[]}}})),/暂无进行中的出击任务/);
-  assert.match(strings(Component({state:{}})),/打开任务列表以同步/);
+  assert.match(strings(Component({state:{}})),/任务资料正在后台同步/);
 });
 
 test('goal progress is read-only and rewards use the game data',()=>{
@@ -45,7 +45,7 @@ test('goal progress is read-only and rewards use the game data',()=>{
   const Component=create(React,{getController:()=>service});
   const tree=Component({state});
   assert.equal(walk(tree,node=>node.type==='input').length,0);
-  assert(walk(tree,node=>node.children?.includes('1/5')).length);
+  assert(walk(tree,node=>node.children?.includes('至少 1/5')).length);
   assert(walk(tree,node=>node.props['aria-label']==='燃料 300').length);
   assert(walk(tree,node=>node.props['aria-label']==='铝土 200').length);
   assert(walk(tree,node=>node.type==='span'&&node.children?.join('').includes('测试装备 ×2')).length);
@@ -62,15 +62,38 @@ test('overview batches progress reads and is memoized when React supports it',()
   assert(walk(tree,node=>node.props.className==='paa-overview-goal-status'&&node.props['data-complete']&&node.children.includes('✓ 1/1')).length);
 });
 
-test('goal progress shows zero, observed and completed counts without changing stored values',()=>{
+test('goal progress distinguishes unknown, observed lower bounds and completed counts',()=>{
   let observed;
   const Component=create(React,{getController:()=>({getQuestGoalProgress:()=>observed})});
   const state={questState:{known:true,tasks:[task('Bd7')]}};
   const status=()=>walk(Component({state}),node=>node.props.className==='paa-overview-goal-status')[0];
-  assert.equal(status().children[0],'0/5');assert.equal(status().props['data-complete'],false);
-  observed=2;assert.equal(status().children[0],'2/5');assert.equal(status().props['data-complete'],false);
+  assert.equal(status().children[0],'进度未确认');assert.equal(status().props['data-complete'],false);
+  observed=0;assert.equal(status().children[0],'进度未确认');
+  observed=2;assert.equal(status().children[0],'至少 2/5');assert.equal(status().props['data-complete'],false);
+  assert.equal(status().props['aria-label'],'已观察目标进度至少 2/5');
   observed=5;assert.equal(status().children[0],'✓ 5/5');assert.equal(status().props['data-complete'],true);
   observed=9;assert.equal(status().children[0],'✓ 5/5');assert.equal(observed,9);
+});
+
+test('D39 game progress verifies its sole 30 expedition goal without inventing counts for other tasks',()=>{
+  let observed=0;
+  const state={questState:{known:true,tasks:[{...task('D39'),api_progress_flag:1},
+    {...task('D7'),api_progress_flag:1},{...task('Dy7'),api_progress_flag:1}]}};
+  const ui=harness({state},{getController:()=>({getQuestGoalProgress:()=>observed})});
+  ui.find(node=>node.type==='button'&&strings(node).startsWith('远征')).props.onClick();ui.render();
+  const article=id=>ui.find(node=>node.type==='article'&&node.props['data-quest-id']===id);
+  const status=node=>walk(node,n=>n.props.className==='paa-overview-goal-status');
+  const exact=status(article(443))[0];
+  assert.equal(exact.children[0],'1/2');assert.equal(exact.props['data-progress-source'],'game');
+  assert.equal(exact.props['aria-label'],'目标进度 1/2，依据游戏任务进度');
+  assert(status(article(408)).every(row=>row.children[0]==='进度未确认'),
+    'other tasks cannot infer objective counts from a coarse flag');
+  assert(status(article(442)).every(row=>row.children[0]==='进度未确认'),
+    'a multi-objective marker cannot identify which expedition was completed');
+  observed=2;ui.render();assert.equal(status(article(443))[0].children[0],'✓ 2/2',
+    'a newer observed completion is not overwritten by a stale 50% marker');
+  state.questState.tasks[0].api_progress_flag=0;observed=0;ui.render();
+  assert.equal(status(article(443))[0].children[0],'进度未确认');
 });
 
 test('reward details expand in place while category switching retains the selected task and exact rewards',()=>{

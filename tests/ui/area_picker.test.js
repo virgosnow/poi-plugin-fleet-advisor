@@ -140,6 +140,33 @@ test('expedition search and supported sorting preserve selection and keep every 
   assert.deepEqual(create.filterMissions(missions,summary,{query:'螺丝'}).map(m=>m.missionId),[43]);
 });
 
+test('expedition region tabs filter alongside search and sorting without changing the selected expedition',()=>{
+  const missions=[{missionId:101,world:1,name:'海峡警備行動'},{missionId:102,world:1,name:'長距離哨戒'},
+    {missionId:21,world:3,name:'北方鼠輸送作戦'},{missionId:43,world:7,name:'ミ船団護衛'},
+    {missionId:999,name:'未知遠征'}];
+  const missionMasters={101:{api_disp_no:'A2',api_time:55},102:{api_disp_no:'A3',api_time:60},
+    21:{api_disp_no:'21',api_time:140},43:{api_disp_no:'43',api_time:720},999:{api_time:10}};
+  const calls=[],ui=harness({kind:'expedition',missions,missionMasters,value:101,onChange:id=>calls.push(id)});ui.open();
+  const tabs=()=>ui.all(n=>n.type==='button'&&n.props['aria-pressed']!==undefined);
+  const options=()=>ui.all(n=>n.type==='button'&&n.props['data-completion']);
+  assert.deepEqual(tabs().map(n=>n.props['aria-label']),['全海域','镇守府海域','北方海域','南西海域','其他海域']);
+  assert.equal(tabs()[0].props['aria-pressed'],true);assert.equal(options().length,5);
+  ui.find(n=>n.props['aria-label']==='镇守府海域').props.onClick();ui.render();
+  assert.equal(options().length,2);assert.equal(ui.find(n=>n.props['aria-label']==='镇守府海域').props['aria-pressed'],true);
+  ui.find(n=>n.props['aria-label']==='搜索远征').props.onChange({target:{value:'A3'}});ui.render();
+  assert.deepEqual(options().map(n=>n.props['aria-label'].split(' ')[0]),['102']);
+  ui.find(n=>n.props['aria-label']==='远征排序').props.onChange({target:{value:'long'}});ui.render();
+  assert.deepEqual(options().map(n=>n.props['aria-label'].split(' ')[0]),['102']);
+  ui.find(n=>n.props['aria-label']==='全海域').props.onClick();ui.render();
+  assert.deepEqual(options().map(n=>n.props['aria-label'].split(' ')[0]),['102']);
+  ui.find(n=>n.props.className==='paa-mission-search-reset').props.onClick();ui.render();
+  ui.find(n=>n.props['aria-label']==='其他海域').props.onClick();ui.render();
+  assert.deepEqual(options().map(n=>n.props['aria-label'].split(' ')[0]),['999']);
+  assert.deepEqual(calls,[]);assert(ui.find(n=>n.props.role==='dialog'));
+  ui.find(n=>n.props['aria-label']==='关闭远征选择').props.onClick();ui.render();
+  assert.deepEqual(calls,[]);
+});
+
 test('reward icon hints provide Chinese names that can be used directly to search expeditions',()=>{
   const missions=[{missionId:101,name:'海峡警备行动'},{missionId:43,name:'船团护卫'}];
   const missionMasters={101:{api_time:55,api_win_item1:[3,1],api_win_item2:[1,1]},

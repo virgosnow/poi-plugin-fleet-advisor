@@ -39,6 +39,35 @@ test('quest cards toggle selection by click and keyboard without a separate butt
   props.disabled=true;ui.render();assert.equal(article().props['aria-disabled'],true);assert.equal(article().props.tabIndex,-1);
   article().props.onKeyDown({key:'Enter',repeat:false,preventDefault(){}});assert.deepEqual(selected,[]);
 });
+
+test('read-only related tasks use the same cards without selection or invented fleet checks',()=>{
+  let selected=0;
+  const props={kind:'practice',readOnly:true,onToggleQuest:()=>selected++};
+  const ui=harness(props,{status:'ready',tasks:[task({checks:[{label:'不应显示的要求',status:'met'}],goals:[{label:'演習で勝利'}]})]});
+  ui.toggle(true);
+  const card=ui.find(n=>n.type==='article');
+  assert(card);assert.equal(card.props.role,undefined);assert.equal(card.props.onClick,undefined);assert.equal(card.props.onKeyDown,undefined);
+  assert.equal(card.props.style.cursor,'default');
+  assert.match(ui.text(),/演習で勝利/);assert.match(ui.text(),/进行中/);
+  assert.doesNotMatch(ui.text(),/编成条件|不应显示的要求|补全时/);assert.equal(selected,0);
+});
+
+test('controlled disclosure restores its externally saved open state',()=>{
+  const props={kind:'practice',readOnly:true,open:false,onOpenChange:value=>{props.open=value;}};
+  const ui=harness(props,{status:'ready',tasks:[task()]});
+  assert.equal(ui.find(n=>n.type==='details').props.open,false);
+  props.open=true;ui.render();assert.equal(ui.find(n=>n.type==='details').props.open,true);
+  ui.toggle(false);assert.equal(props.open,false);assert.equal(ui.find(n=>n.type==='details').props.open,false);
+});
+
+test('an injected task list and disclosure state are used by read-only pages',()=>{
+  const opened=[],inputs=[];
+  const ui=harness({kind:'practice',readOnly:true,onOpenChange:value=>opened.push(value),listTasks:input=>{
+    inputs.push(input);return {status:'ready',tasks:[task({goals:[{label:'演習で勝利'}]})]};
+  }},{status:'unknown',tasks:[]});
+  assert.equal(inputs.length,0);ui.toggle(true);assert.equal(inputs.length,1);assert.deepEqual(opened,[true]);
+  assert.match(ui.text(),/演習で勝利/);assert.equal(ui.calls.length,0);
+});
 function cardClicks(ui){
   let forwarded=0,selection={isCollapsed:true};
   const root={ownerDocument:{getSelection:()=>selection},closest:()=>null,
@@ -166,11 +195,22 @@ test('only accepted or available tasks render, and outcome requirements remain v
 
 test('known empty results and unsynchronized quest lists have different neutral messages',()=>{
   const unknown=harness({}, {status:'unknown',tasks:[]});unknown.toggle(true);
-  assert.match(unknown.text(),/请在游戏中打开任务列表以同步/);
+  assert.match(unknown.text(),/任务资料正在后台同步/);
   assert.doesNotMatch(unknown.text(),/暂无/);
   const empty=harness({}, {status:'ready',tasks:[task({state:3})]});empty.toggle(true);
   assert.match(empty.text(),/暂无可受领或进行中的相关任务/);
   assert.doesNotMatch(empty.text(),/请在游戏中/);
+});
+
+test('partial task observations are not presented as a confirmed empty list',()=>{
+  const ui=harness({questState:{known:true,complete:false,tasks:[]}},{status:'ready',tasks:[]});
+  ui.toggle(true);assert.match(ui.text(),/任务资料正在后台同步/);assert.doesNotMatch(ui.text(),/暂无可受领/);
+});
+test('partial task rows stay visible but cannot drive a preselection before refresh',()=>{
+  let picked=null;const ui=harness({questState:{known:true,complete:false},onToggleQuest:value=>{picked=value;}},{status:'ready',tasks:[task()]});
+  ui.toggle(true);assert.match(ui.text(),/后台核实完整列表/);
+  const card=ui.find(node=>node.type==='article');assert.equal(card.props['aria-disabled'],true);
+  card.props.onClick({target:{closest:()=>null},currentTarget:{}});assert.equal(picked,null);
 });
 
 test('zero counts, unmet checks and genuinely unknown checks remain distinct',()=>{
@@ -231,4 +271,14 @@ test('goals remain separate and condition results stay beside the task metadata 
     const row=ui.find(n=>n.type==='li'&&n.props['data-status']==='met'&&n.children.some(c=>c?.props?.className==='paa-quest-check-value'));
     assert.equal(row.children[2].children[0],'3 / 3');assert.equal(row.children[2].props['aria-label'],'当前 3\n要求 3');
   }
+});
+
+test('practice uses the same compact preselection and card hierarchy as normal maps',()=>{
+ const selected=['P368'],items=[task({id:368,code:'P368',title:'十六驱演习',goals:[{label:'本日演习 S胜 3次'}]})];
+ const props={kind:'practice',selectedQuests:selected,slots:[],listTasks:()=>({status:'ready',tasks:items}),countTasks:()=>({status:'ready',count:1}),onToggleQuest:()=>selected.splice(0),onClearQuests:()=>selected.splice(0)};
+ const ui=harness(props,{status:'ready',tasks:[]});assert.match(ui.text(),/1 件 · 预选 1/);
+ assert(ui.find(n=>n.props.className==='paa-quest-content paa-quest-selected-compact'));
+ ui.toggle(true);const card=ui.find(n=>n.props['data-quest-id']===368);assert.equal(card.props['aria-checked'],true);
+ const heading=ui.find(n=>n.props.className==='paa-quest-meta'),title=ui.find(n=>n.props.className==='paa-quest-heading');assert(heading&&title);
+ card.props.onKeyDown({key:'Enter',repeat:false,preventDefault(){}});ui.render();assert.deepEqual(selected,[]);
 });
