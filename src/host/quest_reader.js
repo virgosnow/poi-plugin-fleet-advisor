@@ -119,13 +119,13 @@ async function frameOperation(key,action,args={}){
       const rows=payload.api_data.api_list;
       if(!Array.isArray(rows)||rows.length>5||rows.some(row=>!row||!Number.isSafeInteger(row.api_enemy_id)||row.api_enemy_id<1))throw new Error('Read unavailable');
       return {list:{api_list:rows.map(row=>({api_enemy_id:row.api_enemy_id,
-        ...(typeof row.api_enemy_name==='string'?{api_enemy_name:row.api_enemy_name}:{}),
+        ...Object.fromEntries(['api_enemy_name','api_enemy_rank','api_enemy_comment'].filter(k=>typeof row[k]==='string').map(k=>[k,row[k].slice(0,512)])),
         ...Object.fromEntries(['api_enemy_level','api_enemy_flag_ship','api_state'].filter(k=>Number.isFinite(row[k])).map(k=>[k,row[k]]))}))}};
     }
     if(kind==='practice-enemy'){
       const data=payload.api_data,ships=data.api_deck?.api_ships;
       if(Number(data.api_member_id)!==args.enemyId||!Array.isArray(ships)||ships.length>7)throw new Error('Read unavailable');
-      return {enemy:{api_member_id:args.enemyId,api_deck:{api_ships:ships.filter(s=>s&&Number.isSafeInteger(s.api_ship_id)&&s.api_ship_id>0)
+      return {enemy:{api_member_id:args.enemyId,...(typeof data.api_cmt==='string'?{api_cmt:data.api_cmt.slice(0,512)}:{}),api_deck:{api_ships:ships.filter(s=>s&&Number.isSafeInteger(s.api_ship_id)&&s.api_ship_id>0)
         .map(s=>({api_ship_id:s.api_ship_id,...(Number.isFinite(s.api_level)?{api_level:s.api_level}:{})}))}}};
     }
     if(

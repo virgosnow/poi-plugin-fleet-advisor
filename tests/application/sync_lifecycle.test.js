@@ -40,7 +40,7 @@ function fixture(initialAccount=null){
     constructor(){this.state={known:false,opponents:[],revision:0};}
     view(){return this.state;}
     acceptList(data){this.state={known:true,opponents:data.api_list.map(x=>({id:x.api_enemy_id,ships:null})),revision:this.state.revision+1};return true;}
-    acceptEnemy(data){this.state.opponents.find(x=>x.id===data.api_member_id).ships=[];this.state.revision++;return true;}
+    acceptEnemy(data){const row=this.state.opponents.find(x=>x.id===data.api_member_id);row.ships=[];row.fleetUpdatedAt=Date.now();this.state.revision++;return true;}
     resetSession(){this.state={known:false,opponents:[],revision:this.state.revision+1};}
     observe(){} dispose(){}
   }
@@ -81,9 +81,12 @@ function fixture(initialAccount=null){
     async until(predicate){for(let i=0;i<40;i++){await this.tick();if(predicate())return;}throw Error('lifecycle did not settle');}};
 }
 
-test('plugin starts after an already logged-in game and hydrates all shared data',async t=>{
+test('practice reads start when its page becomes active after login',async t=>{
   const f=fixture(1);f.start();t.after(()=>f.stop());
-  await f.until(()=>f.api.getStore().questState.complete&&f.api.getStore().practiceState.known&&f.calls.some(x=>x.kind==='missions'));
+  await f.until(()=>f.api.getStore().questState.complete&&f.calls.some(x=>x.kind==='missions'));
+  assert(!f.calls.some(x=>x.kind==='practice'));
+  f.api.setQuestPageActive('practice',true);
+  await f.until(()=>f.api.getStore().practiceState.known&&f.calls.some(x=>x.kind==='practice-enemy'));
   assert.deepEqual(f.api.getStore().questState.tasks.map(x=>x.api_no),[101]);
   assert.deepEqual(new Set(f.calls.map(x=>x.kind).filter(kind=>!kind.startsWith('progress-'))),new Set(['identity','mapinfo','presets','missions','quest','practice','practice-enemy']));
 });

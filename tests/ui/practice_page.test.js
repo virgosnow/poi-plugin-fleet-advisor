@@ -114,7 +114,33 @@ test('opponent rows keep result alignment and distinguish known wins, losses and
  }
 });
 
-test('each opponent lineup folds independently and its toggle does not select an opponent',()=>{
+test('opponent card places the portrait before the name, rank and signature',()=>{
+ const store=fixture(),states=[];let i=0;
+ store.practiceState={known:true,opponents:[{id:10,index:1,name:'甲',level:100,admiralRank:'大将',comment:'测试签名',flagship:1}],revision:1};
+ store.questState={known:true,tasks:[]};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
+  useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],()=>{}];}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
+ const button=walk(Page({kind:'practice',automaticOperations:false})).find(node=>node.props.className==='paa-practice-opponent-select');
+ assert.deepEqual(button.children.slice(0,2).map(node=>node.props.className),['paa-practice-opponent-portrait','paa-practice-opponent-body']);
+ const body=button.children[1];assert.equal(body.children[0].children[1].children[0],'大将');assert.equal(body.children[1].children[0],'测试签名');
+ assert.match(button.props['aria-label'],/大将.*测试签名/);
+});
+
+test('practice preserves restored formation until an observed opponent list actually changes',()=>{
+ const store=fixture(),refs=[],calls=[];let stateIndex=0,refIndex=0,effects=[];
+ store.practiceState={known:false,opponents:[],revision:1};store.questState={known:true,tasks:[]};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
+  useState(initial){const at=stateIndex++;return [typeof initial==='function'?initial():initial,value=>calls.push([at,value])];},
+  useRef(value){const at=refIndex++;return refs[at]||(refs[at]={current:value});},useEffect(fn){effects.push(fn);}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
+ const update=()=>{stateIndex=0;refIndex=0;effects=[];Page({kind:'practice',hidden:true});const effect=effects.find(fn=>String(fn).includes('lastOpponentList.current'));assert(effect);effect();};
+ update();store.practiceState={known:true,opponents:[{id:10}],revision:2};update();assert.deepEqual(calls,[]);
+ store.practiceState={known:true,opponents:[{id:20}],revision:3};update();assert.deepEqual(calls,[[16,{}],[18,'auto']]);
+});
+
+test('the whole opponent card selects it, and each lineup still folds independently',()=>{
  const store=fixture(),states=[];let i=0;
  store.practiceState={known:true,opponents:[
    {id:10,index:1,name:'甲',level:100,ships:[{masterId:1,level:55}]},
@@ -132,19 +158,26 @@ test('each opponent lineup folds independently and its toggle does not select an
  const panel=item=>walk(item).find(node=>node.props.className==='paa-collapse');
  let tree=render(),rows=items(tree);
  assert.equal(rows.length,2);assert.equal(toggle(rows[0]).props['aria-expanded'],false);assert.equal(toggle(rows[1]).props['aria-expanded'],false);
+ assert.equal(walk(toggle(rows[0])).find(node=>node.props.className==='paa-practice-opponent-count').children[0],'1艘');
+ assert.match(toggle(rows[0]).props['aria-label'],/1 艘/);assert.equal(walk(toggle(rows[1])).find(node=>node.props.className==='paa-practice-opponent-count').children[0],'—');
+ assert.match(toggle(rows[1]).props['aria-label'],/舰船数量待同步/);
  assert.equal(panel(rows[0]).props['aria-hidden'],true);assert.equal(panel(rows[0]).props.inert,'');
- toggle(rows[0]).props.onClick();tree=render();rows=items(tree);
+ toggle(rows[0]).props.onClick();rows[0].props.onClick();tree=render();rows=items(tree);
  assert.equal(toggle(rows[0]).props['aria-expanded'],true);assert.equal(toggle(rows[1]).props['aria-expanded'],false);
- assert.equal(select(rows[0]).props['aria-pressed'],false);assert.equal(select(rows[1]).props['aria-pressed'],false);
+ assert.equal(select(rows[0]).props['aria-pressed'],true);assert.equal(select(rows[1]).props['aria-pressed'],false);
  assert.equal(panel(rows[0]).props['aria-hidden'],false);assert(walk(panel(rows[0])).some(node=>node.props['aria-label']==='对手编成'));
- toggle(rows[1]).props.onClick();tree=render();rows=items(tree);
+ assert(walk(panel(rows[0])).some(node=>node.type==='small'&&node.children.includes('轻巡 · Lv.55')));
+ toggle(rows[1]).props.onClick();rows[1].props.onClick();tree=render();rows=items(tree);
  assert.equal(toggle(rows[0]).props['aria-expanded'],true);assert.equal(toggle(rows[1]).props['aria-expanded'],true);
  assert(walk(panel(rows[1])).some(node=>node.children?.includes('对手舰队资料待同步。')));
  select(rows[1]).props.onClick();tree=render();rows=items(tree);
  assert.equal(select(rows[1]).props['aria-pressed'],true);assert.equal(toggle(rows[0]).props['aria-expanded'],true);
- toggle(rows[0]).props.onClick();tree=render();rows=items(tree);
+ toggle(rows[0]).props.onClick();rows[0].props.onClick();tree=render();rows=items(tree);
  assert.equal(toggle(rows[0]).props['aria-expanded'],false);assert.equal(toggle(rows[1]).props['aria-expanded'],true);
- assert.equal(select(rows[1]).props['aria-pressed'],true);
+ assert.equal(select(rows[0]).props['aria-pressed'],true);
+ rows[1].props.onClick();tree=render();rows=items(tree);assert.equal(select(rows[1]).props['aria-pressed'],true);
+ i=0;const busy=Page({kind:'practice',automaticOperations:false,busy:true});const busyRows=items(busy);busyRows[0].props.onClick();tree=render();rows=items(tree);
+ assert.equal(select(rows[1]).props['aria-pressed'],true,'disabled cards do not change selection');
 });
 
 test('practice training targets can be searched and selected without altering the draft',async()=>{

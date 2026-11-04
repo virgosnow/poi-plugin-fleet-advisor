@@ -41,25 +41,32 @@ ${trainingOverflowRules}
 .paa-workbench[data-kind=practice] .paa-wb-left .paa-practice-block h3{margin:0 0 12px;font-size:13px;font-weight:600;line-height:20px;color:var(--paa-text)}
 .paa-workbench[data-kind=practice] .paa-wb-left .paa-practice-opponent-section h3{font-size:14px;line-height:22px}
 .paa-practice-block p{margin:0;font-size:12px;line-height:1.5}
-.paa-practice-opponents{display:grid;gap:6px}
-.paa-practice-opponent-item{min-width:0}.paa-practice-opponent-row{display:flex;align-items:center;gap:4px;min-width:0}
+.paa-practice-block p.paa-practice-cache-note{margin:-6px 0 8px}
+.paa-practice-opponents{position:relative;display:grid;gap:6px}
+.paa-practice-opponent-indicator{position:absolute;left:0;top:0;z-index:0;pointer-events:none;visibility:hidden;border-radius:8px;background:rgba(101,153,220,.14);box-shadow:inset 0 0 0 1px #6f9edc}
+.paa-practice-opponent-indicator[data-ready=true]{visibility:visible;transition:transform .26s cubic-bezier(.2,.65,.3,1)}
+.paa-practice-opponent-indicator[data-ready=true][data-tracking=true]{transition:none}
+.paa-practice-opponent-item{position:relative;z-index:1;min-width:0;border-radius:8px}.paa-practice-opponent-row{display:flex;align-items:center;gap:4px;min-width:0;padding-right:5px}
+.paa-practice-opponent-item:not([data-disabled=true]),.paa-practice-opponent-item:not([data-disabled=true]) *{cursor:pointer}
+.paa-practice-opponent-item:hover:not([data-selected=true]):not([data-disabled=true]){background:rgba(140,180,240,.08);box-shadow:inset 0 0 0 1px #6f9edc}
+.paa-practice-opponent-item[data-selected=true]{background:rgba(101,153,220,.14);box-shadow:inset 0 0 0 1px #6f9edc}
+.paa-practice-opponents[data-motion-ready=true] .paa-practice-opponent-item[data-selected=true]{background:transparent;box-shadow:none}
+@media(prefers-reduced-motion:reduce){.paa-practice-opponent-indicator[data-ready=true]{transition:none}}
 .paa .paa-practice-opponent-select{display:flex;align-items:center;gap:10px;flex:1;min-width:0;min-height:48px;padding:7px 10px;text-align:left;color:var(--paa-text);background:transparent;border:1px solid transparent;border-radius:8px;cursor:pointer}
-.paa .paa-practice-opponent-select:hover:not(:disabled){background:rgba(140,180,240,.08)}
-.paa .paa-practice-opponent-select[aria-pressed=true]{border-color:#6f9edc;background:rgba(101,153,220,.14)}
-.paa .paa-practice-opponent-toggle{display:inline-flex;align-items:center;justify-content:center;flex:none;width:30px;height:30px;min-height:30px;padding:0;border:1px solid var(--paa-line);border-radius:6px;background:transparent;color:var(--paa-muted)}
+.paa .paa-practice-opponent-select:hover:not(:disabled){border-color:transparent;color:var(--paa-text)}
+.paa .paa-practice-opponent-toggle{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;flex:none;width:34px;height:38px;min-height:38px;padding:0;border:1px solid var(--paa-line);border-radius:6px;background:transparent;color:var(--paa-muted)}
 .paa .paa-practice-opponent-toggle:hover:not(:disabled){color:var(--paa-accent);border-color:var(--paa-accent)}
-.paa-practice-opponent-toggle svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:transform .16s ease}.paa-practice-opponent-toggle[aria-expanded=true] svg{transform:rotate(180deg)}
-.paa-practice-opponent-number{font-size:13px;color:var(--paa-muted);min-width:18px;text-align:center}
-.paa-practice-opponent-body{display:flex;flex:1;flex-direction:column;min-width:0;gap:3px}.paa-practice-opponent-body strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}.paa-practice-opponent-body small{font-size:12px;color:var(--paa-muted)}
-.paa-practice-opponent-select>img{width:64px;height:38px;flex:none;object-fit:cover;border-radius:4px}
+.paa-practice-opponent-count{font-size:10px;line-height:12px;white-space:nowrap}.paa-practice-opponent-toggle svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:transform .16s ease}.paa-practice-opponent-toggle[aria-expanded=true] svg{transform:rotate(180deg)}
+.paa-practice-opponent-body{display:flex;flex:1;flex-direction:column;min-width:0;gap:3px}.paa-practice-opponent-heading{display:flex;align-items:baseline;gap:5px;min-width:0;white-space:nowrap}.paa-practice-opponent-heading strong{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:14px}.paa-practice-opponent-body small{font-size:12px;color:var(--paa-muted)}.paa-practice-opponent-heading small:first-of-type{min-width:0;overflow:hidden;text-overflow:ellipsis}.paa-practice-opponent-heading small:last-child{flex:none}.paa-practice-opponent-comment{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.paa-practice-opponent-portrait{width:64px;height:38px;flex:none;overflow:hidden;border-radius:4px;background:var(--paa-soft)}.paa-practice-opponent-portrait img{width:100%;height:100%;object-fit:cover}
 .paa-practice-rank{display:inline-flex;align-items:baseline;justify-content:flex-end;gap:3px;flex:none;width:52px;white-space:nowrap;font-size:11px;font-weight:600;line-height:18px}
 .paa-practice-rank strong{font-size:15px;line-height:18px}.paa-practice-rank[data-outcome=win]{color:#896516}.paa-practice-rank[data-outcome=loss]{color:#a0434b}
 :is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa-practice-rank[data-outcome=win]{color:#e8c76f}:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa-practice-rank[data-outcome=loss]{color:#ed9398}
-.paa-practice-enemy-detail{padding:6px 0 8px 28px}
+.paa-practice-enemy-detail{padding:8px;border-top:1px solid var(--paa-line)}
 .paa-practice-enemy-ships{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;font-size:12px;color:var(--paa-text)}
 .paa-practice-enemy-ship{min-width:0;padding:5px 7px;border:1px solid var(--paa-line);border-radius:6px;background:var(--paa-bg)}
 .paa-practice-enemy-head{display:flex;align-items:center;gap:8px}.paa-practice-enemy-portrait{position:relative;width:54px;height:32px;flex:none;border-radius:4px;overflow:hidden;background:var(--paa-soft);display:grid;place-items:center}.paa-practice-enemy-portrait img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.paa-practice-enemy-identity{min-width:0;flex:1;display:flex;align-items:baseline;gap:7px}.paa-practice-enemy-identity strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.paa-practice-enemy-identity small{color:var(--paa-muted);font-size:11px;white-space:nowrap;flex-basis:auto}
+.paa-practice-enemy-identity{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}.paa-practice-enemy-identity strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.paa-practice-enemy-identity small{overflow:hidden;text-overflow:ellipsis;color:var(--paa-muted);font-size:11px;white-space:nowrap}
 .paa-practice-forecast{display:flex;align-items:center;gap:20px}.paa-practice-pie{width:92px;height:92px;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
 .paa-practice-forecast-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;flex:1;min-width:0}.paa-practice-forecast-legend>div{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:7px;font-size:12px}.paa-practice-forecast-legend strong{font-variant-numeric:tabular-nums;font-weight:600}.paa-practice-forecast-dot{width:8px;height:8px;border-radius:50%}.paa-practice-block .paa-practice-forecast-note{margin-top:10px;color:var(--paa-muted);font-size:11px}
 .paa-practice-consumption-item{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
@@ -78,5 +85,5 @@ ${trainingOverflowRules}
  .paa-workbench[data-kind=practice] .paa-wb-left>.paa-quest-section{order:6}
 }
 @container(max-width:500px){.paa-practice-forecast-legend{grid-template-columns:minmax(0,1fr)}}
-@container(max-width:400px){.paa .paa-practice-training-trigger{height:94px;min-height:94px}.paa-practice-training-portraits{height:30px}.paa-practice-training-portrait{flex-basis:48px;height:30px}.paa-practice-training-empty-hint{line-height:30px}.paa-practice-enemy-ships{grid-template-columns:minmax(0,1fr)}.paa .paa-practice-opponent-select{gap:6px;padding-inline:6px}.paa-practice-opponent-select>img{width:48px;height:30px}.paa-practice-rank{width:46px}.paa-practice-enemy-detail{padding-left:16px}}
+@container(max-width:400px){.paa .paa-practice-training-trigger{height:94px;min-height:94px}.paa-practice-training-portraits{height:30px}.paa-practice-training-portrait{flex-basis:48px;height:30px}.paa-practice-training-empty-hint{line-height:30px}.paa-practice-enemy-ships{grid-template-columns:minmax(0,1fr)}.paa .paa-practice-opponent-select{gap:6px;padding-inline:6px}.paa-practice-opponent-portrait{width:48px;height:30px}.paa-practice-rank{width:46px}}
 `;

@@ -7,7 +7,7 @@ function fixture(){
     read:async args=>{requests.push(args);return args.kind==='practice'?{list:{api_list:[{api_enemy_id:5}]}}:
       {enemy:{api_member_id:args.enemyId,api_deck:{api_ships:[{api_ship_id:10}]}}};}};
   const observer={view:()=>({...state}),acceptList:data=>{state.opponents=data.api_list.map(r=>({id:r.api_enemy_id,ships:null}));state.known=true;state.revision++;return true;},
-    acceptEnemy:data=>{state.opponents.find(o=>o.id===data.api_member_id).ships=data.api_deck.api_ships;state.revision++;return true;}};
+    acceptEnemy:data=>{const row=state.opponents.find(o=>o.id===data.api_member_id);row.ships=data.api_deck.api_ships;row.fleetUpdatedAt=now;state.revision++;return true;}};
   const sync=new PracticeSync({reader,observer,getStore:()=>store,now:()=>now});
   return {sync,state,reader,requests,setReady:v=>ready=v,advance:ms=>now+=ms};
 }
@@ -17,6 +17,20 @@ test('automatic practice synchronization reads list and each fleet once per cycl
   assert.deepEqual(f.requests.map(r=>r.kind),['practice','practice-enemy']);assert.equal(f.requests[1].enemyId,5);
   assert.equal((await f.sync.tick()).status,'cached');assert.equal(f.requests.length,2);
   f.state.known=false;f.advance(12*3600000);assert.equal((await f.sync.tick()).status,'ready');assert.equal(f.requests.length,3);
+});
+test('expired fleets refresh without clearing the previous lineup',async()=>{
+  const f=fixture();await f.sync.tick();await f.sync.tick();const previous=f.state.opponents[0].ships;
+  f.advance(5*60*1000-1);assert.equal((await f.sync.tick()).status,'cached');
+  f.advance(1);let seen;f.reader.read=async args=>{seen=f.state.opponents[0].ships;return {enemy:{api_member_id:args.enemyId,api_deck:{api_ships:[{api_ship_id:11}]}}};};
+  assert.equal((await f.sync.tick()).status,'ready');assert.equal(seen,previous);assert.equal(f.state.opponents[0].ships[0].api_ship_id,11);
+  assert.equal((await f.sync.tick()).status,'cached');
+});
+test('an older cached profile refreshes the list before an expired fleet',async()=>{
+  const f=fixture();f.state.known=true;f.state.needsProfileRefresh=true;f.state.opponents=[{id:5,ships:[{api_ship_id:10}],fleetUpdatedAt:0}];f.advance(5*60*1000);
+  const accept=f.sync.observer.acceptList;f.sync.observer.acceptList=data=>{f.state.needsProfileRefresh=false;return accept(data);};
+  assert.equal((await f.sync.tick()).status,'ready');assert.deepEqual(f.requests.map(r=>r.kind),['practice']);
+  assert.equal((await f.sync.tick()).status,'ready');assert.deepEqual(f.requests.map(r=>r.kind),['practice','practice-enemy']);
+  assert.equal((await f.sync.tick()).status,'cached');
 });
 test('natural responses supersede in-flight background data; interruptions can retry',async()=>{
   const f=fixture();f.reader.read=async()=>{f.state.known=true;f.state.opponents=[{id:9,ships:null}];f.state.revision++;return {list:{api_list:[{api_enemy_id:5}]}};};

@@ -32,7 +32,7 @@
 | 游戏舰队预设 | poi 自然响应或插件主动读取 `preset_deck` | 游戏预设记录舰娘编成，不等同于包含装备的插件方案 |
 | 远征项目状态 | 自然响应或插件主动读取 `mission`；本地缓存项目状态 | 用于项目开放、完成和月周期状态；不表示哪支舰队正在远征，也不等于某任务的目标计数 |
 | 远征条件与收益 | `data/expedition_requirements.json`、`data/expedition_rewards.json` 及本地公式 | 条件、奖励和耗时主要依据日文 Wiki 整理；大成功概率和净收益为参考计算 |
-| 演习对手列表和舰队 | 自然响应或插件主动读取对手列表与详情 | 可取得对手的公开舰娘、等级等；不提供对手真实装备。对手按账号和刷新周期隔离 |
+| 演习对手列表和舰队 | 自然响应或插件主动读取对手列表与详情 | 可取得对手的提督名称、军衔、签名及公开舰娘、等级等；不提供对手真实装备。资料按账号和刷新周期保存在本地，舰队可能随时变化 |
 | 演习战果 | 真实演习结果事件与插件本地 `practice-history` | 插件保存自己观察的结果；可选读取本机 `battle-detail/index11.csv.gz` 旧记录，但该文件不含可验证账号标识，不能作为当前账号任务进度，也不在演习页面当作账号历史展示 |
 | 路线、攻略与敌情 | `data/normal_routes/`、`data/normal_route_guides.json`、`data/sortie/` | 带路规则及攻略、敌编成、血条为预先整理的参考数据；游戏实际当前阶段来自游戏状态 |
 | 装备、战斗机制与加成 | poi 选择器表、`data/equipment_rules.json`、`data/asw_bonuses.json`、`data/combat_bonuses.json`、`data/installation_effects.json` 和计算代码 | 来源包括 Wiki 与其他开源资料；可能存在未确认条件，计算结果不等同游戏实际战果 |
@@ -52,12 +52,12 @@
 | `/kcsapi/api_get_member/mapinfo` | 海域进度与基地航空队 | 登录后缺失时同步；相关自然操作可能触发重新读取 |
 | `/kcsapi/api_get_member/preset_deck` | 游戏内编成预设 | 登录后缺失时同步；预设发生相关变更后刷新 |
 | `/kcsapi/api_get_member/mission` | 远征项目列表和状态 | 登录后、月周期变化或远征归航后按需刷新；不是舰队在航状态 |
-| `/kcsapi/api_get_member/practice` | 演习对手列表 | 登录后或演习刷新周期变化时按需同步 |
-| `/kcsapi/api_req_member/get_practice_enemyinfo` | 指定对手的公开舰队 | 对需要补齐的对手逐个读取；不包含其真实装备 |
+| `/kcsapi/api_get_member/practice` | 演习对手列表 | 演习页面激活且没有当前周期缓存时按需同步 |
+| `/kcsapi/api_req_member/get_practice_enemyinfo` | 指定对手的公开舰队 | 演习页面激活时，对缺失或已超过 5 分钟的资料逐个读取；不包含其真实装备 |
 
 实现见 [`src/host/quest_reader.js`](../src/host/quest_reader.js)、[`src/infrastructure/sync/read_scheduler.js`](../src/infrastructure/sync/read_scheduler.js)、[`src/infrastructure/persistence/basic_data_sync.js`](../src/infrastructure/persistence/basic_data_sync.js)、[`src/infrastructure/quests/quest_auto_read.js`](../src/infrastructure/quests/quest_auto_read.js) 和 [`src/infrastructure/practice/practice_sync.js`](../src/infrastructure/practice/practice_sync.js)。
 
-读取通过当前游戏帧内的原生请求执行，使用当前会话；插件不把账号令牌作为任务记录保存。任务、演习和基础资料共享队列，读取事务串行并合并重复请求；队列中的读取事务默认至少间隔 250 毫秒，任务分页属于同一事务。游戏操作、会话变化或不满足读取条件时，正在进行的读取可能中断或延期；失败后会退避重试。登录后自动同步，无需玩家打开任务或演习面板，也不要求插件启动后重新切回母港。
+读取通过当前游戏帧内的原生请求执行，使用当前会话；插件不把账号令牌作为任务记录保存。任务、演习和基础资料共享队列，读取事务串行并合并重复请求；队列中的读取事务默认至少间隔 250 毫秒，任务分页属于同一事务。游戏操作、会话变化或不满足读取条件时，正在进行的读取可能中断或延期；失败后会退避重试。任务和基础资料登录后自动同步；演习资料在插件的演习页面激活时按需同步，无需打开游戏中的演习画面。
 
 插件在登录前启动、登录后启动和热更新后重新启动时都会重新判断会话；账号或页面会话变化会使旧同步上下文失效。插件卸载期间无法保证观察到全部游戏事件，已有数据只有在满足对应账号、会话和新鲜度条件时才会被恢复或再次校验。队列和交互保护降低干扰，但不能证明与游戏已有网络活动绝无并发。
 
@@ -79,7 +79,7 @@ poi 自身有部分任务子目标追踪，另有插件可能保存远征历史�
 | --- | --- |
 | `quest-observations.json` | 按账号哈希、任务和周期保存插件观察的任务目标进度 |
 | `expedition-status/` | 按账号哈希保存远征项目状态及月周期信息，不是航次或任务计数 |
-| `practice-history/` | 按账号哈希保存插件观察到的演习结果，最多保留 100 条 |
+| `practice-history/` | 按账号哈希保存插件观察到的演习结果（最多 100 条）及当前刷新周期的对手名称、军衔、签名和公开舰队资料 |
 | `schemes.json` | 用户在插件中保存的编成方案，与游戏内预设不同；属于缓存管理范围，清理游戏数据或容量回收时可能被删除 |
 | `mcp-state.json` | 插件设置、MCP 与自动操作权限及执行任务相关状态 |
 | `recommendation-cache/` | 推荐、底层计算和诊断等缓存；可依设置清理 |

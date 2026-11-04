@@ -82,7 +82,7 @@ async function tickQuests(){
       }
     }
     const quests=questAutoRead;if(quests)await quests.tick().catch(()=>{});
-    const practice=practiceSync;if(practice)await practice.tick().catch(()=>{});
+    const practice=practiceSync;if(practice&&questPages.has('practice'))await practice.tick().catch(()=>{});
   }finally{backgroundTicking=false;}
 }
 function setQuestPageActive(owner,active){

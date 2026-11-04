@@ -155,12 +155,12 @@ test('login before the old document was probed never treats it as the new sessio
 test('guarded practice reads use the real read-only endpoints and return only allowed opponent fields',async t=>{
   const f=fixture();t.after(()=>f.reader.dispose());await f.port();
   f.fetch=async(url)=>({ok:true,text:async()=> 'svdata='+JSON.stringify({api_result:1,api_data:url.endsWith('/practice')?
-    {api_list:[{api_enemy_id:12,api_enemy_name:'对手',api_enemy_level:99,api_enemy_flag_ship:17,api_state:1,secret:'omit'}]}:
-    {api_member_id:12,api_deck:{api_ships:[{api_ship_id:17,api_level:50,secret:'omit'}]},secret:'omit'}})});
+    {api_list:[{api_enemy_id:12,api_enemy_name:'对手',api_enemy_rank:'大将',api_enemy_comment:'测试签名',api_enemy_level:99,api_enemy_flag_ship:17,api_state:1,secret:'omit'}]}:
+    {api_member_id:12,api_cmt:'更新签名',api_deck:{api_ships:[{api_ship_id:17,api_level:50,secret:'omit'}]},secret:'omit'}})});
   const sessionKey=(await f.reader.context()).sessionKey;
   const list=await f.reader.read({sessionKey,kind:'practice'}),enemy=await f.reader.read({sessionKey,kind:'practice-enemy',enemyId:12});
-  assert.deepEqual(plain(list),{list:{api_list:[{api_enemy_id:12,api_enemy_name:'对手',api_enemy_level:99,api_enemy_flag_ship:17,api_state:1}]}});
-  assert.deepEqual(plain(enemy),{enemy:{api_member_id:12,api_deck:{api_ships:[{api_ship_id:17,api_level:50}]}}});
+  assert.deepEqual(plain(list),{list:{api_list:[{api_enemy_id:12,api_enemy_name:'对手',api_enemy_rank:'大将',api_enemy_comment:'测试签名',api_enemy_level:99,api_enemy_flag_ship:17,api_state:1}]}});
+  assert.deepEqual(plain(enemy),{enemy:{api_member_id:12,api_cmt:'更新签名',api_deck:{api_ships:[{api_ship_id:17,api_level:50}]}}});
   assert.equal(f.requests[0].url,'https://example.test/kcsapi/api_get_member/practice');
   assert.equal(f.requests[1].url,'https://example.test/kcsapi/api_req_member/get_practice_enemyinfo');
   assert.equal(new URLSearchParams(f.requests[1].options.body).get('api_member_id'),'12');
