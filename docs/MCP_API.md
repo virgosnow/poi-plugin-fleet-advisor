@@ -193,6 +193,21 @@ Effect: **read-only**.
 
 Parameters: `{}`.
 
+#### `fleet_advisor_query_quests`
+
+Read all currently available quests in the background without opening the game quest screen. Guarded game requests collect the full list; if interrupted or incomplete, status is not ready and no partial list is returned. Period uses catalog or game label; unknown values remain null.
+
+Effect: **read-only**.
+
+| Parameter | Type / allowed values | Required | Meaning / constraints |
+| --- | --- | --- | --- |
+| `category` | `sortie` / `expedition` / `practice` / `other` | no | Game quest category. |
+| `period` | `daily` / `weekly` / `monthly` / `quarterly` / `yearly` / `once` / `limited` | no | Catalog period; unmatched quests are excluded and counted as unknown. |
+| `state` | `available` / `active` / `complete` | no | Game quest state. |
+| `search` | string | no | Title or description substring. |
+| `offset` | integer | no | minimum=0 |
+| `limit` | integer | no | Default 50. minimum=1; maximum=100 |
+
 #### `fleet_advisor_query_fleets`
 
 List four actual fleets: members, expedition state/return time, supply, aircraft, damage, fatigue and repair summaries.

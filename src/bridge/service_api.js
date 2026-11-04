@@ -6,6 +6,7 @@ const METHODS=Object.freeze({
   fleet_advisor_get_status:(service)=>service.getStatus(),
   fleet_advisor_get_contract:(service)=>service.getContract(),
   fleet_advisor_create_snapshot:(service)=>service.createSnapshot(),
+  fleet_advisor_query_quests:(service,args)=>service.queryQuests(args),
   fleet_advisor_query_fleets:(service,args)=>service.queryFleets(args),
   fleet_advisor_query_fleet_presets:(service,args)=>service.queryFleetPresets(args),
   fleet_advisor_query_fleet_status:(service,args)=>service.queryFleetStatus(args),

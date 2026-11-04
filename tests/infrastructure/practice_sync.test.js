@@ -1,0 +1,49 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {PracticeSync}=require('../../src/infrastructure/practice/practice_sync');
+function fixture(){
+  const store={info:{basic:{api_member_id:1}}},state={known:false,opponents:[],revision:0};let now=0,ready=true,requests=[];
+  const reader={context:async({cached}={})=>({ready:true,idle:!cached&&ready,compatible:!cached&&ready,sessionKey:'session'}),
+    read:async args=>{requests.push(args);return args.kind==='practice'?{list:{api_list:[{api_enemy_id:5}]}}:
+      {enemy:{api_member_id:args.enemyId,api_deck:{api_ships:[{api_ship_id:10}]}}};}};
+  const observer={view:()=>({...state}),acceptList:data=>{state.opponents=data.api_list.map(r=>({id:r.api_enemy_id,ships:null}));state.known=true;state.revision++;return true;},
+    acceptEnemy:data=>{state.opponents.find(o=>o.id===data.api_member_id).ships=data.api_deck.api_ships;state.revision++;return true;}};
+  const sync=new PracticeSync({reader,observer,getStore:()=>store,now:()=>now});
+  return {sync,state,reader,requests,setReady:v=>ready=v,advance:ms=>now+=ms};
+}
+test('automatic practice synchronization reads list and each fleet once per cycle',async()=>{
+  const f=fixture();f.setReady(false);assert.equal((await f.sync.tick()).status,'deferred');assert.equal(f.requests.length,0);
+  f.setReady(true);assert.equal((await f.sync.tick()).status,'ready');assert.equal((await f.sync.tick()).status,'ready');
+  assert.deepEqual(f.requests.map(r=>r.kind),['practice','practice-enemy']);assert.equal(f.requests[1].enemyId,5);
+  assert.equal((await f.sync.tick()).status,'cached');assert.equal(f.requests.length,2);
+  f.state.known=false;f.advance(12*3600000);assert.equal((await f.sync.tick()).status,'ready');assert.equal(f.requests.length,3);
+});
+test('natural responses supersede in-flight background data; interruptions can retry',async()=>{
+  const f=fixture();f.reader.read=async()=>{f.state.known=true;f.state.opponents=[{id:9,ships:null}];f.state.revision++;return {list:{api_list:[{api_enemy_id:5}]}};};
+  assert.equal((await f.sync.tick()).status,'deferred');assert.equal(f.state.opponents[0].id,9);
+  f.reader.read=async()=>({deferred:true});assert.equal((await f.sync.tick()).status,'deferred');
+  assert(!f.sync.attempted.has('enemy:9'));
+});
+test('a restored attempt marker cannot hide missing opponent data and resets on session change',async()=>{
+  const f=fixture();await f.sync.tick();await f.sync.tick();const saved=f.sync.snapshot();
+  const again=fixture();again.state.known=true;again.state.opponents=[{id:5,ships:null}];again.sync.restore(saved);
+  assert.equal((await again.sync.tick()).status,'ready');assert.equal(again.requests.length,1);
+  again.reader.context=async({cached}={})=>({ready:true,idle:!cached,compatible:!cached,sessionKey:'different'});
+  again.state.known=false;assert.equal((await again.sync.tick()).status,'ready');assert.equal(again.requests.length,2);
+});
+
+test('a failed opponent backs off while other opponents can complete, then recovers',async()=>{
+  const f=fixture();f.state.known=true;f.state.opponents=[{id:5,ships:null},{id:6,ships:null}];let failed=false;
+  const original=f.reader.read;f.reader.read=async args=>{
+    if(args.enemyId===5&&!failed){failed=true;throw Error('transient');}return original(args);
+  };
+  assert.equal((await f.sync.tick()).status,'failed');assert.equal((await f.sync.tick()).status,'ready');
+  assert.equal(f.state.opponents[1].ships[0].api_ship_id,10);assert.equal((await f.sync.tick()).status,'backoff');
+  f.advance(2000);assert.equal((await f.sync.tick()).status,'ready');
+  assert.equal(f.state.opponents[0].ships[0].api_ship_id,10);assert.equal((await f.sync.tick()).status,'cached');
+});
+
+test('a saved list attempt cannot hide a missing actual opponent list',async()=>{
+  const f=fixture();f.sync.restore({version:1,session:'session',period:require('../../src/infrastructure/practice/practice_observer').cycle(0),attempted:['list']});
+  assert.equal((await f.sync.tick()).status,'ready');assert.equal(f.state.known,true);
+});

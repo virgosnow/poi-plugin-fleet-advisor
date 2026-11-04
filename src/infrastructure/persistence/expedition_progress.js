@@ -102,25 +102,23 @@ class ExpeditionProgress {
       finally{await fs.promises.unlink(temporary).catch(()=>{});}
     });
   }
+  acceptMissions(body,store){
+    this.sync(store);if(!this.key)return false;
+    const period=expeditionPeriod(this.now()),list=Array.isArray(body)?body:body?.api_list_items||body?.api_list;
+    const limit=Number(body?.api_limit_time),limitMs=limit<1e11?limit*1000:limit;
+    const listPeriod=Number.isFinite(limitMs)&&limitMs>0?expeditionPeriod(limitMs-1):period;
+    if(!Array.isArray(list)||!list.length||!list.every(r=>r&&Number.isInteger(r.api_mission_id)&&r.api_mission_id>0))return false;
+    this.list={period:listPeriod,ids:list.map(r=>r.api_mission_id),
+      catalogIds:Object.keys(store.const?.$missions||{}).map(Number).filter(id=>Number.isInteger(id)&&id>0)};
+    this.records=Object.fromEntries(list.filter(r=>[0,1,2].includes(r.api_state)).map(r=>[r.api_mission_id,{state:r.api_state,period:listPeriod}]));
+    this.revision++;this.save();if(this.refreshState?.period===listPeriod)this.refreshState.complete=true;return true;
+  }
   observe(detail,store){
     try{
       this.sync(store);if(!this.key)return;
       const {path:api,body,postBody={}}=detail||{},period=expeditionPeriod(this.now());
       if(api==='/kcsapi/api_get_member/mission'){
-        const list=Array.isArray(body)?body:body?.api_list_items||body?.api_list;
-        const limit=Number(body?.api_limit_time),limitMs=limit<1e11?limit*1000:limit;
-        // A response begun before the reset may arrive after it. Attribute the
-        // snapshot to the server's own cycle endpoint when it is provided.
-        const listPeriod=Number.isFinite(limitMs)&&limitMs>0?expeditionPeriod(limitMs-1):period;
-        if(Array.isArray(list)&&list.length&&list.every(r=>r&&Number.isInteger(r.api_mission_id)&&r.api_mission_id>0)){
-          // The game resets all master missions to -1, then applies listed
-          // rows. Absence means locked only within a full, current snapshot
-          // and the master catalogue known when that snapshot was received.
-          this.list={period:listPeriod,ids:list.map(r=>r.api_mission_id),
-            catalogIds:Object.keys(store.const?.$missions||{}).map(Number).filter(id=>Number.isInteger(id)&&id>0)};
-          this.records=Object.fromEntries(list.filter(r=>[0,1,2].includes(r.api_state)).map(r=>[r.api_mission_id,{state:r.api_state,period:listPeriod}]));this.revision++;this.save();
-          if(this.refreshState?.period===listPeriod)this.refreshState.complete=true;
-        }
+        this.acceptMissions(body,store);
       }else if(api==='/kcsapi/api_req_mission/result'&&body?.api_clear_result>0){
         const departure=this.departures.get(Number(postBody.api_deck_id));
         const id=departure?.id;

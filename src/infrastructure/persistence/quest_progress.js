@@ -4,6 +4,17 @@ const {cacheFiles,removeCacheFile,reserveCacheSpace}=require('../cache/disk_cach
 const {DEFAULTS}=require('../../config/computation_settings');
 const DAY=86400000;
 const accountKey=store=>{const id=store?.info?.basic?.api_member_id;return id?crypto.createHash('sha256').update(String(id)).digest('hex'):null;};
+// D39 has exactly one objective: complete mission 30 twice. Its documented
+// 50% indicator means one success. This is a read-time lower bound, not an
+// extra observed event: taking the maximum prevents counting the same return
+// twice when both a quest-list refresh and the result arrive.
+function serverGoalLowerBound(store,task,goal){
+  if(task?.id!==443||task.code!=='D39'||task.state!==2||task.progressFlag!==1||
+    task.goals?.length!==1||goal?.key!==task.goals[0].key||goal.count!==2)return 0;
+  const snapshot=store?.questState;
+  const live=snapshot?.known===true&&Array.isArray(snapshot.tasks)?snapshot.tasks.find(row=>Number(row?.api_no)===443):null;
+  return Number(live?.api_state)===2&&Number(live?.api_progress_flag)===1?1:0;
+}
 // Quest resets use 05:00 JST; quarterly resets start in March, June,
 // September and December. Annual reset dates differ by quest, so they are
 // cleared when a claim is observed rather than guessed from the calendar.
@@ -30,8 +41,9 @@ class QuestProgress {
   enqueue(fn){const result=this.pending.then(fn).catch(e=>{this.lastError=e.message;throw e;});this.pending=result.catch(()=>{});return result;}
   get(store,task,goal){
     const account=accountKey(store),row=account&&this.records[account]?.[task.code];
-    if(!row||row.cycle!==cycle(task.period,this.now())||row.id!==task.id)return 0;
-    const n=row.goals?.[goal.key];return Number.isSafeInteger(n)&&n>0?Math.min(n,goal.count):0;
+    const inferred=account?serverGoalLowerBound(store,task,goal):0;
+    if(!row||row.cycle!==cycle(task.period,this.now())||row.id!==task.id)return inferred;
+    const n=row.goals?.[goal.key];return Math.max(inferred,Number.isSafeInteger(n)&&n>0?Math.min(n,goal.count):0);
   }
   getMany(store,tasks){
     const account=accountKey(store),now=this.now(),entries=account?this.records[account]||{}:{},result=new Map();
@@ -39,7 +51,7 @@ class QuestProgress {
       const row=entries[task.code],valid=row&&row.id===task.id&&row.cycle===cycle(task.period,now);
       for(const goal of task.goals||[])if(goal.key){
         const value=valid&&row.goals?.[goal.key];
-        result.set(`${task.id}:${goal.key}`,Number.isSafeInteger(value)&&value>0?Math.min(value,goal.count):0);
+        result.set(`${task.id}:${goal.key}`,Math.max(account?serverGoalLowerBound(store,task,goal):0,Number.isSafeInteger(value)&&value>0?Math.min(value,goal.count):0));
       }
     }
     return result;

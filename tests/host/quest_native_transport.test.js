@@ -12,7 +12,7 @@ const TOKEN='frame-only-test-token';
 const plain=value=>JSON.parse(JSON.stringify(value));
 
 function fixture(){
-  const f={time:10000,nativeRequests:[],xhrRequests:[],broadcasts:[],redux:[],selectedTabs:[],listeners:new Map()};
+  const f={time:10000,nativeRequests:[],identityRequests:[],xhrRequests:[],broadcasts:[],redux:[],selectedTabs:[],listeners:new Map()};
   f.state={info:{basic:{api_member_id:123},quests:{activeQuests:{},records:{}}},
     plugins:[{id:'poi-plugin-quest-info-2',enabled:true,switchPluginPath:[QUEST]}]};
   f.config={get:(key,fallback)=>key.startsWith('poi.autoswitch.')?true:fallback};
@@ -81,6 +81,10 @@ function fixture(){
   // genuine Function.prototype.toString reports the native shape for a Proxy;
   // production code receives no injection and no intrinsic is modified here.
   f.nativeFetch=new Proxy(async function fetch(url,options){
+    if(new URL(url).pathname==='/kcsapi/api_get_member/basic'){
+      f.identityRequests.push({url,options});
+      return {ok:true,text:async()=> 'svdata='+JSON.stringify({api_result:1,api_data:{api_member_id:123}})};
+    }
     f.nativeRequests.push({url,options});
     if(f.transportError)throw Error('private https://game.invalid/?api_token='+TOKEN);
     return {ok:true,text:async()=>response()};

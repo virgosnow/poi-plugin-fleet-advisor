@@ -22,6 +22,119 @@ test('observed progress persists by account and goal and clears on claim',async 
   await reopened.clearTask(f.store,task.id);assert.equal(reopened.get(f.store,task,goal),0);
   assert(!fs.readFileSync(reopened.file,'utf8').includes('测试舰'));
 });
+test('D39 game 50 percent gives a single exact lower bound without fabricating observed events',async t=>{
+  const f=fixture(t,['D39','Dw2']);
+  const live=f.store.questState.tasks.find(row=>row.api_no===443);live.api_progress_flag=1;
+  let task=f.task('D39'),goal=task.goals[0],other=f.task('Dw2');
+  const read=()=>f.progress.getMany(f.store,[task,other]).get(`${task.id}:${goal.key}`);
+  assert.equal(f.progress.get(f.store,task,goal),1);assert.equal(read(),1);
+  assert.deepEqual(f.progress.records,{},'game progress is never fabricated as an observed return');
+  assert.equal(f.progress.get(f.store,other,other.goals[0]),0);
+  const noAccount={...f.store,info:{...f.store.info,basic:{}}};
+  assert.equal(f.progress.get(noAccount,task,goal),0);
+  assert.equal(f.progress.getMany(noAccount,[task]).get(`${task.id}:${goal.key}`),0);
+  const otherAccount={...f.store,info:{...f.store.info,basic:{api_member_id:2}},questState:{known:true,tasks:[]}};
+  assert.equal(f.progress.get(otherAccount,task,goal),0);
+  assert.equal(f.progress.getMany(otherAccount,[task]).get(`${task.id}:${goal.key}`),0);
+  assert.equal(f.progress.get(f.store,task,{...goal,key:'different'}),0);
+  assert.equal(f.progress.get(f.store,{...task,goals:[]},goal),0);
+  assert.equal(f.progress.get(f.store,{...task,id:444},goal),0);
+  assert.equal(f.progress.get(f.store,{...task,state:3},goal),0);
+  for(const flag of [0,2,null])assert.equal(f.progress.get(f.store,{...task,progressFlag:flag},goal),0);
+  await f.progress.increment(f.store,task,goal);
+  assert.equal(f.progress.get(f.store,task,goal),1,'the same observed return and server flag cannot double count');
+  await f.progress.increment(f.store,task,goal);
+  assert.equal(f.progress.get(f.store,task,goal),2);assert.equal(read(),2);
+  await f.progress.clearTask(f.store,task.id);
+  assert.equal(f.progress.get(f.store,task,goal),1,'a current 50% game flag still proves one after local clearing');
+  live.api_progress_flag=0;task=f.task('D39');goal=task.goals[0];
+  assert.equal(f.progress.get(f.store,task,goal),0);
+  live.api_state=3;assert.equal(f.task('D39'),undefined,'completed tasks are not presented as active');
+});
+
+test('expedition return counts tasks active on return even if the plugin starts or the task is accepted mid-voyage',async t=>{
+  const f=fixture(t,['D39']),observer=new QuestProgressObserver({progress:f.progress,now:f.now});
+  const live=f.store.questState.tasks[0],task=f.task('D39');
+  f.store.info.fleets[1].api_mission=[1,30,f.now()+10000];
+  observer.remember(f.store);
+  live.api_state=1;
+  observer.observe({path:'/kcsapi/api_get_member/questlist',body:{api_list:[live]}},f.store);
+  live.api_state=2;
+  observer.observe({path:'/kcsapi/api_req_mission/result',postBody:{api_deck_id:2},body:{api_clear_result:1}},f.store);
+  observer.observe({path:'/kcsapi/api_req_mission/result',postBody:{api_deck_id:2},body:{api_clear_result:1}},f.store);
+  await f.progress.pending;
+  assert.equal(f.progress.get(f.store,task,task.goals[0]),1,'a duplicated result must not be recorded twice');
+});
+
+test('a task accepted after departure is counted on return, while one cancelled before return is not',async t=>{
+  const f=fixture(t,['D39']),observer=new QuestProgressObserver({progress:f.progress,now:f.now});
+  const live=f.store.questState.tasks[0],task=f.task('D39');live.api_state=1;
+  observer.observe({path:'/kcsapi/api_req_mission/start',postBody:{api_deck_id:2,api_mission_id:30},body:{}},f.store);
+  live.api_state=2;
+  observer.observe({path:'/kcsapi/api_req_mission/result',postBody:{api_deck_id:2},body:{api_clear_result:1}},f.store);
+  await f.progress.pending;assert.equal(f.progress.get(f.store,task,task.goals[0]),1);
+  observer.observe({path:'/kcsapi/api_req_mission/start',postBody:{api_deck_id:2,api_mission_id:30},body:{}},f.store);
+  live.api_state=1;
+  observer.observe({path:'/kcsapi/api_req_mission/result',postBody:{api_deck_id:2},body:{api_clear_result:1}},f.store);
+  await f.progress.pending;assert.equal(f.progress.get(f.store,task,task.goals[0]),1);
+});
+
+test('same-account new session discards old voyage while a newly observed voyage can be recovered',async t=>{
+  const f=fixture(t,['D39']),observer=new QuestProgressObserver({progress:f.progress,now:f.now});
+  const task=f.task('D39');f.store.info.fleets[1].api_mission=[1,30,f.now()+10000];observer.remember(f.store);
+  observer.resetSession();f.store.info.fleets[1].api_mission=[0,0,0];
+  observer.observe({path:'/kcsapi/api_req_mission/result',postBody:{api_deck_id:2},body:{api_clear_result:1}},f.store);
+  await f.progress.pending;assert.equal(f.progress.get(f.store,task,task.goals[0]),0);
+  f.store.info.fleets[1].api_mission=[1,30,f.now()+20000];
+  observer.observe({path:'/kcsapi/api_port/port',body:{}},f.store);
+  observer.observe({path:'/kcsapi/api_req_mission/result',postBody:{api_deck_id:2},body:{api_clear_result:2}},f.store);
+  await f.progress.pending;assert.equal(f.progress.get(f.store,task,task.goals[0]),1);
+});
+
+test('a recently cleared fleet can still be paired to its result, but expired voyages cannot',async t=>{
+  const f=fixture(t,['D39']);let now=f.now();const clock=()=>now;
+  const progress=new QuestProgress(f.dir,{now:clock}),observer=new QuestProgressObserver({progress,now:clock});
+  const task=f.task('D39');f.store.info.fleets[1].api_mission=[1,30,now+10000];observer.remember(f.store);
+  f.store.info.fleets[1].api_mission=[0,0,0];observer.remember(f.store);now+=2000;
+  observer.observe({path:'/kcsapi/api_req_mission/result',postBody:{api_deck_id:2},body:{api_clear_result:1}},f.store);
+  await progress.pending;assert.equal(progress.get(f.store,task,task.goals[0]),1);
+  await progress.clearTask(f.store,task.id);
+  f.store.info.fleets[1].api_mission=[1,30,now+20000];observer.remember(f.store);
+  f.store.info.fleets[1].api_mission=[0,0,0];observer.remember(f.store);now+=5001;
+  observer.observe({path:'/kcsapi/api_req_mission/result',postBody:{api_deck_id:2},body:{api_clear_result:1}},f.store);
+  await progress.pending;assert.equal(progress.get(f.store,task,task.goals[0]),0);
+});
+
+test('hot reload preserves consumed voyage identity and rejects a different voyage of the same mission',async t=>{
+  const f=fixture(t,['D39']),task=f.task('D39');f.store.info.fleets[1].api_mission=[1,30,f.now()+10000];
+  const original=new QuestProgressObserver({progress:f.progress,now:f.now});original.remember(f.store);
+  original.observe({path:'/kcsapi/api_req_mission/result',postBody:{api_deck_id:2},body:{api_clear_result:1}},f.store);
+  await f.progress.pending;assert.equal(f.progress.get(f.store,task,task.goals[0]),1);
+  const snapshot=original.snapshot(f.store),reloaded=new QuestProgressObserver({progress:f.progress,now:f.now});
+  assert(reloaded.restore(snapshot,f.store));reloaded.remember(f.store);
+  reloaded.observe({path:'/kcsapi/api_req_mission/result',postBody:{api_deck_id:2},body:{api_clear_result:1}},f.store);
+  await f.progress.pending;assert.equal(f.progress.get(f.store,task,task.goals[0]),1);
+  const previous=new QuestProgressObserver({progress:f.progress,now:f.now});previous.remember(f.store);
+  const pending=previous.snapshot(f.store);f.store.info.fleets[1].api_mission=[1,30,f.now()+20000];
+  const next=new QuestProgressObserver({progress:f.progress,now:f.now});next.restore(pending,f.store);
+  assert.equal(next.departures.size,0,'different completion time is a different voyage');
+});
+
+test('a newly observed voyage of the same mission does not inherit earlier departure task context',async t=>{
+  const f=fixture(t,['Dw2']);let now=Date.parse('2026-11-01T19:59:00Z');
+  const clock=()=>now,progress=new QuestProgress(f.dir,{now:clock}),observer=new QuestProgressObserver({progress,now:clock});
+  f.store.info.fleets[1].api_mission=[1,38,now+60000];
+  observer.observe({path:'/kcsapi/api_req_mission/start',postBody:{api_deck_id:2,api_mission_id:38},body:{}},f.store);
+  assert(observer.departures.get(2).prepared.length);
+  // No second start is observed. A different return timestamp is a different
+  // voyage, even though it uses the same fleet and mission number.
+  now=Date.parse('2026-11-01T20:01:00Z');f.store.info.fleets[1].api_mission=[1,38,now+60000];
+  observer.observe({path:'/kcsapi/api_get_member/questlist',body:{api_list:f.store.questState.tasks}},f.store);
+  assert.equal(observer.departures.get(2).prepared,undefined);
+  observer.observe({path:'/kcsapi/api_req_mission/result',postBody:{api_deck_id:2},body:{api_clear_result:1}},f.store);
+  await progress.pending;const task=listOverviewQuests({state:f.store,now}).tasks[0];
+  assert.equal(progress.get(f.store,task,task.goals[0]),1);
+});
 test('bulk progress reads match individual reads across accounts and cycle changes',async t=>{
   const f=fixture(t,['Bd7','B2']),first=f.task('Bd7'),second=f.task('B2');
   await f.progress.increment(f.store,first,first.goals[0]);await f.progress.increment(f.store,second,second.goals[0]);

@@ -167,11 +167,11 @@ test('closest reference fleets receive the same fixed-hull and equipment verific
   assert.doesNotThrow(()=>verifyConstraints({closestRecommendation:row},{fixedShipIds:[2]}));
 });
 
-test('all 26 MCP tools have a reproducible complete Markdown parameter reference',()=>{
+test('all 27 MCP tools have a reproducible complete Markdown parameter reference',()=>{
   const generator=require('../../tools/dev/generate-mcp-reference');
   const doc=fs.readFileSync(path.join(__dirname,'../../docs/MCP_API.md'),'utf8');
   assert.equal(doc.slice(doc.indexOf(generator.marker)),generator.reference());
-  assert.equal(TOOL_DEFS.length,26);
+  assert.equal(TOOL_DEFS.length,27);
   for(const tool of TOOL_DEFS)assert(doc.includes('\n#### `'+tool.name+'`\n'));
 });
 test('two independent HTTP clients query/recommend/refit and share one mock execution lock',async t=>{
@@ -193,7 +193,7 @@ test('two independent HTTP clients query/recommend/refit and share one mock exec
   };
   const a=client(),b=client();
   for(const c of [a,b])await c.rpc('initialize',{protocolVersion:'2026-07-28',capabilities:{},clientInfo:{name:'offline-test',version:'1'}});
-  assert.equal((await a.rpc('tools/list')).tools.length,26);
+  assert.equal((await a.rpc('tools/list')).tools.length,27);
   const resource=(await b.rpc('resources/list')).resources[0];
   assert.equal(JSON.parse((await b.rpc('resources/read',{uri:resource.uri})).contents[0].text).version,'2');
   const {snapshotId}=await a.tool('create_snapshot'),args={snapshotId};

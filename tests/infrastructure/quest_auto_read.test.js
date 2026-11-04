@@ -8,7 +8,7 @@ function fixture(overrides={}){
   let time=0,calls=0,context={sessionKey:'opaque-session-a',ready:true,idle:true,compatible:true},quest={known:false,tasks:[]};
   const signals=[];
   const model=new QuestAutoRead({now:()=>time,getContext:()=>({...context}),getQuestState:()=>quest,
-    read:async ({signal})=>{calls++;signals.push(signal);return {ok:true};},...overrides});
+    read:async ({signal})=>{calls++;signals.push(signal);quest={known:true,tasks:[]};return {ok:true};},...overrides});
   return {model,get calls(){return calls;},get signals(){return signals;},
     time:value=>{time=value;},context:value=>{context={...context,...value};},quest:value=>{quest=value;}};
 }
@@ -20,7 +20,7 @@ test('requires an active workbench and two stable seconds before one shared read
   f.time(1999);assert.equal((await f.model.tick()).status,'waiting');
   f.time(2000);assert.equal((await f.model.tick()).status,'read');
   f.model.setActive('normal',false);f.model.setActive('expedition',true);
-  assert.equal((await f.model.tick()).status,'spent');assert.equal(f.calls,1);
+  assert.equal((await f.model.tick()).status,'cached');assert.equal(f.calls,1);
 });
 
 test('hiding one mounted page preserves the other active owner',async()=>{
@@ -52,19 +52,19 @@ test('readiness fields require explicit true rather than truthy missing permissi
   await due(f);assert.equal((await f.model.tick()).status,'unsafe');assert.equal(f.calls,0);
 });
 
-test('a naturally observed cache cancels the opportunity, even if later cleared',async()=>{
+test('a naturally observed cache cancels reading, and missing data later permits refresh',async()=>{
   const f=fixture();await due(f);f.quest({known:true,tasks:[]});
   assert.equal((await f.model.tick()).status,'cached');assert.equal(f.calls,0);
-  f.quest({known:false,tasks:[]});assert.equal((await f.model.tick()).status,'spent');
+  f.quest({known:false,tasks:[]});assert.equal((await f.model.tick()).status,'waiting');
 });
 
-test('known task cache consumes a session even while idle or compatibility is unsafe',async()=>{
+test('known task cache avoids a read while unsafe but never replaces missing actual data',async()=>{
   const f=fixture();f.model.setActive('normal',true);
   f.context({idle:false,compatible:false});f.quest({known:true,tasks:[]});
   assert.equal((await f.model.tick()).status,'cached');
   assert.deepEqual(f.model.snapshot().consumed,['opaque-session-a']);
   f.context({idle:true,compatible:true});f.quest({known:false,tasks:[]});
-  assert.equal((await f.model.tick()).status,'spent');assert.equal(f.calls,0);
+  assert.equal((await f.model.tick()).status,'waiting');assert.equal(f.calls,0);
 });
 
 test('known cache without a session returns cached without recording an empty identity',async()=>{
@@ -74,34 +74,63 @@ test('known cache without a session returns cached without recording an empty id
   assert.deepEqual(f.model.snapshot().consumed,[]);assert.equal(f.calls,0);
 });
 
-test('failure consumes the session and never automatically retries',async()=>{
+test('temporary failures retry with bounded exponential backoff',async()=>{
   let calls=0;const f=fixture({read:async()=>{calls++;throw new Error('timeout');}});
   await due(f);assert.equal((await f.model.tick()).status,'failed');
-  f.time(10000);assert.equal((await f.model.tick()).status,'spent');assert.equal(calls,1);
+  f.time(3999);assert.equal((await f.model.tick()).status,'backoff');assert.equal(calls,1);
+  f.time(4000);assert.equal((await f.model.tick()).status,'waiting');f.time(6000);
+  assert.equal((await f.model.tick()).status,'failed');assert.equal(calls,2);
+  f.time(9999);assert.equal((await f.model.tick()).status,'backoff');assert.equal(calls,2);
 });
 
-test('explicit host cancellation before starting the request preserves the opportunity',async()=>{
-  let calls=0;const f=fixture({read:async()=>++calls===1?{deferred:true}:{ok:true}});
+test('temporary failure eventually succeeds once the real task data is present',async()=>{
+  let f,calls=0;f=fixture({read:async()=>{
+    if(++calls===1)throw Error('transient');
+    f.quest({known:true,tasks:[]});return {status:'ready'};
+  }});
+  await due(f);assert.equal((await f.model.tick()).status,'failed');
+  f.time(4000);assert.equal((await f.model.tick()).status,'waiting');f.time(6000);
+  assert.equal((await f.model.tick()).status,'read');assert.equal((await f.model.tick()).status,'cached');assert.equal(calls,2);
+});
+
+test('a response without actual complete task data never counts as success',async()=>{
+  const f=fixture({read:async()=>({status:'ready'})});await due(f);
+  assert.equal((await f.model.tick()).status,'failed');assert.deepEqual(f.model.snapshot().consumed,[]);
+  assert.equal((await f.model.tick()).status,'backoff');
+});
+
+test('backoff only probes cached session identity and does not repeatedly inspect the game screen',async()=>{
+  const probes=[];const f=fixture({getContext:({cached}={})=>{
+    probes.push(cached===true);return {sessionKey:'opaque-session-a',ready:true,idle:!cached,compatible:!cached};
+  },read:async()=>{throw Error('temporary');}});
+  await due(f);assert.equal((await f.model.tick()).status,'failed');const before=probes.length;
+  assert.equal((await f.model.tick()).status,'backoff');assert.equal((await f.model.tick()).status,'backoff');
+  assert.deepEqual(probes.slice(before),[true,true]);
+});
+
+test('deferred request retries after a bounded delay',async()=>{
+  let calls=0;const f=fixture({read:async()=>{calls++;return {deferred:true};}});
   await due(f);assert.equal((await f.model.tick()).status,'deferred');
   assert.deepEqual(f.model.snapshot().consumed,[]);
-  assert.equal((await f.model.tick()).status,'waiting');f.time(4000);
-  assert.equal((await f.model.tick()).status,'read');assert.equal(calls,2);
+  assert.equal((await f.model.tick()).status,'backoff');f.time(4000);
+  assert.equal((await f.model.tick()).status,'waiting');f.time(6000);
+  assert.equal((await f.model.tick()).status,'deferred');assert.equal(calls,2);
 });
 
 test('new session starts its own stability period and chance',async()=>{
   const f=fixture();await due(f);assert.equal((await f.model.tick()).status,'read');
-  f.context({sessionKey:'opaque-session-b'});f.time(2100);
+  f.quest({known:false,tasks:[]});f.context({sessionKey:'opaque-session-b'});f.time(2100);
   assert.equal((await f.model.tick()).status,'waiting');f.time(4100);
   assert.equal((await f.model.tick()).status,'read');assert.equal(f.calls,2);
 });
 
-test('snapshot restore preserves consumed opportunities only, not task/account data',async()=>{
+test('snapshot restore cannot suppress reading when the actual task data is missing',async()=>{
   const f=fixture();await due(f);await f.model.tick();const snapshot=f.model.snapshot();
   assert.deepEqual(Object.keys(snapshot).sort(),['consumed','version']);
   const next=fixture({initialState:snapshot});next.model.setActive('normal',true);
-  assert.equal((await next.model.tick()).status,'spent');assert.equal(next.calls,0);
+  assert.equal((await next.model.tick()).status,'waiting');assert.equal(next.calls,0);
   snapshot.consumed.length=0;
-  assert.equal((await next.model.tick()).status,'spent');
+  next.time(2000);assert.equal((await next.model.tick()).status,'read');
 });
 
 test('explicit restore merges valid records and ignores malformed snapshots',async()=>{
@@ -145,7 +174,7 @@ test('natural cache appearing during final async guard cancels before reading',a
   await due(f);assert.equal((await f.model.tick()).status,'cached');assert.equal(f.calls,0);
 });
 
-test('inflight read receives abort when hidden and remains consumed after actual failure',async()=>{
+test('inflight read receives abort when hidden and can retry after becoming visible',async()=>{
   const gate=deferred();let signal;
   const f=fixture({read:async options=>{signal=options.signal;return gate.promise;}});
   await due(f);const running=f.model.tick();
@@ -153,7 +182,7 @@ test('inflight read receives abort when hidden and remains consumed after actual
   assert.ok(signal);assert.equal((await f.model.tick()).status,'inflight');
   f.model.setActive('normal',false);assert.equal(signal.aborted,true);
   gate.reject(new Error('cancelled in-flight'));assert.equal((await running).status,'failed');
-  f.model.setActive('normal',true);assert.equal((await f.model.tick()).status,'spent');
+  f.model.setActive('normal',true);assert.equal((await f.model.tick()).status,'waiting');
 });
 
 test('inflight account changes abort old session but do not spend the new session',async()=>{
@@ -164,18 +193,18 @@ test('inflight account changes abort old session but do not spend the new sessio
   f.context({sessionKey:'opaque-session-b'});
   assert.equal((await f.model.tick()).status,'inflight');assert.equal(signal.aborted,true);
   gate.resolve({ok:true});await running;
-  assert.deepEqual(f.model.snapshot().consumed,['opaque-session-a']);
+  assert.deepEqual(f.model.snapshot().consumed,[]);
   assert.equal((await f.model.tick()).status,'waiting');
 });
 
-test('natural cache observed during inflight deferred read prevents retry',async()=>{
+test('natural cache supersedes a concurrent read and later missing data can refresh',async()=>{
   const gate=deferred();let entered=false;
   const f=fixture({read:async()=>{entered=true;return gate.promise;}});
   await due(f);const running=f.model.tick();
   for(let i=0;i<10&&!entered;i++)await Promise.resolve();
   f.quest({known:true,tasks:[]});assert.equal((await f.model.tick()).status,'cached');
   gate.resolve({deferred:true});await running;f.quest({known:false,tasks:[]});
-  assert.equal((await f.model.tick()).status,'spent');
+  assert.equal((await f.model.tick()).status,'waiting');
 });
 
 test('dispose aborts reads and pending probes cannot revive the coordinator',async()=>{

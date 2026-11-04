@@ -5,20 +5,51 @@ const {listOverviewQuests,missionId}=require('../../domain/quests/quest_overview
 const {evaluateFleetRequirements}=require('../../domain/quests/fleet_requirements');
 const {accountKey,cycle}=require('../persistence/quest_progress');
 const post=(body,key)=>typeof body==='string'?new URLSearchParams(body).get(key):body?.[key];
+const voyageKey=(id,end)=>`${Number(id)}:${Number(end)||0}`;
 const ranks={S:4,A:3,B:2,C:1,D:0,E:-1};
 function sufficient(rank,minimum){return ranks[String(rank).toUpperCase()]!==undefined&&ranks[String(rank).toUpperCase()]>=({win:2,S:4,A:3,B:2,C:1,D:0,E:-1}[minimum]??99);}
 class QuestProgressObserver {
-  constructor({progress,now=()=>Date.now(),onChange=()=>{}}){this.progress=progress;this.now=now;this.onChange=onChange;this.sortie=null;this.departures=new Map();this.account=null;}
-  sync(store){const key=accountKey(store);if(key!==this.account){this.account=key;this.sortie=null;this.departures.clear();}return key;}
+  constructor({progress,now=()=>Date.now(),onChange=()=>{}}){this.progress=progress;this.now=now;this.onChange=onChange;this.sortie=null;this.departures=new Map();this.consumed=new Map();this.account=null;}
+  sync(store){const key=accountKey(store);if(key!==this.account){this.account=key;this.sortie=null;this.departures.clear();this.consumed.clear();}return key;}
+  resetSession(){this.account=null;this.sortie=null;this.departures.clear();this.consumed.clear();}
+  // poi retains the active mission ID even when this plugin is enabled after
+  // departure. Capture only in-flight voyages; task eligibility is checked
+  // when the real result arrives, as tasks can be accepted after departure.
+  remember(store){
+    if(!this.sync(store))return;
+    const active=new Map();
+    for(const [index,fleet] of (store?.info?.fleets||[]).entries()){
+      const [state,id,end]=fleet?.api_mission||[];
+      if(Number(state)>0&&Number.isInteger(Number(id))&&Number(id)>0){
+        const deck=index+1,previous=this.departures.get(deck),key=voyageKey(id,end);
+        if(this.consumed.get(deck)===key)continue;
+        this.consumed.delete(deck);
+        if(previous?.key===key){const {missingSince,...stillActive}=previous;active.set(deck,{...stillActive,key});}
+        else active.set(deck,{id:Number(id),key});
+      }
+    }
+    // Redux can clear an arriving fleet just before the result event reaches
+    // this listener. Keep its last observed voyage briefly so the event can
+    // still be paired, without keeping an absent voyage indefinitely.
+    for(const [deck,previous] of this.departures)if(!active.has(deck)&&this.consumed.get(deck)!==previous.key){
+      const missingSince=previous.missingSince??this.now();
+      if(this.now()-missingSince<=5000)active.set(deck,{...previous,missingSince});
+    }
+    this.departures=active;
+  }
   snapshot(store){
     if(!this.account||this.account!==accountKey(store))return null;
-    try{return JSON.parse(JSON.stringify({version:1,account:this.account,capturedAt:this.now(),sortie:this.sortie,departures:[...this.departures]}));}
+    try{return JSON.parse(JSON.stringify({version:1,account:this.account,capturedAt:this.now(),sortie:this.sortie,departures:[...this.departures],consumed:[...this.consumed]}));}
     catch(e){return null;}
   }
   restore(snapshot,store){
     const account=this.sync(store),now=this.now();
     if(!account||snapshot?.version!==1||snapshot.account!==account||!Number.isFinite(snapshot.capturedAt)||
       snapshot.capturedAt>now||now-snapshot.capturedAt>30000)return false;
+    if(Array.isArray(snapshot.consumed))for(const entry of snapshot.consumed){
+      const deck=Number(entry?.[0]),key=entry?.[1],mission=store?.info?.fleets?.[deck-1]?.api_mission;
+      if(Number.isInteger(deck)&&deck>=1&&deck<=4&&Number(mission?.[0])>0&&key===voyageKey(mission[1],mission[2]))this.consumed.set(deck,key);
+    }
     // Keep only tasks and goal identities that still match the loaded catalog.
     const prepared=rows=>Array.isArray(rows)?rows.flatMap(row=>{
       const task=row?.task,definition=findDefinition({api_no:task?.id,api_title:task?.title},now);
@@ -46,8 +77,9 @@ class QuestProgressObserver {
     }
     if(Array.isArray(snapshot.departures))for(const entry of snapshot.departures){
       const deck=Number(entry?.[0]),departure=entry?.[1],mission=store?.info?.fleets?.[deck-1]?.api_mission;
-      if(Number.isInteger(deck)&&deck>=1&&deck<=4&&Number(mission?.[0])>0&&Number(mission?.[1])===Number(departure?.id))
-        this.departures.set(deck,{id:Number(departure.id),prepared:prepared(departure.prepared)});
+      if(Number.isInteger(deck)&&deck>=1&&deck<=4&&Number(mission?.[0])>0&&Number(mission?.[1])===Number(departure?.id)&&
+        departure?.key===voyageKey(mission[1],mission[2])&&this.consumed.get(deck)!==departure.key)
+        this.departures.set(deck,{id:Number(departure.id),key:voyageKey(mission[1],mission[2]),prepared:prepared(departure.prepared)});
     }
     return true;
   }
@@ -111,15 +143,32 @@ class QuestProgressObserver {
         const s=this.sortie;this.battleResult(store,body.api_win_rank,s.boss!==null&&s.node===s.boss||s.eventId===5);
       }else if(api==='/kcsapi/api_req_mission/start'){
         const deck=Number(post(detail.postBody,'api_deck_id')),id=Number(post(detail.postBody,'api_mission_id'));
-        if(deck>0&&id>0){const departure={id,prepared:this.eligible(store,deck)};this.departures.set(deck,departure);
+        const mission=store?.info?.fleets?.[deck-1]?.api_mission;
+        if(deck>0&&id>0){const end=body.api_complatetime||(Number(mission?.[1])===id?mission?.[2]:0);
+          const departure={id,key:voyageKey(id,end),prepared:this.eligible(store,deck)};this.consumed.delete(deck);this.departures.set(deck,departure);
           this.record(store,departure.prepared,'expeditionDepart',goal=>goal.missionId==='any'||missionId(goal.missionId)===id);}
       }else if(api==='/kcsapi/api_req_mission/result'){
-        const deck=Number(post(detail.postBody,'api_deck_id')),departure=this.departures.get(deck);this.departures.delete(deck);
+        const deck=Number(post(detail.postBody,'api_deck_id'));
+        const mission=store?.info?.fleets?.[deck-1]?.api_mission;
+        const key=voyageKey(mission?.[1],mission?.[2]);
+        const saved=this.departures.get(deck);
+        const departure=(saved&&(saved.missingSince==null||this.now()-saved.missingSince<=5000)?saved:null)||
+          (Number(mission?.[0])>0&&Number(mission?.[1])>0&&this.consumed.get(deck)!==key?{id:Number(mission[1]),key}:null);
+        this.departures.delete(deck);
+        if(departure)this.consumed.set(deck,Number(mission?.[1])===departure.id?key:departure.key||voyageKey(departure.id,0));
         const result=Number(body.api_clear_result);
-        if(departure&&(result===1||result===2))this.record(store,departure.prepared,'expeditionReturn',goal=>
-          (goal.missionId==='any'||missionId(goal.missionId)===departure.id||goal.anyMissionIds?.some(id=>missionId(id)===departure.id))&&
-          (goal.resultMin==='success'||goal.resultMin==='greatSuccess'&&result===2));
+        if(departure&&(result===1||result===2)){
+          const previous=new Map((departure.prepared||[]).map(row=>[row.task.id,row.period]));
+          // A pre-reset active row is not proof the recurring task was
+          // accepted again after its reset. New tasks can still be accepted
+          // while the fleet is already at sea.
+          const ready=this.eligible(store,deck).filter(row=>!previous.has(row.task.id)||previous.get(row.task.id)===row.period);
+          this.record(store,ready,'expeditionReturn',goal=>
+            (goal.missionId==='any'||missionId(goal.missionId)===departure.id||goal.anyMissionIds?.some(id=>missionId(id)===departure.id))&&
+            (goal.resultMin==='success'||goal.resultMin==='greatSuccess'&&result===2));
+        }
       }
+      if(api!=='/kcsapi/api_req_mission/start'&&api!=='/kcsapi/api_req_mission/result')this.remember(store);
     }catch(e){/* A partial game event must never affect gameplay. */}
   }
   node(body){if(!this.sortie)return;const node=Number(body?.api_no),boss=Number(body?.api_bosscell_no),event=Number(body?.api_event_id);

@@ -1,0 +1,93 @@
+'use strict';
+const crypto=require('crypto');
+const {expeditionPeriod}=require('./expedition_progress');
+const endpoints={mapinfo:'/kcsapi/api_get_member/mapinfo',presets:'/kcsapi/api_get_member/preset_deck',missions:'/kcsapi/api_get_member/mission'};
+const account=store=>store?.info?.basic?.api_member_id==null?null:crypto.createHash('sha256').update(String(store.info.basic.api_member_id)).digest('hex');
+// Data is held only by this plugin. Natural poi updates win; never dispatch a
+// fabricated game response or mutate the host's Redux state.
+class BasicDataSync{
+  constructor({reader,getStore,expedition,now=()=>Date.now()}={}){
+    this.reader=reader;this.getStore=getStore;this.expedition=expedition;this.now=now;
+    this.key=null;this.session=null;this.pending=new Set(Object.keys(endpoints));this.attempted=new Set();this.retries=new Map();
+    this.maps=null;this.airbase=null;this.presets=null;this.missionPeriod=null;this.overlayCache=null;this.revision=0;this.closed=false;this.running=false;this.abort=null;
+  }
+  syncAccount(store){
+    const key=account(store);if(key===this.key)return;
+    this.abort?.abort();this.key=key;this.session=null;this.pending=new Set(Object.keys(endpoints));this.attempted.clear();this.retries.clear();
+    this.maps=null;this.airbase=null;this.presets=null;this.missionPeriod=null;this.revision++;
+  }
+  reset(){this.abort?.abort();this.key=null;this.session=null;this.pending=new Set(Object.keys(endpoints));this.attempted.clear();this.retries.clear();this.maps=null;this.airbase=null;this.presets=null;this.missionPeriod=null;this.revision++;}
+  request(kind){if(!Object.hasOwn(endpoints,kind))return false;this.pending.add(kind);this.attempted.delete(kind);this.retries.delete(kind);this.revision++;return true;}
+  failure(kind){
+    const count=(this.retries.get(kind)?.count||0)+1;
+    this.retries.set(kind,{count,at:this.now()+Math.min(300000,2000*2**Math.min(count-1,8))});
+    this.attempted.delete(kind);this.pending.add(kind);
+  }
+  observe(detail,store){
+    if(this.closed)return;this.syncAccount(store);if(!this.key)return;
+    const api=String(detail?.path||'').split('?')[0],body=detail?.body;
+    if(body?.api_result!=null&&Number(body.api_result)!==1)return;
+    const data=body?.api_data??body;
+    if(api===endpoints.mapinfo&&Array.isArray(data?.api_map_info)&&data.api_map_info.some(row=>row?.api_id===11)&&
+      Array.isArray(data.api_air_base)&&data.api_air_base.every(row=>Array.isArray(row?.api_plane_info)&&row.api_plane_info.every(p=>Number.isSafeInteger(p?.api_slotid)))){
+      this.pending.delete('mapinfo');this.attempted.add('mapinfo');this.retries.delete('mapinfo');this.maps=null;this.airbase=null;this.revision++;
+    }else if(api===endpoints.presets&&data&&typeof data.api_deck==='object'){
+      this.pending.delete('presets');this.attempted.add('presets');this.retries.delete('presets');this.presets=null;this.revision++;
+    }else if(api===endpoints.missions&&(Array.isArray(data)||Array.isArray(data?.api_list_items)||Array.isArray(data?.api_list))){
+      this.pending.delete('missions');this.attempted.add('missions');this.retries.delete('missions');this.revision++;
+    }else if(api==='/kcsapi/api_req_mission/result')this.request('missions');
+    else if(/^\/kcsapi\/api_req_air_corps\//.test(api)||/^\/kcsapi\/api_req_(?:sortie|combined_battle)\/battleresult$/.test(api)){
+      this.maps=null;this.airbase=null;this.request('mapinfo');
+    }else if(/^\/kcsapi\/api_req_hensei\/preset_(?:register|delete|order_change)/.test(api)){
+      this.presets=null;this.request('presets');
+    }
+  }
+  view(store){
+    this.syncAccount(store);if(!this.maps&&!this.airbase&&!this.presets){this.overlayCache=null;return store;}
+    const fields=Object.entries(store.info||{}),old=this.overlayCache;
+    if(!old||old.source!==store.info||old.maps!==this.maps||old.airbase!==this.airbase||old.presets!==this.presets||
+      old.fields.length!==fields.length||fields.some(([key,value],index)=>old.fields[index]?.[0]!==key||old.fields[index]?.[1]!==value)){
+      this.overlayCache={source:store.info,maps:this.maps,airbase:this.airbase,presets:this.presets,fields,
+        info:{...store.info,...(this.maps?{maps:this.maps}:{}),...(this.airbase?{airbase:this.airbase}:{}),...(this.presets?{presets:this.presets}:{})}};
+    }
+    return {...store,info:this.overlayCache.info};
+  }
+  snapshot(){return this.key?{version:1,key:this.key,session:this.session,time:this.now(),pending:[...this.pending],attempted:[...this.attempted],maps:this.maps,airbase:this.airbase,presets:this.presets,missionPeriod:this.missionPeriod}:null;}
+  restore(value,store){this.syncAccount(store);if(!this.key||value?.version!==1||value.key!==this.key||!Number.isFinite(value.time)||this.now()-value.time<0||this.now()-value.time>30000)return;
+    this.session=value.session;this.pending=new Set((value.pending||[]).filter(k=>Object.hasOwn(endpoints,k)));this.attempted=new Set((value.attempted||[]).filter(k=>Object.hasOwn(endpoints,k)));
+    this.maps=value.maps||null;this.airbase=value.airbase||null;this.presets=value.presets||null;this.missionPeriod=value.missionPeriod||null;
+    // Do not restore success markers without their actual data. Mission data
+    // lives in another owner and is independently refreshed after a reload.
+    if(!this.maps||!this.airbase){this.pending.add('mapinfo');this.attempted.delete('mapinfo');}
+    if(!this.presets){this.pending.add('presets');this.attempted.delete('presets');}
+    this.pending.add('missions');this.attempted.delete('missions');this.retries.clear();this.revision++;}
+  dispose(){this.closed=true;this.abort?.abort();}
+  async tick(){
+    if(this.closed||this.running)return {status:'deferred'};this.running=true;
+    let kind=null,revision=null,key=null,sessionKey=null;
+    try{
+      this.syncAccount(this.getStore());const period=expeditionPeriod(this.now());
+      if(this.missionPeriod&&this.missionPeriod!==period)this.request('missions');this.missionPeriod=period;
+      const cached=await this.reader.context({cached:true});
+      if(this.closed||!this.key||!cached.ready||!cached.sessionKey)return {status:'deferred'};
+      if(this.session&&this.session!==cached.sessionKey){this.pending=new Set(Object.keys(endpoints));this.attempted.clear();this.retries.clear();this.maps=null;this.airbase=null;this.presets=null;this.revision++;}
+      this.session=cached.sessionKey;sessionKey=cached.sessionKey;
+      kind=[...this.pending].find(k=>this.now()>=(this.retries.get(k)?.at||0));
+      if(!kind)return {status:this.pending.size?'backoff':'cached'};
+      const ready=await this.reader.context();if(this.closed||!ready.idle||!ready.compatible||ready.sessionKey!==cached.sessionKey)return {status:'deferred'};
+      revision=this.revision;key=this.key;const controller=new AbortController();this.abort=controller;
+      const result=await this.reader.read({signal:controller.signal,sessionKey:cached.sessionKey,kind});
+      const latest=await this.reader.context({cached:true});this.syncAccount(this.getStore());
+      if(this.closed||controller.signal.aborted||result?.deferred||latest.sessionKey!==cached.sessionKey||this.key!==key||this.revision!==revision){
+        if(!this.closed&&this.key===key&&this.revision===revision&&this.session===sessionKey)this.failure(kind);
+        return {status:'deferred'};}
+      if(kind==='mapinfo'&&result?.mapinfo){this.maps=Object.fromEntries(result.mapinfo.maps.map(row=>[row.api_id,row]));this.airbase=result.mapinfo.airbase;}
+      else if(kind==='presets'&&result?.presets)this.presets=result.presets;
+      else if(kind==='missions'&&result?.missions&&this.expedition.acceptMissions(result.missions,this.getStore())){}
+      else {this.failure(kind);return {status:'failed',kind};}
+      this.pending.delete(kind);this.attempted.add(kind);this.retries.delete(kind);this.revision++;return {status:'ready',kind};
+    }catch(_){if(kind&&revision!==null&&!this.closed&&this.key===key&&this.revision===revision&&this.session===sessionKey)this.failure(kind);return {status:'failed'};}
+    finally{this.abort=null;this.running=false;}
+  }
+}
+module.exports={BasicDataSync};

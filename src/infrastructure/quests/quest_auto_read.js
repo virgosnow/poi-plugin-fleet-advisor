@@ -11,6 +11,7 @@ class QuestAutoRead {
     this.stableMs=Number.isFinite(stableMs)&&stableMs>=0?stableMs:2000;
     this.owners=new Set();this.consumed=new Set();this.stable=null;
     this.generation=0;this.probing=false;this.operation=null;this.closed=false;
+    this.retryKey=null;this.retryCount=0;this.retryAt=0;
     if(initialState)this.restore(initialState);
   }
   setActive(owner,active){
@@ -32,6 +33,15 @@ class QuestAutoRead {
     if(this.closed||snapshot?.version!==1||!Array.isArray(snapshot.consumed))return;
     for(const key of snapshot.consumed)if(typeof key==='string'&&key.trim())this.consumed.add(key);
   }
+  resetSession(){
+    if(this.closed)return;
+    this.generation++;this.stable=null;this.consumed.clear();this.retryKey=null;this.retryCount=0;this.retryAt=0;this.operation?.controller.abort();
+  }
+  failure(key){
+    if(this.retryKey!==key){this.retryKey=key;this.retryCount=0;}
+    this.retryCount++;this.retryAt=Number(this.now())+Math.min(300000,2000*2**Math.min(this.retryCount-1,8));
+    this.consumed.delete(key);this.stable=null;
+  }
   dispose(){
     if(this.closed)return;
     this.closed=true;this.generation++;this.owners.clear();this.stable=null;
@@ -46,6 +56,7 @@ class QuestAutoRead {
   cached(key){
     const identified=typeof key==='string'&&!!key.trim();
     if(identified)this.consumed.add(key);this.stable=null;
+    if(this.retryKey===key){this.retryKey=null;this.retryCount=0;this.retryAt=0;}
     if(this.operation){
       if(!identified||this.operation.sessionKey===key)this.operation.cacheCancelled=true;
       this.operation.controller.abort();
@@ -59,7 +70,10 @@ class QuestAutoRead {
     this.probing=true;
     const generation=this.generation;
     try{
-      const context=await this.getContext();
+      // During backoff only inspect the opaque session identity; a full
+      // screen/readiness probe every 500 ms would itself burden the client.
+      const cached=this.retryKey!==null&&Number(this.now())<this.retryAt;
+      const context=await this.getContext({cached});
       if(!this.current(generation))return this.cancelled();
       const safe=this.safe(context),key=context?.sessionKey;
       // Already observed tasks cancel the opportunity even while a fleet
@@ -67,15 +81,21 @@ class QuestAutoRead {
       const state=await this.getQuestState();
       if(!this.current(generation))return this.cancelled();
       if(state?.known===true)return this.cached(key);
-      if(!safe){
-        this.stable=null;this.operation?.controller.abort();
-        return {status:'unsafe'};
-      }
       if(this.operation){
-        if(this.operation.sessionKey!==key){this.stable=null;this.operation.controller.abort();}
+        // The reader reports idle=false while its own request is running.
+        // It still guards the screen, activity and account before committing.
+        if(context?.ready!==true||this.operation.sessionKey!==key){this.stable=null;this.operation.controller.abort();}
         return {status:'inflight'};
       }
-      if(this.consumed.has(key)){this.stable=null;return {status:'spent'};}
+      // A ledger is not the data itself. In particular a plugin restart can
+      // retain an old ledger without retaining the complete task list.
+      this.consumed.delete(key);
+      if(this.retryKey!==key){this.retryKey=key;this.retryCount=0;this.retryAt=0;}
+      if(Number(this.now())<this.retryAt){this.stable=null;return {status:'backoff',retryAt:this.retryAt};}
+      if(!safe){
+        this.stable=null;
+        return {status:'unsafe'};
+      }
       const time=Number(this.now());
       if(!this.stable||this.stable.sessionKey!==key||time<this.stable.since){
         this.stable={sessionKey:key,since:time};
@@ -90,7 +110,6 @@ class QuestAutoRead {
       const natural=await this.getQuestState();
       if(!this.current(generation))return this.cancelled();
       if(natural?.known===true)return this.cached(key);
-      if(this.consumed.has(key)){this.stable=null;return {status:'spent'};}
       const operation={sessionKey:key,generation,controller:new AbortController(),started:false,cacheCancelled:false};
       this.operation=operation;this.stable=null;
       return {operation};
@@ -107,16 +126,20 @@ class QuestAutoRead {
     const operation=prepared.operation;
     try{
       if(!this.current(operation.generation)||operation.controller.signal.aborted)return this.cancelled();
-      operation.started=true;this.consumed.add(operation.sessionKey);
+      operation.started=true;
       const outcome=await this.read({signal:operation.controller.signal,sessionKey:operation.sessionKey});
       if(outcome?.deferred===true||outcome?.status==='deferred'){
-        if(!operation.cacheCancelled)this.consumed.delete(operation.sessionKey);
+        if(!operation.cacheCancelled&&this.current(operation.generation))this.failure(operation.sessionKey);
         return this.closed?{status:'disposed'}:{status:'deferred'};
       }
-      return this.closed?{status:'disposed'}:{status:'read'};
+      if(!this.current(operation.generation))return this.cancelled();
+      const state=await this.getQuestState();
+      if(!this.current(operation.generation))return this.cancelled();
+      if(state?.known!==true){this.failure(operation.sessionKey);return {status:'failed'};}
+      this.consumed.add(operation.sessionKey);this.retryKey=null;this.retryCount=0;this.retryAt=0;
+      return {status:'read'};
     }catch(error){
-      // Calling the reader is an attempt. A genuine read failure, timeout or
-      // interruption is not retried automatically during this session.
+      if(!operation.cacheCancelled&&this.current(operation.generation))this.failure(operation.sessionKey);
       return this.closed?{status:'disposed'}:{status:'failed'};
     }finally{
       if(this.operation===operation)this.operation=null;

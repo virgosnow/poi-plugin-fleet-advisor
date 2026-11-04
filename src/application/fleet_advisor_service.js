@@ -35,8 +35,9 @@ function observedState(state,shipIds=[]) {
 }
 
 class FleetAdvisorService {
-  constructor({controller,getStore,storageDir,now=()=>Date.now(),createRecommendationWorker,prepareRecommendationWorker,releaseRecommendationWorker}) {
+  constructor({controller,getStore,storageDir,now=()=>Date.now(),createRecommendationWorker,prepareRecommendationWorker,releaseRecommendationWorker,readQuests}) {
     this.controller=controller;this.getStore=getStore;this.now=now;this.storageDir=storageDir;
+    this.readQuests=readQuests;
     this.snapshots=new Snapshots(getStore,now);this.schemes=new Schemes(storageDir,now,
       {getCacheLimit:()=>this.computationSettings.cacheLimitMiB*1024**2});
     this.computationSettings=computationSettings.normalizePreferences();
@@ -149,6 +150,10 @@ class FleetAdvisorService {
       busy:this.recommendations.queued>0,cache:{...cache,schemes,gameData}};
   }
   getQuestGoalProgress(task,goal){return this.questProgress.get(this.getStore(),task,goal);}
+  async queryQuests(args={}){
+    const read=typeof this.readQuests==='function'?await this.readQuests():{status:'unavailable'};
+    return require('./quest_queries').queryQuests(read,args,this.now());
+  }
   getQuestGoalProgressForTasks(tasks){return this.questProgress.getMany(this.getStore(),tasks);}
   getQuestProgressError(){return this.questProgress.error||this.questProgress.lastError;}
   reconcileQuestProgress(rows){void this.questProgress.reconcile(this.getStore(),rows).then(()=>this.emit({type:'questProgress'})).catch(()=>this.emit({type:'questProgress'}));}
@@ -331,6 +336,10 @@ class FleetAdvisorService {
   }
   async recommendNormalFleet(args,onProgress){
     return this.recommendWithFilters('recommendNormalFleet','normal',args,onProgress);
+  }
+  async recommendPracticeFleet({snapshotId,...args}){
+    const snapshot=this.snapshots.get(snapshotId),settings=this.getRecommendationFilters().practice;
+    return {snapshotId,...await this.recommendations.run('recommendPracticeFleet',snapshot.store,{...args,settings})};
   }
   async recommendWithFilters(method,kind,args,onProgress){
     const snapshot=this.snapshots.get(args.snapshotId),filters=this.getRecommendationFilters()[kind];
