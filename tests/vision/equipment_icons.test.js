@@ -52,20 +52,25 @@ test('narrow icon regions and supported resampling retain the exact classificati
   }
 });
 
-test('every icon family retains its complete score vector on independent synthetic cells',()=>{
+test('every icon family retains eligible scores, with representative full-size cells',()=>{
   for(const [i,entry] of require('../../data/equip_icon_index.json').icons.entries()){
     const icon=Pixels.decode(fs.readFileSync(path.join(__dirname,'../../data/icons',entry.file)));
     for(let p=0;p<icon.data.length;p+=4){
       const alpha=icon.data[p+3]/255;
       for(let k=0;k<3;k++)icon.data[p+k]=Math.round(icon.data[p+k]*alpha+230*(1-alpha));
     }
-    const tile=icon.crop([0,0,icon.width,icon.height],32,30),im=new Pixels(53,44,Buffer.alloc(53*44*4,230));
-    const x=4+i%8,y=3+i%5;
-    for(let j=0;j<tile.height;j++)for(let k=0;k<tile.width;k++){
-      const a=(j*tile.width+k)*4,b=((j+y)*im.width+k+x)*4;
-      for(let c=0;c<4;c++)im.data[b+c]=tile.data[a+c];
+    const tile=icon.crop([0,0,icon.width,icon.height],32,30);
+    // All icon families remain covered. Full-sized windows are sampled here
+    // because real picker rows and scaling already exercise the full window.
+    for(const full of i%8===0?[false,true]:[false]){
+      const width=full?53:40,height=full?44:36,im=new Pixels(width,height,Buffer.alloc(width*height*4,230));
+      const x=full?4+i%8:1+i%7,y=full?3+i%5:1+i%5;
+      for(let j=0;j<tile.height;j++)for(let k=0;k<tile.width;k++){
+        const a=(j*tile.width+k)*4,b=((j+y)*im.width+k+x)*4;
+        for(let c=0;c<4;c++)im.data[b+c]=tile.data[a+c];
+      }
+      equivalent(im,[0,0,width,height],`icon ${entry.t3}${full?' full':''}`);
     }
-    equivalent(im,[0,0,53,44],'icon '+entry.t3);
   }
 });
 

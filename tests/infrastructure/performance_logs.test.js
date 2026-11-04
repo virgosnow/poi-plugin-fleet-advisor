@@ -3,6 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {PerformanceLogs}=require('../../src/infrastructure/cache/performance_logs');
 const {cacheFiles,reserveCacheSpace}=require('../../src/infrastructure/cache/disk_cache_budget');
 const {inspectCache,maintainCache}=require('../../src/infrastructure/cache/recommendation_cache');
+const {randomUUID}=require('node:crypto');
 function setup(t){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fleet-advisor-logs-'));
   t.after(()=>{if(path.dirname(dir)===os.tmpdir()&&path.basename(dir).startsWith('fleet-advisor-logs-'))fs.rmSync(dir,{recursive:true,force:true});});return dir;}
 const report=()=>({version:1,level:'modules',method:'recommendNormalFleet',area:'4-5',status:'success',elapsedMs:100,workerMs:90,startupAndTransferMs:10,queueMs:0,
@@ -31,7 +32,10 @@ test('old logs survive age, entry limits and automatic capacity maintenance unti
   const root=setup(t);let now=1793000000000;
   const logs=new PerformanceLogs(root,{now:()=>now});await logs.write(report());const first=(await cacheFiles(root,'logs'))[0];
   fs.utimesSync(first.file,new Date(now-8*86400000),new Date(now-8*86400000));
-  for(let i=0;i<66;i++){now++;await logs.write(report());}
+  // The behavior under test is retention above the 64-entry limit, not 66
+  // repeated writes through the logger (covered by the other write tests).
+  // Seed equivalent valid files directly to avoid repeated directory scans.
+  for(let i=0;i<66;i++){now++;fs.copyFileSync(first.file,path.join(logs.directory,`performance-${now}-${randomUUID()}.json`));}
   assert(fs.existsSync(first.file));assert.equal((await cacheFiles(root,'logs')).length,67);
   assert.equal((await reserveCacheSpace(root,{limitBytes:1})).fits,false);assert(fs.existsSync(first.file));assert.equal((await cacheFiles(root,'logs')).length,67);
   await maintainCache(root,{clear:'logs'});assert.equal((await cacheFiles(root,'logs')).length,0);

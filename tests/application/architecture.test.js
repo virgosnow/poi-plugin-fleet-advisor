@@ -18,7 +18,7 @@ test('runtime imports resolve and domain rules remain independent of execution, 
   }
 });
 test('recommendation responsibilities have no circular dependency between the six search modules',()=>{
-  const names=['context','scoring','fitting','strategies','normal','expedition'];
+  const names=['context','scoring','fitting','strategies','normal','expedition','practice'];
   const files=new Set(names.map(name=>path.join(source,'recommendation',name+'.js'))),complete=new Set();
   function visit(file,active=new Set()){
     if(complete.has(file))return;
@@ -29,5 +29,5 @@ test('recommendation responsibilities have no circular dependency between the si
   }
   for(const file of files)visit(file);
   const api=require('../../src/recommendation');
-  assert.deepEqual(Object.keys(api).sort(),['airLoadout','recommendExpeditionEquipment','recommendExpeditionFleet','recommendExpeditionGoals','recommendNormalEquipment','recommendNormalFleet','recommendNormalFleetParallel','recommendationBatch','routeAirReference'].sort());
+  assert.deepEqual(Object.keys(api).sort(),['airLoadout','recommendExpeditionEquipment','recommendExpeditionFleet','recommendExpeditionGoals','recommendNormalEquipment','recommendNormalFleet','recommendNormalFleetParallel','recommendPracticeFleet','recommendationBatch','routeAirReference'].sort());
 });
