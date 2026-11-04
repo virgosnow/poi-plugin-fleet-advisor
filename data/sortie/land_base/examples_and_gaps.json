@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "examples": [
+    {"id":"range_no_recon","rule":"range","status":"synthetic","input":{"minRange":5,"maxEligibleReconRange":null},"expected":{"effectiveRange":5,"reaches6_4_N":true,"reaches7_4_B":false}},
+    {"id":"range_extend_exact","rule":"range","status":"synthetic","input":{"minRange":5,"maxEligibleReconRange":9},"expected":{"effectiveRange":7,"reaches7_4_B":true}},
+    {"id":"range_round_nearest","rule":"range","status":"synthetic","input":{"minRange":4,"maxEligibleReconRange":9},"expected":{"effectiveRange":6,"reaches7_4_B":false}},
+    {"id":"sortie_air_arithmetic","rule":"sortie_air_power","status":"synthetic","input":{"equalSlots":3,"planesPerSlot":18,"antiAir":10,"interception":2,"improvementAntiAir":0,"proficiencyBonus":0,"additionalReconSlotAirPower":0,"landReconMultiplier":1.15},"expected":{"slotAirPower":55,"totalAirPower":189},"note":"纯数学输入，并不保证现实存在对应机型组合。"},
+    {"id":"enemy_loss_arithmetic","rule":"enemy_proportional_losses","status":"synthetic","input":{"enemySlotPlanes":18,"airState":"denial","z":7,"x":4,"y":4},"expected":{"enemyPlanesLost":7},"note":"用于检查资料所记公式的上界运算，不是实战概率验证。"},
+    {"id":"land_attack_pre_cap_full","rule":"anti_surface_power","status":"synthetic","input":{"typeMultiplier":0.8,"attackStat":10,"currentPlanes":18,"landReconMultiplier":1},"expected":{"simplifiedPreCapPower":65}},
+    {"id":"land_attack_pre_cap_after_shootdown","rule":"anti_surface_power","status":"synthetic","input":{"typeMultiplier":0.8,"attackStat":10,"currentPlanes":9,"landReconMultiplier":1},"expected":{"simplifiedPreCapPower":52}},
+    {"id":"same_node_friendly_start","rule":"same_node_waves","status":"synthetic","input":{"startPlanes":18,"firstWaveLoss":5,"sameNode":true},"expected":{"secondWaveStartingPlanes":18},"note":"未表达返航损失、飞机熟练度或敌方伤害。"},
+    {"id":"split_node_friendly_start","rule":"split_node_waves","status":"synthetic","input":{"startPlanes":18,"firstNodeSettledLoss":5,"sameNode":false},"expected":{"secondNodeStartingPlanes":13},"note":"示意已结算损失后的状态，不包含救援或基地空袭。"},
+    {"id":"legacy_public_two_wave_aggregate","rule":"same_node_waves","status":"implementation_evidence","sources":["historical_api_2016"],"observations":{"wave1FriendlyCount":58,"wave2FriendlyCount":58,"wave1EnemyCount":293,"wave1EnemyLostCount":63,"wave2EnemyCount":230},"limitations":"2016 公开历史样本，非本账号、非当前合同；不包含个人实例或完整响应。"}
+  ],
+  "conflicts": [
+    {"id":"high_los_land_recon_defense_multiplier","status":"pending","scope":"高索敌陆侦防空制空补正","values":[{"value":1.23,"sources":["wiki_jp_land_base"]},{"value":1.24,"sources":["wiki_en_land_base","wiki_cn_land_base"]}],"resolution":null},
+    {"id":"enemy_loss_denial_rate","status":"pending","scope":"我方空劣时敌机比例击坠范围","values":[{"min":0,"max":0.4,"basis":"日文 Wiki 范围及中文页面所记公式代入","sources":["wiki_jp_air_combat","wiki_cn_land_base"]},{"min":0,"max":0.2,"basis":"中文页面文字范围，与同页公式不一致","sources":["wiki_cn_land_base"]}],"resolution":null,"note":"中文资料基于 0.2 的经验折减比例不作为保底值。"},
+    {"id":"combined_fleet_accuracy_interpretation","status":"pending","scope":"基地航空对联合舰队的命中差异","values":[{"interpretation":"命中项乘 1.1","sources":["wiki_jp_accuracy"]},{"interpretation":"敌方回避衰减模型不同","sources":["accuracy_alternative"]}],"resolution":null},
+    {"id":"raid_cost_rounding","status":"pending","scope":"基地空袭导致的资源损失取整和飞机损失","values":[{"interpretation":"不同资料对取整及架数描述不一致","sources":["wiki_cn_land_base","wiki_en_land_base"]}],"resolution":null},
+    {"id":"raid_timing_6_5","status":"pending","scope":"6-5 下路线基地空袭触发节点、概率及次数","values":[{"interpretation":"削血两次后出现，页面对下路线是否 0–1 次带问号","sources":["wiki_jp_6_5"]},{"interpretation":"一般说明到 Boss 前出现一次","sources":["guide_jp_6_5"]}],"resolution":null}
+  ],
+  "remainingEvidence": [
+    {"id":"state_field_values","priority":"P0","status":"pending","needs":["api_cond 与疲劳显示关系","api_state 各值及转场状态","当前南西海域响应格式","空槽与 0 架的特殊情况"]},
+    {"id":"range_eligibility","priority":"P0","status":"pending","needs":["可延伸侦察机分类和型号","不可延伸的飞机例外","转场状态的影响","四舍五入边界"]},
+    {"id":"enemy_plane_slots","priority":"P0","status":"pending","needs":["敌机逐槽初始搭载","敌侦察机与联合舰队参与范围","空袭及不同波次前后损失"]},
+    {"id":"damage_and_targeting","priority":"P0","status":"pending","needs":["对地、对潜、特殊飞机和目标资格","真实命中与回避","特效作用位置与分布","击沉后的后续行为"]},
+    {"id":"raid_6_5","priority":"P1","status":"pending","needs":["空袭发生阶段、节点和概率","飞机与资源损失","防空逐槽拦截","基地状态对后续波次影响"]},
+    {"id":"advanced_mechanics","priority":"P2","status":"pending","needs":["基地喷气强袭","触接","熟练度损失","Catalina 救援","未知特殊敌对空迎击"]}
+  ],
+  "integration": {
+    "currentFiles":["src/host/quest_reader.js","src/infrastructure/persistence/basic_data_sync.js","src/application/snapshots.js","src/domain/routes/route_air.js","src/domain/combat/combat_battle.js","src/domain/combat/route_estimate.js","src/recommendation/scoring.js","src/recommendation/normal.js"],
+    "constraints":["与舰队和其他基地共享装备实例所有权，保留人工锁定","用户指定目标与条件不能由 mapinfo 擅自推断","规则与 UI、MCP 共用应用服务","缓存覆盖基地、目标、阶段和假设变化","无资料时显示 unknown/partial，不能伪造实战概率"],
+    "decisionsPending":["是否只使用当前基地配置或推荐重新配机","目标排序与费用偏好","6-5 防空的第一版范围","是否扩展 MCP 合同"]
+  },
+  "validationScenarios":["基地未解锁、空槽、转场、0 架、未满补给","不同区域、半径边界、侦察机延伸与例外","两波集中与分点、多个航空队与敌机损失传播","6-4 对地、6-5 联合舰队和基地空袭、7-4 对潜及混编","战斗前后状态、装备冲突与人工锁定","未知值、来源冲突、缓存失效、UI 与 MCP 一致性"]
+}

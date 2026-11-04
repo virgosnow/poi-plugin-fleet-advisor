@@ -84,6 +84,27 @@ test('workbench coalesces battle data updates until return while quest state sta
   poll();assert.equal(h.get('revision'),oldRevision+1);assert.equal(h.flushChecks(),0);
 });
 
+test('airbase changes refresh the selected map while keeping the draft',t=>{
+  const mapLoading=require.cache[require.resolve('../../src/ui/maps/map_loading')]||require('../../src/ui/maps/map_loading')&&require.cache[require.resolve('../../src/ui/maps/map_loading')];
+  t.mock.method(mapLoading,'exports',()=>()=>({status:'ready'}));
+  const store=fixture();store.info.basic.api_member_id=1;
+  store.info.airbase=[{api_area_id:6,api_rid:1,api_action_kind:1,api_distance:{api_base:5,api_bonus:0},
+    api_plane_info:[{api_squadron_id:1,api_slotid:0,api_state:0}]}];
+  const service={getRecommendationFilters:()=>({}),createSnapshot:()=>({snapshotId:'readonly'}),listNormalMaps:()=>({maps:[]})};
+  const h=harness(t,require('../../src/ui/workbench/workbench'),{getStore:()=>store,getController:()=>service});
+  h.render({kind:'normal',busy:false,hidden:false});h.set('area','6-4');h.render();h.flushChecks();
+  const draft=h.get('slots'),oldRevision=h.get('revision');
+  store.info.airbase[0].api_distance.api_base=7;
+  const timer=h.intervals.find(timer=>timer.active&&String(timer.fn).includes('const next=getStore()'));
+  assert(timer);timer.fn();h.render();h.flushChecks();
+  assert.equal(h.get('revision'),oldRevision+1);assert.equal(h.get('slots'),draft);
+  assert.match(text(find(h.tree,n=>n.props.className==='paa-airbase')),/航程 7/);
+  h.render({busy:true});store.info.airbase[0].api_distance.api_base=9;h.render({busy:true});
+  assert.match(text(find(h.tree,n=>n.props.className==='paa-airbase')),/航程 7/,'execution keeps the displayed state fixed');
+  h.render({busy:false});h.flushChecks();
+  assert.match(text(find(h.tree,n=>n.props.className==='paa-airbase')),/航程 9/);
+});
+
 test('workbench does not defer an account change during a sortie',t=>{
   const mapLoading=require.cache[require.resolve('../../src/ui/maps/map_loading')]||require('../../src/ui/maps/map_loading')&&require.cache[require.resolve('../../src/ui/maps/map_loading')];
   t.mock.method(mapLoading,'exports',()=>()=>({status:'ready'}));

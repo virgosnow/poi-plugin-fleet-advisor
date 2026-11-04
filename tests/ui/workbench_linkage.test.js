@@ -195,6 +195,21 @@ function harness(kind='normal',automaticFilters,storeView=store=>store){
   return {render,find,control,chooseGoal,get,set,service,calls,store,effects,refs};
 }
 
+test('supported normal maps show the read-only airbase directly below the map',()=>{
+  const h=harness();
+  h.store.info.airbase=[{api_area_id:6,api_rid:1,api_action_kind:1,api_distance:{api_base:5,api_bonus:0},
+    api_plane_info:[{api_squadron_id:1,api_slotid:0,api_state:0}]}];
+  h.set('area','6-4');let tree=h.render();
+  const left=h.find(tree,n=>n.props.className==='paa-wb-left');
+  const fragment=left.children.find(n=>n?.children?.some?.(child=>child?.props?.className==='paa-wb-map-section'));
+  assert(fragment);
+  const map=fragment.children.findIndex(n=>n?.props?.className==='paa-wb-map-section');
+  assert.equal(fragment.children[map+1]?.props?.className,'paa-airbase');
+  assert.equal(h.find(fragment.children[map+1],n=>n.type==='button'),undefined);
+  h.set('area','7-5');tree=h.render();assert.equal(h.find(tree,n=>n.props.className==='paa-airbase'),undefined);
+  assert.equal(h.calls.equipment+h.calls.fleet,0);
+});
+
 test('normal and expedition ship portraits reveal attributes for the same visible row without changing the draft',()=>{
   for(const kind of ['normal','expedition']){
     const h=harness(kind);h.set('slots',[W.entry(h.store,1),W.entry(h.store,2),W.entry(h.store,3),null,null,null]);

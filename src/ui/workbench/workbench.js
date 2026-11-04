@@ -5,6 +5,7 @@ const T=require('../models/metric_tooltips');
 const {arrivalNote}=require('../models/route_presentation');
 const {fleetMechanisms,fleetSpeed,aircraftCapacity}=require('../../domain/combat/ship_mechanisms');
 const routePreview=require('../maps/route_preview'),shipDrag=require('../components/ship_drag');
+const airbaseView=require('./airbase_view');
 const {retain,hiddenPage}=require('../components/retained_view');
 const renderCombatBalance=require('../components/combat_balance');
 const collapse=require('../components/collapse');
@@ -169,7 +170,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     // Store references must stay outside serializable drafts (hot reload backs
     // drafts up on disk); an old or restored draft simply gets reassessed.
     const routeDraftCombatSnapshots=React.useRef(new WeakMap());
-    const observed=React.useRef(null),view=React.useRef(null),page=React.useRef(null),resumePending=React.useRef(false),initialized=React.useRef(false),routeSelection=React.useRef(null);
+    const observed=React.useRef(null),view=React.useRef(null),page=React.useRef(null),resumePending=React.useRef(false),initialized=React.useRef(false),routeSelection=React.useRef(null),airbaseSnapshot=React.useRef(null);
     const paused=busy||hidden;
     React.useEffect(()=>{
       getController()?.setRecommendationPageActive?.(kind,!paused);
@@ -315,6 +316,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       if(paused)return;
       let previous=getStore();
       let previousStage=kind==='normal'?require('../../domain/combat/encounter_stage').encounterStage(previous,area,effectivePhase):null;
+      let previousAirbase=kind==='normal'?airbaseView.signature(previous,area):'';
       const inSortie=state=>Array.isArray(state?.sortie?.sortieStatus)&&state.sortie.sortieStatus.some(Boolean);
       let deferred=inSortie(previous);
       // A hidden page may have missed task-list responses. Show the latest
@@ -330,7 +332,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         const ongoing=inSortie(next),sameAccount=(next.info?.basic?.api_member_id??null)===(previous.info?.basic?.api_member_id??null);
         if(ongoing&&sameAccount){deferred=true;return;}
         const stage=kind==='normal'?require('../../domain/combat/encounter_stage').encounterStage(next,area,effectivePhase):null;
-        if(deferred||stage!==previousStage||['ships','equips','fleets','repairs','basic','maps'].some(k=>next.info?.[k]!==previous.info?.[k])||next.const!==previous.const||next.expeditionProgress!==previous.expeditionProgress){previous=next;previousStage=stage;deferred=ongoing;setRevision(x=>x+1);}
+        const nextAirbase=kind==='normal'?airbaseView.signature(next,area):'';
+        if(deferred||stage!==previousStage||nextAirbase!==previousAirbase||['ships','equips','fleets','repairs','basic','maps'].some(k=>next.info?.[k]!==previous.info?.[k])||next.const!==previous.const||next.expeditionProgress!==previous.expeditionProgress){previous=next;previousStage=stage;previousAirbase=nextAirbase;deferred=ongoing;setRevision(x=>x+1);}
       },1000);return()=>clearInterval(timer);
     },[paused,kind,area,effectivePhase]);
     React.useEffect(()=>{
@@ -723,6 +726,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         resultsPending&&!['metrics','expedition-metrics'].includes(key)?h('div',{className:'paa-wb-calculating',role:'status'},
           h('span',{className:'paa-wb-calculation-label'},h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),'计算中…')):null);
     };
+    const airbase=retain(airbaseSnapshot,paused||resumePending.current,
+      [kind,area,paused?'':airbaseView.signature(store,area)],()=>kind==='normal'?airbaseView.render(h,EquipmentIcon,store,area):null);
     React.useEffect(()=>{onActivity?.(previous=>previous[kind]===calculating?previous:{...previous,[kind]:calculating});},[calculating,kind,onActivity]);
     React.useEffect(()=>()=>onActivity?.(previous=>previous[kind]?{...previous,[kind]:false}:previous),[kind,onActivity]);
     if(hidden)return hiddenPage(h,page.current,{className:'paa-workbench','data-kind':kind,hidden});
@@ -873,6 +878,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
                   h('span',{className:'paa-wb-progress-unknown',role:'img','aria-label':`${gauge.label} · 进度未知`}),
                 h('span',{className:'paa-wb-progress-value'},gauge.detail)))):
               null),
+            airbase,
             stableResult('route',h('div',{className:'paa-wb-route-status','data-expandable':!!routeRequirements.length&&!disabled,onClick:event=>{
               if(disabled||!routeRequirements.length||event.defaultPrevented||event.button>0)return;
               const target=event.target?.nodeType===3?event.target.parentElement:event.target;

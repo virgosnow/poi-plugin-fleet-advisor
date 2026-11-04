@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "scope": "normal_maps",
+  "defaultAvailability": "unknown",
+  "encounterRadiusField": "nodes.*.phases.*.patterns[].lbasRadius",
+  "radiusInterpretation": {
+    "unit": "map_distance",
+    "missing": "unknown",
+    "conflictingPatternValues": "pending",
+    "nightBattle": "节点有半径不表示实际会发生基地航空攻击",
+    "source": "逐条读取现有海域敌情文件，不按地图坐标或舰队航线距离推算"
+  },
+  "maps": [
+    {
+      "id":"6-4","baseAreaId":6,"available":true,"maxSortieSquadrons":1,"bossNodes":["N"],
+      "bossRadius":5,"baseRaid":{"possible":false,"status":"community_supported"},
+      "encountersPath":"data/sortie/encounters/6-4.json",
+      "notableNodes":[{"id":"C","kind":"battle","radius":3},{"id":"M","kind":"asw","radius":8},{"id":"N","kind":"battle","radius":5,"targetTypes":["installation"]}],
+      "unlock":{"questCode":"F43","status":"community_supported","accountStateSource":"game_snapshot","note":"任务资料不能替代账号已解锁状态。"},
+      "status":"community_supported","sources":["wiki_en_6_4","wiki_jp_6_4"]
+    },
+    {
+      "id":"6-5","baseAreaId":6,"available":true,"maxSortieSquadrons":2,"bossNodes":["M"],
+      "bossRadius":5,"baseRaid":{"possible":true,"status":"pending","startAfterBossKills":2,"afterClear":false,"count":{"min":0,"max":1},"scope":"削血阶段；下路线发生次数、触发位置及概率待核实","note":"不将下路线描述为必定发生；与地图 G/H 舰队空袭战分开。"},
+      "encountersPath":"data/sortie/encounters/6-5.json",
+      "notableNodes":[{"id":"G","kind":"aerialRaid","radius":4},{"id":"H","kind":"aerialRaid","radius":4},{"id":"J","kind":"nightBattle","radius":4},{"id":"M","kind":"battle","radius":5,"enemyFleet":"combined"}],
+      "unlock":{"questCode":"F43","status":"community_supported","accountStateSource":"game_snapshot","note":"任务资料不能替代账号已解锁状态。"},
+      "status":"community_supported","sources":["wiki_jp_6_5","guide_jp_6_5"]
+    },
+    {
+      "id":"7-4","baseAreaId":7,"available":true,"maxSortieSquadrons":1,"bossNodes":["P"],
+      "bossRadius":2,"baseRaid":{"possible":false,"status":"community_supported"},
+      "encountersPath":"data/sortie/encounters/7-4.json",
+      "notableNodes":[{"id":"B","kind":"asw","radius":7},{"id":"C","kind":"asw","radius":7},{"id":"P","kind":"battle","radius":2,"targetTypes":["surface","submarine"]}],
+      "unlock":{"questCode":"B175","status":"community_supported","accountStateSource":"game_snapshot","note":"任务资料不能替代账号已解锁状态。"},
+      "status":"community_supported","sources":["wiki_jp_7_4","wiki_en_land_base"]
+    }
+  ]
+}

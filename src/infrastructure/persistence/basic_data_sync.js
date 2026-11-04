@@ -43,14 +43,16 @@ class BasicDataSync{
     }
   }
   view(store){
-    this.syncAccount(store);if(!this.maps&&!this.airbase&&!this.presets){this.overlayCache=null;return store;}
+    this.syncAccount(store);
+    const airbaseSync={complete:!!this.key&&this.attempted.has('mapinfo')&&!this.pending.has('mapinfo')};
+    if(!this.maps&&!this.airbase&&!this.presets){this.overlayCache=null;return {...store,airbaseSync};}
     const fields=Object.entries(store.info||{}),old=this.overlayCache;
     if(!old||old.source!==store.info||old.maps!==this.maps||old.airbase!==this.airbase||old.presets!==this.presets||
       old.fields.length!==fields.length||fields.some(([key,value],index)=>old.fields[index]?.[0]!==key||old.fields[index]?.[1]!==value)){
       this.overlayCache={source:store.info,maps:this.maps,airbase:this.airbase,presets:this.presets,fields,
         info:{...store.info,...(this.maps?{maps:this.maps}:{}),...(this.airbase?{airbase:this.airbase}:{}),...(this.presets?{presets:this.presets}:{})}};
     }
-    return {...store,info:this.overlayCache.info};
+    return {...store,info:this.overlayCache.info,airbaseSync};
   }
   snapshot(){return this.key?{version:1,key:this.key,session:this.session,time:this.now(),pending:[...this.pending],attempted:[...this.attempted],maps:this.maps,airbase:this.airbase,presets:this.presets,missionPeriod:this.missionPeriod}:null;}
   restore(value,store){this.syncAccount(store);if(!this.key||value?.version!==1||value.key!==this.key||!Number.isFinite(value.time)||this.now()-value.time<0||this.now()-value.time>30000)return;

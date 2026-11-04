@@ -34,6 +34,17 @@ test('natural responses win and subsequent events refresh only the affected data
   f.sync.observe({path:'/kcsapi/api_req_air_corps/set_plane',body:{}},f.store);assert.equal((await f.sync.tick()).kind,'mapinfo');
   assert.deepEqual(f.calls,['presets','missions','missions','mapinfo']);
 });
+test('airbase availability is only known after a complete mapinfo response and resets on account change',async()=>{
+  const f=setup();
+  assert.equal(f.sync.view(f.store).airbaseSync.complete,false);
+  f.sync.observe({path:'/kcsapi/api_get_member/mapinfo',body:{api_map_info:[{api_id:11}]}},f.store);
+  assert.equal(f.sync.view(f.store).airbaseSync.complete,false,'partial data cannot establish locked status');
+  f.sync.observe({path:'/kcsapi/api_get_member/mapinfo',body:{api_map_info:[{api_id:11}],api_air_base:[]}},f.store);
+  assert.equal(f.sync.view(f.store).airbaseSync.complete,true);
+  f.store.info.basic.api_member_id=2;
+  assert.equal(f.sync.view(f.store).airbaseSync.complete,false,'account changes invalidate the result');
+  await f.sync.tick();assert.equal(f.sync.view(f.store).airbaseSync.complete,true,'guarded background reads also establish completeness');
+});
 test('stale background results do not replace newer natural responses or cross accounts',async()=>{
   const f=setup();f.reader.read=async()=>{f.sync.observe({path:'/kcsapi/api_get_member/mapinfo',body:{api_map_info:[{api_id:11}],api_air_base:[]}},f.store);return {mapinfo:{maps:[{api_id:11,api_cleared:1}],airbase:[]}};};
   assert.equal((await f.sync.tick()).status,'deferred');assert.equal(f.sync.view(f.store).info.maps[11].api_cleared,0);

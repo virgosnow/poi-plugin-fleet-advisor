@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "retrievedOn": "2026-11-04",
+  "sources": [
+    {"id":"wiki_jp_land_base","kind":"community_wiki","url":"https://wikiwiki.jp/kancolle/%E5%9F%BA%E5%9C%B0%E8%88%AA%E7%A9%BA%E9%9A%8A","snapshotSha256":"6ad0ad97a029a47dd8c1bf0d3d0ca92a6a777b8399ab2f7fc5db96ca9a80f1bb"},
+    {"id":"wiki_en_land_base","kind":"community_wiki","url":"https://en.kancollewiki.net/Land_Base","snapshotSha256":"416dad3a875ba87ef89383e51f3ec84421615f0504008d13094beb9d3cb075cd"},
+    {"id":"wiki_cn_land_base","kind":"community_wiki","url":"https://m.kcwiki.cn/wiki/%E5%9F%BA%E5%9C%B0%E8%88%AA%E7%A9%BA%E9%98%9F","snapshotSha256":"318739b8130739a2e9be6d92e278e31e13d8c75b246ce61bf76e932f2dce372c"},
+    {"id":"wiki_jp_air_combat","kind":"community_wiki","url":"https://wikiwiki.jp/kancolle/%E8%88%AA%E7%A9%BA%E6%88%A6","snapshotSha256":"78651a57d1407e74a097f56f75ec2aad7e8058007df87745cbb0a24719fd409d"},
+    {"id":"wiki_jp_accuracy","kind":"community_wiki","url":"https://wikiwiki.jp/kancolle/%E5%91%BD%E4%B8%AD%E3%81%A8%E5%9B%9E%E9%81%BF%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6","snapshotSha256":"e3f720beaf73374a1feb5a5342daba43407b960e672a88159a84568e5841fa2b"},
+    {"id":"wiki_jp_6_4","kind":"community_wiki","url":"https://wikiwiki.jp/kancolle/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-4","snapshotSha256":"c0ed03acfa6b9da43be31d60724638a3401a71a64b926ee62d76b72c9b4bcf20"},
+    {"id":"wiki_jp_6_5","kind":"community_wiki","url":"https://wikiwiki.jp/kancolle/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-5","snapshotSha256":"e604fa7824bd3fe593a33fef7db76de68a8136b8111d14f27f0014e809784a3d"},
+    {"id":"wiki_jp_7_4","kind":"community_wiki","url":"https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-4","snapshotSha256":"6bd8111382409d081d9b0b3d52848fe3899619e0c16200be2fb020b1ae32ee1d"},
+    {"id":"wiki_en_6_4","kind":"community_wiki","url":"https://en.kancollewiki.net/6-4","snapshotSha256":null},
+    {"id":"guide_jp_6_5","kind":"community_guide","url":"https://zekamashi.net/kancolle-kouryaku/6-5/","snapshotSha256":null},
+    {"id":"kc3_land_base","kind":"third_party_implementation","url":"https://github.com/KC3Kai/KC3Kai/blob/375c8a0ad7c6b0c02f8f92c2296f3b246bb04884/src/library/objects/LandBase.js","revision":"375c8a0ad7c6b0c02f8f92c2296f3b246bb04884","snapshotSha256":"fe19d76ebc7df795b146003fc4bbca0e8ca2485086cef9b1c6ffd37087be3278","license":"MIT","licenseUrl":"https://github.com/KC3Kai/KC3Kai/blob/master/LICENSE","use":"参考字段语义，未复制源码"},
+    {"id":"historical_api_2016","kind":"public_historical_example","url":"https://electronicobserver.blog.fc2.com/blog-entry-72.html","snapshotSha256":null,"limitations":"2016 年旧格式，非当前服务器合同"},
+    {"id":"public_combined_battle","kind":"public_battle_example","url":"https://github.com/hkuno9000/KanColle-YPS/issues/190","snapshotSha256":null,"limitations":"活动战斗示例，不证明常规海域完整行为"},
+    {"id":"accuracy_alternative","kind":"community_research","url":"https://akkun-take.hatenablog.com/entry/2024/10/10/223528","snapshotSha256":null},
+    {"id":"aircalc_old","kind":"third_party_simulator","url":"https://noro6.github.io/kcTools/","snapshotSha256":null,"limitations":"旧版已停止更新，模拟结果不是实测"},
+    {"id":"local_format_observation","kind":"local_observation","url":null,"snapshotSha256":null,"observedOn":"2026-11-04","scope":"中部海域单次主动只读响应的字段类型；不保存玩家数据","limitations":"未覆盖南西海域、其他账号或全部状态"}
+  ]
+}

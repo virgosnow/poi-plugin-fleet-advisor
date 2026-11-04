@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "purpose": "基地航空队常规海域研究资料索引；仅供后续开发，不代表功能已经实现。",
+  "updated": "2026-11-04",
+  "statusVocabulary": {
+    "community_supported": "社区资料支持，不等同官方规范或项目实战验证",
+    "community_estimate": "社区推定、简化公式或参考值，可能缺少例外与验证",
+    "implementation_evidence": "第三方实现中的解释，不能替代当前游戏接口合同",
+    "observed_local_format": "本地只读请求观察到的字段结构，不代表其他账号或海域",
+    "pending": "尚未确认、存在分歧或资料不足，不应当成确定值",
+    "synthetic": "人为构造的数学或行为样例，不是实战数据"
+  },
+  "files": {
+    "sources": "sources.json",
+    "maps": "maps.json",
+    "mechanics": "mechanics.json",
+    "api": "api.json",
+    "examplesAndGaps": "examples_and_gaps.json"
+  },
+  "dataPolicy": {
+    "rawSources": "原始网页和参考源码保留项目外；本目录仅保存必要摘要、来源与哈希。",
+    "privateData": "不保存账号快照、基地编成、装备实例、凭据或完整战斗记录。",
+    "missing": "null 或缺失表示未知或不适用，不自动解释为零、不可选或已解锁。",
+    "unresolved": "pending 信息不得当作已裁定规则，消费者必须显式处理不确定性。",
+    "nodeRadius": "逐节点半径以现有 encounters/<海域>.json 各敌编成的 lbasRadius 为输入；需核对该节点各记录的一致性，不根据缺失创建默认值。",
+    "distribution": "资料文件位于现有 npm files 白名单包含的 data/sortie/ 下，未来变更仍需核对来源和权利声明。"
+  }
+}

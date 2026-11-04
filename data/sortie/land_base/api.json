@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "scope":"api_get_member/mapinfo and related data",
+  "rules":[
+    {"id":"identity","fields":["api_area_id","api_rid"],"meaning":"区域与航空队序号组成队伍身份","status":"implementation_evidence","sources":["kc3_land_base"]},
+    {"id":"action","field":"api_action_kind","values":{"0":"standby","1":"sortie","2":"air_defense","3":"evacuation","4":"rest"},"unknownValue":"unknown","status":"implementation_evidence","sources":["kc3_land_base"]},
+    {"id":"distance","field":"api_distance","formats":[{"type":"object","fields":["api_base","api_bonus"],"status":"observed_local_format","sources":["local_format_observation","kc3_land_base"]},{"type":"number","status":"implementation_evidence","sources":["historical_api_2016","kc3_land_base"],"note":"历史格式，当前主动读取白名单不保留数字格式；不能推定当前服务仍返回。"}],"interpretation":"对象的已确认数值可按 api_base + api_bonus 解释；任一必要值未知时结果未知。"},
+    {"id":"squadron","field":"api_plane_info[]","fields":["api_squadron_id","api_slotid","api_count","api_max_count","api_cond","api_state"],"identity":"api_squadron_id","status":"implementation_evidence","sources":["kc3_land_base"]},
+    {"id":"equipment_instance","field":"api_slotid","meaning":"装备实例 ID，按 info.equips 查实例，再以 api_slotitem_id 查主数据","historicalEmptyValue":0,"status":"implementation_evidence","sources":["kc3_land_base","historical_api_2016"]},
+    {"id":"squadron_state","field":"api_state","readyValue":1,"otherValues":"unknown","note":"不把非 1 全部解释为同一种转场状态。","status":"implementation_evidence","sources":["kc3_land_base"]},
+    {"id":"condition","field":"api_cond","meaning":"疲劳显示相关字段","internalMoraleValueKnown":false,"status":"pending","sources":["kc3_land_base"]},
+    {"id":"map_capacity","field":"api_air_base_decks","meaning":"可能为地图出击航空队数量上限","status":"implementation_evidence","sources":["historical_api_2016"],"note":"缺失与 0 不等价；状态覆盖需核验。"},
+    {"id":"equipment_upgrade_and_proficiency","fields":["api_level","api_alv"],"status":"implementation_evidence","sources":["kc3_land_base"],"note":"可见熟练度不等于精确内部熟练度。"},
+    {"id":"battle_waves","field":"api_air_base_attack[]","fields":["api_base_id","api_squadron_plane","api_stage1","api_stage2","api_stage3","api_stage3_combined"],"status":"implementation_evidence","sources":["public_combined_battle"],"limitations":"阶段聚合数据不能保证还原逐槽损失或全部隐藏随机值；索引格式可能变化。"}
+  ],
+  "currentProjectReader": {
+    "path":"src/host/quest_reader.js",
+    "mapInfoFieldWhitelist":["api_area_id","api_rid","api_action_kind","api_distance.api_base","api_distance.api_bonus","api_plane_info.api_squadron_id","api_plane_info.api_slotid","api_plane_info.api_count","api_plane_info.api_max_count","api_plane_info.api_cond","api_plane_info.api_state"],
+    "numericDistancePreserved":false,
+    "targetNodesObserved":false,
+    "note":"该段记录本次检查的工作区现状，后续代码变化时需复核。"
+  },
+  "privacy":{"includeAccountSnapshots":false,"includeCredentials":false,"includeFullRawResponses":false}
+}
