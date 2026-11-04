@@ -196,7 +196,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
           h('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
             h('path',{d:'m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9'}))),
         h('span',{className:'paa-tab-indicator','aria-hidden':true}),
-        ...[['manual','当前舰队'],['normal','常规海域'],['practice','演习'],['expedition','远征']].map(([value,label])=>
+        ...[['manual','当前舰队'],['normal','常规海域'],['expedition','远征'],['practice','演习']].map(([value,label])=>
           h('button',{key:value,type:'button','aria-pressed':mode===value,disabled:busy||!!externalJob,
             onClick:()=>{setMode(value);if(mode!=='settings')reset();}},label)),
         h('div',{className:'paa-settings-tools',role:'group','aria-label':'设置操作','data-expanded':mode==='settings'},

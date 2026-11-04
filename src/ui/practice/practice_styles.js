@@ -1,4 +1,12 @@
 'use strict';
+// The portrait row is its own size container: reserve the badge only when
+// another selected portrait cannot fit, including on wide multi-column pages.
+const trainingOverflowRules=Array.from({length:6},(_,i)=>i+1).flatMap(total=>
+  Array.from({length:total},(_,i)=>total-1-i).map(visible=>{
+    const next=visible+1,threshold=next===total?next*48+(next-1)*6:next*48+next*6+24;
+    const row=`.paa-practice-training-portraits[data-count="${total}"]`;
+    return `@container training-portraits (max-width:${threshold-.1}px){${row} .paa-practice-training-portrait:nth-child(n+${visible+1}){display:none}${row} .paa-practice-training-more{display:none}${row} .paa-practice-training-more-${visible}{display:inline-flex}}`;
+  })).join('');
 module.exports=`
 .paa-practice .paa-wb-left{display:flex;flex-direction:column;gap:12px;padding:16px}
 @container(min-width:781px){.paa-workbench[data-kind=practice] .paa-wb-right>.paa-wb-command-area{padding:0}.paa-workbench[data-kind=practice] .paa-wb-command-row :is(button,select){height:36px;min-height:36px}}
@@ -12,11 +20,11 @@ module.exports=`
 .paa .paa-practice-training-trigger{position:relative;display:flex;flex:1;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:12px;width:0;min-width:0;height:102px;min-height:102px;padding:14px 16px;text-align:left;font-size:14px;line-height:22px;border:1px solid var(--paa-line);border-radius:10px;background:var(--paa-card);color:var(--paa-text)}
 .paa-practice-training-title{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;font-weight:600;line-height:22px;color:var(--paa-text)}
 .paa-practice-training-title .paa-area-chevron{position:static;flex:none;margin-right:2px}
-.paa-practice-training-portraits{display:flex;align-items:center;gap:6px;min-width:0;height:38px;overflow:hidden}
+.paa-practice-training-portraits{container:training-portraits / inline-size;display:flex;align-items:center;gap:6px;width:100%;min-width:0;height:38px;overflow:hidden}
 .paa-practice-training-portrait{display:flex;align-items:center;justify-content:center;flex:0 0 64px;min-width:0;height:38px;overflow:hidden;border-radius:4px;background:var(--paa-soft);color:var(--paa-muted);font-size:11px;white-space:nowrap}
-.paa-practice-training-portrait img{width:100%;height:100%;object-fit:cover}.paa-practice-training-more{flex:none;color:var(--paa-muted);font-size:12px}.paa-practice-training-more-2,.paa-practice-training-more-3{display:none}.paa-practice-training-empty-hint{color:var(--paa-muted);font-size:13px;line-height:38px}
-@container(max-width:420px){.paa-practice-training-portrait:nth-child(n+4){display:none}.paa-practice-training-more-4{display:none}.paa-practice-training-more-3{display:inline}}
-@container(max-width:350px){.paa-practice-training-portrait:nth-child(n+3){display:none}.paa-practice-training-more-3{display:none}.paa-practice-training-more-2{display:inline}}
+.paa-practice-training-portrait img{width:100%;height:100%;object-fit:cover}.paa-practice-training-more{box-sizing:border-box;display:none;align-items:center;justify-content:center;flex:0 0 24px;width:24px;height:24px;border:1px solid var(--paa-line);border-radius:4px;color:var(--paa-muted);font-size:11px;line-height:1}.paa-practice-training-empty-hint{color:var(--paa-muted);font-size:13px;line-height:38px}
+@container training-portraits (max-width:413.99px){.paa-practice-training-portrait{flex-basis:48px;height:30px}}
+${trainingOverflowRules}
 .paa-practice-training-trigger[aria-expanded=true]{border-color:var(--paa-accent)}.paa-practice-training-trigger[aria-expanded=true] .paa-area-chevron{transform:translateY(3px) rotate(225deg)}
 .paa-practice-training-panel{position:absolute;top:calc(100% + 6px);left:0;z-index:30;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;width:min(520px,calc(100vw - 24px));max-height:560px;padding:10px;border:1px solid var(--paa-line);border-radius:9px;background:var(--paa-card);box-shadow:0 8px 24px #0005}
 .paa .paa-practice-training-controls :is(input,select){font-size:14px}

@@ -246,14 +246,15 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
           h('button',{type:'button',ref:trainingTrigger,className:'paa-practice-training-trigger',disabled,'aria-label':`优先培养舰娘：${trainingLabel}`,'aria-haspopup':'dialog','aria-expanded':trainingOpen,
             onClick:trainingHover.click},
             h('span',{className:'paa-practice-training-title'},'优先培养舰娘',h('span',{className:'paa-area-chevron','aria-hidden':true})),
-            trainingShipIds.length?h('span',{className:'paa-practice-training-portraits','aria-label':trainingLabel},
-              ...trainingShipIds.slice(0,4).map((id,index)=>{const ship=store.info.ships[id],url=V.portraitUrl(store,ship?.api_ship_id);return h('span',{className:'paa-practice-training-portrait',key:id},
+            trainingShipIds.length?h('span',{className:'paa-practice-training-portraits','data-count':trainingShipIds.length,'aria-label':trainingLabel},
+              ...trainingShipIds.slice(0,6).map((id,index)=>{const ship=store.info.ships[id],url=V.portraitUrl(store,ship?.api_ship_id);return h('span',{className:'paa-practice-training-portrait',key:id},
                 url?h('img',{src:url,alt:selectedNames[index],draggable:false}):h('span',null,selectedNames[index]));}),
-              ...[2,3,4].map(limit=>trainingShipIds.length>limit?h('span',{className:`paa-practice-training-more paa-practice-training-more-${limit}`,key:`more-${limit}`},`+${trainingShipIds.length-limit}`):null)):
+              ...[0,1,2,3,4,5].map(limit=>trainingShipIds.length>limit?h('span',{className:`paa-practice-training-more paa-practice-training-more-${limit}`,key:`more-${limit}`,'aria-hidden':true},`+${trainingShipIds.length-limit}`):null)):
               h('span',{className:'paa-practice-training-empty-hint'},'请添加要培养的舰娘')),
           trainingOpen&&!disabled?h('section',{ref:trainingDialog,className:'paa-practice-training-panel',role:'dialog','aria-label':'选择要培养的舰娘',
             onKeyDownCapture:trainingHover.engageKeyboard,onPointerDownCapture:e=>{trainingPointerInside.current=true;trainingHover.engageSelect(e);}},
             h('div',{className:'paa-area-panel-head'},h('span',null,'选择培养舰娘'),h('span',{className:'paa-mission-count'},`已选择 ${trainingShipIds.length} / 6 艘 · ${trainingMatches.length} 项`),
+              h('button',{type:'button',className:'paa-mission-search-reset','aria-label':'清除培养舰娘',disabled:!trainingShipIds.length,onClick:()=>setTrainingShipIds([])},'清除'),
               h('button',{type:'button','aria-label':'关闭舰娘选择',onClick:closeTraining},'×')),
             h('div',{className:'paa-mission-controls paa-practice-training-controls'},
               h('input',{type:'search',className:'paa-practice-training-search',value:trainingSearch,placeholder:'舰名 / 舰种 / ID','aria-label':'搜索舰娘',

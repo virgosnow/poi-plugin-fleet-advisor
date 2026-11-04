@@ -185,9 +185,13 @@ test('practice training targets can be searched and selected without altering th
    assert.equal(walk(option(tree,1)).find(n=>n.type==='input').props.disabled,false,'已固定舰可同时设为练级目标');
    assert.equal(walk(option(tree,8)).find(n=>n.type==='input').props.disabled,false,'手动固定装备的舰可同时设为练级目标');
    walk(option(tree,1)).find(n=>n.type==='input').props.onChange();tree=render();
-   assert.equal(walk(trigger(tree)).filter(n=>n.props.className==='paa-practice-training-portrait').length,4);
-   assert.match(text(trigger(tree)),/\+1/);assert.match(trigger(tree).props['aria-label'],/测试舰1/);
-   walk(option(tree,1)).find(n=>n.type==='input').props.onChange();tree=render();
+   walk(option(tree,8)).find(n=>n.type==='input').props.onChange();tree=render();
+   assert.equal(walk(trigger(tree)).filter(n=>n.props.className==='paa-practice-training-portrait').length,6);
+   assert.match(trigger(tree).props['aria-label'],/测试舰1/);
+   const clear=walk(tree).find(n=>n.props['aria-label']==='清除培养舰娘');assert.equal(clear.props.disabled,false);
+   clear.props.onClick();tree=render();assert.equal(walk(tree).find(n=>n.props['aria-label']==='清除培养舰娘').props.disabled,true);
+   assert.match(trigger(tree).props['aria-label'],/请添加要培养的舰娘/);assert.equal(states[0][0].id,ship.id);
+   for(const id of [2,3,4,5]){walk(option(tree,id)).find(n=>n.type==='input').props.onChange();tree=render();}
    for(const id of [3,4,5]){walk(option(tree,id)).find(n=>n.type==='input').props.onChange();tree=render();}
    states[0][1]=null;tree=render();
    const search=walk(tree).find(n=>n.props['aria-label']==='搜索舰娘');search.props.onChange({target:{value:'测试舰3'}});tree=render();
