@@ -11,7 +11,7 @@ function equipment(phase='picker'){
   const row=button('equipment.row.0',{row:0});
   const s={version:1,documentId:1,valid:true,blocked:false,scene:'equipment',fleet:1,shipId:11,controls:[row],equipment:{phase,shipId:11,slot:0,itemId:7,sourceShip:null,
     mode:0,filter:0,filterDetail:0,sourceCount:1,sourceIds:[7],page:{valid:true,activePage:1,labels:[1],centers:[100],y:677,totalPages:1},
-    rows:[{itemId:7,expectedId:7,sourceShip:null,unset:false,isSortie:false,isExpedition:false,control:row}],level:50,slots:[{visible:true},{visible:true}]}};
+    rows:[{visible:true,itemId:7,expectedId:7,sourceShip:null,unset:false,isSortie:false,isExpedition:false,control:row}],level:50,slots:[{visible:true},{visible:true}]}};
   s.equipment.commit=button(phase==='borrow'?'equipment.borrow':'equipment.confirm',{shipId:11,slot:0,itemId:7,sourceShip:null,mode:0});
   if(phase==='confirm'||phase==='borrow')s.controls=[s.equipment.commit];
   return s;
@@ -130,9 +130,10 @@ function treeFixture(){
   const row=slot(),box=node({_slotItemSlots:[row]},[row]),detail=node({_slotItemSlotBox:box,_textLevel:{_text:'50'}},[box]);
   const select=node({_deck_id:1,_mem_ship_id:11}),equipment=node({_shipDetail:detail,_selectShipView:select},[detail,select]);
   const content=node({},[equipment]),ring=node({visible:false}),side=node({_btn_organize:hit(0,194,63,70),_btn_remodel:hit(0,356,63,70)});side.children=[side._btn_organize,side._btn_remodel];for(const c of side.children)c.parent=side;
-  const option=node({visible:false}),circle=node({_hit_area:hit(0,0,120,120)});circle.children=[circle._hit_area];circle._hit_area.parent=circle;
-  const port=node({_contentLayer:content,_sideMenu:side,_ringMenu:ring,_circle:{_content:circle},_option:option},[content,side,ring,circle,option]);
-  const guard=node({visible:false,interactive:true}),over=node(),root=node({_portMain:port,_mapLayer:node(),_clickGuard:guard,_overLayer:over},[port,guard,over]),stage=node({},[root]);
+  const option=node({visible:false}),circleContent=node({_hit_area:hit(0,0,120,120)});circleContent.children=[circleContent._hit_area];circleContent._hit_area.parent=circleContent;
+  const circle=node({_content:circleContent},[circleContent]);
+  const port=node({_contentLayer:content,_sideMenu:side,_ringMenu:ring,_circle:circle,_option:option},[content,side,ring,circle,option]);
+  const guard=node({visible:false,interactive:true}),over=node(),map=node({visible:false}),root=node({_portMain:port,_mapLayer:map,_clickGuard:guard,_overLayer:over},[port,map,guard,over]),stage=node({},[root]);
   const canvas={isConnected:true,getBoundingClientRect:()=>({width:1200,height:720})};
   const sandbox={PIXI:{ticker:{shared:{_head:{context:{renderer:{view:canvas,_lastObjectRendered:stage}}}}}},document:{querySelector:()=>canvas},performance:{timeOrigin:123},getComputedStyle:()=>({display:'block',visibility:'visible'})};
   const read=()=>JSON.parse(JSON.stringify(vm.runInNewContext('('+readControlSnapshot.toString()+')()',sandbox)));
@@ -183,6 +184,66 @@ test('transparent input guards, unknown overlays, hidden home UI and detached pr
   f.port._option._opened=true;assert.equal(f.read().valid,false);
 });
 
+for(const kind of ['organization-picker','equipment-picker'])test(kind+' exposes home only while the native circle is above its content and unobstructed',()=>{
+  const f=treeFixture(),circle=f.port._circle,button=circle._content._hit_area;
+  if(kind==='organization-picker'){
+    const view=f.node(),organization=f.node({_onClickShipChange:()=>{},deckLayer:{},taskChangeShip:{taskChoiceShip:{shipChoiceView:view}}},[view]);
+    f.content.children=[organization];organization.parent=f.content;
+  }else{
+    const list=f.node();f.equipment._taskChoiceSlotItem={_slotitemlist:list,_memory:{mode:0}};
+    f.equipment.children.push(list);list.parent=f.equipment;
+  }
+  const home=s=>s.controls.some(c=>c.id==='navigate.home'&&c.enabled);
+  let s=f.read();assert(s.valid);assert(home(s),'an unobstructed native button is available');
+  circle.renderable=false;s=f.read();assert(!s.valid||!home(s),'an unrendered native circle cannot authorize input');circle.renderable=true;
+  button.interactive=false;s=f.read();assert(!s.valid||!home(s),'a disabled native button cannot authorize input');button.interactive=true;
+  const mask=f.node({graphicsData:[]});circle._mask=mask;mask.parent=f.port;f.port.children.push(mask);
+  s=f.read();assert(!s.valid||!home(s),'an unknown mask cannot authorize input');delete circle._mask;f.port.children.pop();
+  f.root._mapLayer.visible=true;s=f.read();assert(!s.valid||!home(s),'a rendered map layer above port can cover the circle');f.root._mapLayer.visible=false;
+  f.port.children=f.port.children.filter(c=>c!==f.content);f.port.children.push(f.content);
+  s=f.read();assert(!s.valid||!home(s),'content above the circle may intercept its click');
+  f.port.children=f.port.children.filter(c=>c!==circle);f.port.children.push(circle);
+  const popup=f.node();popup.parent=f.over;f.over.children=[popup];s=f.read();
+  assert(!s.valid||!home(s),'unknown global overlays must block the home button');
+});
+
+test('a known global equipment borrow confirmation cannot authorize the covered home button',()=>{
+  const f=treeFixture(),list=f.node(),borrow=f.node({buttonYes:f.hit(400,400),buttonNo:f.hit(700,400)});
+  borrow.children=[borrow.buttonYes,borrow.buttonNo];for(const c of borrow.children)c.parent=borrow;
+  f.equipment._taskChoiceSlotItem={_slotitemlist:list,_changeConfirmFromOtherShip:borrow,_memory:{mode:1}};
+  f.equipment.children.push(list);list.parent=f.equipment;f.over.children=[borrow];borrow.parent=f.over;
+  const s=f.read();assert.equal(s.equipment.phase,'borrow');
+  assert(!s.controls.some(c=>c.id==='navigate.home'&&c.enabled),'borrow modal is above the circle');
+});
+
+test('only the native quest poster can expose its dismiss control and other overlays remain blocking',()=>{
+  const f=treeFixture(),view=f.node({_list:{},_tab:{},_back_btn:{},_pager:{}}),quest=f.node({_view:view},[view]);
+  quest.parent=f.content;f.content.children=[quest];
+  const sprite=f.node({_texture:{textureCacheIds:['duty_poster_1']}}),poster=f.hit(0,0,1200,720);
+  poster.children=[sprite];sprite.parent=poster;poster.parent=f.over;f.over.children=[poster];
+  const snapshot=f.read();assert(snapshot.valid);assert.equal(snapshot.scene,'quest-welcome');
+  assert.deepEqual(snapshot.controls.map(c=>c.id),['quest.welcome.dismiss']);
+  assert.deepEqual(snapshot.controls[0].point,{x:600,y:360});
+  const other=f.node();other.parent=f.over;f.over.children.push(other);assert.equal(f.read().valid,false);
+  f.over.children.pop();sprite._texture.textureCacheIds=['unrelated'];assert.equal(f.read().valid,false);
+  sprite._texture.textureCacheIds=['duty_poster_1'];delete view._pager;assert.equal(f.read().valid,false);
+  view._pager={};poster.hitArea.width=1190;assert.equal(f.read().valid,false);
+  poster.hitArea.width=1200;poster.interactive=false;assert.equal(f.read().valid,false);
+  poster.interactive=true;f.over.children=[];const plain=f.read();assert(plain.valid);assert.equal(plain.scene,'other');
+  assert(plain.controls.some(c=>c.id==='navigate.home'&&c.enabled));
+});
+
+test('only the attached and rendered native expedition alert interrupts, including above unknown overlays',()=>{
+  const f=treeFixture(),alert=f.node({visible:false,_activated:true});f.port._expedition_alert=alert;alert.parent=f.port;f.port.children.push(alert);
+  assert.equal(f.read().interruption,undefined,'a prebuilt hidden alert is normal');
+  alert.visible=true;const popup=f.node();popup.parent=f.over;f.over.children=[popup];
+  const s=f.read();assert.equal(s.interruption,'expedition-return');assert.equal(s.valid,false);assert.equal(s.blocked,true);
+  alert._activated=false;assert.equal(f.read().interruption,undefined);alert._activated=true;
+  alert.renderable=false;assert.equal(f.read().interruption,undefined);
+  alert.renderable=true;alert.alpha=0;assert.equal(f.read().interruption,undefined);
+  alert.alpha=1;alert.parent=f.node();assert.equal(f.read().interruption,undefined,'detached objects cannot interrupt');
+});
+
 test('late control readings and inputs are rejected after stop',async()=>{
   let finish;const host={getStore:()=>store,readControls:()=>new Promise(r=>{finish=r;})},observer=new ControlObserver(host);
   const read=observer.read('rowicon',context);await observer.dispose();finish(equipment());await assert.rejects(read,/stopped/);
@@ -209,6 +270,50 @@ test('native subcategory lists retain their actual instance order and expose the
   assert(observeControls(s,'equippicker',{shipId:11,slot:0},store).valid);
   task._slot_index=-1;delete task._memory.filter;delete task._memory.filter_detail;
   assert(observeControls(f.read(),'pageread',{layout:'equip',shipId:11,slot:-1},store).valid,'expansion lists have no category fields');
+});
+
+test('a visible unavailable expedition row cannot hide a different valid equipment row',async()=>{
+  const f=treeFixture(),text=f.node({_text:'1'}),number=f.hit(725,666,30,30);
+  const pager=f.node({focusIndex:0,pageCount:1,textChanges:[text],buttonChanges:[number]},[text,number]);
+  const primary=f.hit(790,150,50,30),filter=f.node({_slotItemFilterButton:primary},[primary]);
+  const ids=[8,9,10,11,12,13,14,7,15,16];
+  const rows=ids.map((id,index)=>{
+    const hit=f.hit(555,195+45*index,667,45);if(index<6)hit.interactive=false;
+    return f.node({memSlotItemId:id,itemType:0,clickArea:hit},[hit]);
+  });
+  const list=f.node({_pagerView:pager,_slotItemFilterView:filter,_listItems:rows},[pager,filter,...rows]);
+  const task={_slotitemlist:list,_mem_ship_id:11,_slot_index:0,_memory:{mode:1,filter:3,filter_detail:1,slotItemPage:0},
+    _sourceSlotItems:ids.map((id,index)=>({item:{_o:{api_id:id}},attached:{_o:{api_id:index<6?33:22}},
+      isSortie:false,isExpedition:index<6,isUnset:false})),
+    _setList:{equipped_ship:{}}};
+  f.equipment._taskChoiceSlotItem=task;f.equipment.children.push(list);list.parent=f.equipment;
+  const data=clone(store);for(const id of ids)data.info.equips[id]={api_slotitem_id:1};
+  const arg={...context,row:7,sourceShipId:22};
+  const snapshot=f.read();
+  assert.equal(snapshot.equipment.rows.filter(row=>!row.control.enabled).length,6,'the six remote expedition items have no clickable control');
+  assert(observeControls(snapshot,'equippicker',{shipId:11,slot:0},data).valid,'the visible locked row still occupies its native list position');
+  assert.deepEqual(snapshot.equipment.page.itemIds,ids,'unavailable rows remain in the native order');
+  assert(observeControls(snapshot,'rowicon',arg,data).valid,'the unrelated available instance remains selectable');
+
+  const unavailable=clone(snapshot);unavailable.equipment.rows[7].isExpedition=true;
+  assert.equal(observeControls(unavailable,'rowicon',arg,data).valid,false,'never select equipment on an expedition');
+  const disabled=clone(snapshot);disabled.equipment.rows[7].control.enabled=false;
+  assert.equal(observeControls(disabled,'rowicon',arg,data).valid,false,'never select a disabled target');
+  const mismatch=clone(snapshot);mismatch.equipment.rows[7].expectedId=8;
+  assert.equal(observeControls(mismatch,'equippicker',{shipId:11,slot:0},data).valid,false,'visible rows must match the native list');
+  assert.equal(observeControls(mismatch,'rowicon',arg,data).valid,false);
+  const wrongLocked=clone(snapshot);wrongLocked.equipment.rows[0].expectedId=9;
+  assert.equal(observeControls(wrongLocked,'equippicker',{shipId:11,slot:0},data).valid,false,'even an unavailable row must match the native list');
+  const o=new ControlObserver({getStore:()=>data,readControls:async()=>f.read()});
+  await o.start();assert((await o.read('rowicon',arg)).valid);
+  const input={x:750,y:540,kind:'click',controlId:'equipment.row.7'};
+  assert.deepEqual(await o.prepareInput(input),snapshot.equipment.rows[7].control.point);
+  rows[7].clickArea.interactive=false;
+  await assert.rejects(o.prepareInput(input),/Unique enabled control/,'a target disabled after observation must not be clicked');
+  rows[7].clickArea.interactive=true;
+  rows[0].visible=false;assert.equal(observeControls(f.read(),'equippicker',{shipId:11,slot:0},data).valid,false,'a hidden row cannot stand in for a visible list item');
+  rows[0].visible=true;list.children=list.children.filter(child=>child!==rows[0]);
+  assert.equal(observeControls(f.read(),'equippicker',{shipId:11,slot:0},data).valid,false,'a detached row cannot stand in for a visible list item');
 });
 
 test('switching recognition disposes the previous observer and warm runs bind the current host',async()=>{

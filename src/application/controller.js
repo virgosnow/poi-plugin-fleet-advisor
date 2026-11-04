@@ -6,6 +6,9 @@ const {restoreEquipment}=require('../execution/equipment');
 const {enterScreen}=require('../execution/navigation');
 const {canFallback,recoverImageScreen}=require('../execution/recognition_fallback');
 
+// Returning home is best effort unless the game requires the player to handle
+// an expedition return, which must be reported as an interrupted operation.
+const ignoreReturnHomeFailure=error=>{if(error?.code==='EXPEDITION_RETURN_REQUIRED')throw error;};
 
 class Controller {
   constructor({getStore,createHost,createObserver,onProgress=()=>{},onDiagnostic=()=>{}}) {
@@ -37,7 +40,7 @@ class Controller {
       const operations=kind==='equipment'?plan.ships.reduce((n,s)=>n+s.ops.length,0):plan.targets.length;
       this.createSession({operationWaitMs,recognitionMode,timeoutMs:Math.max(180000,operations*30000)});
       const result=await this.runStage(kind,()=> (kind==='organization'?restoreOrganization:restoreEquipment)(this.session,pinned));
-      await this.runStage('return-home',()=>this.returnHomeAndPark()).catch(()=>{/* best effort only */});
+      await this.runStage('return-home',()=>this.returnHomeAndPark()).catch(ignoreReturnHomeFailure);
       success=true;
       return {...result,metrics:{...this.session.metrics,startupMs:this.session.metrics.started-started,totalMs:performance.now()-started}};
     } finally {
@@ -96,7 +99,7 @@ class Controller {
   }
   // Best-effort return to the home port so the next task (or the user)
   // starts from a known place. The run itself already succeeded, so a failed
-  // or interrupted return never fails it. Parks the cursor at the top-left
+  // or interrupted return normally does not fail it. Parks the cursor at the top-left
   // corner so no button stays highlighted.
   async returnHomeAndPark() {
     if(!this.session)return;
@@ -128,7 +131,7 @@ class Controller {
     if(JSON.stringify(Object.entries(this.getStore().info.ships).map(([id,s])=>[id,s.api_slot,s.api_slot_ex]))!==equipmentSnapshot)
       throw new Error('Equipment changed during organization stage');
     if(eq.ships.length)stages.equipment=await this.runStage('equipment',()=>restoreEquipment(this.session,eq));
-    await this.runStage('return-home',()=>this.returnHomeAndPark()).catch(()=>{});
+    await this.runStage('return-home',()=>this.returnHomeAndPark()).catch(ignoreReturnHomeFailure);
     this.onProgress({phase:'fleet-complete',fleet:plan.fleet});
     return {ok:true,done:true,changed:stages.organization.changed+stages.equipment.changed,stages,metrics:{...this.session.metrics}};
   }

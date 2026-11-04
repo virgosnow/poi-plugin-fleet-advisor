@@ -151,6 +151,20 @@ test('controls remain screenshot-free and explicit image mode remains available'
     assert.equal(r.metrics.captures===0,recognitionMode==='controls');assert.equal(r.changed,6);
   }
 });
+test('return-home reports a required expedition return while preserving best effort for other errors',async()=>{
+  for(const kind of ['fleet','equipment'])for(const required of [true,false]){
+    const h=harness();
+    if(kind==='equipment')h.data.info.fleets[0].api_ship=[3,4];
+    const error=Object.assign(new Error(required?'请先处理归港':'ordinary return failure'),
+      required?{code:'EXPEDITION_RETURN_REQUIRED'}:{});
+    h.controller.returnHomeAndPark=async()=>{throw error;};
+    if(required){
+      await assert.rejects(h.controller.run(kind,h.scheme),actual=>actual===error);
+      assert(!h.events.some(event=>event.phase==='fleet-complete'));
+      assert.deepEqual(h.created,['controls']);
+    }else assert.equal((await h.controller.run(kind,h.scheme)).ok,true);
+  }
+});
 test('all three extra waits persist through the entire organization, refit and image recovery sequence',async()=>{
   let baseline;
   for(const operationWaitMs of [0,300,800]){

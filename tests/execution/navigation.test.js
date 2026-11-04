@@ -114,3 +114,53 @@ test('navigation does not retry after '+JSON.stringify(options),async()=>{
   const f=harness('home',options);await assert.rejects(enterScreen(f.session,'equipment'),/capture failed|worker failed|Run stopped|Store drift/);
   assert.equal(f.inputs.length,options.afterInput||options.checkError?1:0);assert(f.stats().cancelled);
 });
+
+function controlNavigation(initial,options={}){
+  let now=0,mode=initial,cancelled=false;
+  const inputs=[],preflights=[];
+  const interrupt=()=>Object.assign(new Error('远征舰队已归港，请先处理归港结果'),{code:'EXPEDITION_RETURN_REQUIRED'});
+  const host={check(){},cancel(){cancelled=true;},async input(input){
+    inputs.push(input);
+    mode=options.stayWelcome&&input.x===500?'quest-welcome':({500:'port-return',62:'home',292:'organization',477:'equipment'})[input.x]||mode;
+  }};
+  const observer={async read(kind,arg){
+    if(options.interrupt?.('read',kind,inputs.length))throw interrupt();
+    if(kind==='navigation')return {valid:true,point:({home:{x:62,y:58},organization:{x:292,y:202},equipment:{x:477,y:339},'quest-welcome-dismiss':{x:500,y:300}})[arg.destination]};
+    assert.equal(kind,'screen');
+    return mode==='port-return'?{valid:true,mode,returnButton:{x:62,y:58}}:{valid:true,mode};
+  },async prepareInput(input){
+    preflights.push(input.controlId);
+    if(options.interrupt?.('input',input.controlId,inputs.length))throw interrupt();
+    return {x:input.x,y:input.y};
+  }};
+  const session=new Session(host,observer,{now:()=>now});
+  session.wait=async ms=>{session.check();now+=ms;};
+  return {session,inputs,preflights,stats:()=>({cancelled})};
+}
+
+test('control navigation dismisses the quest welcome once, returns to port and enters organization',async()=>{
+  const f=controlNavigation('quest-welcome');
+  await enterScreen(f.session,'organization');
+  assert.deepEqual(f.preflights,['quest.welcome.dismiss','navigate.home','navigate.organization']);
+  assert.deepEqual(f.inputs.map(({x,y})=>[x,y]),[[500,300],[62,58],[292,202]]);
+});
+test('control navigation does not repeat a welcome dismissal when the panel remains covered',async()=>{
+  const f=controlNavigation('quest-welcome',{stayWelcome:true});
+  await assert.rejects(enterScreen(f.session,'home'),{code:'OBSERVATION_TIMEOUT'});
+  assert.deepEqual(f.preflights,['quest.welcome.dismiss']);
+  assert.equal(f.inputs.length,1);
+});
+for(const [name,initial,interrupt,expected] of [
+  ['initial screen','quest-welcome',(at,kind,count)=>at==='read'&&kind==='screen'&&count===0,0],
+  ['welcome preparation','quest-welcome',(at,kind,count)=>at==='read'&&kind==='navigation'&&count===0,0],
+  ['welcome input','quest-welcome',(at,kind,count)=>at==='input'&&kind==='quest.welcome.dismiss'&&count===0,0],
+  ['welcome completion','quest-welcome',(at,kind,count)=>at==='read'&&kind==='screen'&&count===1,1],
+  ['port input','port-return',(at,kind,count)=>at==='input'&&kind==='navigate.home'&&count===0,0],
+  ['port completion','port-return',(at,kind,count)=>at==='read'&&kind==='screen'&&count===1,1],
+  ['destination completion','home',(at,kind,count)=>at==='read'&&kind==='screen'&&count===1,1],
+])test('expedition return interrupts navigation at '+name,async()=>{
+  const f=controlNavigation(initial,{interrupt});
+  await assert.rejects(enterScreen(f.session,'organization'),error=>error.code==='EXPEDITION_RETURN_REQUIRED'&&/远征舰队已归港/.test(error.message));
+  assert.equal(f.inputs.length,expected);
+  assert.equal(f.stats().cancelled,true);
+});

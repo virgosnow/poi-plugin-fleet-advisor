@@ -2,10 +2,19 @@
 const categories=require('../../data/equip_categories.json').templates;
 const {controlUnavailable}=require('./recognition_fallback');
 const ready=c=>c?.attached===true&&c.visible===true&&c.enabled===true&&c.point&&Number.isFinite(c.point.x)&&Number.isFinite(c.point.y);
+const homeReady=c=>ready(c)&&c.rendered===true;
 const invalid=reason=>({valid:false,reason});
+function checkInterruption(snapshot){
+  if(snapshot?.interruption==='expedition-return'){
+    const error=new Error('检测到远征归港，已停止编成。请先在游戏中处理归港，并核对可能已生效的部分编成后再重试。');
+    error.code='EXPEDITION_RETURN_REQUIRED';
+    throw error;
+  }
+}
 const sortModes={1:'level',2:'type',3:'new',4:'damage',5:'repair',6:'morale'};
 const pageResult=p=>p?{valid:p.valid,labels:p.labels,centers:p.centers,activePage:p.activePage,y:p.y,...(p.itemIds?{itemIds:p.itemIds}:{})}:invalid('Picker page unavailable');
 function observeControls(snapshot,kind,arg={},store){
+  checkInterruption(snapshot);
   if(!snapshot?.valid||snapshot.blocked||snapshot.version!==1)return invalid(snapshot?.reason||'Game controls unavailable');
   const s=snapshot,e=s.equipment,o=s.organization;
   const orgTab={valid:s.scene==='organization'&&s.fleet===arg.fleet,selected:[s.fleet]};
@@ -15,23 +24,26 @@ function observeControls(snapshot,kind,arg={},store){
   const equipList=()=>equipContext()&&e.phase==='picker'&&(e.slot===-1||Number.isInteger(e.filterDetail)&&e.filterDetail>=0)&&e.page?.valid
     &&Array.isArray(e.sourceIds)&&e.sourceIds.length===e.sourceCount&&new Set(e.sourceIds).size===e.sourceIds.length
     &&e.sourceIds.every(id=>Number.isSafeInteger(id)&&id>0&&store?.info.equips[id])
-    &&e.rows.filter(r=>r.control.visible).length===Math.min(10,e.sourceCount-(e.page.activePage-1)*10)
-    &&e.rows.filter(r=>r.control.visible).every(r=>Number.isSafeInteger(r.itemId)&&r.itemId>0&&r.itemId===r.expectedId);
+    &&e.rows.filter(r=>r.visible===true).length===Math.min(10,e.sourceCount-(e.page.activePage-1)*10)
+    &&e.rows.filter(r=>r.visible===true).every(r=>Number.isSafeInteger(r.itemId)&&r.itemId>0&&r.itemId===r.expectedId);
   const selection=()=>equipContext()&&e.itemId===arg.itemId&&(e.sourceShip??null)===(arg.sourceShipId??null)&&e.mode===(arg.sourceShipId?1:0)&&ready(e.commit);
   if(kind==='batch'){
     if(!Array.isArray(arg.checks)||!arg.checks.length||arg.checks.length>8||arg.checks.some(c=>!c||c.kind==='batch'||typeof c.kind!=='string'))throw Error('Invalid observation batch');
     const results=arg.checks.map(c=>observeControls(s,c.kind,c.arg,store));return {valid:results.every(r=>r.valid),results};
   }
   if(kind==='navigation'){
-    if(!['home','organization','equipment'].includes(arg.destination))return invalid('Unsupported navigation destination');
-    const controls=s.controls.filter(c=>c.id==='navigate.'+arg.destination&&ready(c));
+    if(!['home','organization','equipment','quest-welcome-dismiss'].includes(arg.destination))return invalid('Unsupported navigation destination');
+    if(arg.destination==='quest-welcome-dismiss'&&s.scene!=='quest-welcome')return invalid('Quest welcome is no longer open');
+    const id=arg.destination==='quest-welcome-dismiss'?'quest.welcome.dismiss':'navigate.'+arg.destination;
+    const controls=s.controls.filter(c=>c.id===id&&(id==='navigate.home'?homeReady(c):ready(c)));
     return {valid:controls.length===1,point:controls.length===1?controls[0].point:null};
   }
   if(kind==='screen'){
+    if(arg.allowPortReturn&&s.scene==='quest-welcome'&&s.controls.some(c=>c.id==='quest.welcome.dismiss'&&ready(c)))return {valid:true,mode:'quest-welcome'};
     if(s.scene==='home')return {valid:true,mode:'home'};
     if(s.scene==='organization'&&o?.phase==='base')return {valid:true,mode:'organization'};
     if(equipBase)return {valid:true,mode:'equipment',...(arg.includeFleet?{fleet:s.fleet}:{})};
-    if(arg.allowPortReturn&&s.scene==='other'&&s.controls.some(c=>c.id==='navigate.home'&&ready(c)))return {valid:true,mode:'port-return',returnButton:{x:62,y:58}};
+    if(arg.allowPortReturn&&s.scene!=='home'&&s.controls.filter(c=>c.id==='navigate.home'&&homeReady(c)).length===1)return {valid:true,mode:'port-return',returnButton:{x:62,y:58}};
     return invalid('A native panel or unsupported scene is open');
   }
   if(kind==='orgtab')return orgTab;
@@ -58,7 +70,7 @@ function observeControls(snapshot,kind,arg={},store){
   }
   if(kind==='rowicon'){
     const row=e?.rows?.[arg.row],item=store?.info.equips[row?.itemId],type=store?.const.$equips[item?.api_slotitem_id]?.api_type?.[3];
-    const valid=equipList()&&e.page.activePage===arg.page&&row?.itemId===arg.itemId&&row.itemId===row.expectedId&&ready(row.control)
+    const valid=equipList()&&e.page.activePage===arg.page&&row?.visible===true&&row.itemId===arg.itemId&&row.itemId===row.expectedId&&ready(row.control)
       &&row.unset===false&&row.isSortie===false&&row.isExpedition===false&&(row.sourceShip??null)===(arg.sourceShipId??null)&&type===arg.t3;
     return {valid:!!valid,expectedType:arg.t3,actualType:type??null};
   }
@@ -116,11 +128,11 @@ class ControlObserver{
   }
   async prepareInput(input){
     if(this.closed)throw Error('Control observer stopped');
-    const s=await this.host.readControls();if(!s.valid||s.blocked)throw controlUnavailable('Game controls changed before input: '+(s.reason||'not ready'));
+    const s=await this.host.readControls();checkInterruption(s);if(!s.valid||s.blocked)throw controlUnavailable('Game controls changed before input: '+(s.reason||'not ready'));
     if(this.closed)throw Error('Control observer stopped');
     if(input.kind==='hover'&&input.x===0&&input.y===0)return {x:0,y:0};
     const inside=c=>c.bounds&&input.x>=c.bounds.left&&input.x<=c.bounds.right&&input.y>=c.bounds.top&&input.y<=c.bounds.bottom;
-    let targets=s.controls.filter(c=>ready(c)&&(input.controlId?c.id===input.controlId:inside(c))&&(input.kind==='hover'||matchesMutation(c,input.mutation,s)));
+    let targets=s.controls.filter(c=>(c.id==='navigate.home'?homeReady(c):ready(c))&&(input.controlId?c.id===input.controlId:inside(c))&&(input.kind==='hover'||matchesMutation(c,input.mutation,s)));
     if(!input.mutation&&input.kind!=='hover')targets=targets.filter(c=>{
       if(c.id.startsWith('organization.row.')){
         const a=this.intent.organization,o=s.organization;

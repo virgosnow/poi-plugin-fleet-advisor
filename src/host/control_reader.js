@@ -33,6 +33,11 @@ function readControlSnapshot(){
     return {attached:false,visible:false,rendered:false,enabled:false};
   };
   const active=o=>connected(o).visible;
+  // This native panel is created in advance and is normally hidden. Only an
+  // attached, actually rendered panel signals an expedition return; existence
+  // or an elapsed mission timer alone is not enough to interrupt automation.
+  if(own(own(port,'_expedition_alert'),'_activated')===true&&connected(own(port,'_expedition_alert')).rendered)
+    return {...result,interruption:'expedition-return',reason:'Expedition return alert is visible'};
   const geometry=o=>{
     if(own(o,'slotIconDelete'))return geometry(own(o,'slotIconDelete'));
     if(own(o,'_state_sprite'))return geometry(own(o,'_state_sprite'));
@@ -72,8 +77,8 @@ function readControlSnapshot(){
   };
   const control=(id,node,meta={},register=true)=>{
     const target=inputNode(node),g=geometry(target),state=connected(target);
-    const exposed=!id.startsWith('equipment.category.')||unclipped(target,g?.point);
-    const value={id,...state,...(g||{}),unclipped:exposed,enabled:!!g&&state.enabled&&exposed,...meta};
+    const exposed=!(id.startsWith('equipment.category.')||id==='navigate.home')||unclipped(target,g?.point);
+    const value={id,...state,...(g||{}),unclipped:exposed,enabled:!!g&&state.enabled&&exposed&&(id!=='navigate.home'||state.rendered),...meta};
     if(register&&state.attached)result.controls.push(value);return value;
   };
   const knownOverlays=[];
@@ -99,7 +104,7 @@ function readControlSnapshot(){
   result.scene=equipment?'equipment':organization?'organization':home?'home':'other';
   result.valid=true;result.blocked=false;
   const addNavigation=()=>{
-    if(!home)control('navigate.home',own(circle,'_hit_area'));
+    if(!home)addReturnNavigation();
     if(home){
       // The ring's children carry their native destination type. Unknown
       // destinations are never added to the executor's input allowlist.
@@ -108,6 +113,16 @@ function readControlSnapshot(){
     }
     if(!result.controls.some(c=>c.id==='navigate.organization'&&c.enabled))control('navigate.organization',own(side,'_btn_organize'));
     if(!result.controls.some(c=>c.id==='navigate.equipment'&&c.enabled))control('navigate.equipment',own(side,'_btn_remodel'));
+  };
+  // Only expose the port circle when it is above the current content and no
+  // later map or overlay layer can intercept its native hit target.
+  const addReturnNavigation=()=>{
+    const layers=children(port),contentLayer=own(port,'_contentLayer'),circleLayer=own(port,'_circle');
+    const contentIndex=layers.indexOf(contentLayer),circleIndex=layers.indexOf(circleLayer);
+    const overlays=[own(root,'_overLayer'),own(port,'_overLayer')];
+    if(contentIndex<0||circleIndex<=contentIndex||own(circleLayer,'parent')!==port||own(contentLayer,'parent')!==port||active(own(root,'_mapLayer'))||
+      overlays.some(layer=>children(layer).some(active)))return;
+    control('navigate.home',own(circle,'_hit_area'));
   };
   const page=(pager,modelPage,sourceCount,prefix)=>{
     const focus=own(pager,'focusIndex'),count=own(pager,'pageCount'),texts=own(pager,'textChanges')||[],buttons=own(pager,'buttonChanges')||[];
@@ -124,6 +139,28 @@ function readControlSnapshot(){
       &&labels.includes(focus+1)&&labels.every((n,i)=>!i||n===labels[i-1]+1);
     return {valid,labels,centers,activePage:focus+1,totalPages:count,y:buttons.length?geometry(inputNode(buttons[0]))?.point.y:undefined,first,forward};
   };
+  // The quest page may open with its own full-screen poster. Only expose its
+  // native dismiss target when both the page structure and poster texture are
+  // identifiable; any other overlay must still fail closed in complete().
+  const quest=content.find(o=>{
+    const view=own(o,'_view');
+    return active(view)&&['_list','_tab','_back_btn','_pager'].every(k=>Object.hasOwn(view,k));
+  });
+  if(quest&&!equipment&&!organization){
+    const candidates=children(own(root,'_overLayer')).filter(active).filter(layer=>{
+      const sprites=children(layer).filter(active);
+      if(sprites.length!==1)return false;
+      const ids=own(own(sprites[0],'_texture'),'textureCacheIds');
+      return Array.isArray(ids)&&ids.some(id=>typeof id==='string'&&/^duty_poster_\d+$/.test(id));
+    });
+    if(candidates.length===1){
+      const target=control('quest.welcome.dismiss',candidates[0]),b=target.bounds;
+      if(target.enabled&&b&&b.left<=1&&b.top<=1&&b.right>=1199&&b.bottom>=719){
+        knownOverlays.push(candidates[0]);result.scene='quest-welcome';return complete();
+      }
+      result.controls=[];
+    }
+  }
   if(organization){
     knownOverlays.push(own(organization,'presetButtonLayer'));
     const fleet=own(own(organization,'deckLayer'),'_deckID'),change=own(organization,'taskChangeShip'),choice=own(change,'taskChoiceShip'),confirm=own(change,'taskConfirmChangeShip');
@@ -133,6 +170,7 @@ function readControlSnapshot(){
     if(o.phase==='confirm'){
       o.selectedShip=own(confirm,'memShipId');o.confirmFleet=own(confirm,'toDeckId');o.confirmSlot=own(confirm,'toIndex');
       o.commit=control('organization.confirm',own(panel,'changeButton'),{fleet:o.confirmFleet,slot:o.confirmSlot,shipId:o.selectedShip});
+      addReturnNavigation();
       return complete();
     }
     if(o.phase==='picker'){
@@ -147,6 +185,7 @@ function readControlSnapshot(){
         return {shipId,expectedId,control:control('organization.row.'+i,own(r,'itemHitArea'),{shipId,row:i})};
       });
       o.sourceCount=source.length;
+      addReturnNavigation();
       return complete();
     }
     addNavigation();
@@ -175,7 +214,7 @@ function readControlSnapshot(){
       e.sourceIds=source.map(row=>own(own(own(row,'item'),'_o'),'api_id'));
       e.page=page(pager,own(memory,'slotItemPage'),source.length,'equipment');
       e.rows=(own(list,'_listItems')||[]).slice(0,10).map((r,i)=>{
-        const entry=source[index*10+i];return {itemId:own(r,'memSlotItemId'),expectedId:own(own(own(entry,'item'),'_o'),'api_id'),type:own(r,'itemType'),
+        const entry=source[index*10+i];return {visible:connected(r).rendered,itemId:own(r,'memSlotItemId'),expectedId:own(own(own(entry,'item'),'_o'),'api_id'),type:own(r,'itemType'),
           sourceShip:own(own(own(entry,'attached'),'_o'),'api_id')??null,isSortie:own(entry,'isSortie'),isExpedition:own(entry,'isExpedition'),unset:own(entry,'isUnset'),
           control:control('equipment.row.'+i,own(r,'clickArea'),{row:i},false)};
       });
@@ -199,6 +238,7 @@ function readControlSnapshot(){
         e.categoryControl=control('equipment.category',own(filterView,'_slotItemFilterButton'));
       }
       e.page.itemIds=e.sourceIds;
+      addReturnNavigation();
       return complete();
     }
     addNavigation();
