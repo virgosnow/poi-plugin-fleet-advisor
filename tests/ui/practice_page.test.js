@@ -251,7 +251,7 @@ test('training picker shares hover guard and filters and sorts the full roster w
  const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
  const render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
  let tree=render(),anchor=walk(tree).find(n=>n.props.className==='paa-practice-training');
- assert.equal(typeof anchor.props.onPointerEnter,'function');assert.equal(typeof anchor.props.onPointerLeave,'function');assert.equal(typeof anchor.props.onClickCapture,'function');
+ assert.equal(anchor.props.onPointerEnter,undefined);assert.equal(anchor.props.onPointerLeave,undefined);assert.equal(typeof anchor.props.onClickCapture,'function');
  walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props.onClick();tree=render();
  const options=()=>walk(tree).filter(n=>n.type==='label'&&n.props.className==='paa-practice-training-option');
  assert(options().every(option=>walk(option).every(n=>!n.props['data-tooltip']&&!n.props.title)));

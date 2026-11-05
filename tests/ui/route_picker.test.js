@@ -47,7 +47,7 @@ test('route picker clicks toggle the panel',()=>{
   const options=require('../../src/domain/routes/route_plans').recommendedOptions('1-4'),calls=[];
   const props={options,value:options[0].key,onChange:key=>calls.push(key)},ui=harness(props);
   const anchor=()=>ui.find(n=>n.props.className==='paa-area-anchor'),panel=()=>ui.find(n=>n.props.role==='dialog');
-  assert.equal(typeof anchor().props.onPointerEnter,'function');assert.equal(typeof anchor().props.onPointerLeave,'function');assert.equal(typeof anchor().props.onClickCapture,'function');
+  assert.equal(anchor().props.onPointerEnter,undefined);assert.equal(anchor().props.onPointerLeave,undefined);assert.equal(typeof anchor().props.onClickCapture,'function');
   ui.find(n=>n.props['aria-label']==='路线').props.onClick();ui.render();assert(panel());
   ui.find(n=>n.props['aria-label']==='路线').props.onClick();ui.render();assert(!panel());
   ui.find(n=>n.props['aria-label']==='路线').props.onClick();ui.render();assert(panel());
@@ -56,17 +56,15 @@ test('route picker clicks toggle the panel',()=>{
   assert.deepEqual(calls,[]);
 });
 
-test('keyboard route browsing stays open when the pointer leaves',t=>{
+test('click-opened route picker stays open without pointer-dependent timers',t=>{
   t.mock.timers.enable({apis:['setTimeout']});
   const calls=[],ui=harness({options:[{key:'a',name:'路线',nodes:['A']}],value:'',onChange:key=>calls.push(key)});
-  const focused={},doc={activeElement:focused},anchor=()=>ui.find(n=>n.props.className==='paa-area-anchor');
-  anchor().props.ref.current={ownerDocument:doc};ui.open();
-  const panel=ui.find(n=>n.props.role==='dialog'),boundary={contains:node=>node===focused};
-  panel.props.onKeyDownCapture({key:'ArrowDown',currentTarget:boundary});
-  anchor().props.onPointerLeave({pointerType:'mouse'});t.mock.timers.tick(500);ui.render();
-  assert(ui.find(n=>n.props.role==='dialog'));assert.deepEqual(calls,[]);
-  doc.activeElement={};anchor().props.onPointerLeave({pointerType:'mouse'});t.mock.timers.tick(500);ui.render();
-  assert(!ui.find(n=>n.props.role==='dialog'));assert.deepEqual(calls,[]);
+  ui.open();
+  const anchor=ui.find(n=>n.props.className==='paa-area-anchor');
+  assert.equal(anchor.props.onPointerEnter,undefined);assert.equal(anchor.props.onPointerLeave,undefined);
+  t.mock.timers.tick(5000);ui.render();assert(ui.find(n=>n.props.role==='dialog'));assert.deepEqual(calls,[]);
+  anchor.props.onKeyDown({key:'Escape',preventDefault(){},stopPropagation(){}});ui.render();
+  assert(!ui.find(n=>n.props.role==='dialog'));
 });
 
 test('battle predictions replace priority labels and rank routes within each phase without changing selections',()=>{

@@ -3,7 +3,7 @@ const REGIONS=['','镇守府海域','南西诸岛海域','北方海域','西方�
 const REGION_ORDER=new Map([1,2,3,7,4,5,6].map((world,index)=>[world,index]));
 const {missionSummary,referenceIncome}=require('../expedition/expedition_model');
 const {normalizeName}=require('../../shared/name_matching');
-const usePickerHover=require('./picker_hover');
+const usePickerToggle=require('./picker_hover');
 const INCOME_ORDERS={fuel:'燃料',ammo:'弹药',steel:'钢材',bauxite:'铝土'};
 const MISSION_REGIONS={1:'镇守府',2:'南西诸岛',3:'北方',4:'西方',5:'南方',6:'中部',7:'南西'};
 function missionRegion(m,masters={}){
@@ -57,13 +57,11 @@ module.exports=function createAreaPicker(React){
     const expedition=kind==='expedition',label=expedition?'远征':'海域';
     const [open,setOpen]=React.useState(false),trigger=React.useRef(null),dialog=React.useRef(null),anchor=React.useRef(null);
     const [query,setQuery]=React.useState(''),[order,setOrder]=React.useState('number'),[region,setRegion]=React.useState('all');
-    const editingSearch=React.useRef(false);
     const netResource=INCOME_ORDERS[order];
-    const hover=usePickerHover(React,{enabled:!disabled&&!hidden,open,anchor,onOpen:()=>setOpen(true),
-      onClose:()=>{editingSearch.current=false;setOpen(false);},
-      shouldHoldOpen:()=>editingSearch.current&&anchor.current?.ownerDocument?.activeElement===dialog.current?.querySelector('input[type=search]')});
-    const close=()=>{editingSearch.current=false;hover.dismiss();setOpen(false);trigger.current?.focus();};
-    React.useEffect(()=>{if(disabled||hidden){editingSearch.current=false;hover.dismiss();setOpen(false);}},[disabled,hidden]);
+    const picker=usePickerToggle(React,{enabled:!disabled&&!hidden,open,anchor,onOpen:()=>setOpen(true),
+      onClose:()=>setOpen(false)});
+    const close=()=>{picker.dismiss();setOpen(false);trigger.current?.focus();};
+    React.useEffect(()=>{if(disabled||hidden){picker.dismiss();setOpen(false);}},[disabled,hidden]);
     React.useEffect(()=>{
       if(!open||disabled||hidden)return;
       const panel=dialog.current,root=anchor.current,doc=root.ownerDocument,win=doc.defaultView;
@@ -74,10 +72,10 @@ module.exports=function createAreaPicker(React){
         panel.style.left=`${Math.max(12-r.left,Math.min(0,doc.documentElement.clientWidth-12-r.left-width))}px`;
         panel.style.maxHeight=`${Math.max(100,Math.min(expedition?400:320,doc.documentElement.clientHeight-r.bottom-18))}px`;
       };
-      const outside=e=>{if(!root.contains(e.target)){editingSearch.current=false;hover.dismiss();setOpen(false);}};
+      const outside=e=>{if(!root.contains(e.target)){picker.dismiss();setOpen(false);}};
       place();
       const selected=panel.querySelector('[aria-current=true]')||panel.querySelector('.paa-area-maps button');
-      if(!hover.isHover())(expedition?panel.querySelector('input[type=search]'):selected)?.focus({preventScroll:true});
+      (expedition?panel.querySelector('input[type=search]'):selected)?.focus({preventScroll:true});
       const list=panel.querySelector('.paa-area-regions');
       if(selected&&list)list.scrollTop+=selected.getBoundingClientRect().top-list.getBoundingClientRect().top-30;
       doc.addEventListener('pointerdown',outside,true);win.addEventListener('resize',place);doc.addEventListener('scroll',place,true);
@@ -125,23 +123,22 @@ module.exports=function createAreaPicker(React){
           [h('strong',null,id(entry)),entry.name?h('small',null,entry.name):null]));
     };
     return h('div',{className:'paa-area-picker','data-kind':kind},h('span',{className:'paa-area-label'},label),
-      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:hover.guardClick,onPointerEnter:hover.enter,onPointerLeave:hover.leave,
-        onBlur:e=>{if(!e.currentTarget.contains(e.relatedTarget)){editingSearch.current=false;hover.dismiss();setOpen(false);}}},
+      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:picker.guardClick,
+        onBlur:e=>{if(!e.currentTarget.contains(e.relatedTarget)){picker.dismiss();setOpen(false);}}},
       h('button',{type:'button',ref:trigger,className:'paa-area-trigger',disabled,
-        'aria-label':label,'aria-description':selectedBrief?.statusText,'aria-haspopup':'dialog','aria-expanded':open&&!disabled&&!hidden,onClick:()=>{if(!disabled&&!hidden)hover.click();}},
+        'aria-label':label,'aria-description':selectedBrief?.statusText,'aria-haspopup':'dialog','aria-expanded':open&&!disabled&&!hidden,onClick:()=>{if(!disabled&&!hidden)picker.click();}},
         h('strong',null,selectedBrief?.number||value),h('span',{className:'paa-area-name'},selectedBrief?.name||selected?.name||`选择${label}`),
         selectedBrief?h('span',{className:'paa-mission-option-state paa-mission-selected-state'},monthBadge(selectedBrief),statusIcon(selectedBrief)):null,
         h('span',{className:'paa-area-chevron','aria-hidden':true})),
       open&&!disabled&&!hidden?h('section',{ref:dialog,className:'paa-area-panel',role:'dialog','aria-label':`选择${label}`,onKeyDown:keys,
-          onKeyDownCapture:hover.engageKeyboard,onPointerDownCapture:hover.engageSelect,'data-kind':kind},
+          'data-kind':kind},
           h('div',{className:'paa-area-panel-head'},h('span',null,`选择${label}`),
             expedition&&!Object.keys(missionProgress?.records||{}).length?h('span',null,'待同步'):null,
             expedition? h('span',{className:'paa-mission-count'},`${visible.length} / ${catalog.length}${netResource?' · 参考净时薪（预设补给）':''}`):null,
             expedition&&query?h('button',{type:'button',className:'paa-mission-search-reset',onClick:()=>setQuery('')},'清空搜索'):null,
             h('button',{type:'button','aria-label':`关闭${label}选择`,onClick:close},'×')),
           expedition?h('div',{className:'paa-mission-controls'},h('input',{type:'search','aria-label':'搜索远征',placeholder:'编号 / 名称 / 资源',value:query,
-            onPointerDown:()=>{editingSearch.current=true;},onCompositionStart:()=>{editingSearch.current=true;},
-            onBlur:()=>{editingSearch.current=false;},onChange:e=>{editingSearch.current=true;setQuery(e.target.value);}}),
+            onChange:e=>setQuery(e.target.value)}),
             h('select',{'aria-label':'远征排序',value:order,onChange:e=>setOrder(e.target.value)},
               ...[['number','编号顺序'],['short','时长：短到长'],['long','时长：长到短'],
                 ...Object.entries(INCOME_ORDERS).map(([id,name])=>[id,`${name}净收益/时`])].map(([id,name])=>h('option',{key:id,value:id},name)))):null,
