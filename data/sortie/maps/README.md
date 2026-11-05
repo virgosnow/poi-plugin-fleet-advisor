@@ -10,6 +10,7 @@ Fleet Advisor 1.0 使用资源索引按需加载地图。项目与发行包不�
 | `map_common.png` | Boss 与出发点图标及插值边缘，约 46 KiB |
 | `map_common.json` | 公共图集的原始帧元数据 |
 | `map_common.source.json` | 原始与运行文件哈希、保留帧和来源 |
+| `airbase_marker.png` | 从同一原始图集 `map_common_81` 无损裁出的游戏基地图标 |
 | `SOURCE_LICENSE` | 上游 MIT 许可证；不授予游戏美术权利 |
 
 `.npmignore` 与根 `.gitignore` 限制开发大图进入发行包和仓库。索引的 `image` / `imageEncoding` 标识外部开发参考图，不要求本目录存在同名图片。
@@ -52,3 +53,5 @@ Node 回归检查索引、阶段覆盖、裁切边界和公共图集文件身份
 坐标及基础图集主要来自 [KagamiChan/kcs2-mapdata](https://github.com/KagamiChan/kcs2-mapdata)，固定提交 `796a7564eac5de79d32ae0e086a673052ee65ad0`。5-6 的资源地址与哈希记录在索引中。
 
 `map_common.png` 保持原画布和使用帧像素。`map_common.json` 的原始字节参与来源验证，不能重新格式化或改变换行；`.gitattributes` 为它保留字节。完整来源与权利范围见 [THIRD_PARTY.md](../../../THIRD_PARTY.md)。
+
+基地图标保留原始 40×40 帧的全部像素，图像及 RGBA 哈希记录在 `map_common.source.json`。6-5 与 7-4 的显示坐标分别由 [6-5 航程图](https://yksk.kancollewiki.net/w/images/9/90/World_6_6-5_Map_LBAS_Range.png)与 [7-4 游戏地图截图](https://ibalatias.hateblo.jp/entry/20211229/1640788200)匹配游戏原图帧取得，仅用于地图展示，不用像素距离推算航程。6-4 游戏地图没有基地图标，不额外虚构位置。

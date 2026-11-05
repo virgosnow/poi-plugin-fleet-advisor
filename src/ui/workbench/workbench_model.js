@@ -74,7 +74,7 @@ function changeSummary(store,slots,fleet){
 function item(store,id,slot){
   return V.equipmentItem(store,id,slot);
 }
-function equipmentOptions(store,slots,index,slot,search=''){
+function equipmentOptions(store,slots,index,slot,search='',reservedEquipment=[]){
   const ship=slots[index],term=normalizeName(search).toLowerCase();if(!ship)return [];
   const rules=R.tables(store),categories=new Map();
   const labels={1:'舰上战斗机',2:'舰爆／舰攻',3:'侦察机／水上机',4:'主炮',5:'特殊炮弹／强化装备',
@@ -84,7 +84,7 @@ function equipmentOptions(store,slots,index,slot,search=''){
     for(const type of rules.filteringDetailCategories[detail]||[])categories.set(type,
       {categoryId:category.id,category:labels[category.id]||category.name,categoryOrder:order,typeOrder});
   }));
-  const used=new Set(slots.filter(Boolean).flatMap(s=>s.slots.concat(s.ex)).filter(id=>id>0));
+  const used=new Set([...slots.filter(Boolean).flatMap(s=>s.slots.concat(s.ex)),...reservedEquipment].filter(id=>id>0));
   const current=slot==='ex'?ship.ex:ship.slots[slot];used.delete(current);
   const owners=new Map();
   for(const [id,s] of Object.entries(store.info.ships))for(const eid of [...(s.api_slot||[]),s.api_slot_ex])if(eid>0)owners.set(eid,Number(id));
@@ -504,30 +504,59 @@ function losSummary(report,profile,routeNodes){
   const hint=!selected?'选择路线后显示索敌门槛':gates.length?gates.map(edge).join(' · ')+' · 门槛待确认':'所选路线索敌资料待确认';
   return {label,value,coefficient,hint,state:!selected?'请选择路线':'门槛待确认',bad:false};
 }
-function fleetSummary(report,profile,routeNodes){
+function fleetSummary(report,profile,routeNodes,{store,landBases}={}){
   const air=report.metrics?.airPower;
   const paths=Array.isArray(routeNodes)?routeNodes.length?(Array.isArray(routeNodes[0])?routeNodes:[routeNodes]):[]:null;
   const airProfile=paths?{...profile,routePaths:paths.map(nodes=>({nodes})),examples:paths}:profile;
-  const {routeAirReference,estimateRouteAir}=require('../../domain/routes/route_air');
-  const reference=routeAirReference(report.route||{},profile?.area,airProfile);
+  const {routeAirReference,withLandBases,estimateRouteAir}=require('../../domain/routes/route_air');
+  let reference=routeAirReference(report.route||{},profile?.area,airProfile);
+  if(store&&landBases?.some(base=>base.targets?.some(Boolean))){
+    const check=require('../../recommendation/land_base').validatePlan(store,{area:profile?.area,bases:landBases,scheme:report.scheme});
+    reference=check.valid?withLandBases(store,reference,landBases,profile?.area):
+      {...reference,status:'unknown',superiority:null,supremacy:null,reason:check.issues.join('；')};
+  }
   const estimate=estimateRouteAir(air,reference),arrival=estimate.boss||estimate.terminal;
   const airValue=air?.status==='range'?air.min===air.max?String(air.min):`${air.min}–${air.max}`:'—';
   const base=reference.superiority,secure=reference.supremacy;
   const range=value=>value.min===value.max?String(value.min):`${value.min}–${value.max}`;
-  const airHint=base===null?reference.status==='unselected'?'请选择路线':'所选路线制空资料待确认':base===0?'敌方全程无制空':`空优 ${base} · 空确 ${secure}`+
+  // After the base waves, the limiting node can move away from the original
+  // unattenuated maximum. Derive both ends and their nodes from the same
+  // per-node estimates used for the headline, never the pre-base maxima.
+  const landSteps=reference.landBase&&estimate.status==='estimated'?
+    (estimate.paths||[]).flatMap(path=>path.steps||[]):[];
+  const validThreshold=value=>Number.isFinite(value)&&value>=0;
+  let adjusted=null;
+  if(landSteps.length&&landSteps.every(step=>typeof step.node==='string'&&
+      ['superiority','supremacy'].every(goal=>validThreshold(step.required?.[goal])&&
+        validThreshold((step.requiredLow||step.required)?.[goal])&&
+        (step.requiredLow||step.required)[goal]<=step.required[goal]))){
+    const max=(goal,low)=>Math.max(...landSteps.map(step=>(low?(step.requiredLow||step.required):step.required)[goal]));
+    const superiority={min:max('superiority',true),max:max('superiority',false)},
+      supremacy={min:max('supremacy',true),max:max('supremacy',false)};
+    const limitingNodes=[...new Set(landSteps.filter(step=>
+      ['superiority','supremacy'].some(goal=>step.required[goal]===(goal==='superiority'?superiority.max:supremacy.max)||
+        (step.requiredLow||step.required)[goal]===(goal==='superiority'?superiority.min:supremacy.min))).map(step=>step.node))];
+    adjusted={superiority,supremacy,limitingNodes};
+  }
+  const rawAirHint=base===null?reference.status==='unselected'?'请选择路线':'所选路线制空资料待确认':base===0?'敌方全程无制空':`空优 ${base} · 空确 ${secure}`+
     (reference.limitingNodes.length?` · ${reference.limitingNodes.join('/')} 点`:'');
+  const airHint=reference.landBase?(adjusted?
+    `空优 ${range(adjusted.superiority)} · 空确 ${range(adjusted.supremacy)} · ${adjusted.limitingNodes.join('/')} 点（参考）`:
+    reference.status==='known'&&base===0?'敌方全程无制空':'基地航空后制空门槛待确认'):rawAirHint;
   const noAirBattle=base===0&&reference.nodes.every(n=>n.noAirBattle||n.kind==='asw');
   const endpoint=arrival?.node?`${arrival.node} 点`:'Boss';
-  const airState=air?.status!=='range'?'待计算':base===null?'待确认':noAirBattle?'无需制空':
+  const airStateRaw=air?.status!=='range'?'待计算':base===null?'待确认':noAirBattle?'无需制空':
     estimate.status!=='estimated'?'损耗待确认':base===0&&air.max===0?'未配制空':
     estimate.margins.supremacy.min>=0?'全程空确':
-    estimate.margins.superiority.min>=0?'全程空优':arrival?.before.max<arrival?.required.superiority?`${endpoint}制空不足`:
+    estimate.margins.superiority.min>=0?'全程空优':arrival?.before.max<(arrival?.requiredLow?.superiority??arrival?.required.superiority)?`${endpoint}制空不足`:
     arrival?.before.min<arrival?.required.superiority?`${endpoint}空优临界`:estimate.margins.superiority.max<0?'道中制空不足':'道中空优临界';
+  const airState=reference.landBase&&/^全程空(?:优|确)$/.test(airStateRaw)?`预计${airStateRaw}`:airStateRaw;
   const lossDetail=estimate.status==='estimated'?(arrival?`${estimate.boss?'抵达 Boss':'抵达终点'}时我方预计制空：${range(arrival.before)}\n`:'')+`${estimate.basis}\n`+estimate.paths.flatMap(p=>p.steps.map(s=>
     `${s.node} 点${s.round>1?`第 ${s.round} 轮`:''}：战前 ${range(s.before)} / 空优 ${s.required.superiority}`+(s.after?` → 战后 ${range(s.after)}`:''))).join('\n'):
     estimate.reason;
-  const compactHint=base===null||base===0?airHint:
-    `${reference.limitingNodes.join('/')} 点 · 空优 ${base} · 空确 ${secure}`;
+  const compactHint=reference.landBase?(adjusted?
+    `${adjusted.limitingNodes.join('/')} 点 · 空优 ${range(adjusted.superiority)} · 空确 ${range(adjusted.supremacy)}（参考）`:airHint):
+    base===null||base===0?airHint:`${reference.limitingNodes.join('/')} 点 · 空优 ${base} · 空确 ${secure}`;
   return {air:{value:airValue,state:airState,hint:airHint,compactHint,
     detail:['按所选路线估算，已计道中飞机损耗；全程空优／空确不是实战保证。',lossDetail||reference.reason||reference.basis].filter(Boolean).join('\n'),reference,estimate,
     bad:/不足|临界|未配/.test(airState)},

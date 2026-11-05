@@ -98,11 +98,11 @@ test('airbase changes refresh the selected map while keeping the draft',t=>{
   const timer=h.intervals.find(timer=>timer.active&&String(timer.fn).includes('const next=getStore()'));
   assert(timer);timer.fn();h.render();h.flushChecks();
   assert.equal(h.get('revision'),oldRevision+1);assert.equal(h.get('slots'),draft);
-  assert.match(text(find(h.tree,n=>n.props.className==='paa-airbase')),/航程 7/);
+  assert(find(h.tree,n=>n.props['aria-label']==='航程 7'));
   h.render({busy:true});store.info.airbase[0].api_distance.api_base=9;h.render({busy:true});
-  assert.match(text(find(h.tree,n=>n.props.className==='paa-airbase')),/航程 7/,'execution keeps the displayed state fixed');
+  assert(find(h.tree,n=>n.props['aria-label']==='航程 7'),'execution keeps the displayed state fixed');
   h.render({busy:false});h.flushChecks();
-  assert.match(text(find(h.tree,n=>n.props.className==='paa-airbase')),/航程 9/);
+  assert(find(h.tree,n=>n.props['aria-label']==='航程 9'));
 });
 
 test('workbench does not defer an account change during a sortie',t=>{

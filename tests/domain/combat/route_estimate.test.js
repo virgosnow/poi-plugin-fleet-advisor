@@ -44,6 +44,7 @@ test('remaining supply is tracked independently and unknown costs propagate',()=
   const later=advanceSupply(whirlpool,{fuel:.2,ammo:.2});assert.equal(later.fuel,null);assert(Math.abs(later.ammo-.6)<1e-9);
   assert.deepEqual(advanceSupply({fuel:.1,ammo:.1},{fuel:.2,ammo:.2}),{fuel:0,ammo:0});
 });
+
 test('a whirlpool keeps numeric before-battle supply on subsequent route nodes',()=>{
   const map=require('../../../data/sortie/encounters/1-1.json'),old=map.nodes.W;
   map.nodes.W={...require('../../../data/sortie/encounters/3-3.json').nodes.C,node:'W'};
@@ -85,6 +86,23 @@ test('the same real 1-1 route distinguishes strong and weak synthetic fleets',()
   assert.deepEqual(strong.diagnostics.nodes.map(node=>node.supplyBefore),[{fuel:1,ammo:1},{fuel:.8,ammo:.8}]);
   assert(strong.balance.ratio>weak.balance.ratio);
   assert(weak.reasons.some(reason=>reason.includes('不是实际通过率')));
+});
+test('land-base waves affect only their assigned reachable node, and other maps are unchanged',()=>{
+  const f=fixture({fire:15,torpedo:10,armor:5,hp:20});
+  f.store.const.$equips[901]={api_id:901,api_name:'一式陸攻',api_type:[0,0,47],api_tyku:3,api_raig:10,api_baku:8,api_tais:0,api_distance:8};
+  f.store.info.equips[901]={api_id:901,api_slotitem_id:901,api_alv:7,api_level:0};
+  const bases=[{areaId:6,rid:1,slots:[{slotId:1,itemId:901,count:18,state:1}],targets:['N','N']}];
+  const land=require('../../../src/domain/combat/land_base');
+  const before=land.prepare(f.store,bases,{area:'6-4',nodeId:'C',nodeKind:'battle',enemyAirPower:0});
+  const target=land.prepare(f.store,bases,{area:'6-4',nodeId:'N',nodeKind:'battle',enemyAirPower:0});
+  assert.equal(before.waves.length,0);assert.equal(target.waves.length,2);
+  const battle=require('../../../src/domain/combat/combat_battle'),enemy=require('../../../src/domain/combat/combat_encounters').enemyRecord({apiId:1501,apiIdStatus:'verified(test)'});
+  const prepared=battle.prepareBattle([projectedHull(f.store,f.scheme.ships[0])],[{...enemy,hp:{min:1000,max:1000}}]);
+  const without=battle.runScenario(prepared,battle.random(17));
+  const withBase=battle.runScenario({...prepared,landBase:target},battle.random(17));
+  assert(withBase.enemyHp[0]<without.enemyHp[0]);
+  const unrelated=profile('1-1','雷巡流');
+  assert.deepEqual(assess(f,unrelated,{landBases:bases}),assess(f,unrelated));
 });
 test('5-5 upper path identifies RE-class threat without putting it on the middle path',()=>{
   const f=fixture({count:6,fire:55,torpedo:50,armor:30,hp:45});

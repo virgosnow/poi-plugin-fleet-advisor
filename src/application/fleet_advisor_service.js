@@ -23,6 +23,12 @@ const PLAN_TTL_MS=5*60*1000;
 const JOB_RETENTION_MS=24*60*60*1000;
 const TERMINAL=new Set(['succeeded','failed','cancelled','interrupted']);
 const nowIso=()=>new Date().toISOString();
+function reserveLandBaseEquipment(store,ids){
+  if(ids===undefined||Array.isArray(ids)&&!ids.length)return store;
+  if(!Array.isArray(ids)||ids.length>12||ids.some(id=>!Number.isSafeInteger(id)||id<=0||!store.info?.equips?.[id])||new Set(ids).size!==ids.length)
+    throw error('INVALID_QUERY','基地航空队保留装备必须为不重复的持有实例');
+  return {...store,planningUnavailableEquipmentIds:[...new Set([...(store.planningUnavailableEquipmentIds||[]),...ids])]};
+}
 
 function observedState(state,shipIds=[]) {
   try{
@@ -122,6 +128,13 @@ class FleetAdvisorService {
   getRecommendationFilters(){return selectionFilters.normalize(this.recommendationFilters);}
   getComputationSettings(){return computationSettings.normalizePreferences(this.computationSettings);}
   getExperimentalSettings(){return experimentalSettings.normalize(this.experimentalSettings);}
+  recordWorkbenchTiming(stages){
+    if(!this.experimentalSettings?.performanceDebug||!Array.isArray(stages))return;
+    const allowed=new Set(['workbench.search','workbench.routeSort','workbench.finalBase','route.inspect','route.base','route.combat']);
+    const safe=stages.filter(row=>allowed.has(row?.name)&&Number.isFinite(row?.ms)&&row.ms>=0)
+      .slice(0,128).map(row=>({name:row.name,ms:row.ms}));
+    if(safe.length)void this.performanceLogs.write({method:'recommendNormalFleet',level:'stages',stages:safe}).catch(()=>{});
+  }
   setExperimentalSettings(value){
     if(!this.persistenceReady)throw error('PERSISTENCE_UNAVAILABLE','设置不可写');
     try{experimentalSettings.validate(value);}catch(e){throw error('INVALID_QUERY',e.message);}
@@ -345,7 +358,7 @@ class FleetAdvisorService {
     const snapshot=this.snapshots.get(args.snapshotId),filters=this.getRecommendationFilters()[kind];
     args=pageQueries.recommendationArgs(snapshot.store,args);
     const filtered=selectionFilters.planningStore(snapshot.store,filters);
-    const input=kind==='expedition'?require('../domain/fleet/expedition_planning_store')(filtered,args.fleet??2):filtered;
+    const input=kind==='expedition'?require('../domain/fleet/expedition_planning_store')(filtered,args.fleet??2):reserveLandBaseEquipment(filtered,args.landBaseEquipmentIds);
     const result=await this.recommendations.run(method,input,{...args,automaticFilters:filters},onProgress);
     pageQueries.verifyConstraints(result,args,false,snapshot.store);
     const reason=selectionFilters.evaluator(snapshot.store,kind,filters),counts={};
@@ -373,7 +386,8 @@ class FleetAdvisorService {
   async recommendNormalEquipment(args,onProgress){
     const snapshot=this.snapshots.get(args.snapshotId);
     args={...this.equipmentRecommendationArgs(snapshot.store,args),automaticFilters:this.getRecommendationFilters().normal};
-    const result=pageQueries.verifyConstraints(await this.recommendations.run('recommendNormalEquipment',snapshot.store,args,onProgress),args,true);
+    const input=reserveLandBaseEquipment(snapshot.store,args.landBaseEquipmentIds);
+    const result=pageQueries.verifyConstraints(await this.recommendations.run('recommendNormalEquipment',input,args,onProgress),args,true);
     return {snapshotId:args.snapshotId,...result,evaluation:pageQueries.evaluateRoute(snapshot.store,
       {...args,scheme:result.scheme,fleet:result.scheme.fleet},this.getRecommendationFilters().normal)};
   }

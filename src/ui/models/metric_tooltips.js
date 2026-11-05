@@ -22,7 +22,7 @@ function air(store,reading,summary,{current=false}={}){
   for(const path of summary?.estimate?.paths||[])for(const step of path.steps||[]){
     const key=step.node+':'+step.round,old=nodes.get(key);
     if(!old)nodes.set(key,{...step,before:{...step.before},after:step.after?{...step.after}:null});
-    else for(const part of ['before','after'])if(step[part]&&old[part]){
+    else for(const part of ['before','after','enemyAirPowerRange'])if(step[part]&&old[part]){
       old[part].min=Math.min(old[part].min,step[part].min);old[part].max=Math.max(old[part].max,step[part].max);
     }
   }
@@ -32,8 +32,13 @@ function air(store,reading,summary,{current=false}={}){
     enemy===0?(own>0?'空确':'无制空'):own>=required.supremacy?'空确':own>=required.superiority?'空优':
       own>enemy*2/3?'空均':own>enemy/3?'空劣':'空丧';
   if(nodes.size)sections.push(section('所选路线 · 损耗估算',['节点','战前制空','敌方制空','预计结果'],[...nodes.values()].map(s=>{
-    const enemy=enemyAt(s.node),lo=state(s.before.min,enemy?.value,s.required),hi=state(s.before.max,enemy?.value,s.required);
-    return [s.node+(s.round>1?`（第 ${s.round} 轮）`:''),range(s.before.min,s.before.max),enemy?number(enemy.value)+(enemy.upperBound?'（上限）':''):'待确认',lo===hi?lo:`${lo}～${hi}`];
+    const enemy=enemyAt(s.node),enemyLow=s.enemyAirPowerRange?.min??enemy?.value,enemyHigh=s.enemyAirPowerRange?.max??enemy?.value,
+      threshold=value=>({superiority:Math.max(1,Math.ceil(value*1.5)),supremacy:Math.max(1,value*3)}),
+      lo=state(s.before.min,enemyHigh,s.enemyAirPowerRange?threshold(enemyHigh):s.required),
+      hi=state(s.before.max,enemyLow,s.enemyAirPowerRange?threshold(enemyLow):s.required);
+    const enemyText=s.enemyAirPowerRange?range(s.enemyAirPowerRange.min,s.enemyAirPowerRange.max):
+      enemy?number(enemy.value)+(enemy.upperBound?'（上限）':''):'待确认';
+    return [s.node+(s.round>1?`（第 ${s.round} 轮）`:''),range(s.before.min,s.before.max),enemyText,lo===hi?lo:`${lo}～${hi}`];
   }),[1,2]));
   else if(summary?.reference?.nodes?.some(n=>!n.noAirBattle))sections.push(section('所选路线 · 损耗待估算',['节点','战前制空','敌方制空','预计结果'],summary.reference.nodes.filter(n=>!n.noAirBattle).map(n=>{
     const enemy=enemyAt(n.id);return [n.id,'待估算',enemy?number(enemy.value)+(enemy.upperBound?'（上限）':''):'待确认','待确认'];
@@ -42,6 +47,7 @@ function air(store,reading,summary,{current=false}={}){
     notes:[current?'按当前实际搭载计算。':'按出击前满载计算。',
       reading?.min!==reading?.max?'熟练度等未确定部分保留区间。':'',
       nodes.size?'沿途损耗为估算，多分支显示可能范围。':summary?.estimate?.reason,
+      summary?.reference?.landBase?'基地削敌为 5%–95% 样本参考区间，非极限或保证。':'',
       reading?.reason].filter(Boolean)};
 }
 function los(reading,summary,{current=false}={}){

@@ -110,6 +110,8 @@ function nodeAir(area,id,node,cross,encounterStage='unknown'){
   const pureSubmarines=knownShips.length>0&&knownShips.every(s=>s&&['潜水艦','潜水空母'].includes(s.shipType));
   const enemyJets=knownShips.some(s=>s?.equipment?.some(e=>/噴式.*(?:戦闘|爆撃)|jet.*(?:fighter|bomber)/i.test(e.name||'')));
   return {id,kind:node.kind,boss:!!node.boss,pureSubmarines,enemyJets,antiAir:antiAirEnvelope([...patterns,...crossPatterns]),
+    airFormations:[...patterns,...variants.map(v=>({enemyAirPower:v.air,enemyShips:(v.apiIds||[]).map(apiId=>({apiId})),
+      escortFleet:v.escortApiIds?.length?{enemyShips:v.escortApiIds.map(apiId=>({apiId}))}:null}))],
     enemyAirPower:issues.length||bounds.length?null:maximum,knownEnemyAirPower:maximum,
     upperBound:!issues.length&&bounds.length?Math.max(maximum,...bounds):null,
     issues:[...new Set([...issues,...(bounds.length?['敌制空数值存在来源差异']:[])])]};
@@ -123,6 +125,7 @@ function encounterAir(area,encounterStage='unknown'){
   cache.set(key,value);return value;
 }
 const referenceCache=new Map();
+const landReferenceCache=new WeakMap();
 function boundedSet(cache,key,value,limit){
   if(cache.size>=limit)cache.delete(cache.keys().next().value);
   cache.set(key,value);return value;
@@ -133,6 +136,55 @@ function routeAirReference(result,area,profile){
   const key=area+'|'+encounterStage+'|'+paths.map(p=>p.join('>')).join('|');
   if(referenceCache.has(key))return referenceCache.get(key);
   return boundedSet(referenceCache,key,buildReference(area,paths.map(p=>p.slice()),encounterStage),256);
+}
+// Base stages use recorded enemy slots and the game equipment masters. The
+// returned interval is a deterministic 5th–95th percentile reference, not a
+// theoretical bound or a claim that a carrier has been sunk.
+function withLandBases(store,reference,landBases,area){
+  if(!reference||!Array.isArray(landBases)||!landBases.length||!Array.isArray(reference.nodes))return reference;
+  const masters=store?.const?.$equips;
+  let resultCache;
+  if(masters&&typeof masters==='object'){
+    let byMaster=landReferenceCache.get(reference);
+    if(!byMaster){byMaster=new WeakMap();landReferenceCache.set(reference,byMaster);}
+    resultCache=byMaster.get(masters);
+    if(!resultCache){resultCache=new Map();byMaster.set(masters,resultCache);}
+  }
+  // poi can refresh master records, planes and observed bases in place. Their
+  // contents, rather than object identity, determine cached results.
+  const ids=landBases.flatMap(b=>(b?.slots??b?.api_plane_info??[]).map(s=>s?.itemId??s?.api_slotid)).filter(id=>Number(id)>0);
+  const enemy=require('../combat/enemy_land_air'),index=enemy.equipmentIndex(store);
+  const key=JSON.stringify([area,landBases,store?.info?.airbase,ids.map(id=>{
+    const item=store?.info?.equips?.[id];return [item,masters?.[item?.api_slotitem_id]];
+  }),index.signature]);
+  if(resultCache?.has(key))return resultCache.get(key);
+  const remember=value=>resultCache?boundedSet(resultCache,key,value,16):value;
+  const base=require('../combat/land_base'),issues=[];
+  const wavesByNode=new Map(),alternativesByNode=new Map();
+  for(const node of reference.nodes){
+    const enemy=valid(node.enemyAirPower)?node.enemyAirPower:node.upperBound;
+    const result=base.prepare(store,landBases,{area,nodeId:node.id,nodeKind:node.kind,enemyAirPower:enemy});
+    if(result.status==='unknown'){issues.push(...result.reasons);continue;}
+    if(!result.waves.length)continue;
+    wavesByNode.set(node.id,result.waves);
+    const formations=require('../combat/enemy_land_air').alternatives(node,index);
+    if(!formations)issues.push(`${node.id} 点敌机槽位或装备资料待确认`);
+    else alternativesByNode.set(node.id,formations);
+  }
+  if(!wavesByNode.size&&!issues.length)return remember(reference);
+  if(issues.length)return remember({...reference,status:'unknown',reason:[...new Set(issues)].join('；'),landBase:true});
+  const samples=new Map(),byId=new Map(reference.nodes.map(node=>[node.id,node]));
+  for(const path of reference.paths||[]){
+    const nodes=path.map(id=>byId.get(id)).filter(Boolean);
+    const result=enemy.simulatePath(nodes,wavesByNode,alternativesByNode);
+    if(!result)return remember({...reference,status:'unknown',reason:'基地航空逐槽资料待确认',landBase:true});
+    for(const [id,range] of result){const old=samples.get(id);samples.set(id,old?
+      {min:Math.min(old.min,range.min),max:Math.max(old.max,range.max)}:range);}
+  }
+  const nodes=reference.nodes.map(node=>samples.has(node.id)?{...node,enemyAirPowerRange:samples.get(node.id),
+    landBaseWaves:wavesByNode.get(node.id).length}:node);
+  return remember({...reference,nodes,landBase:true,landBaseRangeKind:'p05-p95',
+    basis:'基地航空战按敌机逐槽及逐波制空击坠模拟，不假设敌舰击沉；区间为 5%–95% 参考分位，并非极限或保证。基地飞机的部分特殊损耗未计入。'});
 }
 function buildReference(area,paths,encounterStage){
   const ids=[...new Set(paths.flat())].filter(id=>!id.startsWith('start'));
@@ -183,23 +235,28 @@ function simulateAirPathCore(air,nodes,details=true){
   const steps=[];let boss=null,stepCount=0,before={min:power(0),max:power(1)};
   for(const node of nodes){
     if(node.noAirBattle)continue;
-    const enemy=valid(node.enemyAirPower)?node.enemyAirPower:node.upperBound;
+    const enemy=valid(node.enemyAirPowerRange?.max)?node.enemyAirPowerRange.max:valid(node.enemyAirPower)?node.enemyAirPower:node.upperBound;
     if(!valid(enemy)){issues.push(`${node.id} 点敌制空资料不足`);break;}
+    const enemyLow=valid(node.enemyAirPowerRange?.min)?node.enemyAirPowerRange.min:enemy;
     const rounds=node.kind==='aerialCombat'?2:1;
     for(let round=1;round<=rounds;round++){
       // Zero enemy FP still needs a surviving friendly air-control plane.
       // Without one, a 0 >= 0 comparison must not claim supremacy.
       const required={superiority:Math.max(1,Math.ceil(enemy*1.5)),supremacy:Math.max(1,enemy*3)};
-      for(const goal of ['superiority','supremacy'])for(const side of ['min','max'])
-        margins[goal][side]=Math.min(margins[goal][side],before[side]-required[goal]);
+      const requiredLow={superiority:Math.max(1,Math.ceil(enemyLow*1.5)),supremacy:Math.max(1,enemyLow*3)};
+      for(const goal of ['superiority','supremacy']){
+        margins[goal].min=Math.min(margins[goal].min,before.min-required[goal]);
+        margins[goal].max=Math.min(margins[goal].max,before.max-requiredLow[goal]);
+      }
       stepCount++;
-      const step=details?{node:node.id,round,before,required,boss:node.boss||false}:null;
+      const step=details?{node:node.id,round,before,required,boss:node.boss||false,
+        ...(node.enemyAirPowerRange?{enemyAirPowerRange:node.enemyAirPowerRange,requiredLow}: {})}:null;
       if(details){steps.push(step);if(node.boss&&round===1)boss=step;}
       // Boss arrival is measured BEFORE its losses. No need to approximate
       // post-terminal interception just to assess the current air state.
       const terminal=node===nodes.at(-1)&&round===rounds;
       if(terminal&&!details)continue;
-      const states=[airState(before.min,enemy),airState(before.max,enemy)];
+      const states=[airState(before.min,enemy),airState(before.max,enemyLow)];
       for(const slot of slots){
         for(let side=0;side<2;side++)slot.remaining[side]=Math.max(0,slot.remaining[side]-
           stageOneLoss(slot.remaining[side],states[side],side===0));
@@ -266,8 +323,9 @@ function simulateJetAirPathCore(air,nodes,details){
   let boss=null,count=0;
   for(const node of nodes){
     if(node.noAirBattle)continue;
-    const enemy=valid(node.enemyAirPower)?node.enemyAirPower:node.upperBound;
+    const enemy=valid(node.enemyAirPowerRange?.max)?node.enemyAirPowerRange.max:valid(node.enemyAirPower)?node.enemyAirPower:node.upperBound;
     if(!valid(enemy)){issues.push(`${node.id} 点敌制空资料不足`);break;}
+    const enemyLow=valid(node.enemyAirPowerRange?.min)?node.enemyAirPowerRange.min:enemy;
     const applies=jets.applicable(node);
     if(applies===null){issues.push(`${node.id} 点喷气阶段适用性未确认`);break;}
     let jetStage;
@@ -301,12 +359,17 @@ function simulateJetAirPathCore(air,nodes,details){
     }
     const rounds=node.kind==='aerialCombat'?2:1;
     for(let round=1;round<=rounds;round++){
-      const before=snapshot(),required={superiority:Math.max(1,Math.ceil(enemy*1.5)),supremacy:Math.max(1,enemy*3)};
-      for(const goal of ['superiority','supremacy'])for(const side of ['min','max'])margins[goal][side]=Math.min(margins[goal][side],before[side]-required[goal]);
+      const before=snapshot(),required={superiority:Math.max(1,Math.ceil(enemy*1.5)),supremacy:Math.max(1,enemy*3)},
+        requiredLow={superiority:Math.max(1,Math.ceil(enemyLow*1.5)),supremacy:Math.max(1,enemyLow*3)};
+      for(const goal of ['superiority','supremacy']){
+        margins[goal].min=Math.min(margins[goal].min,before.min-required[goal]);
+        margins[goal].max=Math.min(margins[goal].max,before.max-requiredLow[goal]);
+      }
       count++;
-      const step=details?{node:node.id,round,before,required,boss:!!node.boss,...round===1&&jetStage?{jetAssault:jetStage}:{}}:null;
+      const step=details?{node:node.id,round,before,required,boss:!!node.boss,...round===1&&jetStage?{jetAssault:jetStage}:{},
+        ...(node.enemyAirPowerRange?{enemyAirPowerRange:node.enemyAirPowerRange,requiredLow}: {})}:null;
       if(details){steps.push(step);if(node.boss&&round===1)boss=step;}
-      const states=[airState(before.min,enemy),airState(before.max,enemy)];
+      const states=[airState(before.min,enemy),airState(before.max,enemyLow)];
       for(const slot of slots){
         for(let side=0;side<2;side++)slot.remaining[side]=Math.max(0,slot.remaining[side]-
           stageOneLoss(slot.remaining[side],states[side],side===0,slot.jet?jets.PHASES.proportionalLoss:1));
@@ -425,7 +488,7 @@ function estimateRouteAirCore(air,reference){
     min:Math.min(...simulations.map(p=>p.margins[goal].min)),max:Math.min(...simulations.map(p=>p.margins[goal].max))}]));
   const result={status:unknown?'unknown':'estimated',reason:unknown?.reason,paths,margins,
     boss:paths.length===1?paths[0].boss:null,terminal:paths.length===1?paths[0].terminal:null,
-    basis:air.slots.some(s=>jets.isJet(s.aircraftType))?
+    basis:reference.landBase?'基地航空按逐槽击坠估算，敌舰未假设击沉；敌制空为 5%–95% 参考分位，不代表极限或保证。舰载机损耗逐点传播，部分基地飞机特殊损耗未计入':air.slots.some(s=>jets.isJet(s.aircraftType))?
       '逐点先算喷式强袭及其迎击，再核对该点普通制空并计算第二次迎击；喷气机普通比例损耗按60%，已收录射击回避分别取整；钢材按每战开始残机数扣除，不预扣敌机，不模拟击沉。区间为保守边界，不是概率或实战保证':
       '逐槽顺序计算空战击坠范围及普通对空炮火上限；敌编成取已收录最强条件，攻击机下限不计射击回避；航空战点计算两轮且不预扣敌机，不计基地航空队、支援及敌舰击沉；区间为保守估算，不是概率或实战保证'};
   return boundedSet(cached,key,result,256);
@@ -460,7 +523,9 @@ function routeAirMeetsCore(air,reference,goal,minimum){
   if(minimumEntry){minimumEntry.hot=true;perf.count('air.test.hit');perf.detailCount('air.query.hit');return minimumEntry.value?minimumEntry.value[goal].min>=minimum:null;}
   const key='test:'+goal+':'+minimum+':'+signature,entry=cache.get(key);
   if(entry){entry.hot=true;perf.count('air.test.hit');perf.detailCount('air.query.hit');return entry.value;}
-  const result=plan.trial(air,keys,true,{goal:goal==='supremacy'?1:0,minimum});
+  // Scalar trials cannot retain a land-base enemy-air interval in the shared
+  // minimum cache, even when this particular caller only needs a boolean.
+  const result=reference.landBase?undefined:plan.trial(air,keys,true,{goal:goal==='supremacy'?1:0,minimum});
   perf.count('air.test.miss');
   perf.detailCount('air.query.miss');
   if(result!==undefined){
@@ -487,7 +552,9 @@ function estimateRouteAirMarginsCore(air,reference,minimumOnly=false){
   const fullKey=full?air.slots.map(slot=>aircraftKey(slot)).sort().join(';'):null;
   if(full?.has(fullKey)){perf.count('air.trial.fullHit');return saveMargins(cached,key,full.get(fullKey).margins);}
   perf.count('air.trial.miss');
-  const fast=plan.trial(air,slotSignatures,minimumOnly);
+  // The optimized scalar trial has no interval input. Using it for a base-air
+  // plan would silently discard the optimistic enemy-air endpoint.
+  const fast=reference.landBase?undefined:plan.trial(air,slotSignatures,minimumOnly);
   if(fast!==undefined)return saveMargins(cached,key,fast);
   const margins={superiority:{min:Infinity,max:Infinity},supremacy:{min:Infinity,max:Infinity}};
   for(const nodes of plan.unique){
@@ -505,4 +572,4 @@ function airContributionKey(air){
   if(air?.status!=='range'||!Array.isArray(air.slots)||air.slots.some(s=>s.unknown||!s.planes||!s.effectiveAntiAir||!s.proficiencyBonus))return null;
   return air.min+':'+air.max+':'+air.slots.map(s=>aircraftKey(s,false)).sort().join(',');
 }
-module.exports={routeAirReference,estimateRouteAir,estimateRouteAirMargins,estimateRouteAirMinimum,routeAirMeets,simulateAirPath,stageOneLoss,airContributionKey};
+module.exports={routeAirReference,withLandBases,estimateRouteAir,estimateRouteAirMargins,estimateRouteAirMinimum,routeAirMeets,simulateAirPath,stageOneLoss,airContributionKey};

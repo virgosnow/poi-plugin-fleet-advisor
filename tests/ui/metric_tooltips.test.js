@@ -34,6 +34,21 @@ test('route air rows report exact and crossing state thresholds without claiming
  assert.equal(read({min:60,max:60},null,{upperBound:20})[2],'20（上限）');
  assert.equal(read({min:60,max:60},null)[3],'待确认');
 });
+test('base-air attrition displays its conservative enemy range and possible results',()=>{
+ const summary={reference:{landBase:true,nodes:[{id:'M',enemyAirPower:100}]},estimate:{paths:[{steps:[{
+   node:'M',round:1,before:{min:80,max:90},required:{superiority:150,supremacy:300},
+   requiredLow:{superiority:1,supremacy:1},enemyAirPowerRange:{min:0,max:100}}]}]}};
+ const result=T.air(fixture(),{status:'range',min:80,max:90},summary);
+ assert.deepEqual(result.sections[0].rows[0],['M','80–90','0–100','空均～空确']);
+ assert(result.notes.some(note=>note.includes('非极限或保证')));
+});
+test('base-air displayed results use the post-base enemy range rather than its original air power',()=>{
+ const step={node:'M',round:1,before:{min:90,max:90},required:{superiority:150,supremacy:300},
+   requiredLow:{superiority:75,supremacy:150},enemyAirPowerRange:{min:50,max:60}};
+ const summary={reference:{landBase:true,nodes:[{id:'M',enemyAirPower:100}]},estimate:{paths:[{steps:[step]}]}};
+ const result=T.air(fixture(),{status:'range',min:90,max:90},summary);
+ assert.deepEqual(result.sections[0].rows[0],['M','90','50–60','空优']);
+});
 test('speed rows preserve uncertain readings and distinguish native and boosted speed',()=>{
  const r=T.speed({valueLabel:'高速',ships:[{name:'甲',label:'高速',baseLabel:'低速',boosted:true,boostEquipment:['新型高温高圧缶 ★7','改良型艦本式タービン']},{name:'乙',label:'高速',boostEquipment:[]},{name:'丙',status:'unknown',label:'高速',reason:'资料缺失'}]},{detail:'D 点 · 高速以上'});
  assert.deepEqual(r.sections[0].rows[0],['旗舰','甲','低速 → 高速','新型高温高圧缶 ★7、改良型艦本式タービン']);

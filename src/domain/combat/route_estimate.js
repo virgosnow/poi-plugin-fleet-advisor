@@ -6,11 +6,12 @@ const {routeEncounters}=require('./combat_encounters');
 const {projectedHull}=require('./combat_projection');
 const {rankThreats,nodeThreat,equipmentLookup,simulateNodeThreat,uniqueThreatCandidates}=require('./combat_threat');
 const battle=require('./combat_battle');
+const landBase=require('./land_base');
 const air=require('./combat_air_asw');
 const {buildGroundAttack}=require('./combat_ground');
 const {flags:groundFlags}=require('./installation_attack');
 const {fromRatio}=require('./combat_balance');
-const {routeAirReference,estimateRouteAir}=require('../routes/route_air');
+const {routeAirReference,withLandBases,estimateRouteAir}=require('../routes/route_air');
 const {advanceSupply,createSupplyTracker}=require('./route_supply');
 const LIMITS=Object.freeze({paths:8,battlesPerPath:16,samples:32,timeMs:50});
 const SURFACE_FORMATION={単縦:1,複縦:.8,輪形:.7,梯形:.75,単横:.6,
@@ -81,12 +82,13 @@ function refineThreats(fleet,evidence,store,scheme,base,{now,start}){
   };
   return {...base,target:select(true,base.target),enroute:select(false,base.enroute)};
 }
-function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.now(),seed=0}={}){
+function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>performance.now(),seed=0}={}){
   if(!scheme?.ships?.length||scheme.ships.length>6)return unknown('舰队资料不足');
   if(!profile||profile.referenceOnly||!profile.selectedPathsVerified)return unknown('所选路线尚未核对');
   const encounterStage=profile.encounterStage&&profile.encounterStage!=='unknown'?profile.encounterStage:
     require('./encounter_stage').encounterStage(store,profile.area,route?.phase);
-  const start=now(),evidence=routeEncounters({...profile,encounterStage});
+  const start=now(),timeMs=landBases?.some(base=>base.targets?.some(Boolean))?200:LIMITS.timeMs,
+    evidence=routeEncounters({...profile,encounterStage});
   if(evidence.status==='unknown')return unknown(evidence.reasons?.join('；')||'路线敌情待确认');
   const fleet=scheme.ships.map(entry=>projectedHull(store,entry));
   if(fleet.some(ship=>ship.status!=='known'))return unknown('舰娘战斗资料不足');
@@ -112,12 +114,13 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
     return sum+(Number.isFinite(value)?value:1000000);
   },0);
   candidates.sort((a,b)=>pathScore(b)-pathScore(a)||a.index-b.index);
-  const chosen=candidates[0],reference=routeAirReference(route||{},profile.area,{...profile,encounterStage});
+  const chosen=candidates[0],reference=withLandBases(store,routeAirReference(route||{},profile.area,{...profile,encounterStage}),landBases,profile.area);
   const airEstimate=estimateRouteAir(airPower,reference);
   const map=require(`../../../data/sortie/encounters/${profile.area}.json`);
   const special=battle.deriveFleetSpecial(store,scheme.ships);
   const specialReady=special.status!=='unknown'&&special.available===true;
   const enemyAirCache=new Map(),nodeInputs=new Map(),preparations=new Map(),preflightAssumptions=new Set();
+  let landEnemyIndex=null;
   // The same enemy aircraft data occurs in many formations and branches.
   // Reuse its pure reading while retaining per-path friendly plane losses.
   const enemyAirFor=(node,enemy)=>{
@@ -172,6 +175,18 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
       escort:formation.escort,enemyFormation:enemyFormation(formation,fleet,node.kind),ownAir,ownAirSecond,enemyAir,ownNight,includeNight,ground,
       ...(specialReady&&['battle','nightBattle'].includes(node.kind)?{special,ownFormation:special.formation}:{})});
     if(prep.status==='unknown')return fail('战斗资料不足');
+    const enemyReference=reference.nodes.find(row=>row.id===node.id);
+    const base=landBase.prepare(store,landBases,{area:profile.area,nodeId:node.id,nodeKind:node.kind,
+      enemyAirPower:enemyReference?.enemyAirPower??enemyReference?.upperBound});
+    if(base.status==='unknown')return fail(base.reasons.join('；')||'基地航空队资料不足');
+    if(base.waves.length){
+      const enemy=require('./enemy_land_air');
+      if(!landEnemyIndex)landEnemyIndex=enemy.equipmentIndex(store);
+      const enemySlots=enemy.formationSlots({enemyShips:formation.ships,escortFleet:{enemyShips:formation.escort}},landEnemyIndex);
+      if(!enemySlots)return fail('基地航空战敌机逐槽资料待确认');
+      prep.landBase={...base,enemySlots};
+    }
+    for(const reason of base.reasons)preflightAssumptions.add(`${node.id} 点：${reason}`);
     if(prep.reasons.some(reason=>/敌方对潜攻击力|舰娘对潜能力待确认|陆上目标的装备特效或攻击资格待确认|夜战混编的对潜|空母夜战/.test(reason)))
       return fail(prep.reasons.join('；'));
     // Unknown opening torpedoes on unusual enemies must not be hidden by an
@@ -185,14 +200,15 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
   };
   for(const candidate of candidates){
     const checked=preflightAlternatives(candidate.nodes,(node,formation)=>prepareFor(node,formation,candidate.index),
-      ()=>now()-start>LIMITS.timeMs);
+      ()=>now()-start>timeMs);
     if(checked.status!=='known')return unknown(checked.reason,threats);
   }
+  const omittedBase=`未计支援、基地航空队${specialReady?'':'、特殊炮击'}、弹着观测及燃料回避修正`;
   const supplyTracker=createSupplyTracker(store,scheme);
   let remainingAmmo=1,supply=supplyTracker.snapshot();const prepared=[],warnings=new Set(['按当前舰队及可达分支的较高威胁编成估计',
     '模型使用参考命中条件，不是实际通过率或大破率',
     '航空损耗范围按中间架数参考，不代表实际损耗概率',
-    `未计支援、基地航空队${specialReady?'':'、特殊炮击'}、弹着观测及燃料回避修正`]);
+    omittedBase]);
   for(const reason of preflightAssumptions)warnings.add(reason);
   for(const node of evidence.nodes)for(const warning of node.sourceWarnings||[])warnings.add(`${node.id} 点：${warning}`);
   if(specialReady)warnings.add('按特殊炮击发动阵形参考，实际须选择该阵形');
@@ -220,9 +236,12 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
     supply=supplyTracker.snapshot();
     if(used.ammo===null){if(laterBattleExists(chosen.path.nodes,pathStep,nodes))warnings.add(`${id} 点弹药消耗待确认`);}
     else remainingAmmo=Number.isFinite(supply.ammo)?supply.ammo:Math.max(0,remainingAmmo-used.ammo);
-    if(now()-start>LIMITS.timeMs)return unknown('战力计算超过时间预算',threats);
+    if(now()-start>timeMs)return unknown('战力计算超过时间预算',threats);
   }
   if(!prepared.length)return unknown('所选路线没有可比较的战斗',threats);
+  if(prepared.some(step=>step.prep.landBase?.waves?.length)){
+    warnings.delete(omittedBase);warnings.add(`未计支援${specialReady?'':'、特殊炮击'}、弹着观测及燃料回避修正`);
+  }
   // An air-raid node offers no opportunity to damage the enemy fleet. It
   // affects subsequent HP and retreat but is not a failed friendly attack.
   const attackableSteps=prepared.filter(step=>step.prep.kind!=='aerialRaid').length;
@@ -234,10 +253,10 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
   const batches=[{progress:0,count:0},{progress:0,count:0}];
   for(let sample=0;sample<LIMITS.samples;sample++){
     const rng=battle.random(0x4b414e43+sample*7919+seed),initial=fleet.map(s=>s.initialHp);
-    let hp=initial.slice(),stopped=false,specialUsed=false,reachedTarget=false,targetProgress=0;
+    let hp=initial.slice(),stopped=false,specialUsed=false,reachedTarget=false,targetProgress=0,landBaseState={counts:{}};
     for(const step of prepared){
       const before=hp;
-      const result=battle.runScenario(step.prep,rng,{initialHp:hp,ammo:Math.min(1,step.ammo*2),specialUsed});
+      const result=battle.runScenario(step.prep,rng,{initialHp:hp,ammo:Math.min(1,step.ammo*2),specialUsed,landBaseState});
       if(result.status==='unknown')return unknown(`${step.id} 点战斗状态待确认`,threats);
       if(result.status==='partial')return unknown(`${step.id} 点部分攻击能力待确认`,threats);
       hp=result.ownHp;specialUsed=result.specialUsed;
@@ -278,7 +297,7 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
     objectiveProgress+=progress;
     const batch=batches[sample%2];batch.progress+=progress;batch.count++;
     ran++;
-    if(now()-start>LIMITS.timeMs)return unknown('战力计算超过时间预算',threats);
+    if(now()-start>timeMs)return unknown('战力计算超过时间预算',threats);
   }
   // Compare getting through the route and the final target's actual result.
   // Easy en-route victories cannot conceal an ineffective boss battle, and

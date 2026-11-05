@@ -1,8 +1,11 @@
 'use strict';
 const V=require('../models/presentation_model');
 const {actualMapLayout,bossSymbol,startSymbol,bossDisplaySymbol}=require('./map_assets');
+const {positions:airbasePositions,airbaseSymbol}=require('./airbase_markers');
 const {mapPan}=require('./map_pan');
 const {probabilityMarkers,layoutProbabilityLabels}=require('./route_probabilities');
+const {maps:landBaseMaps}=require('../../../data/sortie/land_base/maps.json');
+const {nodeRadius:landBaseNodeRadius}=require('../../domain/combat/land_base');
 // Color and shape communicate encounter types independently of route selection.
 // Unknown nodes keep their own marker; lack of enemies is not a no-battle proof.
 const TYPES={
@@ -140,7 +143,8 @@ const nodePopoverRef=focus=>{
 };
 
 module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,disabled,
-  mapMode='actual',zoomed=false,onMode,onZoom,onExpand,onPreviousRoute,onNextRoute,idSuffix='',onAssetError,assetError,mapAsset,compact=false,fixedNodes=false,showDetails=true,nodePopup=false,enemyPortrait,showPaths=true,onBackground,textOnly=false}){
+  mapMode='actual',zoomed=false,onMode,onZoom,onExpand,onPreviousRoute,onNextRoute,idSuffix='',onAssetError,assetError,mapAsset,compact=false,fixedNodes=false,showDetails=true,nodePopup=false,enemyPortrait,showPaths=true,onBackground,textOnly=false,
+  airbases=[],equipmentIcon,formationIndex=0,onFormationIndex}){
   const compactColors={battle:'#ff767b',nightBattle:'#b180ed',asw:'#ff767b',aerialCombat:'#ff767b',aerialRaid:'#ff767b',airRecon:'#b8d16b',resources:'#9bd65c',whirlpool:'#d2baff',noBattle:'#53c9ee',activeBranch:'#53c9ee',start:'#53c9ee',unknown:'#d9e1ea'};
   const compactBackgrounds={battle:'#482d38',asw:'#482d38',nightBattle:'#3e2d5c',whirlpool:'#443c5b',aerialCombat:'#253646',aerialRaid:'#3f2d38',resources:'#30472e',airRecon:'#354329',noBattle:'#203e50',activeBranch:'#203e50',start:'#203e50'};
   const nodeColor=(kind,type)=>compact?(compactColors[canonicalKind(kind)]||type.color):type.color;
@@ -151,6 +155,16 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
   const travels=(profile.highlightPaths||[path]).filter(nodes=>nodes.length).map(nodes=>[layout.startId||'start',...nodes]);
   const active=new Set(travels.flat()),activeEdges=new Set(travels.flatMap(travel=>travel.slice(1).map((to,i)=>`${travel[i]}>${to}`)));
   const positions=new Map(layout.nodes.map(n=>[n.id,n]));
+  const airTargets=new Map();
+  for(const base of airbases||[])for(const [wave,node] of (base.targets||[]).slice(0,2).entries()){
+    if(!node||!positions.has(node))continue;
+    const groups=airTargets.get(node)||[];
+    let group=groups.find(entry=>entry.base.id===base.id);
+    if(!group){group={base,waves:[]};groups.push(group);}
+    group.waves.push(wave+1);airTargets.set(node,groups);
+  }
+  const airbase=layout.real?airbasePositions[profile?.area]:null;
+  const hasLandBase=landBaseMaps.some(map=>map.id===profile?.area&&map.available);
   const threat=profile.highlightPaths?.length>1?profile.threat:paths[pathIndex]?.threat||profile.threat;
   // The small workbench map is hover-only, even when the enlarged map still
   // has a selected node. Keep that selection confined to the enlarged map.
@@ -177,13 +191,53 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
   };
   const approximate=layout.real&&layout.edges.some(e=>activeEdges.has(`${e.from}>${e.to}`)&&!e.sprite);
   const formations=nodePopup&&!textOnly&&nodeId?require('./node_formations').nodeFormations(profile.area,nodeId,profile.encounterStage):[];
+  const selectedFormation=formations[Math.min(Math.max(0,formationIndex),formations.length-1)];
+  const focusedAirbases=focus?airTargets.get(focus.id)||[]:[];
+  const focusOffRoute=focusedAirbases.length&&profile.highlightPaths?.length&&!active.has(focus.id);
+  const focusRadius=hasLandBase&&focus&&!focus.id.startsWith('start')?landBaseNodeRadius(profile.area,focus.id):null;
+  const enemyGrid=(ships,label)=>h('div',{className:'paa-map-enemy-group',key:label},
+    label?h('small',{className:'paa-map-enemy-group-label'},label):null,
+    h('div',{className:'paa-map-enemy-grid'},...ships.map((enemy,k)=>
+      h('div',{key:k,className:'paa-map-enemy-card'},enemyPortrait(enemy),
+        h('div',{className:'paa-map-enemy-info'},
+          h('span',{'data-tooltip':enemy.name,'data-tooltip-overflow':true,tabIndex:0},enemy.name),
+          h('small',null,`HP ${enemy.hp??'待确认'}`))))));
   const detail=showDetails&&focus?[
-    h('strong',{key:'name'},focus.id.startsWith('start')?'出发':`${focus.id} 点 · ${V.nodeKind[focus.kind]||'资料不足'}${focus.target?' · 目标点':''}`),
+    h('div',{key:'heading',className:'paa-map-node-heading'},
+      h('strong',null,focus.id.startsWith('start')?'出发':`${focus.id} 点 · ${focus.boss?'Boss 战 · ':''}${V.nodeKind[focus.kind]||'资料不足'}${focus.target&&!focus.boss?' · 目标点':''}`),
+      hasLandBase&&!focus.id.startsWith('start')?h('span',{className:'paa-map-node-radius'},`基地航程 ${focusRadius===null?'待确认':focusRadius}`):null),
+    !textOnly&&focusOffRoute?h('span',{key:'off-route',className:'paa-result-warning'},'此点不在当前路线，基地攻击不会生效'):null,
+    !textOnly&&focusedAirbases.length?h('div',{key:'airbases',className:'paa-map-airstrike-details','aria-label':'攻击此点的基地航空队'},
+      h('strong',null,'基地航空队'),...focusedAirbases.map(({base,waves})=>h('div',{key:base.id,className:'paa-map-airstrike-unit'},
+        h('div',{className:'paa-map-airstrike-heading'},h('strong',null,base.name),
+          h('span',null,`第 ${waves.join('、')} 波`),h('span',null,`${base.air.label} ${base.air.value}`),
+          h('span',{className:'paa-map-airstrike-state','data-tooltip':'按当前飞机数量与所选敌方编成例估算首波制空状态'},
+            require('./node_formations').landBaseAirState(base.air,selectedFormation))),
+        h('div',{className:'paa-map-airstrike-slots'},...base.slots.map(slot=>h('div',{key:slot.number,className:'paa-map-airstrike-slot'},
+          h('span',{className:'paa-map-airstrike-slot-number'},slot.number),
+          slot.item&&equipmentIcon?h(equipmentIcon,{item:slot.item}):h('span',{className:'paa-map-airstrike-empty'},'—'),
+          h('span',{className:'paa-map-airstrike-slot-name','data-tooltip':slot.name,'data-tooltip-overflow':true,tabIndex:0},slot.name),
+          slot.count?h('span',{className:'paa-map-airstrike-count'},slot.count):null)))))):null,
     textOnly?null:formations.length&&enemyPortrait?h('div',{key:'formations',className:'paa-map-formations','aria-label':'敌方编成例'},
-      ...formations.map((formation,i)=>h('details',{key:`${formation.phase}-${formation.pattern}-${i}`,open:i===0},
-        h('summary',null,`编成例 ${i+1}${formation.formation.length?' · '+formation.formation.join(' / '):''}${formation.availability?' · '+formation.availability:''}${formation.hqLevelRange?.raw?' · '+formation.hqLevelRange.raw:''}`),
-        formation.ships.length?h('div',{className:'paa-map-enemies'},...formation.ships.map((enemy,k)=>h('div',{key:k},enemyPortrait(enemy),h('span',null,enemy.name)))):h('span',{className:'paa-muted'},'敌舰编成待确认'),
-        formation.escort.length?h('div',{className:'paa-map-enemies'},h('small',null,'护卫舰队'),...formation.escort.map((enemy,k)=>h('div',{key:k},enemyPortrait(enemy),h('span',null,enemy.name)))):null))):
+      h('div',{className:'paa-map-formation-heading'},h('strong',null,'敌方编成'),
+        h('div',{className:'paa-map-formation-tabs',role:'tablist','aria-label':'敌方编成例'},
+          ...formations.map((formation,i)=>h('button',{type:'button',role:'tab',key:`${formation.phase}-${formation.pattern}-${i}`,
+            'aria-selected':formation===selectedFormation,tabIndex:formation===selectedFormation?0:-1,onClick:()=>onFormationIndex?.(i),
+            onKeyDown:event=>{let next;
+              if(event.key==='ArrowRight')next=(i+1)%formations.length;
+              else if(event.key==='ArrowLeft')next=(i+formations.length-1)%formations.length;
+              else if(event.key==='Home')next=0;else if(event.key==='End')next=formations.length-1;
+              if(next===undefined)return;event.preventDefault();onFormationIndex?.(next);
+              event.currentTarget.parentElement?.querySelectorAll('[role=tab]')[next]?.focus();
+            }},`${i+1}${formation.finalForm===true?' 斩杀':''}`)))),
+      h('div',{className:'paa-map-formation-meta'},
+        h('span',null,selectedFormation.formation.join(' / ')),
+        h('span',{className:'paa-map-formation-air'},`制空 ${selectedFormation.enemyAirPower??'待确认'}`),
+        [selectedFormation.availability,
+        selectedFormation.hqLevelRange?.raw].filter(Boolean).join(' · ')),
+      h('div',{className:'paa-map-enemy-fleets','data-combined':selectedFormation.escort.length>0},
+        selectedFormation.ships.length?enemyGrid(selectedFormation.ships,selectedFormation.escort.length?'主力舰队':''):h('span',{className:'paa-muted'},'敌舰编成待确认'),
+        selectedFormation.escort.length?enemyGrid(selectedFormation.escort,'护卫舰队'):null)):
     nodePopup&&enemyPortrait&&focusEnemies.length?h('div',{key:'enemies',className:'paa-map-enemies','aria-label':'可能遇到的敌舰'},
       ...focusEnemies.map((enemy,i)=>h('div',{key:`${enemy.apiId||enemy.name}-${i}`},enemyPortrait(enemy),h('span',null,enemy.name)))):
     h('span',{key:'enemies',className:'paa-muted'},focusEnemies.length?
@@ -232,17 +286,29 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
             className:'paa-map-arrow'}));
       }),
       ...probabilityMarkers(h,{layout,travels,probabilities:profile.edgeProbabilities,compact,fixedNodes}),
+      // The physical base is an image, not a route node or a click target.
+      // Paint it before nodes so it can never obscure a node or intercept input.
+      airbase?h('g',{className:'paa-map-airbase',role:'img','aria-label':'基地航空队',style:{pointerEvents:'none'},
+        ...(compact&&fixedNodes?{'data-marker-x':airbase.x+20,'data-marker-y':airbase.y+20,
+          'data-marker-radius':20,'data-marker-pixels':9}: {})},
+        gameIcon(h,airbaseSymbol,'paa-map-airbase-icon',{x:airbase.x,y:airbase.y,width:40,height:40,
+          style:{width:40,height:40,overflow:'hidden'}})):null,
       ...layout.nodes.map(node=>{const type=typeOf(node.kind),onRoute=active.has(node.id),boss=!!node.boss,
         start=node.id.startsWith('start'),smallStart=compact&&start&&!onRoute,smallBoss=compact&&boss&&!onRoute,
         radius=compact?compactRadius(onRoute,layout.real,boss||start):layout.real?19:14,
-        symbol=smallStart?startSymbol:bossSymbol,symbolWidth=radius*2*symbol.frame.w/symbol.frame.h;
+        symbol=smallStart?startSymbol:bossSymbol,symbolWidth=radius*2*symbol.frame.w/symbol.frame.h,
+        baseRadius=hasLandBase&&!start?landBaseNodeRadius(profile.area,node.id):null,
+        radiusHint=hasLandBase&&!start?` · 基地航程 ${baseRadius===null?'待确认':baseRadius}`:'',
+        strikes=airTargets.get(node.id)||[],strikeHint=strikes.length?` · ${strikes.map(({base,waves})=>`${base.name}第 ${waves.join('、')} 波`).join('、')}${profile.highlightPaths?.length&&!onRoute?'（不在当前路线）':''}`:'';
         return h('g',{key:node.id,role:textOnly?'img':'button',tabIndex:disabled?-1:0,
         ...markerSize(node),
         'data-kind':node.kind||'unknown','data-boss':boss||undefined,
         style:{cursor:textOnly?'pointer':undefined,'--paa-node-color':compact?nodeColor(node.kind,type):!onRoute?'#8593a5':boss?'#ff7f90':type.color,
           '--paa-node-background':compact?(compactBackgrounds[canonicalKind(node.kind)]||'#303b4b'):!onRoute?'#253345':boss?'#293a4b':type.background},
-        'aria-label':`${node.id.startsWith('start')?'出发':node.id+' 点'} · ${V.nodeKind[node.kind]||'资料不足'}${boss?' · Boss':''}${node.target?' · 目标点':''}`,
-        'aria-pressed':textOnly?undefined:focus?.id===node.id,'data-tooltip':`${node.id.startsWith('start')?'出发点':node.id+' 点'} · ${boss?'Boss 战 · ':''}${V.nodeKind[node.kind]||'资料不足'}`,
+        'aria-label':`${node.id.startsWith('start')?'出发':node.id+' 点'} · ${V.nodeKind[node.kind]||'资料不足'}${boss?' · Boss':''}${node.target?' · 目标点':''}${strikeHint}`,
+        'aria-pressed':textOnly?undefined:focus?.id===node.id,
+        'data-tooltip':nodePopup&&showDetails&&!textOnly&&nodeId===node.id?undefined:
+          `${node.id.startsWith('start')?'出发点':node.id+' 点'} · ${boss?'Boss 战 · ':''}${V.nodeKind[node.kind]||'资料不足'}${radiusHint}${strikeHint}`,
         className:`paa-map-node${onRoute?' active':' inactive'}${node.target?' target':''}${focus?.id===node.id?' focused':''}`,
         onClick:e=>{e.stopPropagation();if(!disabled&&!textOnly)onNode(node.id);},onKeyDown:e=>{if(!disabled&&!textOnly&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onNode(node.id);}}},
         node.target&&!compact?h('circle',{cx:node.x,cy:node.y,r:radius+3,className:'paa-map-target-ring'}):null,
@@ -259,6 +325,9 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
           h('circle',{r:layout.real?11:8}),
           (boss?bossIcon(h,{x:layout.real?-8:-6,y:layout.real?-8:-6,width:layout.real?16:12,height:layout.real?16:12}):
             icon(h,type,{x:layout.real?-8:-6,y:layout.real?-8:-6,width:layout.real?16:12,height:layout.real?16:12}))):null,
+        strikes.length?h('g',{className:'paa-map-airstrike-marker','aria-hidden':true,
+          transform:`translate(${node.x+radius*.88} ${node.y-radius*.88}) scale(${radius*(onRoute ? .48 : .85)})`},
+          h('circle',{r:1}),h('path',{d:'M 0 -.77 L .16 -.57 L .13 -.15 L .7 .21 L .7 .39 L .12 .18 L .11 .59 L .3 .73 L .3 .84 L 0 .74 L -.3 .84 L -.3 .73 L -.11 .59 L -.12 .18 L -.7 .39 L -.7 .21 L -.13 -.15 L -.16 -.57 Z'})):null,
         onRoute&&!compact?h('text',{x:node.x,y:node.y+(layout.real?42:30),textAnchor:'middle',className:'paa-map-kind'},
           node.target?`${boss?'Boss':'目标'} · ${type.label}`:type.label):null);}),
       compact&&focus?h('g',{...markerSize(focus)},selectionMarker(h,focus,compactRadius(active.has(focus.id),layout.real,focus.boss||focus.id.startsWith('start')),layout.real)):null)),
@@ -274,7 +343,7 @@ module.exports=function routePreview(h,{profile,pathIndex,nodeId,onPath,onNode,d
         ...[[onPreviousRoute,'上一条路线','m5 13 7-7 7 7'],[onNextRoute,'下一条路线','m5 11 7 7 7-7']].map(([action,label,path])=>
           h('button',{key:label,type:'button',disabled:disabled||!action,onClick:action||undefined,'aria-label':label,'data-tooltip':label},
             h('svg',{viewBox:'0 0 24 24',width:18,height:18,fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:path}))))):null,
-      nodePopup&&detail?h('div',{className:'paa-map-node-popover',ref:nodePopoverRef(focus),role:'region','aria-label':'节点详情','aria-live':'polite'},
+      nodePopup&&detail?h('div',{className:'paa-map-node-popover','data-combined':!!selectedFormation?.escort.length,ref:nodePopoverRef(focus),role:'region','aria-label':'节点详情','aria-live':'polite'},
         h('button',{type:'button',className:'paa-map-popover-close','aria-label':'关闭节点详情',onClick:()=>onBackground?.()},'×'),...detail):null),
     h('div',{className:'paa-map-legend','aria-label':'地图节点图例'},
       ...Object.entries(TYPES).filter(([kind])=>!['start','unknown'].includes(kind)&&

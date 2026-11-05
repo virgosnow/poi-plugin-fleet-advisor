@@ -113,6 +113,18 @@ test('performance debug persists independently, writes safe local logs and can b
   const loaded=setup(t,{experimentalSettings:{performanceDebug:true}}).service;assert(loaded.getExperimentalSettings().performanceDebug);
 });
 
+test('workbench timing is disabled by default and logs only allowed phase names and milliseconds',async t=>{
+  const {service:s}=setup(t);await s.cacheReady;
+  const records=[{name:'route.base',ms:15,ship:'private'},{name:'private-name',ms:22},{name:'workbench.search',ms:4}];
+  s.recordWorkbenchTiming(records);await s.performanceLogs.pending;
+  assert.equal((await s.getComputationStatus()).cache.logs.files,0);
+  s.setExperimentalSettings({performanceDebug:true});s.recordWorkbenchTiming(records);await s.performanceLogs.pending;
+  const file=fs.readdirSync(s.performanceLogs.directory).find(n=>n.endsWith('.json'));
+  const log=JSON.parse(fs.readFileSync(path.join(s.performanceLogs.directory,file)));
+  assert.deepEqual(log.profile.stages,[{name:'route.base',ms:15},{name:'workbench.search',ms:4}]);
+  assert(!JSON.stringify(log).includes('private'));
+});
+
 test('queued log clearing runs after a completed calculation has persisted its report',async t=>{
   const {service:s,data}=setup(t);s.setExperimentalSettings({performanceDebug:true});await s.cacheReady;
   const result=s.recommendations.run('recommendNormalFleet',data,{fleet:1,area:'1-1',});

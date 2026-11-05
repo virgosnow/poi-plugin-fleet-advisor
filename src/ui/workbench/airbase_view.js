@@ -5,6 +5,8 @@ const V=require('../models/presentation_model');
 const mapFor=area=>maps.find(map=>map.id===area&&map.available);
 const number=value=>typeof value==='number'&&Number.isFinite(value)&&value>=0?value:null;
 const modes={0:'待机',1:'出击',2:'防空',3:'退避',4:'休息'};
+const visibleWarnings=values=>(values||[]).flatMap(value=>String(value).split('；'))
+  .filter(value=>value&&!/^(?:第 \d+ 航空队(?:防空)?换装后需完成转场和补给|计划中的飞机需完成转场并补给后才能出击)$/.test(value));
 function range(base){
   const distance=base?.api_distance;
   if(typeof distance==='number')return number(distance);
@@ -28,29 +30,67 @@ function signature(store,area){
     return [item,store.const?.$equips?.[item?.api_slotitem_id]];
   })])]);
 }
-function model(store,area){
+// Planning inventory checks all regions, not just the selected map: a plane
+// newly assigned to another area's base must not be treated as warehouse stock.
+function planningSignature(store){
+  const rows=Array.isArray(store.info?.airbase)?store.info.airbase:[];
+  return JSON.stringify([store.airbaseSync?.complete,rows.map(base=>[base,(base.api_plane_info||[]).map(slot=>{
+    const item=store.info?.equips?.[slot.api_slotid];return [item,store.const?.$equips?.[item?.api_slotitem_id]];
+  })])]);
+}
+function airValue(store,base,planned){
+  const input=planned||base,slots=input?.slots??input?.api_plane_info;
+  const defense=planned?.targets?.some(Boolean)?false:
+    Number(planned?.modePlanned?planned.mode:base.api_action_kind)===2;
+  const label=defense?'防空制空':'出击制空';
+  const reading=defense?require('../../domain/combat/land_base_defense').defenseAirPower(store,input):
+    require('../../domain/combat/land_base').inspectSquadron(store,input);
+  const power=Array.isArray(slots)&&slots.length===4?reading.airPower:null;
+  const value=Number.isFinite(power?.min)&&Number.isFinite(power?.max)?
+    power.min===power.max?`${power.min}`:`${power.min}–${power.max}`:'待确认';
+  const reasons=visibleWarnings(Array.isArray(reading.reasons)?reading.reasons:reading.reason?[reading.reason]:[]).join('；');
+  return {label,value,power,tooltip:[`${label}：${value}`,reasons].filter(Boolean).join('\n')};
+}
+function model(store,area,draft){
   const view=basesFor(store,area);
   if(!view)return null;
   return {...view,locked:!view.bases.length&&store.airbaseSync?.complete===true&&Array.isArray(store.info?.airbase),bases:view.bases.map(base=>{
-    const distance=range(base),planes=Array.isArray(base.api_plane_info)?base.api_plane_info:[];
+    const planned=draft?.find(row=>row.rid===Number(base.api_rid));
+    const changed=planned?.slots?.some(slot=>slot.planned||slot.locked);
+    const plannedRange=changed?require('../../recommendation/land_base').inspectSquadron(store,planned):null;
+    const distance=changed?(Number.isFinite(plannedRange?.range)?plannedRange.range:null):range(base),planes=Array.isArray(base.api_plane_info)?base.api_plane_info:[];
     const byNumber=new Map(planes.filter(p=>Number.isInteger(p?.api_squadron_id)&&p.api_squadron_id>0)
       .map(p=>[p.api_squadron_id,p]));
-    return {id:base.api_rid,name:base.api_name||`第 ${base.api_rid} 航空队`,
-      mode:modes[base.api_action_kind]||'状态待确认',distance,
+    return {id:base.api_rid,name:base.api_name||`第 ${base.api_rid} 航空队`,targets:planned?.targets||['',''],air:airValue(store,base,planned),
+      mode:planned?.targets?.some(Boolean)?'出击方案':planned?.modePlanned&&modes[planned.mode]?
+        `${modes[planned.mode]}方案`:modes[base.api_action_kind]||'状态待确认',distance,
       slots:Array.from({length:4},(_,i)=>{
-        const slot=byNumber.get(i+1),id=number(slot?.api_slotid),count=number(slot?.api_count),max=number(slot?.api_max_count);
+        const slot=byNumber.get(i+1),edit=planned?.slots?.find(row=>row.slotId===i+1);
+        const id=edit?number(edit.itemId):number(slot?.api_slotid),count=edit?number(edit.count):number(slot?.api_count),max=edit?number(edit.maxCount):number(slot?.api_max_count);
         const item=id>0?V.equipmentItem(store,id,i):null;
-        return {number:i+1,item,name:!slot||id===null?'资料待同步':id===0?'空槽':item?.tooltip.replace(/^.*? · /,'')||'飞机资料待同步',
+        return {number:i+1,item,unknown:id===null,name:id===null?'资料待同步':id===0?'空槽':item?.tooltip.replace(/^.*? · /,'')||'飞机资料待同步',
           count:id>0?`${count===null?'?':count}/${max===null?'?':max}`:null,
-          state:id>0&&slot.api_state!==1?'状态待确认':null};
+          state:edit?.planned?'转场补给后参考':id>0&&slot?.api_state!==1?'状态待确认':null};
       })};
   })};
 }
-function render(h,EquipmentIcon,store,area){
-  const view=model(store,area);
+function render(h,EquipmentIcon,store,area,editor){
+  const view=model(store,area,editor?.bases);
   if(!view)return null;
+  const warnings=visibleWarnings(editor?.warnings);
+  const modeBadge=base=>{
+    const planned=base.mode.endsWith('方案'),mode=planned?base.mode.slice(0,-2):base.mode;
+    return h('span',{className:'paa-airbase-mode','data-mode':mode,'aria-label':`${base.name}：${mode}`},mode);
+  };
+  const airMetric=base=>h('span',{className:'paa-airbase-air','data-tooltip':base.air.tooltip,
+    'aria-label':`${base.air.label} ${base.air.value}`,tabIndex:0},h('span',null,'制空'),h('span',null,base.air.value));
+  const rangeMetric=base=>{
+    const value=base.distance===null?'待确认':base.distance;
+    return h('span',{className:'paa-airbase-range','data-tooltip':`航程 ${value}`,'aria-label':`航程 ${value}`,tabIndex:0},
+      h('span',null,'航程'),h('span',null,value));
+  };
   const heading=h('div',{className:'paa-airbase-heading'},h('h3',null,'基地航空队'),
-    h('span',null,`本海域最多出击 ${view.map.maxSortieSquadrons} 队`));
+    h('span',null,`出击上限 ${view.map.maxSortieSquadrons} 队`));
   return h('section',{className:'paa-airbase','aria-label':'基地航空队'},
     !view.bases.length?h('div',null,heading,h('div',{className:'paa-airbase-placeholder','data-state':view.locked?'locked':'pending'},
       h('div',{className:'paa-airbase-skeleton','aria-hidden':true},
@@ -64,21 +104,26 @@ function render(h,EquipmentIcon,store,area){
         h('div',{className:'paa-airbase-summary-collapse'},
           h('div',{className:'paa-airbase-summary'},...view.bases.map(base=>
             h('span',{className:'paa-airbase-summary-unit',key:base.id,title:base.name},
-              h('strong',null,`${base.id} 队`),h('span',null,base.mode),
-              h('span',null,`航程 ${base.distance===null?'待确认':base.distance}`))))),
+              h('strong',null,`${base.id} 队`),modeBadge(base),airMetric(base),rangeMetric(base))))),
         h('svg',{className:'paa-airbase-chevron',viewBox:'0 0 16 16',width:14,height:14,fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
           h('path',{d:'m4 6 4 4 4-4'}))),
-      h('div',{className:'paa-airbase-list'},...view.bases.map(base=>
-        h('div',{className:'paa-airbase-unit',key:base.id},
+      h('div',{className:'paa-airbase-list'},...view.bases.map(base=>{
+        const targets=editor?h('div',{className:'paa-airbase-targets'},...[0,1].map(wave=>
+          h('label',{key:wave,'data-tooltip':`第 ${wave+1} 波攻击点`},h('span',{className:'paa-airbase-wave','aria-hidden':true},wave+1),
+            h('select',{'aria-label':`${base.name}第 ${wave+1} 波攻击点`,value:base.targets[wave]||'',disabled:editor.disabled,
+            onChange:event=>editor.onTarget(base.id,wave,event.target.value)},h('option',{value:''},'不出击'),
+            base.targets[wave]&&!(editor.targets||[]).some(target=>target.id===base.targets[wave])?h('option',{value:base.targets[wave],disabled:true},`${base.targets[wave]} 点 · 不在当前路线`):null,
+            ...(editor.targets||[]).map(target=>h('option',{key:target.id,value:target.id},target.label)))))):null;
+        const slots=h('div',{className:'paa-airbase-slots'},...base.slots.map(slot=>
+          h(editor?'button':'div',{type:editor?'button':undefined,className:'paa-airbase-slot',key:slot.number,disabled:editor?(editor.disabled||slot.unknown):undefined,
+            onClick:editor?()=>editor.onEditSlot(base.id,slot.number):undefined,'aria-label':editor?`${base.name}第 ${slot.number} 槽：${slot.name}`:undefined},
+            h('span',{className:'paa-airbase-slot-number'},slot.number),
+            slot.item?h(EquipmentIcon,{item:slot.item}):h('span',{className:'paa-airbase-slot-empty','aria-hidden':true},'—'),
+            h('span',{className:'paa-airbase-slot-name',title:slot.name},slot.name),
+            slot.count?h('span',{className:'paa-airbase-slot-count','aria-label':`搭载 ${slot.count}`},slot.count):null)));
+        return h('div',{className:'paa-airbase-unit',key:base.id},
           h('div',{className:'paa-airbase-unit-heading'},h('strong',null,base.name),
-            h('span',{className:'paa-airbase-mode','data-mode':base.mode},base.mode),
-            h('span',{className:'paa-airbase-range'},`航程 ${base.distance===null?'待确认':base.distance}`)),
-          h('div',{className:'paa-airbase-slots'},...base.slots.map(slot=>
-            h('div',{className:'paa-airbase-slot',key:slot.number},
-              h('span',{className:'paa-airbase-slot-number'},slot.number),
-              slot.item?h(EquipmentIcon,{item:slot.item}):h('span',{className:'paa-airbase-slot-empty','aria-hidden':true},'—'),
-              h('span',{className:'paa-airbase-slot-name',title:slot.name},slot.name),
-              slot.state?h('span',{className:'paa-airbase-slot-state'},slot.state):null,
-              slot.count?h('span',{className:'paa-airbase-slot-count','aria-label':`搭载 ${slot.count}`},slot.count):null))))))));
+            modeBadge(base),h('span',{className:'paa-airbase-metrics'},airMetric(base),rangeMetric(base))),targets,slots);
+      }),warnings.length?h('p',{className:'paa-airbase-note',role:'status'},warnings.join('；')):null)));
 }
-module.exports={model,render,signature};
+module.exports={model,render,signature,planningSignature};

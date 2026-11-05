@@ -16,6 +16,16 @@ test('each route assesses its own merged fleet and matching stage',async()=>{
   assert.equal(calls[0].settings.fleet,2);
 });
 
+test('base planning receives the merged fleet inspection for each route',async()=>{
+ const report={valid:true,route:{area:'6-5',ships:[{id:2}]},scheme:{ships:[{id:2}]}},seen=[];
+ const run=createRouteCombatAssessor({merge:()=>[{id:2}],inspect:()=>report,
+   assess:({landBases})=>({status:'estimated',landBases}),yieldControl:async()=>{}});
+ const options=[{key:'lower',row:{scheme:{ships:[{id:2}]}}}];
+ await run({store:{},service:{},slots:[],fleet:1,settings:{area:'6-5'},options,
+   landBases:(option,merged,actual)=>{seen.push({option,merged,actual});return [];}});
+ assert.equal(seen.length,1);assert.equal(seen[0].actual,report);assert.equal(seen[0].option.key,'lower');
+});
+
 test('missing candidates and failed inspections never acquire a battle grade',async()=>{
   let assessed=0;
   const run=createRouteCombatAssessor({merge:()=>[],inspect:()=>({valid:false,error:'候选不可用'}),

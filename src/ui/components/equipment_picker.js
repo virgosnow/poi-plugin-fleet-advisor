@@ -35,7 +35,7 @@ function filterRows(rows,group,category,sort,store){
 function createEquipmentPicker(React){
   const h=React.createElement,EquipmentIcon=require('./equipment_icon')(React);
   return function EquipmentPicker({index,slot,rows=[],search,setSearch,group='all',setGroup,category='all',setCategory,
-    sort='default',setSort,store,currentEquipment,disabled,onClose,onPick,onClear,onAuto,listRef}){
+    sort='default',setSort,store,currentEquipment,disabled,onClose,onPick,onClear,onAuto,listRef,title}){
     const categories=new Map();
     for(const row of rows)if((group==='all'||groupForCategory(row.categoryId)===group)&&!categories.has(String(row.categoryId)))
       categories.set(String(row.categoryId),row.category);
@@ -46,7 +46,7 @@ function createEquipmentPicker(React){
       h('path',{d:'M2 4h12M2 8h12M2 12h12 M5 2v4 M11 6v4 M7 10v4'}));
     return h('div',{className:'paa-wb-popup-shade','data-picker':'equipment',onClick:onClose},
       h('section',{className:'paa-wb-popup','data-picker':'equipment',role:'dialog','aria-modal':true,'aria-label':'替换装备',onClick:e=>e.stopPropagation()},
-        h('div',{className:'paa-wb-section-head'},h('h3',null,`第 ${index+1} 位 · ${slot==='ex'?'补强增设':`第 ${Number(slot)+1} 槽`}`),h('button',{type:'button',onClick:onClose},'关闭')),
+        h('div',{className:'paa-wb-section-head'},h('h3',null,title||`第 ${index+1} 位 · ${slot==='ex'?'补强增设':`第 ${Number(slot)+1} 槽`}`),h('button',{type:'button',onClick:onClose},'关闭')),
         h('div',{className:'paa-wb-popup-filters'},
           h('input',{autoFocus:true,type:'search',value:search,'aria-label':'搜索候选',placeholder:'装备名称 / 分类 / ID',onChange:e=>setSearch(e.target.value)}),
           h('details',{className:'paa-wb-priority',onBlur:e=>{if(!e.currentTarget.contains(e.relatedTarget))e.currentTarget.open=false;},

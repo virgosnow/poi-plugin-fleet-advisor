@@ -52,7 +52,7 @@
   const statusFields=['sourceFleet','shipDetails'];
   // Capture only live fields, including when reloading an older mounted version
   // that still has the retired JSON editor and local-library state hooks.
-  const draftFields=['slots','fleet','area','purpose','target','phase','missionId','goal','incomeUnit','style','choices','excluded','sourceFleet','shipType','shipFleet','draftContext','pathIndex','nodeId','mapRoute','routeDrafts','routeRulesOpen','combatDeferredPhase','routePhaseAnchor','shipDetails','attributeDetails','selectedQuests','expeditionCompleted','opponentId','questsOpen','practiceGoal','practiceFormation','trainingShipIds','openOpponents'];
+  const draftFields=['slots','fleet','area','purpose','target','phase','missionId','goal','incomeUnit','style','choices','excluded','sourceFleet','shipType','shipFleet','draftContext','pathIndex','nodeId','mapRoute','routeDrafts','landBaseDrafts','routeRulesOpen','combatDeferredPhase','routePhaseAnchor','shipDetails','attributeDetails','selectedQuests','expeditionCompleted','opponentId','questsOpen','practiceGoal','practiceFormation','trainingShipIds','openOpponents'];
   function workbenchHooks() {
     const el=panel();let root=el?.[Object.keys(el||{}).find(k=>k.startsWith('__reactFiber$'))];
     if(!root)return [];
@@ -97,7 +97,9 @@
     return saved.every(before=>{
       const after=current.find(w=>w.kind===before.kind);
       if(after?.kind==='manual'&&!Object.hasOwn(after.values,'slots'))return after.values.sourceFleet===(before.values.sourceFleet||1)&&statusFields.filter(name=>Object.hasOwn(before.values,name)).every(name=>JSON.stringify(after.values[name])===JSON.stringify(before.values[name]));
-      return after&&Object.entries(before.values).every(([name,value])=>JSON.stringify(after.values[name])===JSON.stringify(value));
+      return after&&Object.entries(before.values).every(([name,value])=>
+        before.kind==='practice'&&name==='practiceGoal'&&!Object.hasOwn(after.values,name)||
+        JSON.stringify(after.values[name])===JSON.stringify(value));
     })&&current.every(after=>saved.some(before=>before.kind===after.kind)||after.kind==='practice');
   }
   async function restoreDraft(draft) {
@@ -108,6 +110,9 @@
         const target=current.find(w=>w.kind===saved.kind);
         if(!target)throw Error('Updated workbench missing: '+saved.kind);
         for(const [name,value] of Object.entries(saved.values)){
+          // The former practice goal selector was removed. Its value remains
+          // in the backup; the new recommendation has one fixed objective.
+          if(saved.kind==='practice'&&name==='practiceGoal'&&!target.hooks[name])continue;
           // The current-fleet page deliberately has no editable draft anymore.
           // Preserve its selection and disclosures while retaining both real drafts.
           if(saved.kind==='manual'&&!target.hooks.slots){

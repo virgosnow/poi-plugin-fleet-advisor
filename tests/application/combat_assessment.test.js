@@ -26,6 +26,19 @@ test('cache is scoped to inspection, route and immutable store references',()=>{
   f.assess({...args,store:{...f.store,info:{}}});assert.equal(f.calls(),3);
   f.assess({...args,report:{...f.report}});assert.equal(f.calls(),4);
 });
+test('base aircraft and wave targets invalidate the battle reference without changing the fleet',t=>{
+  const planner=require('../../src/recommendation/land_base');
+  const check=t.mock.method(planner,'validatePlan',()=>({valid:true,issues:[]}));
+  const f=fixture(),args={store:f.store,report:f.report,option:f.option};
+  const base={rid:1,targets:['A','A'],slots:[{itemId:11}]};
+  f.assess({...args,landBases:[base]});f.assess({...args,landBases:[base]});assert.equal(f.calls(),1);
+  f.assess({...args,landBases:[{...base,targets:['B','B']}]});assert.equal(f.calls(),2);
+  f.assess({...args,landBases:[{...base,slots:[{itemId:12}]}]});assert.equal(f.calls(),3);
+  assert.equal(check.mock.callCount(),3);
+  check.mock.mockImplementation(()=>({valid:false,issues:['第 1 航空队航程不足']}));
+  const result=f.assess({...args,landBases:[{...base,targets:['B','']}]});
+  assert.equal(result.status,'unknown');assert.match(result.reasons[0],/航程不足/);assert.equal(f.calls(),3);
+});
 test('an unreachable or stage-mismatched route never reuses a previously valid assessment',()=>{
   const f=fixture(),args={store:f.store,report:f.report,option:f.option};
   f.assess(args);

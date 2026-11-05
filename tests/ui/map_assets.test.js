@@ -9,6 +9,66 @@ function losslessImageSize(image){
   return [image.readUInt32BE(16),image.readUInt32BE(20)];
 }
 
+test('the airbase marker is an exact crop of the documented original game frame',()=>{
+  const {PNG}=require('pngjs');
+  const marker=commonSource.airbaseMarker,dir=path.join(__dirname,'../../data/sortie/maps');
+  const bytes=fs.readFileSync(path.join(dir,marker.image)),image=PNG.sync.read(bytes);
+  assert.deepEqual([image.width,image.height],[40,40]);
+  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),marker.sha256);
+  assert.equal(crypto.createHash('sha256').update(image.data).digest('hex'),marker.rgbaSha256);
+  const atlas=require('../../data/sortie/maps/map_common.json');
+  assert.deepEqual(atlas.frames[commonSource.airbaseFrame].frame,{x:2791,y:655,w:40,h:40});
+});
+
+test('physical airbases use known map coordinates and never cover node interactions',()=>{
+  const h=(type,props,...children)=>({type,props:props||{},children});
+  const collect=(tree,predicate)=>!tree||typeof tree!=='object'?[]:
+    [...(predicate(tree)?[tree]:[]),...(tree.children||[]).flatMap(child=>collect(child,predicate))];
+  const render=require('../../src/ui/maps/route_preview'),{previewForMap}=require('../../src/domain/routes/sortie_profile');
+  for(const [area,position] of [['6-5',{x:210,y:274}],['7-4',{x:1043,y:406}]]){
+    const profile=previewForMap(area);profile.routePaths=[];profile.examples=[];
+    for(const fixedNodes of [false,true]){
+      const tree=render(h,{profile,compact:true,fixedNodes,showDetails:false});
+      const svg=collect(tree,n=>n.type==='svg'&&n.props.role==='group')[0];
+      const marker=collect(svg,n=>n.props.className==='paa-map-airbase')[0];assert(marker);
+      assert.equal(marker.props.style.pointerEvents,'none');assert.equal(marker.props['aria-label'],'基地航空队');
+      const icon=collect(marker,n=>n.props.className==='paa-map-airbase-icon')[0];
+      assert.deepEqual([icon.props.x,icon.props.y,icon.props.width,icon.props.height],[position.x,position.y,40,40]);
+      assert.deepEqual([icon.props.style.width,icon.props.style.height],[40,40],'nested SVG is not stretched by map styles');
+      assert(svg.children.indexOf(marker)<svg.children.findIndex(n=>n?.props?.className?.includes('paa-map-node ')));
+      if(fixedNodes)assert.equal(marker.props['data-marker-pixels'],9);
+    }
+  }
+  for(const area of ['6-4','1-1']){
+    const profile=previewForMap(area);profile.routePaths=[];profile.examples=[];
+    assert.equal(collect(render(h,{profile,compact:true}),n=>n.props.className==='paa-map-airbase').length,0);
+  }
+  const schematic=previewForMap('6-5');schematic.routePaths=[];schematic.examples=[];
+  assert.equal(collect(render(h,{profile:schematic,mapMode:'schematic',compact:true}),n=>n.props.className==='paa-map-airbase').length,0);
+});
+
+test('base-capable map nodes show the known land-base radius in both map sizes',()=>{
+  const h=(type,props,...children)=>({type,props:props||{},children});
+  const collect=(tree,predicate)=>!tree||typeof tree!=='object'?[]:
+    [...(predicate(tree)?[tree]:[]),...(tree.children||[]).flatMap(child=>collect(child,predicate))];
+  const render=require('../../src/ui/maps/route_preview'),{previewForMap}=require('../../src/domain/routes/sortie_profile');
+  const profile=previewForMap('6-5');
+  for(const fixedNodes of [false,true]){
+    let selected=null;
+    const tree=render(h,{profile,compact:true,fixedNodes,showDetails:false,textOnly:!fixedNodes,onNode:id=>{selected=id;}});
+    const find=id=>collect(tree,node=>node.props?.className?.includes('paa-map-node ')&&node.props['aria-label']?.startsWith(`${id} 点`))[0];
+    assert.match(find('F').props['data-tooltip'],/基地航程 2/);
+    assert.match(find('I').props['data-tooltip'],/基地航程 3/);
+    assert.match(find('M').props['data-tooltip'],/基地航程 5/);
+    assert.match(find('M').props['data-tooltip'],/M 点 · Boss 战/);
+    assert.match(find('K').props['data-tooltip'],/基地航程 待确认/);
+    find('I').props.onClick({stopPropagation(){}});
+    assert.equal(selected,fixedNodes?'I':null,'node click behavior remains unchanged');
+  }
+  const normal=render(h,{profile:previewForMap('1-1'),compact:true});
+  assert(collect(normal,node=>node.props?.className?.includes('paa-map-node ')).every(node=>!node.props['data-tooltip']?.includes('基地航程')));
+});
+
 test('the game Boss and departure icons keep their pinned atlas and valid unrotated frames',()=>{
   for(const [file,hash] of [[commonSource.image,commonSource.imageEncoding.sha256],['map_common.json',commonSource.atlasSha256]])
     assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'../../data/sortie/maps',file))).digest('hex'),hash);

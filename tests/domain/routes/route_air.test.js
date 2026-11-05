@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {routeAirReference,simulateAirPath,estimateRouteAir,estimateRouteAirMargins,stageOneLoss}=require('../../../src/domain/routes/route_air');
+const {routeAirReference,withLandBases,simulateAirPath,estimateRouteAir,estimateRouteAirMargins,estimateRouteAirMinimum,routeAirMeets,stageOneLoss}=require('../../../src/domain/routes/route_air');
 const W=require('../../../src/ui/workbench/workbench_model');
 const reference=(area,path)=>routeAirReference({},area,{examples:[path.split('')]});
 
@@ -84,6 +84,59 @@ const aircraft=(planes=25,aa=32,type=6,bonus=0)=>({status:'range',
 const combat=(id='A',enemy=100,kind='battle')=>({id,kind,enemyAirPower:enemy,
   antiAir:{status:'known',proportion:0.25,fixed:12}});
 const boss={...combat('Z'),boss:true};
+
+test('base-air references simulate enemy slots without assuming sunken carriers',()=>{
+  const store={info:{equips:{101:{api_slotitem_id:1,api_alv:7}},airbase:[]},const:{$equips:{
+    1:{api_id:1,api_type:[0,0,48],api_tyku:10,api_houk:2,api_distance:8},
+    1547:{api_id:1547,api_name:'深海猫艦戦',api_type:[0,0,6],api_tyku:10},
+    1548:{api_id:1548,api_name:'深海地獄艦爆',api_type:[0,0,7],api_tyku:0},
+    1549:{api_id:1549,api_name:'深海復讐艦攻',api_type:[0,0,8],api_tyku:4}}}};
+  const bases=[{areaId:6,rid:1,slots:[{slotId:1,itemId:101,count:18,state:1}],targets:['C','C']}];
+  const original={status:'known',nodes:[{...combat('C',106),airFormations:[{enemyShips:[{apiId:1586}],enemyAirPower:106}]},{...combat('N',100),boss:true}],paths:[['C','N']]};
+  const adjusted=withLandBases(store,original,bases,'6-4');
+  assert.notStrictEqual(adjusted,original);assert.equal(adjusted.landBase,true);
+  const enemy=adjusted.nodes[0].enemyAirPowerRange;
+  assert(enemy.min>0&&enemy.min<enemy.max&&enemy.max<106);assert.equal(adjusted.landBaseRangeKind,'p05-p95');
+  assert.equal(adjusted.nodes[1].enemyAirPowerRange,undefined);assert.equal(original.nodes[0].enemyAirPowerRange,undefined);
+  const fleet=aircraft(25,20),before=estimateRouteAir(fleet,original),after=estimateRouteAir(fleet,adjusted);
+  assert.equal(after.status,'estimated');assert.match(after.basis,/参考分位/);
+  assert.equal(after.paths[0].steps[0].required.superiority,Math.ceil(enemy.max*1.5));
+  assert.equal(after.paths[0].steps[0].requiredLow.superiority,Math.ceil(enemy.min*1.5));
+  assert(after.paths[0].steps[1].before.max>=before.paths[0].steps[1].before.max);
+  assert(after.margins.superiority.max>=before.margins.superiority.max);
+  assert.deepEqual(estimateRouteAirMargins(aircraft(25,20),adjusted),after.margins);
+  const fresh=withLandBases(store,original,bases,'6-4'),freshFleet=aircraft(25,20);
+  assert.strictEqual(fresh,adjusted,'unchanged base data reuse the sampled reference');
+  routeAirMeets(freshFleet,fresh,'superiority');
+  assert.deepEqual(estimateRouteAirMinimum(freshFleet,fresh),after.margins,'boolean queries preserve both cached interval endpoints');
+  assert.strictEqual(withLandBases(store,original,bases,'1-1'),original,'maps without bases retain the original reference');
+  assert.strictEqual(withLandBases(store,original,[],'6-4'),original);
+  store.info.equips[101].api_alv=0;
+  assert.notStrictEqual(withLandBases(store,original,bases,'6-4'),adjusted,'in-place proficiency changes invalidate the cache');
+  bases[0].slots[0].count=12;
+  const fewer=withLandBases(store,original,bases,'6-4');
+  assert.notStrictEqual(fewer,adjusted,'changing a base slot invalidates the cache');
+  store.const.$equips[1547].api_tyku=9;
+  const refreshed=withLandBases(store,original,bases,'6-4');
+  assert.notStrictEqual(refreshed,fewer,'in-place enemy master changes invalidate the cache');
+  assert.equal(refreshed.status,'unknown','a changed master that contradicts the recorded air value stays unknown');
+});
+test('missing enemy slot masters never become an optimistic air estimate',()=>{
+  const store={info:{equips:{101:{api_slotitem_id:1}},airbase:[]},const:{$equips:{1:{api_type:[0,0,48],api_tyku:10,api_distance:8}}}};
+  const bases=[{areaId:6,rid:1,slots:[{slotId:1,itemId:101,count:18,state:1}],targets:['C']}];
+  const reference={status:'known',nodes:[{...combat('C',106),airFormations:[{enemyShips:[{apiId:1586}],enemyAirPower:106}]}],paths:[['C']]};
+  const result=withLandBases(store,reference,bases,'6-4');
+  assert.equal(result.status,'unknown');assert.match(result.reason,/敌机槽位或装备资料/);
+});
+
+test('a targeted base with unknown readiness cannot create a fleet-air improvement',()=>{
+  const store={info:{equips:{101:{api_slotitem_id:1}},airbase:[]},const:{$equips:{1:{api_type:[0,0,48],api_tyku:10,api_houk:2,api_distance:8}}}};
+  const bases=[{areaId:6,rid:1,slots:[{itemId:101,count:18}],targets:['C']}];
+  const original={status:'known',nodes:[combat('C',120)],paths:[['C']]};
+  const result=withLandBases(store,original,bases,'6-4');
+  assert.equal(result.status,'unknown');assert.match(result.reason,/待确认/);
+  assert.equal(estimateRouteAir(aircraft(),result).status,'unknown');
+});
 
 test('route air references and aircraft losses follow encounter stage without stale cache reuse',()=>{
   const paths=[['X','Z']],forStage=encounterStage=>routeAirReference({},'5-6',{examples:paths,encounterStage});

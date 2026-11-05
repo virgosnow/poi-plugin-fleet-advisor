@@ -7,6 +7,15 @@
   "atlasSha256": "089228ae93277ce674c4bc3edb3ab52d57f962844b96d4fb78dd24c6e951a271",
   "bossFrame": "map_common_120",
   "startFrame": "map_common_125",
+  "airbaseFrame": "map_common_81",
+  "airbaseMarker": {
+    "image": "airbase_marker.png",
+    "width": 40,
+    "height": 40,
+    "sha256": "3ea4042c750db7469547636ebd99b94e57d25831875826448636d58da1291902",
+    "rgbaSha256": "de2731df291c158bb89f7c8d377b95132d0835444bba0c0197b3862cee08c600",
+    "note": "Lossless crop of the original map_common_81 game frame; rights remain with the original owner."
+  },
   "note": "Original game Boss bull-head and departure wheel symbols. Runtime PNG retains the original canvas size, sprite coordinates, used sprite pixels and two pixels of source interpolation padding; unused regions are transparent. Original PNG and atlas hashes remain above; runtimeAtlas records unchanged used frames and original sprite pixel hashes, imageEncoding records the runtime PNG identity. Artwork rights follow SOURCE_LICENSE and THIRD_PARTY.md.",
   "runtimeAtlas": {
     "size": {

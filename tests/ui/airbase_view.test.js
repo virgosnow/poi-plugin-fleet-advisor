@@ -32,11 +32,13 @@ test('only supported maps show their own area bases with aircraft and observed s
   assert.equal(southwest.bases[0].slots[1].name,'空槽');
   assert.equal(southwest.bases[0].slots[2].name,'资料待同步');
   const tree=view.render(h,()=>null,store,'7-4');
-  assert.match(text(tree),/基地航空队.*最多出击 1 队.*南西航空队.*防空.*航程 6/);
+  assert.match(text(tree),/基地航空队.*出击上限 1 队.*南西航空队.*防空/);
+  assert(find(tree,node=>node.props['aria-label']==='航程 6'));
   const details=find(tree,node=>node.type==='details'&&node.props.className==='paa-airbase-disclosure');
   assert(details);assert.equal(details.props.open,undefined,'the details are folded by default');
   const summary=find(details,node=>node.type==='summary');
-  assert.match(text(summary),/1 队.*防空.*航程 6/,'the folded summary retains the squadron status');
+  assert.match(text(summary),/1 队.*防空/,'the folded summary retains the squadron status');
+  assert(find(summary,node=>node.props['aria-label']==='航程 6'));
   assert(!text(summary).includes('测试陆攻'),'aircraft details appear only inside the collapsed content');
   assert(find(details,node=>node.props.className==='paa-airbase-list'));
   assert.equal(find(tree,node=>node.type==='button'),undefined);
@@ -74,4 +76,51 @@ test('change signature detects in-place base and assigned equipment updates',()=
   before=view.signature(store,'6-4');store.info.equips[1001].api_level=1;
   assert.notEqual(view.signature(store,'6-4'),before);
   assert.equal(view.signature(store,'7-5'),'');
+});
+
+test('defence and sortie proposals are distinguished from the actual game mode',()=>{
+  const store=fixture();store.info.airbase=[{api_area_id:6,api_rid:1,api_action_kind:0,api_distance:5,api_plane_info:[]}];
+  const draft={rid:1,mode:2,modePlanned:true,targets:[],slots:[]};
+  assert.equal(view.model(store,'6-5',[draft]).bases[0].mode,'防空方案');
+  assert.equal(view.model(store,'6-5',[{...draft,modePlanned:false}]).bases[0].mode,'待机');
+  assert.equal(view.model(store,'6-5',[{...draft,mode:1,targets:['M','M']}]).bases[0].mode,'出击方案');
+  assert.equal(store.info.airbase[0].api_action_kind,0);
+});
+
+test('base squadron air values follow sortie or defense plans and update with aircraft',()=>{
+  const store=fixture();store.info.equips[1001]={api_slotitem_id:501,api_level:0,api_alv:7};
+  store.const.$equips[501]={api_name:'测试局战',api_type:[0,0,48],api_tyku:6,api_houk:2,api_houm:5,api_distance:2};
+  const planes=Array.from({length:4},(_,i)=>({api_squadron_id:i+1,api_slotid:i?0:1001,api_count:i?0:18,api_max_count:18,api_state:i?0:1}));
+  store.info.airbase=[{api_area_id:6,api_rid:1,api_action_kind:1,api_distance:2,api_plane_info:planes}];
+  const before=JSON.stringify(store);let squad=view.model(store,'6-5').bases[0];
+  assert.deepEqual([squad.air.label,squad.air.value],['出击制空','63']);
+  const draft={rid:1,areaId:6,mode:2,modePlanned:true,targets:[],slots:planes.map(row=>({slotId:row.api_squadron_id,
+    itemId:row.api_slotid,count:row.api_count,maxCount:row.api_max_count,state:row.api_state}))};
+  squad=view.model(store,'6-5',[draft]).bases[0];assert.deepEqual([squad.air.label,squad.air.value],['防空制空','101']);
+  const tree=view.render(h,()=>null,store,'6-5',{bases:[draft],targets:[]});
+  const metric=find(tree,node=>node.props.className==='paa-airbase-air'&&node.props['aria-label']==='防空制空 101');
+  assert(metric);assert.equal(text(metric),'制空101');assert.equal(find(metric,node=>node.type==='svg'),undefined);
+  const range=find(tree,node=>node.props.className==='paa-airbase-range'&&node.props['aria-label']==='航程 2');
+  assert(range);assert.equal(text(range),'航程2');assert.equal(find(range,node=>node.type==='svg'),undefined);
+  draft.slots[0]={...draft.slots[0],planned:true,count:9};squad=view.model(store,'6-5',[draft]).bases[0];
+  assert.notEqual(squad.air.value,'101');assert.doesNotMatch(squad.air.tooltip,/转场|补给/);
+  assert.equal(JSON.stringify(store),before);
+});
+
+test('compact controls keep their labels and omit repeated transfer and resupply explanations',()=>{
+  const store=fixture();store.info.equips[1001]={api_slotitem_id:501,api_level:0,api_alv:7};
+  store.const.$equips[501]={api_name:'测试陆攻',api_type:[0,0,47],api_tyku:3,api_raig:10,api_distance:8};
+  const planes=Array.from({length:4},(_,i)=>({api_squadron_id:i+1,api_slotid:i?0:1001,api_count:i?0:18,api_max_count:18,api_state:i?0:1}));
+  store.info.airbase=[{api_area_id:6,api_rid:1,api_name:'第一航空队',api_action_kind:0,api_distance:8,api_plane_info:planes}];
+  const draft={rid:1,areaId:6,mode:1,modePlanned:true,targets:['C','N'],slots:planes.map(row=>({slotId:row.api_squadron_id,
+    itemId:row.api_slotid,count:row.api_count,maxCount:row.api_max_count,state:row.api_state,planned:!!row.api_slotid}))};
+  let changed;const warnings=['第 1 航空队换装后需完成转场和补给','C 点资料待确认'];
+  const tree=view.render(h,()=>null,store,'6-4',{bases:[draft],targets:[{id:'C',label:'C 点'},{id:'N',label:'N 点 · Boss'}],warnings,
+    onTarget:(...args)=>{changed=args;},onEditSlot(){}});
+  assert.doesNotMatch(text(tree),/转场|补给后|需在游戏中配置/);
+  assert.match(text(tree),/C 点资料待确认/,'real unknowns remain visible');
+  assert(find(tree,node=>node.props['aria-label']?.startsWith('出击制空 ')));
+  const wave=find(tree,node=>node.type==='select'&&node.props['aria-label']==='第一航空队第 1 波攻击点');
+  assert(wave);wave.props.onChange({target:{value:'N'}});assert.deepEqual(changed,[1,0,'N']);
+  assert.deepEqual(warnings,['第 1 航空队换装后需完成转场和补给','C 点资料待确认']);
 });

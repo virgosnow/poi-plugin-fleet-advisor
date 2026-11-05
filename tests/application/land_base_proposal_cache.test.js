@@ -1,0 +1,21 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {createLandBaseProposalCache}=require('../../src/application/land_base_proposal_cache');
+test('base proposals are reused only for the same inventory, route, equipment and locks',()=>{
+  let calls=0;
+  const recommend=createLandBaseProposalCache(()=>({bases:[{slots:[{itemId:++calls}]}]}));
+  const store={airbaseSync:{complete:true},info:{airbase:[],maps:[],equips:{1:{api_level:0}},ships:{1:{api_slot:[1],api_slot_ex:0}}},const:{$equips:{10:{api_tyku:3}}}};
+  const args={area:'6-5',routeNodes:['A','M'],bases:[{rid:1,slots:[{locked:false}]}],scheme:{ships:[{id:1,slots:[1],ex:0}]}};
+  const first=recommend(store,args);first.bases[0].slots[0].itemId=999;
+  assert.equal(recommend(store,args).bases[0].slots[0].itemId,1);
+  assert.equal(recommend(store,{...args,scheme:{ships:[{id:99,slots:[1],ex:0}]}}).bases[0].slots[0].itemId,1);
+  recommend(store,{...args,routeNodes:['B','M']});assert.equal(calls,2);
+  recommend(store,{...args,scheme:{ships:[{slots:[2],ex:0}]}});assert.equal(calls,3);
+  recommend(store,{...args,bases:[{rid:1,slots:[{locked:true}]}]});assert.equal(calls,4);
+  store.info.maps.push({api_id:65,api_gauge_num:2});recommend(store,args);assert.equal(calls,5);
+  store.info.equips[1].api_level++;recommend(store,args);assert.equal(calls,6);
+  store.info.ships[1].api_slot[0]=2;recommend(store,args);assert.equal(calls,7);
+  store.info.airbase.push({api_rid:1});recommend(store,args);assert.equal(calls,8);
+  store.const.$equips[10].api_tyku++;recommend(store,args);assert.equal(calls,9);
+  store.airbaseSync.complete=false;recommend(store,args);assert.equal(calls,10);
+});

@@ -195,7 +195,7 @@ function harness(kind='normal',automaticFilters,storeView=store=>store){
   return {render,find,control,chooseGoal,get,set,service,calls,store,effects,refs};
 }
 
-test('supported normal maps show the read-only airbase directly below the map',()=>{
+test('supported normal maps show the editable airbase directly below the map',()=>{
   const h=harness();
   h.store.info.airbase=[{api_area_id:6,api_rid:1,api_action_kind:1,api_distance:{api_base:5,api_bonus:0},
     api_plane_info:[{api_squadron_id:1,api_slotid:0,api_state:0}]}];
@@ -205,9 +205,136 @@ test('supported normal maps show the read-only airbase directly below the map',(
   assert(fragment);
   const map=fragment.children.findIndex(n=>n?.props?.className==='paa-wb-map-section');
   assert.equal(fragment.children[map+1]?.props?.className,'paa-airbase');
-  assert.equal(h.find(fragment.children[map+1],n=>n.type==='button'),undefined);
+  const slot=h.find(fragment.children[map+1],n=>n.type==='button'&&n.props.className==='paa-airbase-slot');
+  assert(slot);assert.equal(slot.props.disabled,false);
+  assert(h.find(fragment.children[map+1],n=>n.type==='select'&&/第 1 波攻击点/.test(n.props['aria-label'])));
   h.set('area','7-5');tree=h.render();assert.equal(h.find(tree,n=>n.props.className==='paa-airbase'),undefined);
   assert.equal(h.calls.equipment+h.calls.fleet,0);
+});
+
+test('both maps follow the local airbase draft and enlarged formation tabs switch without a game operation',()=>{
+  const h=harness();h.set('area','6-4');h.set('mapRoute','guide:6-4-01');h.store.airbaseSync={complete:true};
+  const planes=Array.from({length:4},(_,i)=>({api_squadron_id:i+1,api_slotid:i?0:1001,api_count:i?0:18,api_max_count:18,api_state:i?0:1}));
+  h.store.info.airbase=[{api_area_id:6,api_rid:1,api_name:'第一航空队',api_action_kind:1,api_distance:8,api_plane_info:planes}];
+  h.store.info.equips[1001]={api_slotitem_id:501,api_level:2,api_alv:7};
+  h.store.const.$equips[501]={api_name:'测试陆攻',api_type:[0,0,47,47],api_distance:8,api_tyku:3};
+  const draft=require('../../src/ui/workbench/airbase_editor').observedDraft(h.store,'6-4');
+  draft[0].targets=['C','N'];draft[0].targetsLocked=true;
+  h.set('landBaseDrafts',{'6-4':{bases:draft,warnings:[]}});h.set('mapExpanded',true);h.set('nodeId','C');
+  const before=JSON.stringify(h.store);let tree=h.render();
+  const collect=(n,p)=>!n||typeof n!=='object'?[]:[...(p(n)?[n]:[]),...(n.children||[]).flatMap(c=>collect(c,p))];
+  assert.equal(collect(tree,n=>n.props.className==='paa-map-airstrike-marker').length,4,'two targets appear on both maps');
+  let dialog=h.find(tree,n=>n.type==='dialog');assert(h.find(dialog,n=>n.props['aria-label']==='攻击此点的基地航空队'));
+  let tabs=collect(dialog,n=>n.props.role==='tab');assert(tabs.length>1);tabs[1].props.onClick();
+  assert.equal(h.get('mapFormationIndex'),1);tree=h.render();dialog=h.find(tree,n=>n.type==='dialog');
+  tabs=collect(dialog,n=>n.props.role==='tab');assert.equal(tabs[1].props['aria-selected'],true);
+  h.find(dialog,n=>n.props.role==='button'&&n.props['aria-label']?.startsWith('N 点')).props.onClick({stopPropagation(){}});
+  assert.equal(h.get('mapFormationIndex'),0);assert.equal(h.get('nodeId'),'N');
+  assert.equal(JSON.stringify(h.store),before);assert.equal(h.calls.fleet+h.calls.equipment,0);
+});
+
+test('editing a base aircraft creates a local draft without modifying the observed game',()=>{
+  const h=harness(),store=h.store;h.set('area','6-4');store.airbaseSync={complete:true};
+  store.info.airbase=[{api_area_id:6,api_rid:1,api_action_kind:1,api_distance:{api_base:5,api_bonus:0},
+    api_plane_info:Array.from({length:4},(_,i)=>({api_squadron_id:i+1,api_slotid:0,api_count:0,api_max_count:18,api_state:0}))}];
+  store.info.equips[1001]={api_id:1001,api_slotitem_id:501,api_level:0,api_alv:0};
+  store.const.$equips[501]={api_id:501,api_name:'测试陆攻',api_type:[0,0,47,47],api_distance:6,api_tyku:2};
+  const before=JSON.stringify(store),tree=h.render();
+  h.find(tree,n=>n.type==='button'&&n.props.className==='paa-airbase-slot').props.onClick();
+  const popup=h.find(h.render(),n=>n.props['aria-label']==='替换装备');assert(popup);
+  h.find(popup,n=>n.type==='button'&&n.props.key===1001).props.onClick();
+  const draft=h.get('landBaseDrafts')['6-4'].bases[0].slots[0];
+  assert.equal(draft.itemId,1001);assert.equal(draft.planned,true);assert.equal(draft.locked,true);
+  assert.equal(JSON.stringify(store),before);assert.equal(h.calls.equipment+h.calls.fleet,0);
+});
+
+test('6-5 changing to a fleet-checked lower route removes stale automatic targets but preserves manual targets with a warning',()=>{
+  const h=harness();h.set('area','6-5');h.set('mapRoute','guide:6-5-02');h.store.airbaseSync={complete:true};
+  [10,10,3,2,2,2].forEach((type,i)=>{const ship=h.store.info.ships[i+1];
+    h.store.const.$ships[ship.api_ship_id].api_stype=type;ship.api_sakuteki=[1000,1000];});
+  const planes=()=>Array.from({length:4},(_,i)=>({api_squadron_id:i+1,api_slotid:0,api_count:0,api_max_count:18,api_state:0}));
+  h.store.info.airbase=[{api_area_id:6,api_rid:1,api_name:'第一队',api_action_kind:0,api_distance:{api_base:5,api_bonus:0},api_plane_info:planes()},
+    {api_area_id:6,api_rid:2,api_name:'第二队',api_action_kind:0,api_distance:{api_base:5,api_bonus:0},api_plane_info:planes()}];
+  const slots=[1,2,3,4,5,6].map(id=>W.entry(h.store,id));h.set('slots',slots);
+  const settings={kind:'normal',fleet:1,area:'6-5',target:'boss',phase:'',missionId:1,revision:0};
+  const report=W.inspect(h.service,h.store,slots,settings);assert(report.valid);h.set('report',report);
+  const draft=require('../../src/ui/workbench/airbase_editor').observedDraft(h.store,'6-5');
+  draft[0].targets=['C','G'];draft[1].targets=['C','G'];draft[1].targetsLocked=true;
+  h.set('landBaseDrafts',{'6-5':{bases:draft,warnings:[]}});
+  const tree=h.render(),first=h.find(tree,n=>n.type==='select'&&n.props['aria-label']==='第一队第 1 波攻击点'),
+    manual=h.find(tree,n=>n.type==='select'&&n.props['aria-label']==='第二队第 1 波攻击点');
+  assert.equal(first.props.value,'');assert.equal(manual.props.value,'C');
+  assert(h.find(manual,n=>n.type==='option'&&n.props.value==='C'&&n.props.disabled));
+  assert(h.find(tree,n=>n.props.role==='status'&&n.children.some(s=>typeof s==='string'&&s.includes('不在当前路线'))));
+  assert.deepEqual(h.get('landBaseDrafts')['6-5'].bases[0].targets,['C','G'],'read-only rendering never mutates stored draft');
+  assert.equal(h.calls.fleet+h.calls.equipment,0);
+});
+
+test('route changes save and restore each route base draft independently',()=>{
+  const h=harness();h.set('area','6-5');h.set('mapRoute','guide:6-5-02');h.store.airbaseSync={complete:true};
+  const planes=Array.from({length:4},(_,i)=>({api_squadron_id:i+1,api_slotid:0,api_count:0,api_max_count:18,api_state:0}));
+  h.store.info.airbase=[{api_area_id:6,api_rid:1,api_action_kind:0,api_distance:{api_base:5,api_bonus:0},api_plane_info:planes}];
+  [10,10,3,2,2,2].forEach((type,i)=>{const ship=h.store.info.ships[i+1];h.store.const.$ships[ship.api_ship_id].api_stype=type;ship.api_sakuteki=[1000,1000];});
+  const slots=[1,2,3,4,5,6].map(id=>W.entry(h.store,id));h.set('slots',slots);
+  h.set('report',W.inspect(h.service,h.store,slots,{kind:'normal',fleet:1,area:'6-5',target:'boss',phase:'',missionId:1,revision:0}));
+  const draft=require('../../src/ui/workbench/airbase_editor').observedDraft(h.store,'6-5');draft[0].targets=['F','I'];draft[0].targetsLocked=true;
+  h.set('landBaseDrafts',{'6-5':{bases:draft,warnings:['下路']}});
+  const choose=value=>h.find(h.render(),n=>n.type?.name==='RoutePicker').props.onChange(value);
+  choose('guide:6-5-04');h.render();
+  const other=structuredClone(draft);other[0].targets=['C','G'];
+  h.set('landBaseDrafts',{'6-5':{bases:other,warnings:['中路']}});
+  choose('guide:6-5-02');h.render();
+  assert.deepEqual(h.get('landBaseDrafts')['6-5'].bases[0].targets,['F','I']);
+  assert.deepEqual(h.get('landBaseDrafts')['6-5'].warnings,['下路']);
+  assert.deepEqual(h.get('routeDrafts')['guide:6-5-04'].landBaseEntry.bases[0].targets,['C','G']);
+});
+
+test('base changes during completion discard the result and preserve the fleet draft',async()=>{
+  const h=harness();h.set('area','6-5');h.store.airbaseSync={complete:true};
+  h.store.info.airbase=[{api_area_id:6,api_rid:1,api_action_kind:1,api_distance:{api_base:5,api_bonus:0},
+    api_plane_info:Array.from({length:4},(_,i)=>({api_squadron_id:i+1,api_slotid:0,api_count:0,api_max_count:18,api_state:0}))},
+    {api_area_id:7,api_rid:1,api_action_kind:0,api_plane_info:[{api_squadron_id:1,api_slotid:0,api_count:0,api_state:0}]}];
+  h.set('slots',[W.entry(h.store,1),null,null,null,null,null]);const before=JSON.stringify(h.get('slots'));
+  let finish;h.service.recommendNormalFleet=()=>new Promise(resolve=>{finish=resolve;});
+  const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  await new Promise(resolve=>setTimeout(resolve,30));assert(finish);
+  h.store.info.airbase[1].api_plane_info[0].api_slotid=1001;
+  finish({recommendations:[{routeKey:'guide:6-5-02',scheme:W.scheme([W.entry(h.store,2)],1)}]});
+  await pending;assert.equal(JSON.stringify(h.get('slots')),before);assert.match(h.get('error'),/基地航空队资料已变化/);
+});
+
+test('in-place ship changes during completion discard the result and preserve the draft',async()=>{
+  const h=harness();h.set('area','6-5');h.set('mapRoute','guide:6-5-02');
+  h.set('slots',[W.entry(h.store,1),null,null,null,null,null]);const before=JSON.stringify(h.get('slots'));
+  let finish;h.service.recommendNormalFleet=()=>new Promise(resolve=>{finish=resolve;});
+  const pending=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  await new Promise(resolve=>setTimeout(resolve,30));assert(finish);
+  h.store.info.ships[1].api_nowhp=(h.store.info.ships[1].api_nowhp||10)-1;
+  finish({recommendations:[{routeKey:'guide:6-5-02',scheme:W.scheme([W.entry(h.store,2)],1)}]});
+  await pending;assert.equal(JSON.stringify(h.get('slots')),before);assert.match(h.get('error'),/舰队或装备资料已变化/);
+});
+
+test('switching routes does not reuse a cached fleet after in-place account changes',async()=>{
+  const h=harness(),options=require('../../src/domain/routes/route_plans').recommendedOptions('3-5').filter(o=>!o.fallback).slice(0,2);
+  h.set('mapRoute',options[0].key);let calls=0;
+  h.service.recommendNormalFleet=()=>{calls++;return {routeResults:options.map((o,i)=>({...o,status:'available',chance:{min:1,max:1},recommendationIndex:i})),
+    recommendations:options.map(o=>({routeKey:o.key,scheme:W.scheme([W.entry(h.store,1)],1)}))};};
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();assert.equal(calls,1);
+  h.store.info.ships[1].api_nowhp=(h.store.info.ships[1].api_nowhp||10)-1;
+  await h.control(h.render(),'参考路线').props.onChange({target:{value:options[1].key}});h.render();
+  assert.equal(calls,2,'same object references must not reuse a pre-change recommendation');
+});
+
+test('in-flight requests with different in-place account states are not deduplicated',async()=>{
+  const h=harness(),option=require('../../src/domain/routes/route_plans').recommendedOptions('3-5').find(o=>!o.fallback);
+  h.set('mapRoute',option.key);const finish=[];let calls=0;
+  h.service.recommendNormalFleet=()=>{calls++;return new Promise(resolve=>finish.push(resolve));};
+  const click=h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick;
+  const first=click();await new Promise(resolve=>setTimeout(resolve,30));
+  h.store.info.ships[1].api_nowhp=(h.store.info.ships[1].api_nowhp||10)-1;
+  const second=click();await new Promise(resolve=>setTimeout(resolve,30));assert.equal(calls,2);
+  for(const resolve of finish)resolve({recommendations:[{routeKey:option.key,scheme:W.scheme([W.entry(h.store,1)],1)}]});
+  await Promise.all([first,second]);
 });
 
 test('normal and expedition ship portraits reveal attributes for the same visible row without changing the draft',()=>{
