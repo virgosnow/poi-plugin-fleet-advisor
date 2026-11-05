@@ -163,6 +163,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const [attributeDetails,setAttributeDetails]=React.useState({});
     const [equipmentGroup,setEquipmentGroup]=React.useState('all'),[equipmentSort,setEquipmentSort]=React.useState('default');
     const [landBaseDrafts,setLandBaseDrafts]=React.useState({}),[basePopup,setBasePopup]=React.useState(null);
+    const [baseClock,setBaseClock]=React.useState(()=>Date.now());
+    const [shipWindow,setShipWindow]=React.useState(0);
     const grid=React.useRef(null),alive=React.useRef(true),positions=React.useRef(new Map()),popupList=React.useRef(null);
     const resultViews=React.useRef(new Map());
     const pendingShipView=React.useRef(null);
@@ -193,6 +195,13 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     // Persist the completion state with manually selected ships across reloads.
     if(kind==='normal'&&!prepared.current&&slots.some(Boolean)&&slots.every(s=>!s||s.preselectionComplete!==false&&(!s.preselected||s.preselectionComplete)))prepared.current=true;
     const disabled=busy||working,store=observed.current;
+    React.useEffect(()=>{
+      if(kind!=='normal'||paused||!(store.info?.airbaseRelocations||[]).some(row=>Number.isFinite(row.startedAt)))return;
+      setBaseClock(Date.now());const timer=setInterval(()=>{
+        const now=Date.now();setBaseClock(now);
+        if(!(store.info?.airbaseRelocations||[]).some(row=>Number.isFinite(row.startedAt)&&now-row.startedAt<720000))clearInterval(timer);
+      },1000);return()=>clearInterval(timer);
+    },[kind,paused,store.info?.airbaseRelocations]);
     const landBaseEntry=kind==='normal'?landBaseDrafts[area]:null;
     const landBases=kind==='normal'?(landBaseEntry?.bases||airbaseEditor.observedDraft(store,area)):null;
     const landBaseItems=[...new Set((landBaseEntry?.bases||[]).flatMap(base=>base.slots||[]).map(slot=>slot.itemId).filter(id=>id>0))];
@@ -412,7 +421,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       updateLandBases(bases=>airbaseEditor.changeTarget(bases,rid,wave,value).map(base=>base.rid===rid?
         {...base,targetsLocked:true,...(value?{mode:1,modePlanned:true}:{})}:base));
     };
-    React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;},[popup,basePopup,search,equipmentCategory,equipmentGroup,equipmentSort,shipType,shipFleet,shipSort]);
+    React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;setShipWindow(0);},[popup,basePopup,search,equipmentCategory,equipmentGroup,equipmentSort,shipType,shipFleet,shipSort]);
     const choosePlan=(row,key=conditionKey,selectedRoute='')=>{
       const current=getStore(),next=W.merge(current,slots,row.scheme,{preservePositions:kind!=='normal'}),
         nextRoute=row.routeKey||selectedRoute||'';
@@ -810,7 +819,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           h('span',{className:'paa-wb-calculation-label'},h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),'计算中…')):null);
     };
     const airbase=retain(airbaseSnapshot,paused||resumePending.current,
-      [kind,area,paused?'':airbaseView.signature(store,area),landBaseEntry,selectedRoute,mapProfile,routeBases,slots,disabled],()=>{
+      [kind,area,paused?'':airbaseView.signature(store,area),landBaseEntry,selectedRoute,mapProfile,routeBases,slots,disabled,baseClock],()=>{
         if(kind!=='normal')return null;
         const targets=airbaseEditor.routeTargets(selectedRoute,mapProfile,!dirty&&report.valid?report.route:null),warnings=[...(landBaseEntry?.warnings||[])];
         if(landBaseEntry&&routeBases!==landBases)warnings.push('路线或编成已变化，路线外的自动派遣已清除，请重新补全基地方案');
@@ -820,7 +829,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           if(selectedRoute&&routeBases.some(base=>base.targets?.some(node=>node&&!targets.some(target=>target.id===node))))
             warnings.push('部分基地攻击点不在当前路线，沿途不会生效');
         }
-        return airbaseView.render(h,EquipmentIcon,store,area,{bases:routeBases,disabled,targets,
+        return airbaseView.render(h,EquipmentIcon,store,area,{bases:routeBases,disabled,targets,now:baseClock,
           warnings:[...new Set(warnings)],onTarget:changeBaseTarget,onEditSlot:openBase});
       });
     React.useEffect(()=>{onActivity?.(previous=>previous[kind]===calculating?previous:{...previous,[kind]:calculating});},[calculating,kind,onActivity]);
@@ -1086,7 +1095,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         sort:equipmentSort,setSort:setEquipmentSort,store,currentEquipment:baseCurrent,disabled,listRef:popupList,
         onClose:()=>setBasePopup(null),onPick:pickBase,onClear:()=>pickBase({id:0})}):
       popup&&popup.slot===undefined?ShipPicker({index:popup.index,rows:popupRows,search,setSearch,shipFleet,setShipFleet,shipType,setShipType,
-        shipSort,setShipSort,replacementType,replacementTypeLabel,disabled,onClose:()=>setPopup(null),onPick:pick,listRef:popupList,store,kind,
+        shipSort,setShipSort,replacementType,replacementTypeLabel,disabled,onClose:()=>setPopup(null),onPick:pick,listRef:popupList,store,kind,windowScroll:shipWindow,onWindowScroll:setShipWindow,
         hint:kind==='expedition'?'换入后自动推荐远征装备':kind==='normal'&&!prepared.current?'先预选舰娘，一键补全后统一配装':'换入后自动推荐装备'}):
       popup?EquipmentPicker({index:popup.index,slot:popup.slot,rows:popupRows,search,setSearch,group:equipmentGroup,setGroup:setEquipmentGroup,
         category:equipmentCategory,setCategory:setEquipmentCategory,sort:equipmentSort,setSort:setEquipmentSort,store,currentEquipment,disabled,listRef:popupList,

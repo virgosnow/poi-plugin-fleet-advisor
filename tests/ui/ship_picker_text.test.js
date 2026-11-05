@@ -19,3 +19,17 @@ test('ship picker presents status or next remodel in a single secondary line',()
  assert.equal(picker.nextRemodel({api_aftershipid:'0'},store.info.ships[1]),'无后续改造');
  assert.equal(picker.nextRemodel({},store.info.ships[1]),'改造等级待确认');
 });
+
+test('ship picker keeps a bounded scroll window and preserves selection and availability',()=>{
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})},ShipPicker=picker(React);
+ const rows=Array.from({length:100},(_,i)=>({id:i+1,name:`舰娘 ${i+1}`,type:'驱逐',level:i+1,unavailable:i===77?'远征中':null}));
+ const store={info:{ships:{}},const:{$ships:{}}};let selected=null;
+ const render=windowScroll=>ShipPicker({index:0,rows,store,kind:'normal',windowScroll,onPick:row=>{selected=row.id;}});
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
+ let tree=render(0),buttons=walk(tree).filter(n=>n.props['data-ship-index']!==undefined);
+ assert.equal(buttons.length,20);assert.equal(buttons[0].props['data-ship-index'],0);
+ tree=render(57*79);buttons=walk(tree).filter(n=>n.props['data-ship-index']!==undefined);
+ assert.equal(buttons.at(-1).props['data-ship-index'],79);assert.equal(buttons.find(n=>n.props['data-ship-index']===77).props.disabled,true);
+ buttons.at(-1).props.onClick();assert.equal(selected,80);
+ assert.match(walk(tree).find(n=>n.props.className==='paa-wb-popup-bottom').children[0].children[0],/100 项/);
+});

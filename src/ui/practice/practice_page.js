@@ -14,6 +14,7 @@ const usePickerToggle=require('../components/picker_hover');
 const useOpponentMotion=require('./opponent_motion');
 const {normalizeName}=require('../../shared/name_matching');
 const equipmentPicker=require('../components/equipment_picker');
+const {createShipPickerCache}=require('../workbench/ship_picker_cache');
 const empty=()=>Array(6).fill(null);
 const TRAINING_ROW_STEP=53,TRAINING_OVERSCAN=4,TRAINING_VISIBLE=8;
 const rankText=rank=>`${rank}${['SS','S','A','B'].includes(rank)?'胜':'败'}`;
@@ -31,9 +32,11 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
     const [trainingShipIds,setTrainingShipIds]=React.useState([]),[trainingOpen,setTrainingOpen]=React.useState(false),[trainingSearch,setTrainingSearch]=React.useState('');
     const [trainingType,setTrainingType]=React.useState('all'),[trainingSort,setTrainingSort]=React.useState('level-asc');
     const [selectedQuests,setSelectedQuests]=React.useState([]);
-    const [trainingLock,setTrainingLock]=React.useState('all'),[trainingScroll,setTrainingScroll]=React.useState(0);
+    const [trainingLock,setTrainingLock]=React.useState('locked'),[trainingScroll,setTrainingScroll]=React.useState(0);
+    const [shipWindow,setShipWindow]=React.useState(0);
     const grid=React.useRef(null),popupList=React.useRef(null),forecastCache=React.useRef(null),opponentList=React.useRef(null),store=getStore(),practice=store.practiceState||{},quest=store.questState||{};
     const trainingAnchor=React.useRef(null),trainingDialog=React.useRef(null),trainingTrigger=React.useRef(null),trainingPointerInside=React.useRef(false),trainingList=React.useRef(null),trainingPendingFocus=React.useRef(null);
+    const shipPickerCache=React.useRef(null);if(!shipPickerCache.current)shipPickerCache.current=createShipPickerCache();
     const trainingPicker=usePickerToggle(React,{enabled:!hidden&&!busy&&!working,open:trainingOpen,anchor:trainingAnchor,
       onOpen:()=>setTrainingOpen(true),onClose:()=>setTrainingOpen(false)});
     const closeTraining=()=>{trainingPicker.dismiss();setTrainingOpen(false);trainingTrigger.current?.focus();};
@@ -42,7 +45,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
       if(next.practiceState?.revision!==previous.practiceState?.revision||next.questState!==previous.questState||
         ['ships','equips','fleets','resources'].some(key=>next.info?.[key]!==previous.info?.[key])){previous=next;setRevision(v=>v+1);}},1000);return()=>clearInterval(timer);},[hidden,busy]);
     React.useEffect(()=>drag(grid.current,(a,b)=>setSlots(previous=>{const next=previous.slice();[next[a],next[b]]=[next[b],next[a]];return next;}),hidden||busy||working),[hidden,busy,working,slots]);
-    React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;},[popup,search,shipType,shipFleet,shipSort,equipmentGroup,equipmentCategory,equipmentSort]);
+    React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;setShipWindow(0);},[popup,search,shipType,shipFleet,shipSort,equipmentGroup,equipmentCategory,equipmentSort]);
     const opponents=practice.opponents||[],selected=opponents.find(o=>o.id===opponentId)||opponents[0]||null;
     const opponentKey=opponents.map(opponent=>opponent.id).join(',');
     useOpponentMotion(React,opponentList,hidden,!!practice.known,opponentKey,selected?.id);
@@ -217,7 +220,8 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
     const replacementShip=popup?.slot===undefined&&slots[popup?.index]?store.info.ships[slots[popup.index].id]:null;
     const replacementType=replacementShip&&store.const.$ships[replacementShip.api_ship_id]?.api_stype;
     const replacementTypeLabel=W.TYPES[replacementType]||store.const.$shipTypes?.[replacementType]?.api_name||'未知舰种';
-    const pickRows=popup?(popup.slot===undefined?W.replacementCandidates(store,slots,popup.index,search,'all',{kind:'practice',filters:automaticFilters},undefined,{sortFirstFleet:false})
+    const selection={kind:'practice',filters:automaticFilters};
+    const pickRows=popup?(popup.slot===undefined?W.replacementCandidates(store,slots,popup.index,search,'all',selection,shipPickerCache.current.get(store,selection),{sortFirstFleet:false})
       .filter(row=>(shipType==='all'||(shipType.startsWith('type:')?String(row.typeId)===shipType.slice(5):shipPicker.shipGroup(row.typeId)===shipType))&&(shipFleet==='all'||row.fleet===Number(shipFleet)))
       .sort((a,b)=>shipSort==='level-asc'?a.level-b.level||a.id-b.id:shipSort==='morale-desc'?b.cond-a.cond||b.level-a.level||a.id-b.id:
         shipSort==='name'?a.name.localeCompare(b.name,'ja')||b.level-a.level||a.id-b.id:b.level-a.level||a.id-b.id):
@@ -285,7 +289,9 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
           trainingOpen&&!disabled?h('section',{ref:trainingDialog,className:'paa-practice-training-panel',role:'dialog','aria-label':'选择要培养的舰娘',
             onPointerDownCapture:()=>{trainingPointerInside.current=true;}},
             h('div',{className:'paa-area-panel-head'},h('span',null,'选择培养舰娘'),h('span',{className:'paa-mission-count'},`已选择 ${trainingShipIds.length} / 6 艘 · ${trainingMatches.length} 项`),
-              h('button',{type:'button',className:'paa-mission-search-reset','aria-label':'清除培养舰娘',disabled:!trainingShipIds.length,onClick:()=>setTrainingShipIds([])},'清除'),
+              h('button',{type:'button',className:'paa-mission-search-reset','aria-label':'清除培养舰娘',disabled:!trainingShipIds.length,onClick:()=>{
+                trainingDialog.current?.querySelector('input[type=search]')?.focus({preventScroll:true});setTrainingShipIds([]);
+              }},'清除'),
               h('button',{type:'button','aria-label':'关闭舰娘选择',onClick:closeTraining},'×')),
             h('div',{className:'paa-mission-controls paa-practice-training-controls'},
               h('input',{type:'search',className:'paa-practice-training-search',value:trainingSearch,placeholder:'舰名 / 舰种 / ID','aria-label':'搜索舰娘',
@@ -293,11 +299,13 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
               h('select',{'aria-label':'排序方式',value:trainingSort,onChange:e=>setTrainingSort(e.target.value)},
                 ...[['level-asc','等级从低到高'],['level-desc','等级从高到低'],['morale-desc','士气从高到低'],['name','舰名排序']].map(([key,label])=>h('option',{key,value:key},label)))),
             h('div',{className:'paa-practice-training-tabs',role:'group','aria-label':'舰种筛选'},
+              h('span',{className:'paa-practice-training-filter-label'},'舰种'),h('div',{className:'paa-practice-training-filter-options'},
               ...[['all','全部'],...shipPicker.SHIP_GROUPS].map(([key,label])=>
-                h('button',{key,type:'button','aria-pressed':trainingType===key,onClick:()=>setTrainingType(key)},label))),
-            h('div',{className:'paa-practice-training-lock-filter',role:'group','aria-label':'锁定筛选'},h('span',null,'锁定'),
-              ...[['all','全部'],['unlocked','未上锁'],['locked','已上锁']].map(([key,label])=>
-                h('button',{key,type:'button','aria-pressed':trainingLock===key,onClick:()=>setTrainingLock(key)},label))),
+                h('button',{key,type:'button','aria-pressed':trainingType===key,onClick:()=>setTrainingType(key)},label)))),
+            h('div',{className:'paa-practice-training-lock-filter',role:'group','aria-label':'锁定筛选'},
+              h('span',{className:'paa-practice-training-filter-label'},'锁定'),h('div',{className:'paa-practice-training-filter-options'},
+              ...[['all','全部'],['locked','已锁定'],['unlocked','未锁定']].map(([key,label])=>
+                h('button',{key,type:'button','aria-pressed':trainingLock===key,onClick:()=>setTrainingLock(key)},label)))),
             h('div',{className:'paa-practice-training-list',ref:trainingList,onScroll:event=>setTrainingScroll(event.currentTarget.scrollTop),onKeyDown:trainingKeys},
               h('div',{className:'paa-practice-training-window',style:{height:trainingMatches.length*TRAINING_ROW_STEP}},...trainingMatches.slice(trainingStart,trainingEnd).map((row,offset)=>{const index=trainingStart+offset,checked=trainingSelected.has(row.id),full=!checked&&!occupied.has(row.id)&&occupied.size>=6,portrait=V.portraitUrl(store,row.masterId,undefined,trainingGraphs);
               return h('label',{key:row.id,className:'paa-practice-training-option','data-index':index,'data-selected':checked,'data-unavailable':full,style:{top:index*TRAINING_ROW_STEP}},
@@ -351,7 +359,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
         operationFeedback,message?h('p',{className:'paa-fleet-warning',role:'status'},message):null,
         metrics(),
         h('div',{className:'paa-wb-ships',ref:grid},...slots.map(card)))),
-      popup&&popup.slot===undefined?ShipPicker({index:popup.index,rows:pickRows,search,setSearch,shipFleet,setShipFleet,shipType,setShipType,shipSort,setShipSort,replacementType,replacementTypeLabel,disabled,onClose:()=>setPopup(null),onPick:pick,hint:'选择舰娘后可继续调整装备',listRef:popupList,store,kind:'practice'}):
+      popup&&popup.slot===undefined?ShipPicker({index:popup.index,rows:pickRows,search,setSearch,shipFleet,setShipFleet,shipType,setShipType,shipSort,setShipSort,replacementType,replacementTypeLabel,disabled,onClose:()=>setPopup(null),onPick:pick,hint:'选择舰娘后可继续调整装备',listRef:popupList,store,kind:'practice',windowScroll:shipWindow,onWindowScroll:setShipWindow}):
       popup?EquipmentPicker({index:popup.index,slot:popup.slot,rows:pickRows,search,setSearch,group:equipmentGroup,setGroup:setEquipmentGroup,
         category:equipmentCategory,setCategory:setEquipmentCategory,sort:equipmentSort,setSort:setEquipmentSort,store,currentEquipment,disabled,listRef:popupList,
         onClose:()=>setPopup(null),onPick:pick,onClear:()=>pick({id:-1})}):null);

@@ -2,6 +2,7 @@
 const V=require('../models/presentation_model');
 const {withArrivalNotes}=require('../models/route_presentation');
 const R=require('../../domain/fleet/equipment_rules');
+const {unverifiedRelocation}=require('../../domain/fleet/airbase_relocation');
 const {normalizeName}=require('../../shared/name_matching');
 const {profileForRoute}=require('../../domain/routes/sortie_profile');
 const expeditions=require('../../domain/expeditions/expeditions');
@@ -23,25 +24,25 @@ function family(store,id){
   const ship=store.info.ships[id],master=store.const.$ships[ship?.api_ship_id];
   return master?.api_yomi?.trim()?`reading:${master.api_yomi.normalize('NFKC').trim()}`:`master:${ship?.api_ship_id}`;
 }
-function roster(store,slots=[],index=-1,search=''){
+function roster(store,slots=[],index=-1,search='',{deferPortraits=false}={}){
   const term=normalizeName(search).toLowerCase(),used=new Set(slots.filter((x,i)=>x&&i!==index).map(x=>family(store,x.id)));
-  const graph=store.const?.$shipgraph,graphIndex=Array.isArray(graph)?new Map(graph.filter(Boolean).map(row=>[Number(row.api_id),row])):null;
+  const graph=store.const?.$shipgraph,graphIndex=!deferPortraits&&Array.isArray(graph)?new Map(graph.filter(Boolean).map(row=>[Number(row.api_id),row])):null;
   const portraits=new Map();let resolvePortrait;
-  try{resolvePortrait=require('views/utils/ship-img').getShipImgPath;}catch(_){resolvePortrait=()=>null;}
+  if(!deferPortraits)try{resolvePortrait=require('views/utils/ship-img').getShipImgPath;}catch(_){resolvePortrait=()=>null;}
   const portrait=id=>{if(!portraits.has(id))portraits.set(id,V.portraitUrl(store,id,resolvePortrait,graphIndex));return portraits.get(id);};
   return V.rosterRows(store).map(row=>{
     const ship=store.info.ships[row.id],master=store.const.$ships[ship.api_ship_id];
     const type=TYPES[master.api_stype]||store.const.$shipTypes?.[master.api_stype]?.api_name||'未知舰种';
     const fleetIndex=(store.info.fleets||[]).findIndex(f=>(f.api_ship||[]).includes(row.id));
-    return {...row,type,typeId:master.api_stype,fleet:fleetIndex<0?null:fleetIndex+1,fleetLabel:fleetIndex<0?'未编入舰队':`第 ${fleetIndex+1} 舰队`,cond:ship.api_cond,portrait:portrait(ship.api_ship_id),
+    return {...row,type,typeId:master.api_stype,fleet:fleetIndex<0?null:fleetIndex+1,fleetLabel:fleetIndex<0?'未编入舰队':`第 ${fleetIndex+1} 舰队`,cond:ship.api_cond,portrait:deferPortraits?null:portrait(ship.api_ship_id),
       unavailable:row.unavailable||(used.has(family(store,row.id))?'同舰已编入':null)};
   }).filter(row=>!term||normalizeName(row.name+' '+row.type+' '+row.id).toLowerCase().includes(term));
 }
 // The owned roster and automatic-exclusion reasons do not depend on the
 // selected draft position. They can be prepared while the workbench is idle.
-function prepareReplacementCandidates(store,selection){
+function prepareReplacementCandidates(store,selection,{deferPortraits=false}={}){
   const excluded=selection?require('../../config/recommendation_filters').evaluator(store,selection.kind,selection.filters):()=>[];
-  return roster(store,[], -1).map(row=>({...row,familyKey:family(store,row.id),
+  return roster(store,[], -1,'',{deferPortraits}).map(row=>({...row,familyKey:family(store,row.id),
     searchText:normalizeName(row.name+' '+row.type+' '+row.id).toLowerCase(),preferenceReasons:excluded(row.id)}));
 }
 function replacementCandidates(store,slots,index,search='',scope='similar',selection,prepared,{sortFirstFleet=true}={}){
@@ -90,8 +91,9 @@ function equipmentOptions(store,slots,index,slot,search='',reservedEquipment=[])
   for(const [id,s] of Object.entries(store.info.ships))for(const eid of [...(s.api_slot||[]),s.api_slot_ex])if(eid>0)owners.set(eid,Number(id));
   const unavailable=new Set(V.rosterRows(store).filter(s=>s.unavailable).map(s=>s.id));
   const airbase=new Set((store.info.airbase||[]).flatMap(b=>(b.api_plane_info||[]).map(s=>s.api_slotid)));
+  for(const row of store.info.airbaseRelocations||[])if(row?.itemId>0)airbase.add(Number(row.itemId));
   const candidates=Object.keys(store.info.equips).map(Number).filter(id=>{
-    if(used.has(id)||airbase.has(id)||unavailable.has(owners.get(id)))return false;
+    if(used.has(id)||airbase.has(id)||unavailable.has(owners.get(id))||unverifiedRelocation(store,id,owners.get(id)))return false;
     try{return R.canEquip(store,ship.id,id,slot)&&(!owners.has(id)||owners.get(id)===ship.id||R.acceptsOtherSlot(store,ship.id,id,slot));}catch(_){return false;}
   }).map(id=>{
     const raw=store.info.equips[id],master={...store.const.$equips[raw.api_slotitem_id],api_id:raw.api_slotitem_id};

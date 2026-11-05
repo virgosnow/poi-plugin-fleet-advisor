@@ -37,6 +37,15 @@ test('prepared roster responds to draft duplicates without rebuilding the roster
   assert.equal(cache.get(store,selection),updated);
 });
 
+test('cached candidates defer portrait resolution until a card is rendered',()=>{
+  const store=fixture(),view=require('../../src/ui/models/presentation_model'),original=view.portraitUrl;let calls=0;
+  try{view.portraitUrl=()=>{calls++;return 'portrait';};
+    const rows=createShipPickerCache().get(store,{kind:'normal'});
+    assert(rows.length>0);assert.equal(calls,0);assert(rows.every(row=>row.portrait===null));
+    W.roster(store);assert(calls>0,'other roster callers keep their normal portrait behavior');
+  }finally{view.portraitUrl=original;}
+});
+
 test('ship picker entry animation respects reduced motion and defers offscreen rendering',()=>{
   const styles=require('../../src/ui/workbench/workbench_styles');
   assert.match(styles,/@media\(prefers-reduced-motion:no-preference\)\{\.paa-wb-popup-shade\[data-picker=ship\]/);

@@ -206,6 +206,7 @@ test('practice training targets can be searched and selected without altering th
    assert(!walk(tree).some(n=>['演习目标','演习阵形','舰队规模'].includes(n.props['aria-label'])));
    states[0]=[{...ship,pin:true},null,null,null,null,null];
    trigger(tree).props.onClick();tree=render();
+   walk(walk(tree).find(n=>n.props['aria-label']==='锁定筛选')).find(n=>n.type==='button'&&n.children.includes('全部')).props.onClick();tree=render();
    const text=node=>walk(node).flatMap(n=>n.children||[]).filter(x=>typeof x==='string').join(' ');
    assert.match(text(option(tree,1)),/下一改造 Lv\.60/);assert.doesNotMatch(text(option(tree,1)),/已达/);
    assert.match(text(option(tree,2)),/无后续改造/);assert.match(text(option(tree,3)),/下一改造 Lv\.40（已达）/);assert.match(text(option(tree,4)),/改造等级待确认/);
@@ -222,7 +223,11 @@ test('practice training targets can be searched and selected without altering th
    assert.equal(walk(trigger(tree)).filter(n=>n.props.className==='paa-practice-training-portrait').length,6);
    assert.match(trigger(tree).props['aria-label'],/测试舰1/);
    const clear=walk(tree).find(n=>n.props['aria-label']==='清除培养舰娘');assert.equal(clear.props.disabled,false);
-   clear.props.onClick();tree=render();assert.equal(walk(tree).find(n=>n.props['aria-label']==='清除培养舰娘').props.disabled,true);
+   let searchFocused=false;
+   walk(tree).find(n=>n.props.className==='paa-practice-training-panel').props.ref.current={querySelector:()=>({focus:()=>{searchFocused=true;}})};
+   clear.props.onClick();tree=render();assert(searchFocused,'清除前将焦点留在面板内');
+   assert(walk(tree).some(n=>n.props.className==='paa-practice-training-panel'),'清除后面板保持打开');
+   assert.equal(walk(tree).find(n=>n.props['aria-label']==='清除培养舰娘').props.disabled,true);
    assert.match(trigger(tree).props['aria-label'],/请添加要培养的舰娘/);assert.equal(states[0][0].id,ship.id);
    for(const id of [2,3,4,5]){walk(option(tree,id)).find(n=>n.type==='input').props.onChange();tree=render();}
    for(const id of [3,4,5]){walk(option(tree,id)).find(n=>n.type==='input').props.onChange();tree=render();}
@@ -255,15 +260,21 @@ test('training picker shares hover guard and filters and sorts the full roster w
  assert.equal(anchor.props.onPointerEnter,undefined);assert.equal(anchor.props.onPointerLeave,undefined);assert.equal(typeof anchor.props.onClickCapture,'function');
  walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props.onClick();tree=render();
  const options=()=>walk(tree).filter(n=>n.type==='label'&&n.props.className==='paa-practice-training-option');
+ let locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');
+ assert.equal(walk(locks).find(n=>n.props.className==='paa-practice-training-filter-label').children[0],'锁定');
+ assert.deepEqual(walk(locks).filter(n=>n.type==='button').map(n=>n.children[0]),['全部','已锁定','未锁定']);
+ assert.equal(walk(locks).find(n=>n.type==='button'&&n.children.includes('已锁定')).props['aria-pressed'],true);
+ assert.deepEqual(options().map(n=>n.props.key),[1]);
+ walk(locks).find(n=>n.type==='button'&&n.children.includes('全部')).props.onClick();tree=render();
  assert(options().every(option=>walk(option).every(n=>!n.props['data-tooltip']&&!n.props.title)));
  assert.deepEqual(options().map(n=>n.props.key),[1,2],'default sort is level ascending');
  assert(!walk(tree).some(n=>n.props['aria-label']==='舰队筛选'),'only ship type is a primary filter');
  assert(options().every(option=>walk(option).some(n=>n.props.className==='paa-wb-portrait')),'list displays ship portraits');
  assert.deepEqual(options().map(option=>walk(option).find(n=>n.props.className==='paa-practice-training-lock')?.props['aria-label']),['已锁定',undefined]);
- let locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');
- walk(locks).find(n=>n.type==='button'&&n.children.includes('未上锁')).props.onClick();tree=render();
+ locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');
+ walk(locks).find(n=>n.type==='button'&&n.children.includes('未锁定')).props.onClick();tree=render();
  assert.deepEqual(options().map(n=>n.props.key),[2]);
- locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');walk(locks).find(n=>n.type==='button'&&n.children.includes('已上锁')).props.onClick();tree=render();
+ locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');walk(locks).find(n=>n.type==='button'&&n.children.includes('已锁定')).props.onClick();tree=render();
  assert.deepEqual(options().map(n=>n.props.key),[1]);
  locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');walk(locks).find(n=>n.type==='button'&&n.children.includes('全部')).props.onClick();tree=render();
  let types=walk(tree).find(n=>n.props['aria-label']==='舰种筛选');walk(types).find(n=>n.type==='button'&&n.children.includes('驱逐／海防')).props.onClick();tree=render();
@@ -289,13 +300,14 @@ test('training picker renders a bounded window while scrolling the full roster',
  const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
  const walk=n=>n&&typeof n==='object'?[n,...(n.children||[]).flatMap(walk)]:[],render=()=>{i=0;return Page({kind:'practice'});};
  let tree=render();walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props.onClick();tree=render();
+ walk(walk(tree).find(n=>n.props['aria-label']==='锁定筛选')).find(n=>n.type==='button'&&n.children.includes('全部')).props.onClick();tree=render();
  let list=walk(tree).find(n=>n.props.className==='paa-practice-training-list'),options=()=>walk(tree).filter(n=>n.props.className==='paa-practice-training-option');
  assert.equal(options().length,16);assert.equal(options()[0].props['data-index'],0);
  assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-training-window').props.style.height,5300);
  list.props.onScroll({currentTarget:{scrollTop:53*90}});tree=render();
  assert(options().length<=16);assert(options().some(n=>n.props['data-index']===90));
  list=walk(tree).find(n=>n.props.className==='paa-practice-training-list');list.props.onScroll({currentTarget:{scrollTop:0}});tree=render();
- const filter=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');walk(filter).find(n=>n.children?.includes('未上锁')).props.onClick();tree=render();
+ const filter=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');walk(filter).find(n=>n.children?.includes('未锁定')).props.onClick();tree=render();
  assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-training-window').props.style.height,2650);
  assert(options().every(n=>n.props.key%2===0));
 });

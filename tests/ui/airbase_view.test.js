@@ -54,7 +54,8 @@ test('missing base, partial range and unknown aircraft do not become known value
   const base=view.model(store,'6-4').bases[0];
   assert.equal(base.distance,null);assert.equal(base.mode,'状态待确认');
   assert.equal(base.slots[0].name,'飞机资料待同步');assert.equal(base.slots[0].count,'0/?');
-  assert.equal(base.slots[0].state,'状态待确认');assert.equal(base.slots[1].name,'空槽');
+  assert.equal(base.slots[0].state,'转场中');assert.equal(base.slots[1].name,'空槽');
+  assert.match(text(view.render(h,()=>null,store,'6-4')),/转场中/);
   assert.equal(base.slots[2].name,'资料待同步');
   const southwest=view.model(store,'7-4');
   assert.deepEqual(southwest.bases,[],'central bases must never be displayed for the southwest');
@@ -65,6 +66,12 @@ test('missing base, partial range and unknown aircraft do not become known value
   assert(find(locked,node=>node.type==='svg'&&node.props['aria-hidden']===true),'lock icon is visible');
   assert(find(locked,node=>node.props['data-state']==='locked'));
   assert.equal(find(locked,node=>node.type==='button'),undefined);
+});
+test('a removal countdown shows the maintenance range and never treats timeout as a server release',()=>{
+  assert.equal(view.relocationLabel(10000,10000),'转场 6:00–12:00');
+  assert.equal(view.relocationLabel(10000,70000),'转场 5:00–11:00');
+  assert.equal(view.relocationLabel(10000,730000),'转场中');
+  assert.equal(view.relocationLabel(null,70000),'转场中');
 });
 
 test('change signature detects in-place base and assigned equipment updates',()=>{

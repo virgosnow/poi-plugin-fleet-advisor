@@ -19,7 +19,7 @@ function createShipPickerCache(){
   return {
     get(store,selection){
       const signature=rosterSignature(store,selection);
-      if(!cached||cached.signature!==signature)cached={signature,rows:prepareReplacementCandidates(store,selection)};
+      if(!cached||cached.signature!==signature)cached={signature,rows:prepareReplacementCandidates(store,selection,{deferPortraits:true})};
       return cached.rows;
     },
     clear(){cached=null;}
