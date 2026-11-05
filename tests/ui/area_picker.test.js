@@ -65,7 +65,7 @@ test('expedition picker clicks toggle without changing the selected mission',()=
   const calls=[],ui=harness({kind:'expedition',missions:[{missionId:1,name:'练习航海'}],value:1,onChange:id=>calls.push(id)});
   const anchor=()=>ui.find(n=>n.props.className==='paa-area-anchor'),panel=()=>ui.find(n=>n.props.role==='dialog');
   const click=()=>{ui.find(n=>n.props['aria-label']==='远征').props.onClick();ui.render();};
-  assert.equal(anchor().props.onPointerEnter,undefined);assert.equal(anchor().props.onPointerLeave,undefined);assert.equal(typeof anchor().props.onClickCapture,'function');
+  assert.equal(typeof anchor().props.onPointerEnter,'function');assert.equal(typeof anchor().props.onPointerLeave,'function');assert.equal(typeof anchor().props.onClickCapture,'function');
   click();assert(panel());click();assert(!panel());click();assert(panel());click();assert(!panel());
   assert.deepEqual(calls,[]);
 });
@@ -83,7 +83,7 @@ test('current selection is a no-op; repeated clicks toggle the panel and Escape 
 test('map picker clicks toggle the panel',()=>{
   const calls=[],props={maps:[{area:'1-1'}],value:'1-1',onChange:id=>calls.push(id)},ui=harness(props);
   const anchor=()=>ui.find(n=>n.props.className==='paa-area-anchor'),panel=()=>ui.find(n=>n.props.role==='dialog');
-  assert.equal(anchor().props.onPointerEnter,undefined);assert.equal(anchor().props.onPointerLeave,undefined);assert.equal(typeof anchor().props.onClickCapture,'function');
+  assert.equal(typeof anchor().props.onPointerEnter,'function');assert.equal(typeof anchor().props.onPointerLeave,'function');assert.equal(typeof anchor().props.onClickCapture,'function');
   ui.find(n=>n.props['aria-label']==='海域').props.onClick();ui.render();assert(panel());
   ui.find(n=>n.props['aria-label']==='海域').props.onClick();ui.render();assert(!panel());
   ui.find(n=>n.props['aria-label']==='海域').props.onClick();ui.render();assert(panel());

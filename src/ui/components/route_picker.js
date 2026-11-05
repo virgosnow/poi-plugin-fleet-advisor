@@ -54,7 +54,7 @@ module.exports=function createRoutePicker(React){
       const escape=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();}};
       place();
       const selected=dialog.querySelector('[aria-selected=true]:not(:disabled)')||dialog.querySelector('[role=option]:not(:disabled)');
-      selected?.focus({preventScroll:true});
+      if(!picker.isHover())selected?.focus({preventScroll:true});
       const list=dialog.querySelector('.paa-route-list');
       if(selected&&list)list.scrollTop+=selected.getBoundingClientRect().top-list.getBoundingClientRect().top-30;
       doc.addEventListener('pointerdown',pointerDown,true);doc.addEventListener('pointerup',pointerEnd,true);doc.addEventListener('pointercancel',pointerEnd,true);doc.addEventListener('focusin',outside,true);doc.addEventListener('keydown',escape);win.addEventListener('resize',place);doc.addEventListener('scroll',place,true);
@@ -87,14 +87,15 @@ module.exports=function createRoutePicker(React){
     const path=routeFormula;
     return h('div',{className:'paa-area-picker paa-wb-route-picker','data-kind':'route'},
       h('span',{className:'paa-area-label'},'路线'),
-      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:picker.guardClick},
+      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:picker.guardClick,onPointerEnter:picker.enter,onPointerLeave:picker.leave},
         h('button',{type:'button',className:'paa-area-trigger paa-route-trigger',ref:trigger,disabled,
           'aria-label':'路线','aria-haspopup':'dialog','aria-expanded':open&&!disabled&&!hidden,
           onClick:()=>{if(!disabled&&!hidden)picker.click();}},
           h('span',{className:'paa-wb-route-name'},selected?.name||'选择路线'),
           selected?h('span',{className:'paa-wb-route-path'},`${selected.phaseLabel?selected.phaseLabel+'　':''}${path(selected)}`):null,
           h('span',{className:'paa-area-chevron','aria-hidden':true})),
-        open&&!disabled&&!hidden?h('section',{className:'paa-area-panel paa-route-panel',ref:panel,role:'dialog','aria-label':'选择路线'},
+        open&&!disabled&&!hidden?h('section',{className:'paa-area-panel paa-route-panel',ref:panel,role:'dialog','aria-label':'选择路线',
+          onKeyDownCapture:picker.engageKeyboard,onPointerDownCapture:picker.engageSelect},
           h('div',{className:'paa-area-panel-head'},h('span',null,'选择路线'),h('button',{type:'button','aria-label':'关闭路线选择',onClick:close},'×')),
           h('div',{className:'paa-area-regions paa-route-list',role:'listbox','aria-label':'推荐路线'},
             h('button',{className:'paa-route-clear',type:'button',role:'option','aria-selected':!selected,onClick:()=>choose('')},'选择路线',h('small',null,'取消路线预选')),

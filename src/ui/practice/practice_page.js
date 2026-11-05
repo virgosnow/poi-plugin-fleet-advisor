@@ -35,11 +35,12 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
     const [trainingLock,setTrainingLock]=React.useState('locked'),[trainingScroll,setTrainingScroll]=React.useState(0);
     const [shipWindow,setShipWindow]=React.useState(0);
     const grid=React.useRef(null),popupList=React.useRef(null),forecastCache=React.useRef(null),opponentList=React.useRef(null),store=getStore(),practice=store.practiceState||{},quest=store.questState||{};
-    const trainingAnchor=React.useRef(null),trainingDialog=React.useRef(null),trainingTrigger=React.useRef(null),trainingPointerInside=React.useRef(false),trainingList=React.useRef(null),trainingPendingFocus=React.useRef(null);
+    const trainingAnchor=React.useRef(null),trainingDialog=React.useRef(null),trainingTrigger=React.useRef(null),trainingPointerInside=React.useRef(false),trainingList=React.useRef(null),trainingPendingFocus=React.useRef(null),editingTrainingSearch=React.useRef(false);
     const shipPickerCache=React.useRef(null);if(!shipPickerCache.current)shipPickerCache.current=createShipPickerCache();
     const trainingPicker=usePickerToggle(React,{enabled:!hidden&&!busy&&!working,open:trainingOpen,anchor:trainingAnchor,
-      onOpen:()=>setTrainingOpen(true),onClose:()=>setTrainingOpen(false)});
-    const closeTraining=()=>{trainingPicker.dismiss();setTrainingOpen(false);trainingTrigger.current?.focus();};
+      onOpen:()=>setTrainingOpen(true),onClose:()=>{editingTrainingSearch.current=false;setTrainingOpen(false);},
+      shouldHoldOpen:()=>editingTrainingSearch.current&&trainingAnchor.current?.ownerDocument?.activeElement===trainingDialog.current?.querySelector('input[type=search]')});
+    const closeTraining=()=>{editingTrainingSearch.current=false;trainingPicker.dismiss();setTrainingOpen(false);trainingTrigger.current?.focus();};
     React.useEffect(()=>{setQuestPageActive?.('practice',!hidden&&!busy);return()=>setQuestPageActive?.('practice',false);},[hidden,busy]);
     React.useEffect(()=>{if(hidden||busy)return;let previous=getStore();const timer=setInterval(()=>{const next=getStore();
       if(next.practiceState?.revision!==previous.practiceState?.revision||next.questState!==previous.questState||
@@ -69,7 +70,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
         panel.style.left=`${Math.max(12-r.left,Math.min(0,doc.documentElement.clientWidth-12-r.left-width))}px`;
         panel.style.maxHeight=`${Math.max(100,Math.min(560,doc.documentElement.clientHeight-r.bottom-18))}px`;};
       const outside=e=>{if(!root.contains(e.target)){trainingPicker.dismiss();setTrainingOpen(false);}};
-      place();panel.querySelector('input[type=search]')?.focus({preventScroll:true});
+      place();if(!trainingPicker.isHover())panel.querySelector('input[type=search]')?.focus({preventScroll:true});
       const pointerEnd=()=>setTimeout(()=>{trainingPointerInside.current=false;},0);
       doc.addEventListener('pointerdown',outside,true);doc.addEventListener('pointerup',pointerEnd,true);doc.addEventListener('pointercancel',pointerEnd,true);
       win.addEventListener('resize',place);doc.addEventListener('scroll',place,true);
@@ -271,7 +272,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
     };
     return h('div',{className:'paa-workbench paa-practice','data-kind':kind},h('div',{className:'paa-wb-columns'},
       h('section',{className:'paa-wb-left'},h('div',{className:'paa-wb-context-controls paa-practice-context'},
-        h('div',{className:'paa-practice-training',ref:trainingAnchor,
+        h('div',{className:'paa-practice-training',ref:trainingAnchor,onPointerEnter:trainingPicker.enter,onPointerLeave:trainingPicker.leave,
           onClickCapture:trainingPicker.guardClick,onKeyDown:e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeTraining();}},
           onBlur:e=>{const anchor=e.currentTarget;if(anchor.contains(e.relatedTarget))return;
             setTimeout(()=>{if(!trainingPointerInside.current&&(!anchor.isConnected||!anchor.contains(anchor.ownerDocument.activeElement))){
@@ -287,7 +288,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
               ...[0,1,2,3,4,5].map(limit=>trainingShipIds.length>limit?h('span',{className:`paa-practice-training-more paa-practice-training-more-${limit}`,key:`more-${limit}`,'aria-hidden':true},`+${trainingShipIds.length-limit}`):null)):
               h('span',{className:'paa-practice-training-empty-hint'},'请添加要培养的舰娘')),
           trainingOpen&&!disabled?h('section',{ref:trainingDialog,className:'paa-practice-training-panel',role:'dialog','aria-label':'选择要培养的舰娘',
-            onPointerDownCapture:()=>{trainingPointerInside.current=true;}},
+            onKeyDownCapture:trainingPicker.engageKeyboard,onPointerDownCapture:event=>{trainingPointerInside.current=true;trainingPicker.engageSelect(event);}},
             h('div',{className:'paa-area-panel-head'},h('span',null,'选择培养舰娘'),h('span',{className:'paa-mission-count'},`已选择 ${trainingShipIds.length} / 6 艘 · ${trainingMatches.length} 项`),
               h('button',{type:'button',className:'paa-mission-search-reset','aria-label':'清除培养舰娘',disabled:!trainingShipIds.length,onClick:()=>{
                 trainingDialog.current?.querySelector('input[type=search]')?.focus({preventScroll:true});setTrainingShipIds([]);
@@ -295,7 +296,8 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
               h('button',{type:'button','aria-label':'关闭舰娘选择',onClick:closeTraining},'×')),
             h('div',{className:'paa-mission-controls paa-practice-training-controls'},
               h('input',{type:'search',className:'paa-practice-training-search',value:trainingSearch,placeholder:'舰名 / 舰种 / ID','aria-label':'搜索舰娘',
-                onChange:e=>setTrainingSearch(e.target.value)}),
+                onPointerDown:()=>{editingTrainingSearch.current=true;},onCompositionStart:()=>{editingTrainingSearch.current=true;},
+                onBlur:()=>{editingTrainingSearch.current=false;},onChange:e=>{editingTrainingSearch.current=true;setTrainingSearch(e.target.value);}}),
               h('select',{'aria-label':'排序方式',value:trainingSort,onChange:e=>setTrainingSort(e.target.value)},
                 ...[['level-asc','等级从低到高'],['level-desc','等级从高到低'],['morale-desc','士气从高到低'],['name','舰名排序']].map(([key,label])=>h('option',{key,value:key},label)))),
             h('div',{className:'paa-practice-training-tabs',role:'group','aria-label':'舰种筛选'},
