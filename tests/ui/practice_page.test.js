@@ -137,7 +137,7 @@ test('practice preserves restored formation until an observed opponent list actu
  const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
  const update=()=>{stateIndex=0;refIndex=0;effects=[];Page({kind:'practice',hidden:true});const effect=effects.find(fn=>String(fn).includes('lastOpponentList.current'));assert(effect);effect();};
  update();store.practiceState={known:true,opponents:[{id:10}],revision:2};update();assert.deepEqual(calls,[]);
- store.practiceState={known:true,opponents:[{id:20}],revision:3};update();assert.deepEqual(calls,[[16,{}],[18,'auto']]);
+ store.practiceState={known:true,opponents:[{id:20}],revision:3};update();assert.deepEqual(calls,[[16,{}],[17,'auto']]);
 });
 
 test('the whole opponent card selects it, and each lineup still folds independently',()=>{
@@ -231,7 +231,7 @@ test('practice training targets can be searched and selected without altering th
    assert(option(tree,3));assert(!option(tree,2));
    await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();
    tree=render();assert.deepEqual(requests[0].trainingShipIds,[2]);
-   assert.equal(requests[0].goal,'balanced');assert.equal(requests[0].capacity,6);assert.equal(requests[0].slots[0].id,1);
+   assert.equal(requests[0].capacity,6);assert.equal(requests[0].slots[0].id,1);
    opponents(tree)[0].props.onClick();tree=render();
    await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();tree=render();
    assert.equal(estimates.at(-1).ownFormation,'lineAbreast');

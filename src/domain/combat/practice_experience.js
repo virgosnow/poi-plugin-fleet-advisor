@@ -106,4 +106,35 @@ function estimateForecast(store,scheme,opponent,forecast){
   notes:[...results[0].notes,'战果范围来自参考模拟，仅纳入模拟中出现的结果；普通经验不含 MVP 或被击沉。',
    ...(sOnly?['单一数值为 S 胜普通经验范围的中间参考值，实际经验仍可能波动。']:[])]};
 }
-module.exports={estimate,estimateForecast,cumulative,training,admiralXP};
+// Per-scenario XP calculation driven by actual simulation outcomes.
+// Uses a single reference base (cap(pre)) rather than the 0–3 variation range,
+// which is sufficient for relative variant comparison.
+function estimateFromScenarios(store,scheme,opponent,xpScenarios){
+ const entries=scheme?.ships||[];
+ if(!entries.length)return {status:'unknown',reason:'编队为空'};
+ if(!Array.isArray(xpScenarios)||!xpScenarios.length)return {status:'unknown',reason:'战斗模拟资料不足'};
+ const first=Number(opponent?.ships?.[0]?.level),second=opponent?.ships?.length===1?1:Number(opponent?.ships?.[1]?.level);
+ if(!levelOk(first)||!levelOk(second))return {status:'unknown',reason:'对手前两舰等级待同步'};
+ const bonus=training(store,entries);if(bonus.error)return {status:'unknown',reason:bonus.error};
+ const pre=Math.floor(cumulative(first)/100+cumulative(second)/300);
+ const baseXp=cap(pre);
+ const getStype=id=>{const ship=store.info?.ships?.[id],master=store.const?.$ships?.[ship?.api_ship_id];return Number(master?.api_stype)||0;};
+ const isSub=id=>[13,14].includes(getStype(id));
+ let totalSum=0;
+ const shipSums=entries.map(()=>0);
+ for(const {rank:r,ownHp,mvpIndex} of xpScenarios){
+  const ranked=Math.floor(baseXp*(RANK[r]||0)/100);
+  for(let i=0;i<entries.length;i++){
+   if(ownHp[i]<=0)continue;// 被击沉，无经验
+   const sub=isSub(entries[i].id);
+   const mult=sub?bonus.submarine:bonus.surface;
+   // plain = rated * (旗舰×3/随伴×2) * (MVP×2/普通×1) / 2
+   const plain=ranked*(i===0?3:2)*(i===mvpIndex?2:1)/2;
+   const xp=Math.floor(plain*mult/1000+1e-9);
+   shipSums[i]+=xp;totalSum+=xp;
+  }
+ }
+ const n=xpScenarios.length;
+ return {status:'estimated',expectedTotal:totalSum/n,expectedPerShip:shipSums.map(s=>s/n)};
+}
+module.exports={estimate,estimateForecast,estimateFromScenarios,cumulative,training,admiralXP};

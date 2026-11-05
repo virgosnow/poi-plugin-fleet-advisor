@@ -10,6 +10,7 @@ const {projectShip}=require('../fleet/fleet_metrics');
 const {nightAviation,carrierNightCutIn}=require('./ship_mechanisms');
 const nightCombat=require('./night_cutin');
 const practiceNightContact=require('./practice_night_contact');
+const landBase=require('./land_base');
 const {fleetSpecialAttacks}=require('./special_attacks');
 const {groundAttackPower}=require('./combat_ground');
 const catalog=new Map(require('../../../data/sortie/enemy_catalog.json').enemies.map(e=>[e.apiId,e]));
@@ -398,17 +399,17 @@ function combinedNightTarget(main,escort,mainHp,escortHp){
 }
 // Run a single scenario. `initialHp` allows the caller to propagate damage
 // between route nodes. Enemies always start at full HP on every new node.
-function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=false}={}){
+function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=false,landBaseState}={}){
   if(!prepared||prepared.status==='unknown')return {status:'unknown'};
   const own=prepared.allies,enemy=prepared.foes;
   if(initialHp&&(!Array.isArray(initialHp)||initialHp.length!==own.length||initialHp.some((v,i)=>!FINITE(v)||v>own[i].hp)))return {status:'unknown'};
-  const ohp=own.map((s,i)=>initialHp?initialHp[i]:s.initialHp),ehp=enemy.map(s=>s.hp),damageByEnemy=enemy.map(()=>0);
+  const ohp=own.map((s,i)=>initialHp?initialHp[i]:s.initialHp),ehp=enemy.map(s=>s.hp),damageByEnemy=enemy.map(()=>0),damageByOwn=own.map(()=>0);
   // Normal sortie policy does not progress from an already-severely damaged
   // fleet. Preserve its HP and leave this node unvisited for route callers.
   if(own.some((s,i)=>isSevere(s,ohp[i])))return {status:'estimated',ownHp:ohp,enemyHp:ehp,
     ...(prepared.combined?{enemyMainHp:ehp.slice(0,prepared.mainCount),enemyEscortHp:ehp.slice(prepared.mainCount)}:{}),severe:true,stopped:true,
-    specialUsed:!!specialUsed,damageByEnemy,enemyLost:0,ownLost:own.reduce((n,s,i)=>n+(s.hp-ohp[i])/s.hp,0)/own.length};
-  let partial=false,stage='',nightTarget=null,nightBonuses={own:0,enemy:0};
+    specialUsed:!!specialUsed,damageByEnemy,damageByOwn,enemyLost:0,ownLost:own.reduce((n,s,i)=>n+(s.hp-ohp[i])/s.hp,0)/own.length};
+  let partial=false,stage='',nightTarget=null,nightBonuses={own:0,enemy:0},enemyAircraftRatio=1;
   const startNightContact=()=>{
     const contact=prepared.practiceNightContact;if(!contact?.states?.length)return;
     const state=contact.states.length===1?contact.states[0]:contact.states[Math.floor(rng()*contact.states.length)];
@@ -459,6 +460,7 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
       const before=defenderHp[target.i],value=hitDamage(spec.power,target.s,rng,attacker.side==='own'?ammo:1,isAsw,isAsw?(attacker.asw?.penetration||0):0,before);
       defenderHp[target.i]=applyDamage(target.s,before,value,rng);
       if(record!==undefined)damageByEnemy[record]+=before-defenderHp[target.i];
+      if(attacker.side==='own')damageByOwn[attacker.index]+=before-defenderHp[target.i];
     }
   };
   const ownAttack=(i,phase,power)=>fire(own[i],ohp[i],enemy,ehp,phase,prepared.ownFormation,power);
@@ -497,7 +499,10 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
       // Friendly and enemy aircraft both use the midpoint-count reference;
       // a carrier torpedo may still have its two distinct attack-power modes.
       const ref=p.referencePowers;
-      const attack=Array.isArray(ref)&&ref.length&&ref.every(FINITE)?pick(ref,rng):rng()<.5?lo:hi;
+      let attack=Array.isArray(ref)&&ref.length&&ref.every(FINITE)?pick(ref,rng):rng()<.5?lo:hi;
+      // Land-base attrition is an explicitly labelled scalar reference until
+      // per-slot enemy fighter/recon data can be resolved without guessing.
+      if(launch.side==='enemy'&&enemyAircraftRatio<1)attack=Math.floor(attack*Math.sqrt(enemyAircraftRatio));
       if(launch.side==='own')fire(own[launch.i],ownBefore[launch.i],enemy,enemyAfter,'air',prepared.ownFormation,attack,undefined,enemyBefore);
       else fire(enemy[launch.i],enemyBefore[launch.i],own,ownAfter,'air',prepared.enemyFormation,attack,launch.i,ownBefore);
     }
@@ -512,6 +517,11 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
       if(i<enemy.length){const phase=targetPool(enemy[i],own,ohp,'night')[0]?.s.submarine?'nightAsw':'night';enemyAttack(i,phase);}
     }
   }else{
+    if(prepared.landBase?.waves?.length){
+      const result=landBase.simulateWaves(prepared.landBase.waves,prepared.landBase.enemyAirPower,enemy,ehp,rng,
+        {hitDamage,applyDamage,trace,state:landBaseState,enemySlots:prepared.landBase.enemySlots});
+      enemyAircraftRatio=result.remainingRatio;
+    }
     if(prepared.ownJet){stage='jet';air(prepared.ownJet,[]);}
     stage='air';air();if(prepared.kind==='aerialCombat'){stage='air2';air(prepared.ownAirSecond||prepared.ownAir);}
     if(prepared.kind!=='aerialRaid'&&prepared.kind!=='aerialCombat'){
@@ -604,7 +614,7 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
   const severe=own.some((s,i)=>isSevere(s,ohp[i]));
   return {status:partial?'partial':'estimated',ownHp:ohp,enemyHp:ehp,
     ...(prepared.combined?{enemyMainHp:ehp.slice(0,prepared.mainCount),enemyEscortHp:ehp.slice(prepared.mainCount),nightTarget}:{}),severe,specialUsed:firedSpecial,
-    damageByEnemy,enemyLost:enemy.reduce((n,s,i)=>n+(s.hp-ehp[i])/s.hp,0)/enemy.length,
+    damageByEnemy,damageByOwn,enemyLost:enemy.reduce((n,s,i)=>n+(s.hp-ehp[i])/s.hp,0)/enemy.length,
     ownLost:own.reduce((n,s,i)=>n+(s.hp-ohp[i])/s.hp,0)/own.length};
 }
 function evaluateBattle(friendly,enemies,{samples=16,seed=1,...options}={}){

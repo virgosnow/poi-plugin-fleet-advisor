@@ -24,25 +24,16 @@ test('practice completion handles known surface, mixed and submarine opponents w
   assert.equal(result.scheme.ships[0].id,1);assert.equal(JSON.stringify(s.info),before);
  }
 });
-test('practice goals distinguish combat priority and training without choosing very weak ships',()=>{
+test('practice selection by strength and level balance does not choose very weak ships',()=>{
  const s=fixture();
  [100,90,80,65,56,45,30,25].forEach((strength,index)=>{
   const ship=s.info.ships[index+1];ship.api_karyoku=[strength,strength];ship.api_raisou=[0,0];ship.api_taiku=[0,0];
   ship.api_lv=[99,98,70,60,50,90,1,1][index];
  });
- const ships=goal=>recommendPractice(s,{goal,capacity:3}).scheme.ships.map(ship=>ship.id);
- assert.deepEqual(ships('victory'),[1,2,3]);
- assert.deepEqual(ships('balanced'),[1,2,3]);
- assert.deepEqual(ships('training'),[1,2,5]);
- assert.deepEqual(recommendPractice(s,{goal:'training',capacity:1}).scheme.ships.map(ship=>ship.id),[5],
-  'a single-ship fleet still leaves a training slot');
- assert.deepEqual(recommendPractice(s,{goal:'training',capacity:2}).scheme.ships.map(ship=>ship.id),[1,5],
-  'a two-ship fleet keeps one combat anchor and one training slot');
- assert(!ships('training').includes(7),'training must not pick a very weak ship solely for its level');
- const weak=[7,8].map(id=>({id,slots:s.info.ships[id].api_slot.slice(),ex:-1,keep:{}}));
- assert.deepEqual(recommendPractice(s,{goal:'training',capacity:5,slots:weak}).scheme.ships.map(ship=>ship.id),[7,8,1,2,5],
-  'preselected low-power training ships must not count as the combat anchors');
- assert.deepEqual(recommendPractice(s).scheme,recommendPractice(s,{goal:'balanced',capacity:6}).scheme,'default behavior is unchanged');
+ const ships3=recommendPractice(s,{capacity:3}).scheme.ships.map(ship=>ship.id);
+ assert.deepEqual(ships3,[1,2,3],'top three by strength fill the fleet by default');
+ assert(!ships3.includes(7),'very weak ship must not be chosen solely for its low level');
+ assert.deepEqual(recommendPractice(s).scheme,recommendPractice(s,{capacity:6}).scheme,'omitting capacity uses the default of 6');
 });
 test('practice recommendation does not promote a special-attack flagship or rearrange its partners',()=>{
  const setup=name=>{
@@ -70,7 +61,6 @@ test('practice capacity preserves chosen ships and rejects an overfull draft',()
  assert.throws(()=>recommendPractice(s,{capacity:1,slots}),/已选 2 艘.*超过.*1 艘/);
  assert.equal(JSON.stringify(slots),before);
  assert.throws(()=>recommendPractice(s,{capacity:0}),/1 至 6/);
- assert.throws(()=>recommendPractice(s,{goal:'unknown'}),/演习目标无效/);
 });
 test('training targets displace optional previous recommendations while keeping manual positions',()=>{
  const s=fixture(),entry=(id,pin=false)=>({id,slots:s.info.ships[id].api_slot.slice(),ex:-1,keep:{},pin});
@@ -123,7 +113,9 @@ test('practice compares a cheaper viable fleet without changing pinned positions
  }
  const held={id:1,pin:true,slots:[-1,-1],ex:-1,keep:{0:true}},slots=[null,held,null,null,null,null];
  try{
-  forecast.estimate=()=>({status:'estimated',samples:128,rows:[{label:'S',count:128,percent:100}]});
+  // Mock returns uniform S-rank results with xpScenarios so estimateFromScenarios can score variants.
+  const mockXp=n=>Array.from({length:n},()=>({rank:'S',ownHp:[30,30,30,30,30,30],mvpIndex:0}));
+  forecast.estimate=()=>({status:'estimated',samples:128,rows:[{label:'S',count:128,percent:100}],xpScenarios:mockXp(128)});
   const out=recommendPractice(s,{opponent:{ships:[{masterId:100,level:50}]},slots,trainingShipIds:[8]});
   assert.equal(out.scheme.ships[1].id,1);assert.equal(out.scheme.ships[1].slots[0],-1);
   assert(out.scheme.ships.some(ship=>ship.id===8));
@@ -138,7 +130,11 @@ test('a new opponent can replace old automatic recommendations while retaining f
  const entry=id=>({id,slots:[-1,-1],ex:-1,keep:{},pin:false});
  const slots=[{...entry(1),pin:true,keep:{0:true}},entry(2),entry(3),entry(4),entry(5),entry(6)];
  try{
-  forecast.estimate=(store,scheme)=>({status:'estimated',samples:128,rows:scheme.ships.some(x=>x.id===8)?[{label:'S',count:128}]:[{label:'D',count:128}]});
+  // Mock returns S for fleets with ship 8, D otherwise; xpScenarios let estimateFromScenarios score them.
+  forecast.estimate=(store,scheme)=>{const label=scheme.ships.some(x=>x.id===8)?'S':'D';
+   return {status:'estimated',samples:128,rows:[{label,count:128}],
+     xpScenarios:Array.from({length:128},()=>({rank:label,ownHp:[30,30,30,30,30,30],mvpIndex:0}))};
+  };
   for(const type of [2,13]){
    s.const.$ships[100].api_stype=type;
    const result=recommendPractice(s,{opponent:{ships:[{masterId:100,level:50}]},slots,trainingShipIds:[2]});

@@ -27,7 +27,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
     const [shipFleet,setShipFleet]=React.useState('all'),[shipType,setShipType]=React.useState('all'),[shipSort,setShipSort]=React.useState('level-desc');
     const [equipmentGroup,setEquipmentGroup]=React.useState('all'),[equipmentCategory,setEquipmentCategory]=React.useState('all'),[equipmentSort,setEquipmentSort]=React.useState('default');
     const [openOpponents,setOpenOpponents]=React.useState({});
-    const [practiceGoal,setPracticeGoal]=React.useState('balanced'),[practiceFormation,setPracticeFormation]=React.useState('auto');
+    const [practiceFormation,setPracticeFormation]=React.useState('auto');
     const [trainingShipIds,setTrainingShipIds]=React.useState([]),[trainingOpen,setTrainingOpen]=React.useState(false),[trainingSearch,setTrainingSearch]=React.useState('');
     const [trainingType,setTrainingType]=React.useState('all'),[trainingSort,setTrainingSort]=React.useState('level-asc');
     const [selectedQuests,setSelectedQuests]=React.useState([]);
@@ -210,7 +210,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
         if(selectedQuests.some(code=>!related.tasks.find(task=>task.code===code)?.supported))throw Error('所选演习任务的编成资料尚未收录，暂无法按任务补全');
       }
       const service=getController(),{snapshotId}=service.createSnapshot();
-      const result=await service.recommendPracticeFleet({snapshotId,fleet,slots,opponent:selected,goal:'balanced',capacity:6,trainingShipIds,...selectedQuests.length?{questCodes:selectedQuests}: {}});
+      const result=await service.recommendPracticeFleet({snapshotId,fleet,slots,opponent:selected,capacity:6,trainingShipIds,...selectedQuests.length?{questCodes:selectedQuests}: {}});
       if(selectedQuests.length){const current=getStore(),related=practiceTasks({state:current,slots,deckId:fleet,questState:current.questState});
         if(current.questState?.complete===false||related.status!=='ready'||selectedQuests.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化，请重新选择');}
       const old=new Map(slots.filter(Boolean).map(s=>[s.id,s]));setSlots(result.scheme.ships.map(s=>({...s,pin:!!old.get(s.id)?.pin,keep:old.get(s.id)?.keep||{}})).concat(Array(Math.max(0,6-result.scheme.ships.length)).fill(null)));
