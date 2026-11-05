@@ -202,7 +202,7 @@ module.exports=function useTooltip(React,root,scope){
     const visible=node=>node?.isConnected&&page.contains(node)&&node.getClientRects().length>0&&!node.closest('[hidden],[inert],[aria-hidden="true"]');
     const display=()=>{
       timer=null;
-      if(!visible(target)||!visible(anchor)||!tooltipAllowed(target)){hide();return;}
+      if(!visible(target)||!visible(anchor)||!target.dataset.tooltip||!tooltipAllowed(target)){hide();return;}
       tip=doc.createElement('div');tip.className='paa-tooltip';tip.id=`paa-tip-${++nextId}`;tip.setAttribute('role','tooltip');
       shownText=target.dataset.tooltip;shownContent=target.dataset.tooltipContent;
       const structured=shownContent&&renderStructured(doc,tip,shownContent);
@@ -246,7 +246,7 @@ module.exports=function useTooltip(React,root,scope){
     page.addEventListener('pointerover',show);page.addEventListener('pointermove',show);page.addEventListener('pointerout',leave);
     page.addEventListener('focusin',show);page.addEventListener('focusout',hide);doc.addEventListener('pointerdown',dismiss,true);doc.addEventListener('click',dismiss,true);page.addEventListener('dragstart',hide);doc.addEventListener('keydown',escape);
     win.addEventListener('blur',hide);win.addEventListener('scroll',dismiss,true);win.addEventListener('resize',hide);win.visualViewport?.addEventListener('resize',hide);
-    const observer=new win.MutationObserver(()=>{if(target&&(!visible(target)||!visible(anchor)||(tip&&(shownText!==target.dataset.tooltip||shownContent!==target.dataset.tooltipContent))))hide();});
+    const observer=new win.MutationObserver(()=>{if(target&&(!visible(target)||!visible(anchor)||!target.dataset.tooltip||(tip&&(shownText!==target.dataset.tooltip||shownContent!==target.dataset.tooltipContent))))hide();});
     observer.observe(page,{subtree:true,childList:true,attributes:true,attributeFilter:['hidden','inert','open','aria-hidden','data-tooltip','data-tooltip-content']});
     for(let node=page.parentElement;node;node=node.parentElement)observer.observe(node,{attributes:true,attributeFilter:['hidden','inert','class','style','aria-hidden']});
     return()=>{

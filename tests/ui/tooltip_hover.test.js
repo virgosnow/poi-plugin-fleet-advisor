@@ -9,13 +9,13 @@ test('enemy-name tooltips activate only when their text is truncated',()=>{
   assert.equal(useTooltip.tooltipAllowed(node(false,60,60)),true);
 });
 
-function harness(structured){
+function harness(structured,tooltipText='测试提示'){
   const events=()=>({listeners:{},addEventListener(type,fn){(this.listeners[type]??=[]).push(fn);},
     removeEventListener(type,fn){this.listeners[type]=(this.listeners[type]||[]).filter(f=>f!==fn);},
     emit(type,event={}){for(const fn of this.listeners[type]||[])fn(event);}});
   const rect={left:20,top:20,bottom:50,width:100,height:30},doc=events(),win=events();let currentTip=null;
   const page={...events(),ownerDocument:doc,parentElement:null,contains:n=>n===target};
-  const target={dataset:{tooltip:'测试提示',...(structured?{tooltipContent:JSON.stringify({sections:[]})}:{})},
+  const target={dataset:{tooltip:tooltipText,...(structured?{tooltipContent:JSON.stringify({sections:[]})}:{})},
     isConnected:true,getClientRects:()=>[rect],closest:selector=>selector==='[data-tooltip]'?target:null,
     querySelector:()=>null,contains:n=>n===target,getBoundingClientRect:()=>rect,
     getAttribute:()=>null,setAttribute(){},removeAttribute(){}};
@@ -27,7 +27,7 @@ function harness(structured){
   Object.assign(win,{innerWidth:1000,innerHeight:800,setTimeout,clearTimeout,getComputedStyle:()=>({getPropertyValue:()=>''}),
     MutationObserver:class{observe(){}disconnect(){}}});doc.defaultView=win;
   let cleanup;useTooltip({useEffect:fn=>{cleanup=fn();}},{current:page},'test');
-  return {page,doc,target,other,get tip(){return currentTip;},cleanup};
+  return {page,doc,win,target,other,get tip(){return currentTip;},cleanup};
 }
 
 for(const structured of [false,true])test((structured?'structured':'plain')+' tooltip waits on exit and remains open if the pointer returns',t=>{
@@ -47,4 +47,27 @@ test('an outside click immediately dismisses a tooltip even during the grace per
   h.page.emit('pointerover',{target:h.target,buttons:0});t.mock.timers.tick(350);assert(h.tip);
   h.page.emit('pointerout',{target:h.target,relatedTarget:h.other});h.doc.emit('pointerdown',{target:h.other});
   assert.equal(h.tip,null);t.mock.timers.tick(500);assert.equal(h.tip,null);h.cleanup();
+});
+
+test('a pending tooltip does not appear if its trigger is removed before the delay',t=>{
+  t.mock.timers.enable({apis:['setTimeout']});const h=harness(false);
+  h.page.emit('focusin',{target:h.target,buttons:0});t.mock.timers.tick(200);
+  delete h.target.dataset.tooltip;t.mock.timers.tick(150);
+  assert.equal(h.tip,null);h.cleanup();
+});
+
+test('a real map node tooltip shows radius after the delay and closes on click or scroll',t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const create=(type,props,...children)=>({type,props:props||{},children});
+  const walk=(tree,predicate)=>!tree||typeof tree!=='object'?[]:
+    [...(predicate(tree)?[tree]:[]),...(tree.children||[]).flatMap(child=>walk(child,predicate))];
+  const profile=require('../../src/domain/routes/sortie_profile').previewForMap('6-5');
+  const tree=require('../../src/ui/maps/route_preview')(create,{profile,compact:true,textOnly:true});
+  const node=walk(tree,row=>row.props?.className?.includes('paa-map-node ')&&row.props['aria-label']?.startsWith('M 点'))[0];
+  assert(node);const h=harness(false,node.props['data-tooltip']);
+  h.page.emit('pointerover',{target:h.target,buttons:0});t.mock.timers.tick(349);assert.equal(h.tip,null);
+  t.mock.timers.tick(1);assert.match(h.tip.textContent,/M 点 · Boss 战.*基地航程 5/);
+  h.doc.emit('click',{target:h.other});assert.equal(h.tip,null);
+  h.page.emit('pointerover',{target:h.target,buttons:0});t.mock.timers.tick(350);assert(h.tip);
+  h.win.emit('scroll',{target:h.other});assert.equal(h.tip,null);h.cleanup();
 });
