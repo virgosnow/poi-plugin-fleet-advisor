@@ -32,7 +32,7 @@ function routeGroups(options,currentPhase){
 module.exports=function createRoutePicker(React){
   const h=React.createElement,placementEffect=React.useLayoutEffect||React.useEffect;
   return function RoutePicker({options=[],value='',onChange,currentPhase,disabled=false,hidden=false,area}){
-    const [open,setOpen]=React.useState(false),anchor=React.useRef(null),trigger=React.useRef(null),panel=React.useRef(null);
+    const [open,setOpen]=React.useState(false),anchor=React.useRef(null),trigger=React.useRef(null),panel=React.useRef(null),pointerInside=React.useRef(false);
     const [expanded,setExpanded]=React.useState({});
     const show=()=>{setExpanded({});setOpen(true);};
     const picker=usePickerToggle(React,{enabled:!disabled&&!hidden,open,anchor,onOpen:show,onClose:()=>setOpen(false)});
@@ -48,14 +48,17 @@ module.exports=function createRoutePicker(React){
         dialog.style.left=`${Math.max(12-r.left,Math.min(0,doc.documentElement.clientWidth-12-r.left-width))}px`;
         dialog.style.maxHeight=`${Math.max(100,Math.min(350,doc.documentElement.clientHeight-r.bottom-18))}px`;
       };
-      const outside=e=>{if(!root.contains(e.target)){picker.dismiss();setOpen(false);}};
+      const outside=e=>{if(e.type==='focusin'&&pointerInside.current)return;if(!root.contains(e.target)){picker.dismiss();setOpen(false);}};
+      const pointerDown=e=>{pointerInside.current=root.contains(e.target);outside(e);};
+      const pointerEnd=()=>{pointerInside.current=false;};
+      const escape=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();}};
       place();
       const selected=dialog.querySelector('[aria-selected=true]:not(:disabled)')||dialog.querySelector('[role=option]:not(:disabled)');
       selected?.focus({preventScroll:true});
       const list=dialog.querySelector('.paa-route-list');
       if(selected&&list)list.scrollTop+=selected.getBoundingClientRect().top-list.getBoundingClientRect().top-30;
-      doc.addEventListener('pointerdown',outside,true);win.addEventListener('resize',place);doc.addEventListener('scroll',place,true);
-      return ()=>{doc.removeEventListener('pointerdown',outside,true);win.removeEventListener('resize',place);doc.removeEventListener('scroll',place,true);};
+      doc.addEventListener('pointerdown',pointerDown,true);doc.addEventListener('pointerup',pointerEnd,true);doc.addEventListener('pointercancel',pointerEnd,true);doc.addEventListener('focusin',outside,true);doc.addEventListener('keydown',escape);win.addEventListener('resize',place);doc.addEventListener('scroll',place,true);
+      return ()=>{pointerInside.current=false;doc.removeEventListener('pointerdown',pointerDown,true);doc.removeEventListener('pointerup',pointerEnd,true);doc.removeEventListener('pointercancel',pointerEnd,true);doc.removeEventListener('focusin',outside,true);doc.removeEventListener('keydown',escape);win.removeEventListener('resize',place);doc.removeEventListener('scroll',place,true);};
     },[open,disabled,hidden]);
     const keys=e=>{
       if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
@@ -84,8 +87,7 @@ module.exports=function createRoutePicker(React){
     const path=routeFormula;
     return h('div',{className:'paa-area-picker paa-wb-route-picker','data-kind':'route'},
       h('span',{className:'paa-area-label'},'路线'),
-      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:picker.guardClick,
-        onBlur:e=>{if(!e.currentTarget.contains(e.relatedTarget)){picker.dismiss();setOpen(false);}}},
+      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:picker.guardClick},
         h('button',{type:'button',className:'paa-area-trigger paa-route-trigger',ref:trigger,disabled,
           'aria-label':'路线','aria-haspopup':'dialog','aria-expanded':open&&!disabled&&!hidden,
           onClick:()=>{if(!disabled&&!hidden)picker.click();}},

@@ -55,7 +55,7 @@ module.exports=function createAreaPicker(React){
   const rewardIcon=name=>h('span',{key:name,className:'paa-mission-reward-icon','data-tooltip':name,'aria-label':name},h(ResourceIcon,{name,size:14}));
   return function AreaPicker({maps=[],missions=[],kind='normal',value,onChange,mapMasters={},missionMasters={},missionProgress={},fleets=[],useItems={},disabled=false,hidden=false}){
     const expedition=kind==='expedition',label=expedition?'远征':'海域';
-    const [open,setOpen]=React.useState(false),trigger=React.useRef(null),dialog=React.useRef(null),anchor=React.useRef(null);
+    const [open,setOpen]=React.useState(false),trigger=React.useRef(null),dialog=React.useRef(null),anchor=React.useRef(null),pointerInside=React.useRef(false);
     const [query,setQuery]=React.useState(''),[order,setOrder]=React.useState('number'),[region,setRegion]=React.useState('all');
     const netResource=INCOME_ORDERS[order];
     const picker=usePickerToggle(React,{enabled:!disabled&&!hidden,open,anchor,onOpen:()=>setOpen(true),
@@ -72,14 +72,17 @@ module.exports=function createAreaPicker(React){
         panel.style.left=`${Math.max(12-r.left,Math.min(0,doc.documentElement.clientWidth-12-r.left-width))}px`;
         panel.style.maxHeight=`${Math.max(100,Math.min(expedition?400:320,doc.documentElement.clientHeight-r.bottom-18))}px`;
       };
-      const outside=e=>{if(!root.contains(e.target)){picker.dismiss();setOpen(false);}};
+      const outside=e=>{if(e.type==='focusin'&&pointerInside.current)return;if(!root.contains(e.target)){picker.dismiss();setOpen(false);}};
+      const pointerDown=e=>{pointerInside.current=root.contains(e.target);outside(e);};
+      const pointerEnd=()=>{pointerInside.current=false;};
+      const escape=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();}};
       place();
       const selected=panel.querySelector('[aria-current=true]')||panel.querySelector('.paa-area-maps button');
       (expedition?panel.querySelector('input[type=search]'):selected)?.focus({preventScroll:true});
       const list=panel.querySelector('.paa-area-regions');
       if(selected&&list)list.scrollTop+=selected.getBoundingClientRect().top-list.getBoundingClientRect().top-30;
-      doc.addEventListener('pointerdown',outside,true);win.addEventListener('resize',place);doc.addEventListener('scroll',place,true);
-      return ()=>{doc.removeEventListener('pointerdown',outside,true);win.removeEventListener('resize',place);doc.removeEventListener('scroll',place,true);};
+      doc.addEventListener('pointerdown',pointerDown,true);doc.addEventListener('pointerup',pointerEnd,true);doc.addEventListener('pointercancel',pointerEnd,true);doc.addEventListener('focusin',outside,true);doc.addEventListener('keydown',escape);win.addEventListener('resize',place);doc.addEventListener('scroll',place,true);
+      return ()=>{pointerInside.current=false;doc.removeEventListener('pointerdown',pointerDown,true);doc.removeEventListener('pointerup',pointerEnd,true);doc.removeEventListener('pointercancel',pointerEnd,true);doc.removeEventListener('focusin',outside,true);doc.removeEventListener('keydown',escape);win.removeEventListener('resize',place);doc.removeEventListener('scroll',place,true);};
     },[open,disabled,hidden]);
     React.useEffect(()=>{const list=dialog.current?.querySelector('.paa-area-regions');if(list)list.scrollTop=0;},[query,order,region]);
     const keys=e=>{
@@ -123,8 +126,7 @@ module.exports=function createAreaPicker(React){
           [h('strong',null,id(entry)),entry.name?h('small',null,entry.name):null]));
     };
     return h('div',{className:'paa-area-picker','data-kind':kind},h('span',{className:'paa-area-label'},label),
-      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:picker.guardClick,
-        onBlur:e=>{if(!e.currentTarget.contains(e.relatedTarget)){picker.dismiss();setOpen(false);}}},
+      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:picker.guardClick},
       h('button',{type:'button',ref:trigger,className:'paa-area-trigger',disabled,
         'aria-label':label,'aria-description':selectedBrief?.statusText,'aria-haspopup':'dialog','aria-expanded':open&&!disabled&&!hidden,onClick:()=>{if(!disabled&&!hidden)picker.click();}},
         h('strong',null,selectedBrief?.number||value),h('span',{className:'paa-area-name'},selectedBrief?.name||selected?.name||`选择${label}`),

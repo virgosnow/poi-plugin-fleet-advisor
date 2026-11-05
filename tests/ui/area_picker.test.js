@@ -70,12 +70,12 @@ test('expedition picker clicks toggle without changing the selected mission',()=
   assert.deepEqual(calls,[]);
 });
 
-test('current selection is a no-op; repeated clicks toggle the panel and focus departure closes it',()=>{
+test('current selection is a no-op; repeated clicks toggle the panel and Escape closes it',()=>{
   const calls=[],props={maps:[{area:'1-1'}],value:'1-1',onChange:id=>calls.push(id)};
   const ui=harness(props);ui.open();ui.find(n=>n.props['aria-current']==='true').props.onClick();ui.render();
   assert.deepEqual(calls,[]);assert(!ui.find(n=>n.props.role==='dialog'));
   ui.open();ui.open();assert(!ui.find(n=>n.props.role==='dialog'));ui.open();assert(ui.find(n=>n.props.role==='dialog'));
-  ui.find(n=>n.props.className==='paa-area-anchor').props.onBlur({currentTarget:{contains:()=>false},relatedTarget:{}});ui.render();
+  ui.find(n=>n.props.className==='paa-area-anchor').props.onKeyDown({key:'Escape',preventDefault(){},stopPropagation(){}});ui.render();
   assert(!ui.find(n=>n.props.role==='dialog'));
   ui.open();props.hidden=true;ui.render();assert(!ui.find(n=>n.props.role==='dialog'));assert.deepEqual(calls,[]);
 });
