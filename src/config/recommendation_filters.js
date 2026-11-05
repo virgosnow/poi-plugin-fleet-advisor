@@ -2,7 +2,7 @@
 // Preferences affect automatic selection, never the user's explicit draft.
 const DEFAULTS={
   normal:{allowEquipmentBorrowing:true,minLevel:30,excludeUnremodeled:true,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeHeavyDamage:true,excludeFatigued:true},
-  practice:{allowEquipmentBorrowing:true,minLevel:0,excludeUnremodeled:false,excludeUnlocked:false,excludeExpedition:true,excludeRepairing:true,excludeHeavyDamage:true,excludeFatigued:true},
+  practice:{allowEquipmentBorrowing:true,minLevel:0,excludeUnremodeled:false,excludeUnlocked:true,excludeExpedition:true,excludeRepairing:true,excludeHeavyDamage:true,excludeFatigued:true},
   expedition:{defaultGoal:'great',minLevel:0,excludeUnremodeled:false,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeFirstFleet:true},
 };
 function normalizeGroup(kind,value={}){
