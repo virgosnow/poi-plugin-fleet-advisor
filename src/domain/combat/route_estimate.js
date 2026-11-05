@@ -11,7 +11,7 @@ const {buildGroundAttack}=require('./combat_ground');
 const {flags:groundFlags}=require('./installation_attack');
 const {fromRatio}=require('./combat_balance');
 const {routeAirReference,estimateRouteAir}=require('../routes/route_air');
-const {consumption}=require('../routes/sortie_profile');
+const {advanceSupply,createSupplyTracker}=require('./route_supply');
 const LIMITS=Object.freeze({paths:8,battlesPerPath:16,samples:32,timeMs:50});
 const SURFACE_FORMATION={単縦:1,複縦:.8,輪形:.7,梯形:.75,単横:.6,
   第一警戒航行序列:.8,第二警戒航行序列:1,第三警戒航行序列:.7,第四警戒航行序列:1.1};
@@ -26,14 +26,6 @@ function enemyFormation(formation,fleet,kind){
 }
 function unknown(reason,threats){return {status:'unknown',reasons:[reason],threats};}
 function laterBattleExists(path,pathStep,nodes){return path.slice(pathStep+1).some(id=>nodes.has(id));}
-// Track each resource independently: a whirlpool or unknown node cannot turn
-// into a precise remaining percentage on later nodes. These are reference
-// fractions from full supply, before ship-specific rounding.
-function advanceSupply(remaining,used){
-  const next=key=>Number.isFinite(remaining[key])&&Number.isFinite(used[key])?
-    Math.max(0,Math.min(1,remaining[key]-used[key])):null;
-  return {fuel:next('fuel'),ammo:next('ammo')};
-}
 // A reference scenario can use midpoint aircraft counts when attrition is
 // unresolved, just as the opening-air model does. Keep known empty slots at
 // zero and never invent a capacity. This does not assert a loss probability.
@@ -196,7 +188,8 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
       ()=>now()-start>LIMITS.timeMs);
     if(checked.status!=='known')return unknown(checked.reason,threats);
   }
-  let remainingAmmo=1,supply={fuel:1,ammo:1};const prepared=[],warnings=new Set(['按当前舰队及可达分支的较高威胁编成估计',
+  const supplyTracker=createSupplyTracker(store,scheme);
+  let remainingAmmo=1,supply=supplyTracker.snapshot();const prepared=[],warnings=new Set(['按当前舰队及可达分支的较高威胁编成估计',
     '模型使用参考命中条件，不是实际通过率或大破率',
     '航空损耗范围按中间架数参考，不代表实际损耗概率',
     `未计支援、基地航空队${specialReady?'':'、特殊炮击'}、弹着观测及燃料回避修正`]);
@@ -223,10 +216,10 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
       prepared.push({id,prep,ammo:remainingAmmo,supplyBefore:{...supply},target:node.target,enemies:allEnemies,
         observed:{visits:0,severe:0,loss:0,enemyLoss:0,damage:allEnemies.map(()=>0)}});
     }
-    const used=consumption(map.nodes[id],profile.area);
-    supply=advanceSupply(supply,used);
+    const used=supplyTracker.advance(map.nodes[id],profile.area);
+    supply=supplyTracker.snapshot();
     if(used.ammo===null){if(laterBattleExists(chosen.path.nodes,pathStep,nodes))warnings.add(`${id} 点弹药消耗待确认`);}
-    else remainingAmmo=Math.max(0,remainingAmmo-used.ammo);
+    else remainingAmmo=Number.isFinite(supply.ammo)?supply.ammo:Math.max(0,remainingAmmo-used.ammo);
     if(now()-start>LIMITS.timeMs)return unknown('战力计算超过时间预算',threats);
   }
   if(!prepared.length)return unknown('所选路线没有可比较的战斗',threats);
@@ -325,7 +318,7 @@ function evaluateRoute(store,scheme,profile,{route,airPower,now=()=>performance.
   }
   // These are the existing bounded scenario observations, not actual damage
   // forecasts or event probabilities. Unvisited nodes have no average.
-  const diagnostics={journeys:{samples:ran,completed,stoppedBeforeTarget},target:targetResults,nodes:prepared.map(step=>({id:step.id,kind:step.prep.kind,supplyBefore:step.supplyBefore,
+  const diagnostics={journeys:{samples:ran,completed,stoppedBeforeTarget},target:targetResults,supplyEstimates:supplyTracker.estimates,nodes:prepared.map(step=>({id:step.id,kind:step.prep.kind,supplyBefore:step.supplyBefore,
     visits:step.observed.visits,severe:step.observed.severe,
     ownHpLoss:step.observed.visits?step.observed.loss/step.observed.visits:null,
     enemyHpLoss:step.prep.kind==='aerialRaid'||!step.observed.visits?null:

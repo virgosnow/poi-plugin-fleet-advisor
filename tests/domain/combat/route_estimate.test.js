@@ -44,6 +44,22 @@ test('remaining supply is tracked independently and unknown costs propagate',()=
   const later=advanceSupply(whirlpool,{fuel:.2,ammo:.2});assert.equal(later.fuel,null);assert(Math.abs(later.ammo-.6)<1e-9);
   assert.deepEqual(advanceSupply({fuel:.1,ammo:.1},{fuel:.2,ammo:.2}),{fuel:0,ammo:0});
 });
+test('a whirlpool keeps numeric before-battle supply on subsequent route nodes',()=>{
+  const map=require('../../../data/sortie/encounters/1-1.json'),old=map.nodes.W;
+  map.nodes.W={...require('../../../data/sortie/encounters/3-3.json').nodes.C,node:'W'};
+  try{
+    const f=fixture({fire:70,torpedo:50,armor:35,hp:60});
+    f.store.const.$ships[1].api_fuel_max=100;
+    const original=profile('1-1','雷巡流');
+    // Synthetic path isolates supply propagation without adding a real edge.
+    const p={...original,routePaths:[{nodes:['W','A','C']}],mapPreview:{...original.mapPreview,nodes:[...original.mapPreview.nodes,{id:'W'}]}};
+    const result=assess(f,p);
+    assert.equal(result.status,'estimated',result.reasons?.join('；'));
+    assert(Math.abs(result.diagnostics.nodes[0].supplyBefore.fuel-.7)<1e-9);
+    assert(Math.abs(result.diagnostics.nodes[1].supplyBefore.fuel-.5)<1e-9);
+    assert.equal(result.diagnostics.supplyEstimates[0].radarShips,0);
+  }finally{if(old)map.nodes.W=old;else delete map.nodes.W;}
+});
 test('1-6 noncombat destination keeps two distinct evaluated enroute threats',()=>{
   const f=fixture({count:6,type:2,fire:50,torpedo:50,armor:20,hp:35});
   for(const ship of f.scheme.ships){
