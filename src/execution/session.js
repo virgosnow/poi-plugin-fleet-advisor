@@ -205,5 +205,21 @@ class Session {
     this.check();
     } catch(error) {throw this.fail(error);} finally {this.busy=false;}
   }
+  async drag(mutation){
+    this.check();
+    if(this.busy||this.pendingMutation||!this.controlMode||typeof this.observer.prepareDrag!=='function'||typeof this.host.drag!=='function'||!mutation)
+      throw new Error('Base drag is unavailable');
+    this.busy=true;this.lastFrame=null;this.observer.releaseFrame?.();
+    try{
+      const started=this.now();this.metrics.controlReads++;
+      const points=await this.bounded(this.observer.prepareDrag({mutation}));this.check();
+      this.pendingMutation=true;
+      await this.bounded(this.host.drag({...points,mutation,actionId:++this.actionId}));
+      this.lastInput={action:this.actionId,at:this.now(),kind:'drag',path:mutation.path,probed:false};
+      this.metrics.inputMs+=this.now()-started;this.metrics.inputs++;
+      if(this.operationWaitMs)await this.wait(this.operationWaitMs);
+      this.check();
+    }catch(error){throw this.fail(error);}finally{this.busy=false;}
+  }
 }
 module.exports = {Session};

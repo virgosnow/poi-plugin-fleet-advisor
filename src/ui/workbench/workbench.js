@@ -984,7 +984,13 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           h('button',{type:'button',className:'paa-wb-quiet',disabled,onClick:()=>{if(kind==='normal'){operation.current++;routeCache.current=null;prepared.current=false;invalidateRouteCombat();resultViews.current.clear();setExcluded([]);setPopup(null);setBasePopup(null);setLandBaseDrafts({});setSearch('');setWorking(false);setActivity('');setPhase('');setCombatDeferredPhase('');setRoutePhaseAnchor('');setPurpose('clear');setMapRoute('');setPathIndex(0);setNodeId(null);setRouteRulesOpen(false);setRouteDrafts({});}else setExpeditionCompleted(false);commit(blank());setChoices([]);setShipFleet('all');}},'一键清空'),
         ),
         automaticOperations||busy?h('div',{className:'paa-wb-apply-controls'},field('编入',fleet,value=>{const next=Number(value);setFleet(next);setReport({valid:false});},[1,2,3,4].filter(n=>kind!=='expedition'||n>1).map(n=>{const f=store.info?.fleets?.[n-1],unavailable=!f||!Array.isArray(f.api_mission),away=f&&!unavailable&&Number(f.api_mission[0])!==0;return [n,`第 ${n} 舰队${unavailable?'（未同步）':away?'（远征中）':''}`,unavailable||kind!=='expedition'&&away];})),
-        h('button',{type:'button',className:'paa-primary paa-wb-apply',ref:stopButtonRef,'data-running':!!busy,'data-warning':!!applyWarning,disabled:busy?stopping:applyDisabled,'data-tooltip':busy?'停止后续操作，已发送的操作会正常完成':applyDisabled?applyHint:applyWarning?.hint||'将当前编成应用到所选舰队',onClick:event=>{if(busy){if(!stopping)return onStop?.(event);return;}if(automaticOperations&&!applyDisabled)return onApply(W.scheme(slots,fleet));}},busy?(stopping?'正在停止…':'停止操作'):applyWarning?.label||'应用编成')):null));
+        h('button',{type:'button',className:'paa-primary paa-wb-apply',ref:stopButtonRef,'data-running':!!busy,'data-warning':!!applyWarning,
+          'data-base':kind==='normal'&&!!landBaseEntry&&(routeBases||[]).some(base=>base.modePlanned||base.slots?.some(slot=>slot.planned)),disabled:busy?stopping:applyDisabled,'data-tooltip':busy?'停止后续操作，已发送的操作会正常完成':applyDisabled?applyHint:applyWarning?.hint||'应用舰队及已规划的基地配置；更换飞机可能消耗资源并需要转场',onClick:event=>{if(busy){if(!stopping)return onStop?.(event);return;}if(automaticOperations&&!applyDisabled){
+          const bases=kind==='normal'&&landBaseEntry?(routeBases||[]).filter(base=>base.modePlanned||base.slots?.some(slot=>slot.planned))
+            .map(({areaId,rid,mode,modePlanned,slots})=>({areaId,rid,mode,modePlanned,slots})):[];
+          return onApply(W.scheme(slots,fleet),bases.length?{landBase:{area,bases}}:undefined);
+        }}},busy?(stopping?'正在停止…':'停止操作'):(applyWarning?.label||'应用编成')+
+          (kind==='normal'&&landBaseEntry&&(routeBases||[]).some(base=>base.modePlanned||base.slots?.some(slot=>slot.planned))?'（含基地）':''))):null));
     const rendered=h('div',{className:'paa-workbench','data-kind':kind,hidden},
       h('div',{className:'paa-wb-columns'},
         h('section',{className:'paa-wb-left'},contextControls,

@@ -420,4 +420,5 @@ module.exports=`
 .paa-airbase-unit-heading{flex-wrap:wrap}.paa-airbase-metrics{display:inline-flex;align-items:center;gap:9px;margin-left:auto;flex:none}.paa-airbase-air,.paa-airbase-range{display:inline-flex;align-items:center;gap:3px;margin-left:0;white-space:nowrap;font-variant-numeric:tabular-nums}.paa-airbase-range{color:var(--paa-muted)}
 .paa-airbase-targets{flex-wrap:wrap}.paa-airbase-targets label{flex:1 1 95px;min-width:0}.paa .paa-airbase-targets select{flex:1;width:0;min-width:0;text-overflow:ellipsis}.paa-airbase-wave{display:inline-grid;place-items:center;flex:none;width:19px;height:19px;border:1px solid var(--paa-line);border-radius:50%;background:var(--paa-soft);color:var(--paa-accent);font-size:10px;line-height:1;font-variant-numeric:tabular-nums}
 .paa-airbase-slots{grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));column-gap:10px}
+.paa button.paa-wb-apply[data-base=true]:not([data-running=true]){width:auto;min-width:112px}
 `;

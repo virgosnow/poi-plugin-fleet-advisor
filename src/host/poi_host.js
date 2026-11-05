@@ -6,8 +6,8 @@ const {Pixels}=require('../vision/pixels');
 // Only this module touches poi/Electron. A debugger owned by somebody else is
 // never attached to, detached, or reused.
 class PoiHost {
-  constructor({window, remote, now = () => performance.now()}) {
-    this.window=window;this.remote=remote;this.now=now;
+  constructor({window, remote, getStore, now = () => performance.now()}) {
+    this.window=window;this.remote=remote;this.now=now;this.readCurrentStore=getStore;
     this.wc=null;this.owned=false;this.closed=false;this.error=null;
     this.monitor=new RequestMonitor(now);this.unbind=[];
     this.onMessage=(event,method,params)=>{
@@ -25,7 +25,7 @@ class PoiHost {
       || typeof wc.getURL!=='function' || !/kancolle/i.test(wc.getURL())) throw new Error('Unique game webContents unavailable');
     return wc;
   }
-  getStore() {return readStore(this.window);}
+  getStore() {return this.readCurrentStore?this.readCurrentStore():readStore(this.window);}
   createObserverWorker(filename) {
     // Electron renderers cannot create Node workers. Keep image processing in
     // a main-process worker, with the same message protocol as the Node tests.
@@ -151,6 +151,36 @@ class PoiHost {
       this.check(false);
     } catch(error) {this.fail(error.message);throw error;}
     finally {this.inputBusy=false;}
+  }
+  async drag({source,destination,mutation,actionId}) {
+    this.check();
+    const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>=0&&p.x<1200&&p.y>=0&&p.y<720;
+    if(this.inputBusy||!point(source)||!point(destination)||!mutation||
+      mutation.path!=='api_req_air_corps/set_plane'||source.x===destination.x&&source.y===destination.y)
+      throw new Error('Invalid or overlapping base drag');
+    this.inputBusy=true;let pressed=false,last=source;
+    try{
+      this.monitor.expect(mutation,actionId);
+      await this.command('Input.dispatchMouseEvent',{type:'mouseMoved',x:source.x,y:source.y});
+      await this.command('Input.dispatchMouseEvent',{type:'mousePressed',x:source.x,y:source.y,button:'left',buttons:1,clickCount:1});pressed=true;
+      for(let i=1;i<=8;i++){
+        this.check(false);last={x:source.x+(destination.x-source.x)*i/8,y:source.y+(destination.y-source.y)*i/8};
+        await this.command('Input.dispatchMouseEvent',{type:'mouseMoved',...last,button:'left',buttons:1});
+        await new Promise(resolve=>setTimeout(resolve,35));
+      }
+      await this.command('Input.dispatchMouseEvent',{type:'mouseReleased',...destination,button:'left',buttons:0,clickCount:1});pressed=false;
+      const deadline=this.now()+10000;
+      while(this.monitor.matchedAction!==actionId){
+        this.check(false);
+        if(this.now()>=deadline)throw new Error('No matching base request; submission will not be retried');
+        await new Promise(resolve=>setTimeout(resolve,10));
+      }
+      this.check(false);
+    }catch(error){this.fail(error.message);throw error;}
+    finally{
+      if(pressed)try{await this.command('Input.dispatchMouseEvent',{type:'mouseReleased',...last,button:'left',buttons:0,clickCount:1});}catch(_){}
+      this.inputBusy=false;
+    }
   }
   cancel() {this.fail('Run stopped');}
   async dispose() {

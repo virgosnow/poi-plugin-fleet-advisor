@@ -19,6 +19,152 @@ function equipment(phase='picker'){
 const store={info:{equips:{7:{api_slotitem_id:1}},ships:{11:{api_slot:[-1,-1]},22:{api_slot:[7,-1],api_slot_ex:0}}},const:{$equips:{1:{api_type:[0,0,1,10]}}}};
 const context={shipId:11,slot:0,itemId:7,sourceShipId:null,page:1,row:0,t3:10};
 
+test('base confirmation requires a pinned aircraft and exact destination',()=>{
+ const snapshot={airbase:{itemId:7}},control=button('airbase.confirm',{area:6,base:3,slot:1,itemId:7});
+ const mutation={path:'api_req_air_corps/set_plane',area:6,base:3,slot:1,item:7};
+ assert(matchesMutation(control,mutation,snapshot));assert(!matchesMutation(control,null,snapshot));
+ for(const change of [{area:7},{base:2},{slot:2},{item:8}])assert(!matchesMutation(control,{...mutation,...change},snapshot));
+ assert(!matchesMutation(control,mutation,{airbase:{itemId:8}}));
+});
+
+test('base action commits only the selected change and never silently closes a pending edit',()=>{
+  const control=button('airbase.close',{area:6,base:3,mode:2}),mutation={path:'api_req_air_corps/set_action',area:6,base:3,mode:2};
+  const snapshot={scene:'airbase',airbase:{phase:'base',area:6,base:3,mode:2,models:[
+    {base:1,mode:0,pendingMode:0,nameChanged:false},{base:2,mode:0,pendingMode:-1,nameChanged:false},
+    {base:3,mode:0,pendingMode:0,nameChanged:false}]}};
+  assert(matchesMutation(control,mutation,snapshot));assert(!matchesMutation(control,null,snapshot));
+  assert(!matchesMutation(button('navigate.home'),null,snapshot));
+  for(const change of [{area:7},{base:2},{mode:1}])assert(!matchesMutation(control,{...mutation,...change},snapshot));
+  const other=clone(snapshot);other.airbase.models[0].pendingMode=1;assert(!matchesMutation(control,mutation,other));
+  const renamed=clone(snapshot);renamed.airbase.models[0].nameChanged=true;assert(!matchesMutation(control,mutation,renamed));
+  const missing=clone(snapshot);missing.airbase.models=undefined;assert(!matchesMutation(control,mutation,missing));
+  const duplicate=clone(snapshot);duplicate.airbase.models[0].base=3;assert(!matchesMutation(control,mutation,duplicate));
+});
+
+test('base action clicks require a fresh exact action observation',async()=>{
+  const action=button('airbase.action',{area:6,base:3,mode:2});
+  const s={version:1,valid:true,blocked:false,scene:'airbase',controls:[action],airbase:{phase:'base',area:6,base:3,mode:2,action,
+    models:[{base:3,mode:0,pendingMode:0,nameChanged:false}]}};
+  const observer=new ControlObserver({readControls:async()=>s,getStore:()=>store});await observer.start();
+  await assert.rejects(observer.prepareInput({x:100,y:200,kind:'click',controlId:'airbase.action'}),/Unique enabled control/);
+  assert((await observer.read('airbase-action',{area:6,base:3,mode:2})).valid);
+  assert.deepEqual(await observer.prepareInput({x:100,y:200,kind:'click',controlId:'airbase.action'}),{x:100,y:200});
+  s.airbase.mode=3;
+  await assert.rejects(observer.prepareInput({x:100,y:200,kind:'click',controlId:'airbase.action'}),/Unique enabled control/);
+});
+
+test('closing an unchanged base requires a fresh observation and rejects pending changes',async()=>{
+  const close=button('airbase.close',{area:6,base:3,mode:2});
+  const s={version:1,valid:true,blocked:false,scene:'airbase',controls:[close],airbase:{phase:'base',area:6,base:3,mode:2,close,
+    models:[{base:3,mode:2,pendingMode:-1,nameChanged:false},{base:1,mode:0,pendingMode:0,nameChanged:false}]}};
+  const observer=new ControlObserver({readControls:async()=>s,getStore:()=>store});await observer.start();
+  const input={x:100,y:200,kind:'click',controlId:'airbase.close'};
+  await assert.rejects(observer.prepareInput(input),/Unique enabled control/);
+  assert((await observer.read('airbase-close-clean',{area:6,base:3})).valid);
+  assert.deepEqual(await observer.prepareInput(input),{x:100,y:200});
+  s.airbase.models[1].pendingMode=1;
+  await assert.rejects(observer.prepareInput(input),/Unique enabled control/);
+});
+
+test('base action completion requires the panel to close and poi to observe the exact mode',()=>{
+  const s={version:1,valid:true,blocked:false,scene:'airbase-area',area:6,controls:[]},live={info:{airbase:[{api_area_id:6,api_rid:1,api_action_kind:1}]}};
+  assert(observeControls(s,'airbase-action-done',{area:6,base:1,mode:1},live).valid);
+  assert.equal(observeControls(s,'airbase-action-done',{area:6,base:1,mode:2},live).valid,false);
+  assert.equal(observeControls({...s,scene:'airbase'},'airbase-action-done',{area:6,base:1,mode:1},live).valid,false);
+  live.info.airbase.push({...live.info.airbase[0]});assert.equal(observeControls(s,'airbase-action-done',{area:6,base:1,mode:1},live).valid,false);
+});
+
+test('base drag pins both slots, aircraft instance and live store before input',async()=>{
+  const src=button('airbase.slot.3',{slot:3}),dst=button('airbase.slot.4',{slot:4,point:{x:100,y:260}});
+  const s={version:1,valid:true,blocked:false,scene:'airbase',airbase:{phase:'base',area:6,base:3,mode:2,slots:[
+    {slotId:1,itemId:5,state:2},{slotId:2,itemId:0,state:0},{slotId:3,itemId:7,state:1,control:src},{slotId:4,itemId:0,state:0,control:dst}]}};
+  const live={info:{airbase:[{api_area_id:6,api_rid:3,api_plane_info:[
+    {api_squadron_id:1,api_slotid:5,api_state:2},{api_squadron_id:2,api_slotid:0,api_state:0},
+    {api_squadron_id:3,api_slotid:7,api_state:1},{api_squadron_id:4,api_slotid:0,api_state:0}]}]}};
+  const host={readControls:async()=>s,getStore:()=>live},observer=new ControlObserver(host);await observer.start();
+  const arg={area:6,base:3,mode:2,from:3,to:4,itemId:7,beforeSlots:s.airbase.slots.map(({slotId,itemId,state})=>({slotId,itemId,state}))},mutation={path:'api_req_air_corps/set_plane',area:6,base:3,slot:4,item:7};
+  await assert.rejects(observer.prepareDrag({mutation}),/intent/);
+  assert((await observer.read('airbase-swap',arg)).valid);
+  assert.deepEqual(await observer.prepareDrag({mutation}),{source:src.point,destination:dst.point});
+  await assert.rejects(observer.prepareDrag({mutation:{...mutation,item:8}}),/intent/);
+  live.info.airbase[0].api_plane_info[3].api_slotid=9;
+  await assert.rejects(observer.prepareDrag({mutation}),/precondition changed/);
+  live.info.airbase[0].api_plane_info[3].api_slotid=0;s.airbase.slots[2].state=2;
+  assert.equal((await observer.read('airbase-swap',arg)).valid,false);
+  Object.assign(s.airbase.slots[2],{itemId:0,state:0});Object.assign(s.airbase.slots[3],{itemId:7,state:1});
+  Object.assign(live.info.airbase[0].api_plane_info[2],{api_slotid:0,api_state:0});
+  Object.assign(live.info.airbase[0].api_plane_info[3],{api_slotid:7,api_state:1});
+  assert((await observer.read('airbase-swap-done',arg)).valid);
+  live.info.airbase[0].api_plane_info[0].api_state=1;
+  assert.equal((await observer.read('airbase-swap-done',arg)).valid,false);
+});
+
+test('occupied base swap pins both aircraft and requires both to remain ready',async()=>{
+  const src=button('airbase.slot.3',{slot:3}),dst=button('airbase.slot.4',{slot:4,point:{x:100,y:260}}),before=[
+    {slotId:1,itemId:0,state:0},{slotId:2,itemId:0,state:0},{slotId:3,itemId:7,state:1},{slotId:4,itemId:8,state:1}];
+  const s={version:1,valid:true,blocked:false,scene:'airbase',airbase:{phase:'base',area:6,base:3,mode:2,
+    slots:before.map(row=>({...row,...(row.slotId===3?{control:src}:row.slotId===4?{control:dst}:{})}))}};
+  const live={info:{airbase:[{api_area_id:6,api_rid:3,api_plane_info:before.map(x=>({api_squadron_id:x.slotId,api_slotid:x.itemId,api_state:x.state}))}]}};
+  const ctx={area:6,base:3,mode:2,from:3,to:4,itemId:7,targetItemId:8,beforeSlots:clone(before)};
+  assert(observeControls(s,'airbase-swap',ctx,live).valid);
+  const wrong=clone(ctx);wrong.targetItemId=9;assert.equal(observeControls(s,'airbase-swap',wrong,live).valid,false);
+  s.airbase.slots[3].state=2;assert.equal(observeControls(s,'airbase-swap',ctx,live).valid,false);s.airbase.slots[3].state=1;
+  s.airbase.slots[2].itemId=8;s.airbase.slots[3].itemId=7;
+  live.info.airbase[0].api_plane_info[2].api_slotid=8;live.info.airbase[0].api_plane_info[3].api_slotid=7;
+  assert(observeControls(s,'airbase-swap-done',ctx,live).valid);
+  live.info.airbase[0].api_plane_info[2].api_state=2;assert.equal(observeControls(s,'airbase-swap-done',ctx,live).valid,false);
+});
+
+test('base warehouse selection pins the instance, current page, full base and relocation data',async()=>{
+  const action=button('airbase.slot.4',{area:6,base:3,slot:4}),row=button('airbase.row.1',{area:6,base:3,slot:4,row:1}),
+    commit=button('airbase.confirm',{area:6,base:3,slot:4,itemId:7});
+  const slots=[{slotId:1,itemId:0,state:0},{slotId:2,itemId:0,state:0},{slotId:3,itemId:5,state:1},{slotId:4,itemId:0,state:0,control:action}];
+  const s={version:1,valid:true,blocked:false,scene:'airbase',controls:[action],airbase:{phase:'base',area:6,base:3,mode:2,slot:4,slots}};
+  const live={airbaseSync:{complete:true,relocationsComplete:true},info:{ships:{},equips:{7:{api_slotitem_id:3}},airbaseRelocations:[],
+    airbase:[{api_area_id:6,api_rid:3,api_plane_info:slots.map(z=>({api_squadron_id:z.slotId,api_slotid:z.itemId,api_state:z.state}))}]},
+    const:{$equips:{3:{api_type:[0,0,48]}}}};
+  const context={area:6,base:3,mode:2,slot:4,itemId:7,beforeSlots:slots.map(({slotId,itemId,state})=>({slotId,itemId,state}))};
+  const observer=new ControlObserver({readControls:async()=>s,getStore:()=>live});await observer.start();
+  assert((await observer.read('airbase-slot',context)).valid);
+  assert.deepEqual(await observer.prepareInput({x:100,y:200,kind:'click',controlId:'airbase.slot.4'}),action.point);
+  Object.assign(s.airbase,{phase:'picker',page:1,category:1,sourceIds:[6,7],rows:[{}, {itemId:7,expectedId:7,control:row}],pages:[],categories:[]});s.controls=[row];
+  const transitioning=clone(s);transitioning.airbase.sourceIds=[7,10,11,12,13,14,15,16,17,18];
+  assert.equal(observeControls(transitioning,'airbase-catalog',context,live).valid,false);
+  transitioning.airbase.pages=[button('airbase.page.2',{page:2})];
+  assert(observeControls(transitioning,'airbase-catalog',context,live).valid);
+  const rowContext={...context,category:1,page:1,row:1};assert((await observer.read('airbase-row',rowContext)).valid);
+  assert.deepEqual(await observer.prepareInput({x:100,y:200,kind:'click',controlId:'airbase.row.1'}),row.point);
+  Object.assign(s.airbase,{phase:'confirm',itemId:7,commit});s.controls=[commit];
+  const mutation={path:'api_req_air_corps/set_plane',area:6,base:3,slot:4,item:7};
+  await assert.rejects(observer.prepareInput({x:100,y:200,kind:'click',controlId:'airbase.confirm',mutation}),/precondition/);
+  assert((await observer.read('airbase-selection',context)).valid);
+  assert.deepEqual(await observer.prepareInput({x:100,y:200,kind:'click',controlId:'airbase.confirm',mutation}),commit.point);
+  live.info.airbaseRelocations=[{itemId:7}];await assert.rejects(observer.prepareInput({x:100,y:200,kind:'click',controlId:'airbase.confirm',mutation}),/precondition/);
+  live.info.airbaseRelocations=[];live.airbaseSync.relocationsComplete=false;
+  assert.equal((await observer.read('airbase-selection',context)).valid,false);
+  live.airbaseSync.relocationsComplete=true;live.airbaseSync.complete=false;
+  const verified={...context,verifiedInventory:require('../../src/domain/fleet/land_base_inventory').baseInventory(live.info)};
+  assert((await observer.read('airbase-selection',verified)).valid);
+  live.info.airbase[0].api_plane_info[0].api_state=2;
+  assert.equal((await observer.read('airbase-selection',verified)).valid,false);
+});
+
+test('base replacement pins the old aircraft and confirms relocation and the new state',()=>{
+  const control=button('airbase.slot.1',{slot:1}),slots=[{slotId:1,itemId:5,state:1,control},
+    ...[2,3,4].map(slotId=>({slotId,itemId:0,state:0}))];
+  const s={version:1,valid:true,blocked:false,scene:'airbase',controls:[control],airbase:{phase:'base',area:6,base:1,mode:1,slots}};
+  const live={airbaseSync:{complete:true,relocationsComplete:true},info:{ships:{},equips:{7:{api_slotitem_id:3}},airbaseRelocations:[],
+    airbase:[{api_area_id:6,api_rid:1,api_plane_info:slots.map(row=>({api_squadron_id:row.slotId,api_slotid:row.itemId,api_state:row.state}))}]},
+    const:{$equips:{3:{api_type:[0,0,47]}}}};
+  const ctx={area:6,base:1,mode:1,slot:1,itemId:7,beforeSlots:slots.map(({slotId,itemId,state})=>({slotId,itemId,state}))};
+  assert(observeControls(s,'airbase-slot',ctx,live).valid);
+  slots[0].state=2;assert.equal(observeControls(s,'airbase-slot',ctx,live).valid,false);slots[0].state=1;
+  Object.assign(slots[0],{itemId:7,state:2});Object.assign(live.info.airbase[0].api_plane_info[0],{api_slotid:7,api_state:2});
+  assert.equal(observeControls(s,'airbase-stock-done',ctx,live).valid,false);
+  live.info.airbaseRelocations=[{itemId:5}];assert.deepEqual(observeControls(s,'airbase-stock-done',ctx,live),{valid:true,state:2});
+  slots[0].state=1;assert.equal(observeControls(s,'airbase-stock-done',ctx,live).valid,false);
+});
+
 test('navigation readiness requires a unique enabled destination and exposes moving coordinates for stability checks',()=>{
   const s=equipment('base');s.controls=[button('navigate.organization',{enabled:false})];
   assert.equal(observeControls(s,'navigation',{destination:'organization'},store).valid,false);

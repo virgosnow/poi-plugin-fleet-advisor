@@ -129,7 +129,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
       }
       setTimeout(()=>setCopied(''),2500);
     };
-    const action=async(execute,source)=>{
+    const action=async(execute,source,options)=>{
       if(execute&&!experimentalSettings.automaticOperations)return false;
       if(active.current||getMcpStatus?.()?.activeJobId)return false;
       stopped.current=false;
@@ -139,14 +139,14 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
       try {
         const controller=getController();if(!controller)throw Error('插件尚未启用，请在 poi 插件设置中检查状态。');
         const input=M.parse(source);if(input.error)throw Error('JSON 格式有误：'+input.error);
-        const plan=controller.preview('fleet',input.value);
+        const plan=controller.preview('fleet',input.value,options);
         reportDetail(M.format(plan));progressRef.current='';
         if(!execute){reportStatus({state:'preview',title:plan.done?'已符合方案':'预览已就绪',text:'预览未修改游戏；执行时会重新核对实时状态。'});return true;}
         returnFocus.current=tooltipRoot.current?.ownerDocument.activeElement;
         executionPlan.current={fleet:plan.fleet||input.value.fleet,targets:plan.organization?.targets||input.value.ships.map(s=>typeof s==='number'?s:s.id)};
         active.current=true;stopped.current=false;setBusy(true);
         reportStatus({state:'running',title:'正在执行',text:'正在准备识别与操作环境。'});
-        const result=await controller.run('fleet',input.value);
+        const result=await controller.run('fleet',input.value,options);
         if(!mounted.current)return;
         reportDetail(M.format(result));
         if(result.ok&&result.done){reportStatus({state:'success',title:result.changed?'配置已完成':'已符合方案，无需变更',text:`已完成 ${result.changed||0} 次变更${result.metrics?` · ${(result.metrics.totalMs/1000).toFixed(1)} 秒`:''}`});}
@@ -210,7 +210,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
           settingFeedback(React,settingsFeedbacks.reset))]:[])))),
       h('div',{className:'paa-workspace','aria-busy':running},
       h('div',{className:'paa-workspace-content',ref:workspace,tabIndex:-1},
-      ...['normal','practice','expedition','manual'].map(kind=>h(kind==='manual'?CurrentFleet:kind==='practice'?PracticePage:Workbench,{key:`${kind}:${draftEpoch}`,kind,automaticFilters:recommendationFilters[kind],automaticOperations:experimentalSettings.automaticOperations,hidden:mode!==kind,busy:running,stopping,onStop:stop,stopButtonRef:mode===kind?stopButton:undefined,operationFeedback:mode===kind?feedback:null,executionPlan:busy?executionPlan.current:null,...(kind!=='manual'?{onApply:candidate=>action(true,M.format(candidate)),navigationIntent:questNavigation?.kind===kind?questNavigation:null}:{onNavigateQuest:navigateQuest})})),
+      ...['normal','practice','expedition','manual'].map(kind=>h(kind==='manual'?CurrentFleet:kind==='practice'?PracticePage:Workbench,{key:`${kind}:${draftEpoch}`,kind,automaticFilters:recommendationFilters[kind],automaticOperations:experimentalSettings.automaticOperations,hidden:mode!==kind,busy:running,stopping,onStop:stop,stopButtonRef:mode===kind?stopButton:undefined,operationFeedback:mode===kind?feedback:null,executionPlan:busy?executionPlan.current:null,...(kind!=='manual'?{onApply:(candidate,options)=>action(true,M.format(candidate),options),navigationIntent:questNavigation?.kind===kind?questNavigation:null}:{onNavigateQuest:navigateQuest})})),
       h('section',{className:'paa-settings-page',hidden:mode!=='settings','aria-label':'设置面板'},
       filterSettings({value:recommendationFilters,disabled:running||resettingSettings,feedbacks:settingsFeedbacks,onChange:(value,target)=>{
         try{setRecommendationFilters(getController().setRecommendationFilters(value));reportSetting(target,'success','已保存');}

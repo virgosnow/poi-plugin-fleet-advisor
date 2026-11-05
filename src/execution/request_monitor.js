@@ -8,6 +8,10 @@ function fields(expected) {
   if (expected.path === 'api_req_kaisou/slotset') return {api_id: expected.ship, api_slot_idx: expected.j, api_item_id: expected.item};
   if (expected.path === 'api_req_kaisou/slotset_ex') return {api_id: expected.ship, api_item_id: expected.item};
   if (expected.path === 'api_req_kaisou/unsetslot_all') return {api_id: expected.ship};
+  if (expected.path === 'api_req_air_corps/set_plane') return {api_area_id:expected.area,api_base_id:expected.base,
+    api_squadron_id:expected.slot,api_item_id:expected.item};
+  if (expected.path === 'api_req_air_corps/set_action') return {api_area_id:expected.area,api_base_id:expected.base,
+    api_action_kind:expected.mode};
   return null;
 }
 
@@ -43,7 +47,7 @@ class RequestMonitor {
     if (!matched) {
       this.closed=true;
       const data=new URLSearchParams(request.postData||'');
-      const actual=Object.fromEntries(['api_id','api_ship_idx','api_ship_id','api_slot_idx','api_item_id','api_set_ship','api_set_idx','api_set_slot_kind','api_unset_ship','api_unset_idx','api_unset_slot_kind'].filter(k=>data.has(k)).map(k=>[k,data.get(k)]));
+      const actual=Object.fromEntries(['api_id','api_ship_idx','api_ship_id','api_slot_idx','api_item_id','api_area_id','api_base_id','api_squadron_id','api_action_kind','api_set_ship','api_set_idx','api_set_slot_kind','api_unset_ship','api_unset_idx','api_unset_slot_kind'].filter(k=>data.has(k)).map(k=>[k,data.get(k)]));
       throw new Error('Unexpected fleet/equipment request observed; stopping automation only: '+path+' '+JSON.stringify({expected,actual}));
     }
     this.matchedAction=this.actionId;

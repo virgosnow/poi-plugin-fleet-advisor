@@ -1,6 +1,8 @@
 'use strict';
 const categories=require('../../data/equip_categories.json').templates;
 const {controlUnavailable}=require('./recognition_fallback');
+const {eligiblePlane}=require('../domain/fleet/airbase_relocation');
+const {baseInventory}=require('../domain/fleet/land_base_inventory');
 const ready=c=>c?.attached===true&&c.visible===true&&c.enabled===true&&c.point&&Number.isFinite(c.point.x)&&Number.isFinite(c.point.y);
 const homeReady=c=>ready(c)&&c.rendered===true;
 const invalid=reason=>({valid:false,reason});
@@ -13,6 +15,28 @@ function checkInterruption(snapshot){
 }
 const sortModes={1:'level',2:'type',3:'new',4:'damage',5:'repair',6:'morale'};
 const pageResult=p=>p?{valid:p.valid,labels:p.labels,centers:p.centers,activePage:p.activePage,y:p.y,...(p.itemIds?{itemIds:p.itemIds}:{})}:invalid('Picker page unavailable');
+function baseSlotsMatch(a,store,arg,after=false){
+  const bases=(store?.info?.airbase||[]).filter(row=>row.api_area_id===arg.area&&row.api_rid===arg.base),observed=bases[0]?.api_plane_info||[];
+  return bases.length===1&&Array.isArray(arg.beforeSlots)&&arg.beforeSlots.length===4&&
+    new Set(arg.beforeSlots.map(row=>row.slotId)).size===4&&a?.slots?.length===4&&observed.length===4&&arg.beforeSlots.every(row=>{
+      const visible=a.slots.find(slot=>slot.slotId===row.slotId),current=observed.find(slot=>slot.api_squadron_id===row.slotId);
+      const changed=after&&row.slotId===arg.slot,itemId=changed?arg.itemId:row.itemId;
+      return visible?.itemId===itemId&&current?.api_slotid===itemId&&visible?.state===current?.api_state&&
+        (changed?[1,2].includes(current?.api_state):current?.api_state===row.state);
+    });
+}
+function baseStockAvailable(store,id,verifiedInventory){
+  if(!Number.isSafeInteger(id)||id<=0||store?.airbaseSync?.relocationsComplete!==true)return false;
+  if(store.airbaseSync.complete!==true){
+    const live=baseInventory(store.info);
+    if(!live||!Array.isArray(verifiedInventory)||JSON.stringify(live)!==JSON.stringify(verifiedInventory))return false;
+  }
+  const info=store.info,item=info?.equips?.[id],master=store.const?.$equips?.[item?.api_slotitem_id];
+  if(!info?.ships||!info.equips||!Array.isArray(info.airbase)||!Array.isArray(info.airbaseRelocations))return false;
+  if(!item||!eligiblePlane(master)||(info.airbaseRelocations||[]).some(row=>row.itemId===id))return false;
+  if(Object.values(info.ships||{}).some(ship=>[...(ship.api_slot||[]),ship.api_slot_ex].includes(id)))return false;
+  return !(info.airbase||[]).some(base=>(base.api_plane_info||[]).some(slot=>slot.api_slotid===id));
+}
 function observeControls(snapshot,kind,arg={},store){
   checkInterruption(snapshot);
   if(!snapshot?.valid||snapshot.blocked||snapshot.version!==1)return invalid(snapshot?.reason||'Game controls unavailable');
@@ -30,6 +54,119 @@ function observeControls(snapshot,kind,arg={},store){
   if(kind==='batch'){
     if(!Array.isArray(arg.checks)||!arg.checks.length||arg.checks.length>8||arg.checks.some(c=>!c||c.kind==='batch'||typeof c.kind!=='string'))throw Error('Invalid observation batch');
     const results=arg.checks.map(c=>observeControls(s,c.kind,c.arg,store));return {valid:results.every(r=>r.valid),results};
+  }
+  if(kind==='airbase-navigation'){
+    const allowed={'sortie':'home','choose-sortie':'airbase-sortie-choice','open':'airbase-area'};
+    const areaStage=Number.isInteger(arg.area)&&arg.area>=1&&arg.area<=9&&arg.stage==='area';
+    const scene=areaStage?'airbase-area':allowed[arg.stage],id=areaStage?'airbase.nav.area.'+arg.area:'airbase.nav.'+arg.stage;
+    const controls=(s.controls||[]).filter(c=>c.id===id&&ready(c));
+    const valid=!!scene&&s.scene===scene&&controls.length===1&&
+      (arg.stage!=='open'||s.area===arg.area);
+    return valid?{valid:true,point:controls[0].point}:invalid('Base navigation control unavailable');
+  }
+  if(kind==='airbase-tab'){
+    const a=s.airbase,rows=a?.models,tabs=a?.tabs?.filter(c=>c.base===arg.base&&ready(c))||[];
+    const clean=Array.isArray(rows)&&rows.length>0&&new Set(rows.map(r=>r.base)).size===rows.length&&rows.every(row=>
+      row.nameChanged===false&&Number.isInteger(row.pendingMode)&&Number.isInteger(row.mode)&&
+      (row.pendingMode===-1||row.pendingMode===row.mode))&&rows.some(row=>row.base===a.base&&row.mode===a.mode);
+    return s.scene==='airbase'&&a?.phase==='base'&&a.area===arg.area&&a.base!==arg.base&&tabs.length===1&&clean?
+      {valid:true,point:tabs[0].point}:invalid('Base tab or pending edits not confirmed');
+  }
+  if(kind==='airbase-panel'){
+    const a=s.airbase,valid=s.scene==='airbase'&&a?.phase==='base'&&a.area===arg.area&&(!arg.base||a.base===arg.base);
+    return valid?{valid:true,area:a.area,base:a.base,mode:a.mode}:invalid('Base panel unavailable');
+  }
+  if(kind==='airbase-close-clean'){
+    const a=s.airbase,rows=a?.models;
+    const clean=Array.isArray(rows)&&rows.length>0&&new Set(rows.map(row=>row.base)).size===rows.length&&
+      rows.every(row=>row.nameChanged===false&&Number.isInteger(row.mode)&&Number.isInteger(row.pendingMode)&&
+        (row.pendingMode===-1||row.pendingMode===row.mode));
+    return s.scene==='airbase'&&a?.phase==='base'&&a.area===arg.area&&a.base===arg.base&&clean&&ready(a.close)?
+      {valid:true,point:a.close.point}:invalid('Base panel has unconfirmed pending changes');
+  }
+  if(kind==='airbase-area')return s.scene==='airbase-area'&&Number.isInteger(s.area)?{valid:true,area:s.area}:invalid('Area selection unavailable');
+  if(kind==='airbase-action'||kind==='airbase-action-start'){
+    const a=s.airbase,rows=a?.models;
+    const safe=Array.isArray(rows)&&rows.length>0&&new Set(rows.map(row=>row.base)).size===rows.length&&rows.some(row=>row.base===a.base)&&
+      rows.every(row=>Number.isInteger(row.base)&&Number.isInteger(row.mode)&&Number.isInteger(row.pendingMode)&&row.nameChanged===false&&
+      (row.pendingMode===-1||row.pendingMode===row.mode||row.base===a.base&&row.pendingMode===a.mode));
+    const valid=s.scene==='airbase'&&a?.phase==='base'&&a.area===arg.area&&a.base===arg.base&&a.mode===arg.mode&&
+      Number.isInteger(a.mode)&&a.mode>=0&&a.mode<=4&&safe&&ready(a.action)&&
+      (kind!=='airbase-action-start'||rows.find(row=>row.base===a.base)?.mode===a.mode);
+    return valid?{valid:true,mode:a.mode,point:a.action.point}:invalid('Base action control or pending changes are not confirmed');
+  }
+  if(kind==='airbase-action-done'){
+    const rows=(store?.info?.airbase||[]).filter(row=>row.api_area_id===arg.area&&row.api_rid===arg.base);
+    return s.scene==='airbase-area'&&s.area===arg.area&&!s.airbase&&rows.length===1&&rows[0].api_action_kind===arg.mode?
+      {valid:true}:invalid('Base action update is not confirmed');
+  }
+  if(['airbase-slot','airbase-catalog','airbase-row','airbase-selection','airbase-stock-done'].includes(kind)){
+    const a=s.airbase,phase=kind==='airbase-slot'||kind==='airbase-stock-done'?'base':kind==='airbase-selection'?'confirm':'picker';
+    const base=s.scene==='airbase'&&a?.phase===phase&&a.area===arg.area&&a.base===arg.base&&a.mode===arg.mode&&
+      Number.isInteger(arg.mode)&&arg.mode>=0&&arg.mode<=4&&Number.isInteger(arg.slot)&&arg.slot>=1&&arg.slot<=4&&
+      baseSlotsMatch(a,store,arg,kind==='airbase-stock-done');
+    if(!base)return invalid('Base, mode or squadron state is not confirmed');
+    const original=arg.beforeSlots.find(row=>row.slotId===arg.slot);
+    if(!original||!(original.itemId===0&&original.state===0||original.itemId>0&&original.state===1))
+      return invalid('The original squadron is not confirmed ready');
+    if(kind==='airbase-stock-done'){
+      const state=a.slots.find(row=>row.slotId===arg.slot)?.state;
+      if(original?.itemId>0&&!(store.info.airbaseRelocations||[]).some(row=>row.itemId===original.itemId))
+        return invalid('Replaced aircraft relocation has not been confirmed');
+      return {valid:true,state};
+    }
+    if(!baseStockAvailable(store,arg.itemId,arg.verifiedInventory))
+      return invalid('Aircraft is not confirmed free or the destination is not ready');
+    if(kind==='airbase-slot'){
+      const slot=a.slots.find(row=>row.slotId===arg.slot);
+      return ready(slot?.control)?{valid:true,point:slot.control.point}:invalid('Squadron control unavailable');
+    }
+    if(kind==='airbase-selection')return a.slot===arg.slot&&a.itemId===arg.itemId&&ready(a.commit)?
+      {valid:true,point:a.commit.point}:invalid('Exact base aircraft confirmation unavailable');
+    const ids=a.sourceIds,all=Array.isArray(ids)&&new Set(ids).size===ids.length&&ids.every(id=>Number.isSafeInteger(id)&&id>0);
+    if(a.slot!==arg.slot||!all||!Number.isInteger(a.page)||a.page<1||!Number.isInteger(a.category))return invalid('Base aircraft list unavailable');
+    const pageCount=Math.ceil(ids.length/9),visiblePages=(a.pages||[]).filter(ready),categories=(a.categories||[]).filter(ready);
+    if(pageCount&&a.page>pageCount||pageCount>1&&!visiblePages.length||!ids.includes(arg.itemId)&&!categories.length)
+      return invalid('Base aircraft picker controls are still transitioning');
+    const index=ids.indexOf(arg.itemId),page=index<0?null:Math.floor(index/9)+1,row=index<0?null:index%9;
+    if(kind==='airbase-catalog')return {valid:true,category:a.category,page:a.page,targetPage:page,targetRow:row,
+      pages:visiblePages.map(c=>({page:c.page,point:c.point})),
+      categories:categories.map(c=>({category:c.category,point:c.point})),
+      previousPages:ready(a.previousPages)?a.previousPages.point:null,nextPages:ready(a.nextPages)?a.nextPages.point:null};
+    const selected=index>=0&&a.category===arg.category&&a.page===page&&page===arg.page&&row===arg.row?a.rows?.[row]:null;
+    return selected?.itemId===arg.itemId&&selected.expectedId===arg.itemId&&ready(selected.control)?
+      {valid:true,point:selected.control.point}:invalid('Exact base aircraft row unavailable');
+  }
+  if(kind==='airbase-swap'){
+    const a=s.airbase,src=a?.slots?.find(row=>row.slotId===arg.from),dst=a?.slots?.find(row=>row.slotId===arg.to);
+    const targetId=arg.targetItemId??0,targetState=targetId>0?1:0;
+    const bases=(store?.info?.airbase||[]).filter(row=>row.api_area_id===arg.area&&row.api_rid===arg.base);
+    const observed=bases[0]?.api_plane_info||[],source=observed.filter(row=>row.api_squadron_id===arg.from),target=observed.filter(row=>row.api_squadron_id===arg.to);
+    const all=Array.isArray(arg.beforeSlots)&&arg.beforeSlots.length===4&&new Set(arg.beforeSlots.map(row=>row.slotId)).size===4&&
+      a?.slots?.length===4&&observed.length===4&&arg.beforeSlots.every(row=>{
+        const visible=a.slots.find(slot=>slot.slotId===row.slotId),current=observed.find(slot=>slot.api_squadron_id===row.slotId);
+        return visible?.itemId===row.itemId&&visible?.state===row.state&&current?.api_slotid===row.itemId&&current?.api_state===row.state;
+      });
+    const valid=s.scene==='airbase'&&a?.phase==='base'&&a.area===arg.area&&a.base===arg.base&&a.mode===arg.mode&&
+      Number.isInteger(arg.mode)&&arg.mode>=0&&arg.mode<=4&&Number.isSafeInteger(arg.itemId)&&arg.itemId>0&&
+      Number.isSafeInteger(targetId)&&targetId>=0&&targetId!==arg.itemId&&
+      arg.from!==arg.to&&all&&bases.length===1&&source.length===1&&target.length===1&&
+      src?.itemId===arg.itemId&&src.state===1&&dst?.itemId===targetId&&dst.state===targetState&&ready(src.control)&&ready(dst.control)&&
+      source[0].api_slotid===arg.itemId&&source[0].api_state===1&&target[0].api_slotid===targetId&&target[0].api_state===targetState;
+    return valid?{valid:true,source:src.control.point,destination:dst.control.point}:invalid('Base aircraft or destination is not confirmed');
+  }
+  if(kind==='airbase-swap-done'){
+    const a=s.airbase,bases=(store?.info?.airbase||[]).filter(row=>row.api_area_id===arg.area&&row.api_rid===arg.base),observed=bases[0]?.api_plane_info||[];
+    const valid=s.scene==='airbase'&&a?.phase==='base'&&a.area===arg.area&&a.base===arg.base&&a.mode===arg.mode&&
+      Number.isInteger(arg.mode)&&arg.mode>=0&&arg.mode<=4&&bases.length===1&&
+      Array.isArray(arg.beforeSlots)&&arg.beforeSlots.length===4&&new Set(arg.beforeSlots.map(row=>row.slotId)).size===4&&
+      a.slots?.length===4&&observed.length===4&&arg.beforeSlots.every(row=>{
+        const visible=a.slots.find(slot=>slot.slotId===row.slotId),current=observed.find(slot=>slot.api_squadron_id===row.slotId);
+        const targetId=arg.targetItemId??0,itemId=row.slotId===arg.from?targetId:row.slotId===arg.to?arg.itemId:row.itemId;
+        const state=row.slotId===arg.from?(targetId>0?1:0):row.slotId===arg.to?1:row.state;
+        return visible?.itemId===itemId&&visible?.state===state&&current?.api_slotid===itemId&&current?.api_state===state;
+      });
+    return valid?{valid:true}:invalid('Base aircraft move has not been confirmed');
   }
   if(kind==='navigation'){
     if(!['home','organization','equipment','quest-welcome-dismiss'].includes(arg.destination))return invalid('Unsupported navigation destination');
@@ -96,11 +233,24 @@ function observeControls(snapshot,kind,arg={},store){
   return invalid('Unsupported control observation: '+kind);
 }
 function matchesMutation(c,m,s){
-  if(!m)return !['organization.confirm','organization.detach','organization.clear','equipment.borrow','equipment.clear'].includes(c.id)
+  const base=s.airbase;
+  const pendingSafe=()=>Array.isArray(base?.models)&&base.models.length>0&&new Set(base.models.map(row=>row.base)).size===base.models.length&&base.models.some(row=>row.base===base.base)&&base.models.every(row=>{
+    if(row.nameChanged!==false||!Number.isInteger(row.base)||!Number.isInteger(row.mode)||!Number.isInteger(row.pendingMode))return false;
+    return row.pendingMode===-1||row.pendingMode===row.mode||row.base===base.base&&row.pendingMode===base.mode;
+  });
+  if(!m)return !['organization.confirm','organization.detach','organization.clear','equipment.borrow','equipment.clear','airbase.confirm'].includes(c.id)
+    &&!(c.id==='airbase.close'&&(!pendingSafe()||base.mode!==base.models.find(row=>row.base===base.base)?.mode))
+    &&!(s.scene==='airbase'&&c.id.startsWith('navigate.')&&(!pendingSafe()||base.mode!==base.models.find(row=>row.base===base.base)?.mode))
     &&!c.id.startsWith('equipment.detach.')&&!(c.id==='equipment.confirm'&&s.equipment?.mode===0);
   if(m.path==='api_req_hensei/change')return c.fleet===m.fleet&&c.slot===m.j&&c.shipId===m.ship&&
     c.id===(m.ship===-2?'organization.clear':m.ship===-1?'organization.detach':'organization.confirm');
   if(m.path==='api_req_kaisou/unsetslot_all')return c.id==='equipment.clear'&&c.shipId===m.ship;
+  if(m.path==='api_req_air_corps/set_plane')return c.id==='airbase.confirm'&&c.area===m.area&&c.base===m.base&&
+    c.slot===m.slot&&c.itemId===m.item&&s.airbase?.itemId===m.item;
+  if(m.path==='api_req_air_corps/set_action')return c.id==='airbase.close'&&s.scene==='airbase'&&base?.phase==='base'&&
+    c.area===m.area&&c.base===m.base&&c.mode===m.mode&&base.area===m.area&&base.base===m.base&&base.mode===m.mode&&
+    Number.isInteger(m.mode)&&m.mode>=0&&m.mode<=4&&pendingSafe()&&
+    base.models.some(row=>row.base===m.base&&row.mode!==m.mode);
   if(m.path==='api_req_kaisou/slot_deprive')return c.id==='equipment.borrow'&&c.shipId===m.ship&&c.slot===m.j&&c.itemId===s.equipment?.itemId&&c.sourceShip===m.sourceShip
     &&m.slotKind===(c.slot===-1?1:0)&&[0,1].includes(m.sourceKind);
   if(m.path==='api_req_kaisou/slotset'||m.path==='api_req_kaisou/slotset_ex'){
@@ -122,6 +272,14 @@ class ControlObserver{
     if(result.valid){
       if(arg.targetShip)this.intent.organization={shipId:arg.targetShip,slot:arg.targetSlot,fleet:arg.fleet,mask:arg.mask};
       if(kind==='rowicon'||kind==='pix'||kind==='borrowconfirm')this.intent.equipment=arg;
+      if(kind==='airbase-action')this.intent.airbaseAction=arg;
+      if(kind==='airbase-swap')this.intent.airbaseDrag=arg;
+      if(kind==='airbase-slot')this.intent.airbaseSlot=arg;
+      if(kind==='airbase-row')this.intent.airbaseRow=arg;
+      if(kind==='airbase-selection')this.intent.airbaseSelection=arg;
+      if(kind==='airbase-tab')this.intent.airbaseTab=arg;
+      if(kind==='airbase-close-clean')this.intent.airbaseClose=arg;
+      if(kind==='airbase-navigation')this.intent.airbaseNavigation=arg;
       if(kind==='batch')for(let i=0;i<arg.checks.length;i++)if(arg.checks[i].kind==='rowicon'&&result.results[i].valid)this.intent.equipment=arg.checks[i].arg;
     }
     return result;
@@ -141,6 +299,12 @@ class ControlObserver{
       }
       if(c.id.startsWith('equipment.row.')){const a=this.intent.equipment;return a&&c.row===a.row&&observeControls(s,'rowicon',a,this.host.getStore()).valid;}
       if(c.id==='equipment.confirm'){const a=this.intent.equipment;return a&&observeControls(s,'pix',{...a,purpose:'equipment-confirm'},this.host.getStore()).valid;}
+      if(c.id==='airbase.action'){const a=this.intent.airbaseAction;return a&&observeControls(s,'airbase-action',a,this.host.getStore()).valid;}
+      if(c.id.startsWith('airbase.slot.')){const a=this.intent.airbaseSlot;return a&&c.slot===a.slot&&observeControls(s,'airbase-slot',a,this.host.getStore()).valid;}
+      if(c.id.startsWith('airbase.row.')){const a=this.intent.airbaseRow;return a&&c.row===a.row&&observeControls(s,'airbase-row',a,this.host.getStore()).valid;}
+      if(c.id.startsWith('airbase.tab.')){const a=this.intent.airbaseTab;return a&&c.base===a.base&&observeControls(s,'airbase-tab',a,this.host.getStore()).valid;}
+      if(c.id==='airbase.close'){const a=this.intent.airbaseClose;return a&&observeControls(s,'airbase-close-clean',a,this.host.getStore()).valid;}
+      if(c.id.startsWith('airbase.nav.')){const a=this.intent.airbaseNavigation;return a&&observeControls(s,'airbase-navigation',a,this.host.getStore()).valid;}
       return true;
     });
     if(targets.length!==1){
@@ -149,12 +313,26 @@ class ControlObserver{
       throw Error(message);
     }
     const target=targets[0];
+    if(input.mutation?.path==='api_req_air_corps/set_plane'&&target.id==='airbase.confirm'){
+      const a=this.intent.airbaseSelection;
+      if(!a||a.itemId!==input.mutation.item||a.slot!==input.mutation.slot||a.area!==input.mutation.area||a.base!==input.mutation.base||
+        !observeControls(s,'airbase-selection',a,this.host.getStore()).valid)throw controlUnavailable('Exact base aircraft confirmation precondition changed');
+    }
     if(input.mutation?.path==='api_req_kaisou/slot_deprive'){
       const donor=this.host.getStore().info.ships[input.mutation.sourceShip];
       const id=input.mutation.sourceKind===1?donor?.api_slot_ex:donor?.api_slot?.[input.mutation.sourceJ];
       if(id!==s.equipment.itemId)throw Error('Borrowed equipment source instance changed');
     }
     return target.point;
+  }
+  async prepareDrag({mutation}){
+    if(this.closed)throw Error('Control observer stopped');
+    const arg=this.intent.airbaseDrag,s=await this.host.readControls();checkInterruption(s);
+    if(!arg||mutation?.path!=='api_req_air_corps/set_plane'||mutation.area!==arg.area||mutation.base!==arg.base||
+      mutation.slot!==arg.to||mutation.item!==arg.itemId)throw controlUnavailable('Base drag intent does not match mutation');
+    const result=observeControls(s,'airbase-swap',arg,this.host.getStore());
+    if(!result.valid)throw controlUnavailable('Base drag precondition changed: '+result.reason);
+    return {source:result.source,destination:result.destination};
   }
   releaseFrame(){}
   async dispose(){this.closed=true;this.intent={};}

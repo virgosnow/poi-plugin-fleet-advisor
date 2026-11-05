@@ -16,6 +16,30 @@ test('equipment endpoints retain their own exact policies',()=>{
   const r={method:'POST',url:'https://x.invalid/kcsapi/'+p.path,postData:'api_id=8&api_slot_idx=2&api_item_id=42'};
   assert(matches(r,p));assert(!matches(r,policy));assert(!matches({...r,postData:r.postData+'&api_item_id=42'},p));
 });
+test('base aircraft requests require the exact area, squadron, slot and instance',()=>{
+  const p={path:'api_req_air_corps/set_plane',area:6,base:3,slot:3,item:25143};
+  const r={method:'POST',url:'https://example.invalid/kcsapi/'+p.path,
+    postData:'api_area_id=6&api_base_id=3&api_squadron_id=3&api_item_id=25143'};
+  assert(matches(r,p));
+  for(const postData of ['api_area_id=7&api_base_id=3&api_squadron_id=3&api_item_id=25143',
+    'api_area_id=6&api_base_id=2&api_squadron_id=3&api_item_id=25143',
+    'api_area_id=6&api_base_id=3&api_squadron_id=4&api_item_id=25143',
+    'api_area_id=6&api_base_id=3&api_squadron_id=3&api_item_id=42',r.postData+'&api_item_id=25143'])
+    assert(!matches({...r,postData},p));
+  const monitor=new RequestMonitor(()=>0);monitor.expect(p,1);monitor.observe(r);assert.equal(monitor.matchedAction,1);
+});
+
+test('base action requests require exact area, base and action',()=>{
+  const p={path:'api_req_air_corps/set_action',area:6,base:3,mode:2};
+  const r={method:'POST',url:'https://example.invalid/kcsapi/'+p.path,
+    postData:'api_area_id=6&api_base_id=3&api_action_kind=2'};
+  assert(matches(r,p));
+  for(const postData of ['api_area_id=7&api_base_id=3&api_action_kind=2',
+    'api_area_id=6&api_base_id=2&api_action_kind=2','api_area_id=6&api_base_id=3&api_action_kind=1',
+    r.postData+'&api_action_kind=2'])assert(!matches({...r,postData},p));
+  const monitor=new RequestMonitor(()=>0);monitor.expect(p,1);monitor.observe(r);assert.equal(monitor.matchedAction,1);
+  assert.throws(()=>monitor.observe(r),/stopping automation only/);
+});
 
 test('all-equipment removal is identified by its own endpoint and exact ship',()=>{
   const p={path:'api_req_kaisou/unsetslot_all',ship:8};
@@ -101,6 +125,39 @@ test('mouse input waits for the matching network notification, not an intercepti
   f.dbg.sendCommand=async(method,params)=>{const r=await send(method,params);if(method==='Input.dispatchMouseEvent'&&params.type==='mouseReleased')f.transmit(request);return r;};
   await f.host.input({x:20,y:30,mutation:policy,actionId:7});assert.equal(f.host.monitor.matchedAction,7);assert.equal(f.responses.length,1);
   await f.host.dispose();assert(!f.commands.some(c=>c.method.startsWith('Fetch.')));
+});
+
+test('base drag releases the button and accepts only the exact observed game request',async()=>{
+  const f=hostFixture();await f.host.start();const send=f.dbg.sendCommand;
+  const p={path:'api_req_air_corps/set_plane',area:6,base:3,slot:4,item:7};
+  const r={method:'POST',url:'https://example.invalid/kcsapi/'+p.path,postData:'api_area_id=6&api_base_id=3&api_squadron_id=4&api_item_id=7'};
+  f.dbg.sendCommand=async(method,params)=>{const result=await send(method,params);if(method==='Input.dispatchMouseEvent'&&params.type==='mouseReleased')f.transmit(r);return result;};
+  await f.host.drag({source:{x:100,y:300},destination:{x:100,y:390},mutation:p,actionId:7});
+  assert.equal(f.host.monitor.matchedAction,7);assert.equal(f.responses.length,1);
+  const inputs=f.commands.filter(c=>c.method==='Input.dispatchMouseEvent');
+  assert.equal(inputs.filter(c=>c.params.type==='mousePressed').length,1);
+  assert.equal(inputs.filter(c=>c.params.type==='mouseReleased').length,1);
+  assert.equal(inputs.filter(c=>c.params.type==='mouseMoved'&&c.params.buttons===1).length,8);
+  await f.host.dispose();assert(!f.commands.some(c=>c.method.startsWith('Fetch.')));
+});
+
+test('base drag releases the mouse on interruption and never retries the operation',async()=>{
+  const f=hostFixture();await f.host.start();const send=f.dbg.sendCommand;
+  f.dbg.sendCommand=async(method,params)=>{const result=await send(method,params);if(method==='Input.dispatchMouseEvent'&&params.type==='mousePressed')f.host.cancel();return result;};
+  await assert.rejects(f.host.drag({source:{x:100,y:300},destination:{x:100,y:390},
+    mutation:{path:'api_req_air_corps/set_plane',area:6,base:3,slot:4,item:7},actionId:1}),/stopped/);
+  const inputs=f.commands.filter(c=>c.method==='Input.dispatchMouseEvent');
+  assert.equal(inputs.filter(c=>c.params.type==='mousePressed').length,1);
+  assert.equal(inputs.filter(c=>c.params.type==='mouseReleased').length,1);
+  await f.host.dispose();
+});
+
+test('session base drag requires native preflight and retains the pending mutation until confirmation',async()=>{
+  const calls=[],host={check(){},cancel(){},drag:async input=>calls.push(input)},observer={read(){},
+    prepareDrag:async()=>({source:{x:100,y:300},destination:{x:100,y:390}})};
+  const session=new Session(host,observer),mutation={path:'api_req_air_corps/set_plane',area:6,base:3,slot:4,item:7};
+  await session.drag(mutation);assert.equal(calls.length,1);assert.equal(session.pendingMutation,true);
+  await assert.rejects(session.drag(mutation),/unavailable/);session.confirmMutation();assert.equal(session.pendingMutation,false);
 });
 
 test('a mismatched click stops further automation but leaves the request and response untouched',async()=>{

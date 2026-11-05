@@ -77,7 +77,7 @@ function readControlSnapshot(){
   };
   const control=(id,node,meta={},register=true)=>{
     const target=inputNode(node),g=geometry(target),state=connected(target);
-    const exposed=!(id.startsWith('equipment.category.')||id==='navigate.home')||unclipped(target,g?.point);
+    const exposed=!(id.startsWith('equipment.category.')||id.startsWith('airbase.')||id==='navigate.home')||unclipped(target,g?.point);
     const value={id,...state,...(g||{}),unclipped:exposed,enabled:!!g&&state.enabled&&exposed&&(id!=='navigate.home'||state.rendered),...meta};
     if(register&&state.attached)result.controls.push(value);return value;
   };
@@ -110,6 +110,8 @@ function readControlSnapshot(){
       // destinations are never added to the executor's input allowlist.
       for(const c of children(own(port,'_ringMenu')))if(own(c,'_type')===11||own(c,'_type')===13)
         control(own(c,'_type')===11?'navigate.organization':'navigate.equipment',c);
+      const sortie=children(own(port,'_ringMenu')).filter(c=>!Object.hasOwn(c,'_type')&&Object.hasOwn(c,'_hit_area'));
+      if(sortie.length===1)control('airbase.nav.sortie',sortie[0]);
     }
     if(!result.controls.some(c=>c.id==='navigate.organization'&&c.enabled))control('navigate.organization',own(side,'_btn_organize'));
     if(!result.controls.some(c=>c.id==='navigate.equipment'&&c.enabled))control('navigate.equipment',own(side,'_btn_remodel'));
@@ -146,6 +148,80 @@ function readControlSnapshot(){
     const view=own(o,'_view');
     return active(view)&&['_list','_tab','_back_btn','_pager'].every(k=>Object.hasOwn(view,k));
   });
+  // The base panel lives inside the sortie selection view, not the ordinary
+  // ship-equipment view. Only publish it when the native area and squadron
+  // models, the visible layer and all four slots can be read together.
+  const sortieView=content.map(o=>own(o,'_viewSub')).find(o=>o&&Object.hasOwn(o,'_airunit_layer'));
+  const airLayer=own(sortieView,'_airunit_layer'),airPanel=own(airLayer,'_panel');
+  if(active(airLayer)&&active(airPanel)){
+    // The list's interactive containers have no hitArea of their own; the
+    // rendered background is the native hit target geometry. Require both
+    // the container and its visual child to remain connected and unclipped.
+    const airControl=(id,node,visual,meta={})=>{
+      const state=connected(node),image=connected(visual),g=geometry(visual),events=own(node,'_events')||{};
+      // Native hit sprites are intentionally transparent; their attachment,
+      // visibility and the interactive parent still have to be verified.
+      const exposed=!!g&&state.enabled&&image.attached&&image.visible&&unclipped(node,g.point)&&unclipped(visual,g.point)&&
+        g.point.x>=0&&g.point.x<1200&&g.point.y>=0&&g.point.y<720;
+      const c={id,...state,...(g||{}),unclipped:exposed,enabled:exposed&&Object.hasOwn(events,'pointerup'),...meta};
+      if(c.attached)result.controls.push(c);return c;
+    };
+    const area=own(airPanel,'_area_id'),base=own(airPanel,'_selected_airunit_id'),models=own(airPanel,'_models')||[];
+    const model=models.find(row=>Number(own(own(row,'_o'),'api_rid'))===base),squadrons=own(model,'_squadrons')||[];
+    const nativeSlots=own(airPanel,'_items')||[],list=own(airLayer,'_list'),confirm=own(airLayer,'_confirm');
+    if(!Number.isInteger(area)||!Number.isInteger(base)||squadrons.length!==4||nativeSlots.length!==4)
+      return fail('基地航空队面板资料不完整');
+    const tag=own(airPanel,'_tag');
+    result.scene='airbase';const a=result.airbase={area,base,mode:own(tag,'_state'),phase:active(confirm)?'confirm':active(list)?'picker':'base',
+      models:models.map(row=>{const raw=own(row,'_o'),name=own(row,'name_tmp');return {base:own(raw,'api_rid'),mode:own(raw,'api_action_kind'),pendingMode:own(row,'_state_tmp'),
+        nameChanged:name!==null&&name!==undefined&&name!==own(raw,'api_name')};}),
+      slot:own(airLayer,'_selected_squadron_index')+1,
+      slots:squadrons.map((row,i)=>{const raw=own(row,'_o');return {slotId:own(raw,'api_squadron_id'),itemId:own(raw,'api_slotid'),state:own(raw,'api_state'),index:i};})};
+    result.controls=[];
+    if(a.phase==='base'){
+      a.action=control('airbase.action',own(tag,'_hitArea'),{area,base,mode:a.mode});
+      a.close=control('airbase.close',own(airLayer,'_panel_cancel_area'),{area,base,mode:a.mode});
+      a.tabs=children(own(airPanel,'_tabs')).filter(row=>Number.isInteger(own(row,'_airunit_id')))
+        .map(row=>airControl('airbase.tab.'+own(row,'_airunit_id'),row,own(row,'_bg'),{area,base:own(row,'_airunit_id')}));
+      a.slots=a.slots.map((row,i)=>{
+        const node=own(nativeSlots[i],'_bg'),state=connected(node),g=geometry(node),events=own(node,'_events')||{};
+        const exposed=!!g&&unclipped(node,g.point)&&g.point.x>=0&&g.point.x<1200&&g.point.y>=0&&g.point.y<720;
+        const c={id:'airbase.slot.'+(i+1),...state,...(g||{}),unclipped:exposed,enabled:exposed&&state.enabled&&Object.hasOwn(events,'pointerdown'),area,base,slot:i+1};
+        if(c.attached)result.controls.push(c);return {...row,control:c};
+      });
+    }else if(a.phase==='confirm'){
+      const raw=own(own(own(confirm,'_item_tobe'),'_target'),'_o');a.itemId=own(raw,'api_id');
+      const button=own(confirm,'_btn');a.commit=control('airbase.confirm',button,{area,base,slot:a.slot,itemId:a.itemId});
+      if(own(button,'_enabled')!==true)a.commit.enabled=false;
+    }else{
+      const source=own(list,'_items')||[],rows=own(own(list,'_list'),'_items')||[],pager=own(list,'_pager');
+      a.page=own(list,'_selected_page_no');a.category=own(list,'_selected_category');
+      a.sourceIds=source.map(row=>own(own(row,'_o'),'api_id'));
+      a.rows=rows.map((row,i)=>{const node=own(row,'_over'),expectedId=a.sourceIds[(a.page-1)*9+i];
+        return {itemId:own(own(own(node,'_data'),'_o'),'api_id'),expectedId,
+          control:airControl('airbase.row.'+i,node,own(node,'_img'),{area,base,slot:a.slot,row:i})};});
+      a.pages=(own(pager,'_pages')||[]).map(row=>control('airbase.page.'+own(row,'_page_no'),row,{page:own(row,'_page_no')}));
+      a.previousPages=control('airbase.previous-pages',own(pager,'_prev'));
+      a.nextPages=control('airbase.next-pages',own(pager,'_next'));
+      a.categories=children(own(list,'_tabs')).filter(row=>Number.isInteger(own(row,'_category')))
+        .map(row=>airControl('airbase.category.'+own(row,'_category'),row,own(row,'_bg'),{category:own(row,'_category')}));
+    }
+    addNavigation();return complete();
+  }
+  const sortieTop=content.map(o=>own(o,'_viewTop')).find(view=>active(view)&&Object.hasOwn(view,'_btn_sortie'));
+  if(sortieTop){
+    result.scene='airbase-sortie-choice';addReturnNavigation();
+    control('airbase.nav.choose-sortie',own(sortieTop,'_btn_sortie'));
+    return complete();
+  }
+  const areaView=content.map(o=>own(o,'_viewSub')).find(view=>active(view)&&Object.hasOwn(view,'_area_icons')&&Object.hasOwn(view,'_airUnitBtn'));
+  if(areaView){
+    result.scene='airbase-area';result.area=own(areaView,'_selected_area_id');addReturnNavigation();
+    for(const icon of children(own(areaView,'_area_icons')))if(Number.isInteger(own(icon,'_area_id')))
+      control('airbase.nav.area.'+own(icon,'_area_id'),icon,{area:own(icon,'_area_id')});
+    control('airbase.nav.open',own(areaView,'_airUnitBtn'),{area:result.area});
+    return complete();
+  }
   if(quest&&!equipment&&!organization){
     const candidates=children(own(root,'_overLayer')).filter(active).filter(layer=>{
       const sprites=children(layer).filter(active);

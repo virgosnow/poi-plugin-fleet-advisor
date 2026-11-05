@@ -18,6 +18,7 @@ function progressText(p,state){
   if(p.phase==='equipment-ship')return `${shipName(state,p.ship)} · 正在换装`;
   if(p.phase==='equipment-step')return `${shipName(state,p.ship)} · 已完成 ${p.completed} / ${p.total} 步`;
   if(p.phase==='equipment-done')return `${shipName(state,p.ship)} · 已换装完毕`;
+  if(p.phase==='land-base')return `正在配置基地航空队第 ${p.base} 队`;
   if(p.phase==='fleet-complete')return '舰队编成与换装已完成';
   if(p.phase==='clear-escorts')return `第 ${p.fleet} 舰队 · 正在解除随伴舰`;
   if(p.phase==='remove-escort')return `第 ${p.fleet} 舰队 · 正在移除第 ${p.slot} 位多余舰娘`;

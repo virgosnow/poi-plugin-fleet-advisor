@@ -2149,6 +2149,19 @@ test('apply becomes the same-position stop action during execution even when the
   }
 });
 
+test('normal apply forwards only planned base configuration and omits sortie targets',()=>{
+  const h=harness(),slots=[W.entry(h.store,1)];h.set('area','6-4');h.set('slots',slots);
+  const settings={kind:'normal',fleet:1,area:'6-4',target:'boss',phase:'',missionId:1,revision:0};
+  const report=W.inspect(h.service,h.store,slots,settings);assert(report.valid);h.set('report',report);
+  const planned={areaId:6,rid:1,mode:1,modePlanned:true,targets:['C','N'],slots:[{slotId:1,itemId:7,planned:true}]};
+  const unchanged={areaId:6,rid:2,mode:0,slots:[]};
+  h.set('landBaseDrafts',{'6-4':{bases:[planned,unchanged],warnings:[]}});
+  let received;const tree=h.render({onApply:(scheme,options)=>{received={scheme,options};}});
+  const button=h.find(tree,n=>n.props.className==='paa-primary paa-wb-apply');assert(!button.props.disabled);button.props.onClick();
+  assert.equal(received.options.landBase.area,'6-4');assert.equal(received.options.landBase.bases.length,1);
+  assert.equal(received.options.landBase.bases[0].rid,1);assert(!('targets' in received.options.landBase.bases[0]));
+});
+
 test('automatic operations off hides the entire application module, preserves drafts, and keeps stop available',()=>{
   for(const kind of ['normal','expedition']){
     const h=harness(kind),slots=[W.entry(h.store,1),null,null,null,null,null];h.set('slots',slots);

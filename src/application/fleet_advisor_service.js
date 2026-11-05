@@ -462,7 +462,7 @@ class FleetAdvisorService {
       changed:plan.changed,donors:plan.equipment.donors?.map(d=>d.shipId)||[],
       metrics:{structural:'pass',...evaluateCandidate(snapshot.store,plan,conditions)},ruleVersion:RULE_VERSION};
   }
-  preview(kind,scheme){return this.controller.preview(kind,scheme);}
+  preview(kind,scheme,options){return this.controller.preview(kind,scheme,options);}
   previewFleet(args){
     const {snapshotId}=args,scheme=this.resolveSchemeSource(args);
     const snapshot=this.snapshots.get(snapshotId),live=fingerprint(this.getStore());
@@ -492,14 +492,14 @@ class FleetAdvisorService {
       this.persistenceReady=false;this.mcpEnabled=false;this.storageError=e.message;
       throw error('PERSISTENCE_UNAVAILABLE','任务记录不可写，Agent 执行未启动');}
   }
-  async finishJob(job,scheme,beforeFingerprint){
+  async finishJob(job,scheme,beforeFingerprint,options={}){
     try{
       if(job.state==='stopping')throw error('CANCELLED','任务在启动前已停止');
       this.assertAutomaticOperations();
       job.state='running';job.updatedAt=nowIso();
       if(!this.saveJobState(job)&&job.source==='mcp')
         throw error('PERSISTENCE_UNAVAILABLE','任务记录不可写，Agent 执行未启动');
-      const result=await this.controller.run('fleet',scheme,{operationWaitMs:this.experimentalSettings.operationWaitMs,recognitionMode:this.experimentalSettings.recognitionMode});
+      const result=await this.controller.run('fleet',scheme,{operationWaitMs:this.experimentalSettings.operationWaitMs,recognitionMode:this.experimentalSettings.recognitionMode,...options});
       job.state='succeeded';job.result=result;job.verified=result.ok===true&&result.done===true;
       job.partialApplied=result.changed>0;
       return result;
@@ -538,14 +538,14 @@ class FleetAdvisorService {
     queueMicrotask(()=>{void this.finishJob(job,plan.pinnedScheme,plan.fingerprint).catch(()=>{});});
     return {jobId:job.jobId,state:'accepted',duplicate:false};
   }
-  async run(kind,scheme){
+  async run(kind,scheme,options={}){
     if(kind!=='fleet')throw error('INVALID_SCHEME','面板仅接受统一舰队方案');
     this.assertAutomaticOperations();
     this.assertIdle();
-    const plan=this.controller.preview('fleet',scheme),targets=plan.pinned.org.ships.map(x=>x.id);
+    const plan=this.controller.preview('fleet',scheme,options),targets=plan.pinned.org.ships.map(x=>x.id);
     const beforeFingerprint=fingerprint(this.getStore());
     const job=this.newJob('panel',null,scheme,targets);
-    return this.finishJob(job,scheme,beforeFingerprint);
+    return this.finishJob(job,scheme,beforeFingerprint,options);
   }
   getJob({jobId,idempotencyKey}){
     const id=jobId||this.keys.get(idempotencyKey)?.jobId,job=this.jobs.get(id);
