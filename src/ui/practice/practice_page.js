@@ -14,8 +14,8 @@ const usePickerToggle=require('../components/picker_hover');
 const useOpponentMotion=require('./opponent_motion');
 const {normalizeName}=require('../../shared/name_matching');
 const equipmentPicker=require('../components/equipment_picker');
-const recommendationFilters=require('../../config/recommendation_filters');
 const empty=()=>Array(6).fill(null);
+const TRAINING_ROW_STEP=53,TRAINING_OVERSCAN=4,TRAINING_VISIBLE=8;
 const rankText=rank=>`${rank}${['SS','S','A','B'].includes(rank)?'胜':'败'}`;
 const {listPracticeQuests:practiceTasks,countPracticeQuests}=require('../../domain/quests/practice_quests');
 module.exports=(React,{getStore,getController,setQuestPageActive})=>{
@@ -31,8 +31,9 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
     const [trainingShipIds,setTrainingShipIds]=React.useState([]),[trainingOpen,setTrainingOpen]=React.useState(false),[trainingSearch,setTrainingSearch]=React.useState('');
     const [trainingType,setTrainingType]=React.useState('all'),[trainingSort,setTrainingSort]=React.useState('level-asc');
     const [selectedQuests,setSelectedQuests]=React.useState([]);
+    const [trainingLock,setTrainingLock]=React.useState('all'),[trainingScroll,setTrainingScroll]=React.useState(0);
     const grid=React.useRef(null),popupList=React.useRef(null),forecastCache=React.useRef(null),opponentList=React.useRef(null),store=getStore(),practice=store.practiceState||{},quest=store.questState||{};
-    const trainingAnchor=React.useRef(null),trainingDialog=React.useRef(null),trainingTrigger=React.useRef(null),trainingPointerInside=React.useRef(false);
+    const trainingAnchor=React.useRef(null),trainingDialog=React.useRef(null),trainingTrigger=React.useRef(null),trainingPointerInside=React.useRef(false),trainingList=React.useRef(null),trainingPendingFocus=React.useRef(null);
     const trainingPicker=usePickerToggle(React,{enabled:!hidden&&!busy&&!working,open:trainingOpen,anchor:trainingAnchor,
       onOpen:()=>setTrainingOpen(true),onClose:()=>setTrainingOpen(false)});
     const closeTraining=()=>{trainingPicker.dismiss();setTrainingOpen(false);trainingTrigger.current?.focus();};
@@ -42,14 +43,23 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
         ['ships','equips','fleets','resources'].some(key=>next.info?.[key]!==previous.info?.[key])){previous=next;setRevision(v=>v+1);}},1000);return()=>clearInterval(timer);},[hidden,busy]);
     React.useEffect(()=>drag(grid.current,(a,b)=>setSlots(previous=>{const next=previous.slice();[next[a],next[b]]=[next[b],next[a]];return next;}),hidden||busy||working),[hidden,busy,working,slots]);
     React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;},[popup,search,shipType,shipFleet,shipSort,equipmentGroup,equipmentCategory,equipmentSort]);
-    const opponentKey=(practice.opponents||[]).map(opponent=>opponent.id).join(',');
-    useOpponentMotion(React,opponentList,hidden,!!practice.known,opponentKey,opponentId);
-    const selectionRef=React.useRef(null);selectionRef.current={opponentId,opponentKey};
+    const opponents=practice.opponents||[],selected=opponents.find(o=>o.id===opponentId)||opponents[0]||null;
+    const opponentKey=opponents.map(opponent=>opponent.id).join(',');
+    useOpponentMotion(React,opponentList,hidden,!!practice.known,opponentKey,selected?.id);
+    const selectionRef=React.useRef(null);selectionRef.current={opponentId:selected?.id??null,opponentKey};
     const lastOpponentList=React.useRef(null),accountId=store.info?.basic?.api_member_id??null;
     React.useEffect(()=>{if(!practice.known)return;const previous=lastOpponentList.current;
-      if(previous&&(previous.key!==opponentKey||previous.accountId!==accountId)){setOpenOpponents({});setPracticeFormation('auto');}
-      lastOpponentList.current={key:opponentKey,accountId};},[practice.known,opponentKey,accountId]);
+      if(previous&&(previous.key!==opponentKey||previous.accountId!==accountId)){
+        setOpenOpponents({});setPracticeFormation('auto');
+        if(previous.selectedId!=null&&(previous.selectedId!==selected?.id||previous.accountId!==accountId)){
+          setSlots(empty());setPopup(null);setMessage('');
+        }
+      }
+      lastOpponentList.current={key:opponentKey,accountId,selectedId:selected?.id??null};},[practice.known,opponentKey,accountId,selected?.id]);
     React.useEffect(()=>{if(hidden||busy||working){trainingPicker.dismiss();setTrainingOpen(false);}},[hidden,busy,working]);
+    React.useEffect(()=>{if(trainingList.current)trainingList.current.scrollTop=0;setTrainingScroll(0);},[trainingSearch,trainingType,trainingSort,trainingLock]);
+    React.useEffect(()=>{const index=trainingPendingFocus.current;if(index==null)return;
+      trainingList.current?.querySelector(`[data-index="${index}"] input`)?.focus();trainingPendingFocus.current=null;},[trainingScroll]);
     React.useEffect(()=>{if(!trainingOpen||hidden||busy||working)return;const root=trainingAnchor.current,panel=trainingDialog.current;if(!root||!panel)return;
       const doc=root.ownerDocument,win=doc.defaultView;
       const place=()=>{const r=root.getBoundingClientRect(),width=Math.min(520,doc.documentElement.clientWidth-24);panel.style.width=`${width}px`;
@@ -65,26 +75,40 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
     },[trainingOpen,hidden,busy,working]);
     void revision;
     if(hidden)return h('div',{className:'paa-workbench paa-practice','data-kind':'practice',hidden:true});
-    const opponents=practice.opponents||[],selected=opponents.find(o=>o.id===opponentId)||null,enemy=opponentProfile(store,selected),disabled=busy||working;
+    const enemy=opponentProfile(store,selected),disabled=busy||working;
     const filled=slots.filter(Boolean),scheme=W.scheme(slots,fleet),rows=V.fleetRows(store,scheme),rowById=new Map(rows.map(r=>[r.id,r]));
     const trainingSelected=new Set(trainingShipIds),pinned=new Set(filled.filter(s=>s.pin||Object.keys(s.keep||{}).length).map(s=>s.id));
     const occupied=new Set([...pinned,...trainingShipIds]);
-    const trainingReasons=recommendationFilters.evaluator(store,'practice',automaticFilters);
-    const trainingRows=Object.values(store.info.ships||{}).map(ship=>{
+    const trainingRows=(trainingOpen||trainingShipIds.length?Object.values(store.info.ships||{}):[]).map(ship=>{
       const master=store.const.$ships[ship.api_ship_id];if(!master)return null;
       const remodel=shipPicker.nextRemodel(master,ship);
-      const id=Number(ship.api_id),typeId=Number(master.api_stype),fleetIndex=(store.info.fleets||[]).findIndex(f=>(f.api_ship||[]).includes(id));
-      return {id,name:master.api_name||'舰娘',level:Number(ship.api_lv)||0,remodel,reasons:trainingReasons(id),typeId,locked:ship.api_locked==null?null:Number(ship.api_locked)===1,
-        type:W.TYPES[typeId]||store.const.$shipTypes?.[typeId]?.api_name||'未知舰种',fleet:fleetIndex<0?null:fleetIndex+1,
-        fleetLabel:fleetIndex<0?'未编入舰队':`第 ${fleetIndex+1} 舰队`,cond:Number(ship.api_cond)||0,masterId:ship.api_ship_id};
+      const id=Number(ship.api_id),typeId=Number(master.api_stype);
+      return {id,name:master.api_name||'舰娘',level:Number(ship.api_lv)||0,remodel,typeId,locked:ship.api_locked==null?null:Number(ship.api_locked)===1,
+        type:W.TYPES[typeId]||store.const.$shipTypes?.[typeId]?.api_name||'未知舰种',cond:Number(ship.api_cond)||0,masterId:ship.api_ship_id};
     }).filter(Boolean);
     const trainingQuery=normalizeName(trainingSearch).toLowerCase();
     const trainingMatches=trainingRows.filter(row=>(!trainingQuery||normalizeName(`${row.name} ${row.type} ${row.id} ${row.level} ${row.remodel}`).toLowerCase().includes(trainingQuery))&&
-      (trainingType==='all'||shipPicker.shipGroup(row.typeId)===trainingType))
+      (trainingType==='all'||shipPicker.shipGroup(row.typeId)===trainingType)&&
+      (trainingLock==='all'||row.locked===(trainingLock==='locked')))
       .sort((a,b)=>trainingSort==='level-asc'?a.level-b.level||a.id-b.id:trainingSort==='morale-desc'?b.cond-a.cond||b.level-a.level||a.id-b.id:
         trainingSort==='name'?a.name.localeCompare(b.name,'ja')||b.level-a.level||a.id-b.id:b.level-a.level||a.id-b.id);
     const selectedNames=trainingShipIds.map(id=>trainingRows.find(row=>row.id===id)?.name||'舰娘资料待同步');
     const trainingLabel=selectedNames.length?selectedNames.join('、'):'请添加要培养的舰娘';
+    const trainingStart=Math.min(Math.max(0,Math.floor(trainingScroll/TRAINING_ROW_STEP)-TRAINING_OVERSCAN),Math.max(0,trainingMatches.length-1));
+    const trainingEnd=Math.min(trainingMatches.length,trainingStart+TRAINING_VISIBLE+TRAINING_OVERSCAN*2);
+    const trainingGraphs=trainingOpen&&Array.isArray(store.const?.$shipgraph)?new Map(store.const.$shipgraph.map(graph=>[Number(graph.api_id),graph])):null;
+    const trainingKeys=event=>{
+      if(event.key!=='Tab')return;const label=event.target.closest?.('[data-index]');if(!label)return;
+      let next=Number(label.dataset.index)+(event.shiftKey?-1:1);
+      while(next>=0&&next<trainingMatches.length){const row=trainingMatches[next];
+        if(trainingSelected.has(row.id)||occupied.has(row.id)||occupied.size<6)break;
+        next+=event.shiftKey?-1:1;
+      }
+      if(next<0||next>=trainingMatches.length||next>=trainingStart&&next<trainingEnd)return;
+      event.preventDefault();trainingPendingFocus.current=next;
+      const top=Math.max(0,next*TRAINING_ROW_STEP-(event.shiftKey?0:TRAINING_ROW_STEP*3));
+      trainingList.current.scrollTop=top;setTrainingScroll(top);
+    };
     let consumption;try{consumption=practiceResources.estimate(store,scheme,{enemy});}catch(_){consumption={status:'unknown',reason:'补给资料不足'};}
     let forecast=null;
     if(selected&&enemy.known&&filled.length){
@@ -212,6 +236,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
       const result=await service.recommendPracticeFleet({snapshotId,fleet,slots,opponent:selected,capacity:6,trainingShipIds,...selectedQuests.length?{questCodes:selectedQuests}: {}});
       if(selectedQuests.length){const current=getStore(),related=practiceTasks({state:current,slots,deckId:fleet,questState:current.questState});
         if(current.questState?.complete===false||related.status!=='ready'||selectedQuests.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化，请重新选择');}
+      if(selectionRef.current.opponentId!==startSelection.opponentId||selectionRef.current.opponentKey!==startSelection.opponentKey)return;
       const old=new Map(slots.filter(Boolean).map(s=>[s.id,s]));setSlots(result.scheme.ships.map(s=>({...s,pin:!!old.get(s.id)?.pin,keep:old.get(s.id)?.keep||{}})).concat(Array(Math.max(0,6-result.scheme.ships.length)).fill(null)));
       if(selectionRef.current.opponentId===startSelection.opponentId&&selectionRef.current.opponentKey===startSelection.opponentKey){
         let recommendation=null;try{recommendation=practiceForecast.recommendFormation(store,result.scheme,enemy);}catch(_){}
@@ -247,12 +272,14 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
           onBlur:e=>{const anchor=e.currentTarget;if(anchor.contains(e.relatedTarget))return;
             setTimeout(()=>{if(!trainingPointerInside.current&&(!anchor.isConnected||!anchor.contains(anchor.ownerDocument.activeElement))){
               trainingPicker.dismiss();setTrainingOpen(false);}},0);}},
-          h('button',{type:'button',ref:trainingTrigger,className:'paa-practice-training-trigger',disabled,'aria-label':`优先培养舰娘：${trainingLabel}`,'aria-haspopup':'dialog','aria-expanded':trainingOpen,
-            onClick:trainingPicker.click},
+          h('div',{role:'button',tabIndex:disabled?-1:0,ref:trainingTrigger,className:'paa-practice-training-trigger','aria-disabled':disabled||undefined,'aria-label':`优先培养舰娘：${trainingLabel}`,'aria-haspopup':'dialog','aria-expanded':trainingOpen,
+            onClick:trainingPicker.click,onKeyDown:event=>{if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();trainingPicker.click();}}},
             h('span',{className:'paa-practice-training-title'},'优先培养舰娘',h('span',{className:'paa-area-chevron','aria-hidden':true})),
             trainingShipIds.length?h('span',{className:'paa-practice-training-portraits','data-count':trainingShipIds.length,'aria-label':trainingLabel},
               ...trainingShipIds.slice(0,6).map((id,index)=>{const ship=store.info.ships[id],url=V.portraitUrl(store,ship?.api_ship_id);return h('span',{className:'paa-practice-training-portrait',key:id},
-                url?h('img',{src:url,alt:selectedNames[index],draggable:false}):h('span',null,selectedNames[index]));}),
+                url?h('img',{src:url,alt:selectedNames[index],draggable:false}):h('span',null,selectedNames[index]),
+                h('button',{type:'button',className:'paa-practice-training-remove',disabled,'aria-label':`移除${selectedNames[index]}`,
+                  onClick:event=>{event.stopPropagation();setTrainingShipIds(previous=>previous.filter(shipId=>shipId!==id));}},'×'));}),
               ...[0,1,2,3,4,5].map(limit=>trainingShipIds.length>limit?h('span',{className:`paa-practice-training-more paa-practice-training-more-${limit}`,key:`more-${limit}`,'aria-hidden':true},`+${trainingShipIds.length-limit}`):null)):
               h('span',{className:'paa-practice-training-empty-hint'},'请添加要培养的舰娘')),
           trainingOpen&&!disabled?h('section',{ref:trainingDialog,className:'paa-practice-training-panel',role:'dialog','aria-label':'选择要培养的舰娘',
@@ -268,16 +295,20 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
             h('div',{className:'paa-practice-training-tabs',role:'group','aria-label':'舰种筛选'},
               ...[['all','全部'],...shipPicker.SHIP_GROUPS].map(([key,label])=>
                 h('button',{key,type:'button','aria-pressed':trainingType===key,onClick:()=>setTrainingType(key)},label))),
-            h('div',{className:'paa-practice-training-list'},...trainingMatches.map(row=>{const checked=trainingSelected.has(row.id),full=!checked&&!occupied.has(row.id)&&occupied.size>=6,portrait=V.portraitUrl(store,row.masterId);
-              return h('label',{key:row.id,className:'paa-practice-training-option','data-selected':checked,'data-unavailable':full},
+            h('div',{className:'paa-practice-training-lock-filter',role:'group','aria-label':'锁定筛选'},h('span',null,'锁定'),
+              ...[['all','全部'],['unlocked','未上锁'],['locked','已上锁']].map(([key,label])=>
+                h('button',{key,type:'button','aria-pressed':trainingLock===key,onClick:()=>setTrainingLock(key)},label))),
+            h('div',{className:'paa-practice-training-list',ref:trainingList,onScroll:event=>setTrainingScroll(event.currentTarget.scrollTop),onKeyDown:trainingKeys},
+              h('div',{className:'paa-practice-training-window',style:{height:trainingMatches.length*TRAINING_ROW_STEP}},...trainingMatches.slice(trainingStart,trainingEnd).map((row,offset)=>{const index=trainingStart+offset,checked=trainingSelected.has(row.id),full=!checked&&!occupied.has(row.id)&&occupied.size>=6,portrait=V.portraitUrl(store,row.masterId,undefined,trainingGraphs);
+              return h('label',{key:row.id,className:'paa-practice-training-option','data-index':index,'data-selected':checked,'data-unavailable':full,style:{top:index*TRAINING_ROW_STEP}},
                 h('input',{type:'checkbox',checked,disabled:full,onChange:()=>setTrainingShipIds(previous=>checked?previous.filter(id=>id!==row.id):previous.concat(row.id))}),
                 h('span',{className:'paa-wb-portrait'},h('span',null,row.name.slice(0,2)),portrait?h('img',{src:portrait,alt:'',draggable:false,loading:'lazy',decoding:'async',onError:e=>{e.currentTarget.style.display='none';}}):null),
                 h('span',{className:'paa-practice-training-identity'},h('strong',{className:'paa-practice-training-name'},row.name),
                   h('small',null,`${row.type} · Lv.${row.level} · ${row.remodel}`)),
-                row.locked===null?null:h('svg',{className:'paa-practice-training-lock','data-locked':row.locked,viewBox:'0 0 16 16',role:'img','aria-label':row.locked?'已锁定':'未锁定'},
+                row.locked?h('svg',{className:'paa-practice-training-lock','data-locked':true,viewBox:'0 0 16 16',role:'img','aria-label':'已锁定'},
                   h('rect',{x:3,y:7,width:10,height:7,rx:1.5,fill:'none',stroke:'currentColor',strokeWidth:1.5}),
-                  h('path',{d:row.locked?'M5 7V5a3 3 0 0 1 6 0v2':'M5 7V5a3 3 0 0 1 5.6-1.5',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round'})));
-            }),trainingMatches.length?null:h('div',{className:'paa-practice-training-empty'},'没有匹配舰娘，请调整筛选或搜索。'))):null)),
+                  h('path',{d:'M5 7V5a3 3 0 0 1 6 0v2',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round'})):null);
+            })),trainingMatches.length?null:h('div',{className:'paa-practice-training-empty'},'没有匹配舰娘，请调整筛选或搜索。'))):null)),
         h('section',{className:'paa-practice-block paa-practice-opponent-section'},h('h3',null,'演习对手'),
         practice.known?h('p',{className:'paa-muted paa-practice-cache-note'},'舰队可能随时变化，显示最近同步的资料。'):null,
         !practice.known?h('p',{className:'paa-muted'},'等待游戏空闲后同步演习对手。'):h('div',{className:'paa-practice-opponents',ref:opponentList},
@@ -286,9 +317,9 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
           const rank=/^(SS|S|A|B|C|D|E)$/.test(o.rank||'')?o.rank:null,win=rank&&['SS','S','A','B'].includes(rank);
           const result=rank?rankText(rank):null,open=!!openOpponents[o.id],detailId=`paa-practice-opponent-${o.id}`,shipCount=Array.isArray(o.ships)?o.ships.length:null;
           const profile=opponentProfile(store,o);
-          const selectOpponent=()=>{if(!disabled&&o.id!==opponentId){selectionRef.current={opponentId:o.id,opponentKey};setPracticeFormation('auto');setOpponentId(o.id);}};
-          return h('div',{key:o.id,className:'paa-practice-opponent-item','data-selected':o.id===opponentId,'data-disabled':!!disabled,onClick:selectOpponent},h('div',{className:'paa-practice-opponent-row'},
-            h('button',{type:'button',className:'paa-practice-opponent-select',disabled,'aria-pressed':o.id===opponentId,
+          const selectOpponent=()=>{if(!disabled&&o.id!==selected?.id){selectionRef.current={opponentId:o.id,opponentKey};setSlots(empty());setPopup(null);setMessage('');setPracticeFormation('auto');setOpponentId(o.id);}};
+          return h('div',{key:o.id,className:'paa-practice-opponent-item','data-selected':o.id===selected?.id,'data-disabled':!!disabled,onClick:selectOpponent},h('div',{className:'paa-practice-opponent-row'},
+            h('button',{type:'button',className:'paa-practice-opponent-select',disabled,'aria-pressed':o.id===selected?.id,
             'aria-label':`${o.index} 号对手 ${o.name||'对手'}，${o.admiralRank||'军衔待同步'}，Lv.${o.level??'未知'}，${o.comment==null?'签名待同步':o.comment||'无签名'}${result?`，${result}`:''}`,onClick:event=>{event?.stopPropagation?.();selectOpponent();}},
             h('span',{className:'paa-practice-opponent-portrait','aria-hidden':true},img?h('img',{src:img,alt:'',draggable:false}):null),
             h('span',{className:'paa-practice-opponent-body'},

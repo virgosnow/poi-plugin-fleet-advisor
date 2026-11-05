@@ -1,12 +1,18 @@
 'use strict';
 // The portrait row is its own size container: reserve the badge only when
 // another selected portrait cannot fit, including on wide multi-column pages.
+const trainingSizeRules=Array.from({length:6},(_,i)=>i+1).map(total=>{
+  const threshold=total*64+(total-1)*14;
+  return `@container training-portraits (max-width:${threshold-.1}px){.paa-practice-training-portraits[data-count="${total}"] .paa-practice-training-portrait{flex-basis:48px;height:30px}}`;
+}).join('');
 const trainingOverflowRules=Array.from({length:6},(_,i)=>i+1).flatMap(total=>
-  Array.from({length:total},(_,i)=>total-1-i).map(visible=>{
-    const next=visible+1,threshold=next===total?next*48+(next-1)*6:next*48+next*6+24;
+  Array.from({length:total},(_,i)=>total-1-i).flatMap(visible=>[48,64].map(width=>{
+    const next=visible+1,threshold=next===total?next*width+(next-1)*14:next*width+next*14+24;
     const row=`.paa-practice-training-portraits[data-count="${total}"]`;
-    return `@container training-portraits (max-width:${threshold-.1}px){${row} .paa-practice-training-portrait:nth-child(n+${visible+1}){display:none}${row} .paa-practice-training-more{display:none}${row} .paa-practice-training-more-${visible}{display:inline-flex}}`;
-  })).join('');
+    const largeThreshold=total*64+(total-1)*14;
+    const range=width===48?`(max-width:${largeThreshold-.1}px)`:`(min-width:${largeThreshold}px)`;
+    return `@container training-portraits ${range} and (max-width:${threshold-.1}px){${row} .paa-practice-training-portrait:nth-child(n+${visible+1}){display:none}${row} .paa-practice-training-more{display:none}${row} .paa-practice-training-more-${visible}{display:inline-flex}}`;
+  }))).join('');
 module.exports=`
 .paa-practice .paa-wb-left{display:flex;flex-direction:column;gap:12px;padding:16px}
 @container(min-width:781px){.paa-workbench[data-kind=practice] .paa-wb-right>.paa-wb-command-area{padding:0}.paa-workbench[data-kind=practice] .paa-wb-command-row :is(button,select){height:36px;min-height:36px}}
@@ -17,13 +23,14 @@ module.exports=`
 .paa-workbench[data-kind=practice] .paa-practice-context>.paa-wb-field select{flex:1;width:0;min-width:0;height:40px;min-height:40px;padding:7px 30px 7px 12px;border-radius:6px;background:var(--paa-card);color:var(--paa-text);font-size:14px;font-weight:400;line-height:22px;appearance:none}
 .paa-practice-context>.paa-wb-field::after{content:'';position:absolute;right:13px;top:calc(50% - 4px);width:6px;height:6px;border:solid var(--paa-muted);border-width:0 1.5px 1.5px 0;transform:rotate(45deg);pointer-events:none}
 .paa-practice-training{position:relative;display:flex;align-items:center;gap:10px;min-width:0}
-.paa .paa-practice-training-trigger{position:relative;display:flex;flex:1;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:12px;width:0;min-width:0;height:102px;min-height:102px;padding:14px 16px;text-align:left;font-size:14px;line-height:22px;border:1px solid var(--paa-line);border-radius:10px;background:var(--paa-card);color:var(--paa-text)}
+.paa .paa-practice-training-trigger{position:relative;display:flex;flex:1;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:4px;width:0;min-width:0;height:102px;min-height:102px;padding:14px 16px;text-align:left;font-size:14px;line-height:22px;border:1px solid var(--paa-line);border-radius:10px;background:var(--paa-card);color:var(--paa-text)}
 .paa-practice-training-title{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;font-weight:600;line-height:22px;color:var(--paa-text)}
 .paa-practice-training-title .paa-area-chevron{position:static;flex:none;margin-right:2px}
-.paa-practice-training-portraits{container:training-portraits / inline-size;display:flex;align-items:center;gap:6px;width:100%;min-width:0;height:38px;overflow:hidden}
-.paa-practice-training-portrait{display:flex;align-items:center;justify-content:center;flex:0 0 64px;min-width:0;height:38px;overflow:hidden;border-radius:4px;background:var(--paa-soft);color:var(--paa-muted);font-size:11px;white-space:nowrap}
-.paa-practice-training-portrait img{width:100%;height:100%;object-fit:cover}.paa-practice-training-more{box-sizing:border-box;display:none;align-items:center;justify-content:center;flex:0 0 24px;width:24px;height:24px;border:1px solid var(--paa-line);border-radius:4px;color:var(--paa-muted);font-size:11px;line-height:1}.paa-practice-training-empty-hint{color:var(--paa-muted);font-size:13px;line-height:38px}
-@container training-portraits (max-width:413.99px){.paa-practice-training-portrait{flex-basis:48px;height:30px}}
+.paa-practice-training-portraits{container:training-portraits / inline-size;box-sizing:border-box;display:flex;align-items:center;gap:14px;width:100%;min-width:0;height:46px;padding:8px 8px 0 0;overflow:hidden}
+.paa-practice-training-portrait{position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 64px;min-width:0;height:38px;overflow:visible;border-radius:4px;background:var(--paa-soft);color:var(--paa-muted);font-size:11px;white-space:nowrap}
+.paa-practice-training-portrait img{width:100%;height:100%;object-fit:cover;border-radius:4px}.paa-practice-training-portrait>span{max-width:100%;overflow:hidden;text-overflow:ellipsis}.paa-practice-training-more{box-sizing:border-box;display:none;align-items:center;justify-content:center;flex:0 0 24px;width:24px;height:24px;border:1px solid var(--paa-line);border-radius:4px;color:var(--paa-muted);font-size:11px;line-height:1}.paa-practice-training-empty-hint{color:var(--paa-muted);font-size:13px;line-height:38px}
+.paa .paa-practice-training-remove{position:absolute;top:-8px;right:-8px;display:grid;place-items:center;width:16px;min-width:16px;height:16px;min-height:16px;padding:0;border:1px solid #ffe5e7;border-radius:50%;background:#d84c58;color:#fff;font-size:13px;line-height:1}.paa .paa-practice-training-remove:hover{background:#ee6470}
+${trainingSizeRules}
 ${trainingOverflowRules}
 .paa-practice-training-trigger[aria-expanded=true]{border-color:var(--paa-accent)}.paa-practice-training-trigger[aria-expanded=true] .paa-area-chevron{transform:translateY(3px) rotate(225deg)}
 .paa-practice-training-panel{position:absolute;top:calc(100% + 6px);left:0;z-index:30;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;width:min(520px,calc(100vw - 24px));max-height:560px;padding:10px;border:1px solid var(--paa-line);border-radius:9px;background:var(--paa-card);box-shadow:0 8px 24px #0005}
@@ -31,8 +38,10 @@ ${trainingOverflowRules}
 .paa .paa-practice-training-tabs{display:flex;flex-wrap:wrap;align-items:center;gap:4px;min-width:0;padding-bottom:8px;border-bottom:1px solid var(--paa-line)}
 .paa .paa-practice-training-tabs>button{flex:none;min-height:28px;padding:2px 7px;border-color:transparent;background:transparent;color:var(--paa-muted);font-size:14px;font-weight:400;line-height:22px;white-space:nowrap}
 .paa .paa-practice-training-tabs>button[aria-pressed=true]{border-color:var(--paa-line);background:var(--paa-soft);color:var(--paa-accent)}
+.paa .paa-practice-training-lock-filter{display:flex;align-items:center;gap:4px;color:var(--paa-muted);font-size:12px}.paa .paa-practice-training-lock-filter>span{margin-right:4px}.paa .paa-practice-training-lock-filter>button{min-height:24px;padding:1px 7px;border-color:transparent;background:transparent;color:var(--paa-muted);font-size:12px}.paa .paa-practice-training-lock-filter>button[aria-pressed=true]{border-color:var(--paa-line);background:var(--paa-soft);color:var(--paa-accent)}
 .paa-practice-training-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:55px;max-height:350px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:2px}
 .paa-practice-training-option{box-sizing:border-box;display:flex;align-items:center;gap:8px;min-height:44px;margin:0;padding:5px 10px;border:1px solid transparent;border-radius:6px;font-size:13px;line-height:1.4;cursor:pointer;content-visibility:auto;contain-intrinsic-size:auto 50px}.paa-practice-training-option:hover{background:var(--paa-soft)}.paa-practice-training-option[data-selected=true]{border-color:var(--paa-accent);background:var(--paa-soft);color:var(--paa-accent)}.paa-practice-training-option[data-unavailable=true]{opacity:.5;cursor:not-allowed}
+.paa-practice-training-window{position:relative;flex:none;min-width:0}.paa-practice-training-window>.paa-practice-training-option{position:absolute;left:0;right:0;height:49px;min-height:49px;content-visibility:visible}
 .paa .paa-practice-training-option input[type=checkbox]{appearance:none;-webkit-appearance:none;box-sizing:border-box;display:inline-block;position:relative;flex:none;width:16px;height:16px;min-width:16px;min-height:16px;padding:0;margin:0;vertical-align:middle;border:1px solid var(--paa-muted);border-radius:3px;background:var(--paa-card);box-shadow:none;transform:none;cursor:pointer}
 .paa .paa-practice-training-option input[type=checkbox]::before,.paa .paa-practice-training-option input[type=checkbox]::after{content:none}
 .paa .paa-practice-training-option input[type=checkbox]:checked{border-color:var(--paa-accent);background-color:var(--paa-accent);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3.5 8 3 3 6-6' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-size:16px 16px;background-position:center;background-repeat:no-repeat}
@@ -85,5 +94,5 @@ ${trainingOverflowRules}
  .paa-workbench[data-kind=practice] .paa-wb-left>.paa-quest-section{order:6}
 }
 @container(max-width:500px){.paa-practice-forecast-legend{grid-template-columns:minmax(0,1fr)}}
-@container(max-width:400px){.paa .paa-practice-training-trigger{height:94px;min-height:94px}.paa-practice-training-portraits{height:30px}.paa-practice-training-portrait{flex-basis:48px;height:30px}.paa-practice-training-empty-hint{line-height:30px}.paa-practice-enemy-ships{grid-template-columns:minmax(0,1fr)}.paa .paa-practice-opponent-select{gap:6px;padding-inline:6px}.paa-practice-opponent-portrait{width:48px;height:30px}.paa-practice-rank{width:46px}}
+@container(max-width:400px){.paa-practice-enemy-ships{grid-template-columns:minmax(0,1fr)}.paa .paa-practice-opponent-select{gap:6px;padding-inline:6px}.paa-practice-opponent-portrait{width:48px;height:30px}.paa-practice-rank{width:46px}}
 `;

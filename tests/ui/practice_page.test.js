@@ -46,7 +46,7 @@ test('practice page displays observed opponents, preserves manual drafts and kee
  const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
  const render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
  const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
- let tree=render();assert(walk(tree).some(n=>n.type==='button'&&n.props['aria-pressed']===false));
+ let tree=render();assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-opponent-select').props['aria-pressed'],true);
  const complete=walk(tree).find(n=>n.props.className==='paa-wb-complete');
  assert(walk(complete).some(n=>n.type==='svg'&&n.props.width===15));assert(complete.children.includes('一键补全'));
  const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
@@ -54,13 +54,13 @@ test('practice page displays observed opponents, preserves manual drafts and kee
  assert.match(text(initialMetrics),/旗舰经验 —/);assert.match(text(initialMetrics),/综合制空/);assert.match(text(initialMetrics),/预计消耗/);
  states[0]=[W.entry(store,1),null,null,null,null,null];tree=render();
  const noOpponentAir=walk(tree).find(n=>n.props.className==='paa-wb-metric air');
- assert.match(noOpponentAir.props['aria-label'],/综合制空 0/);assert.match(text(noOpponentAir),/选择对手后/);
+ assert.match(noOpponentAir.props['aria-label'],/综合制空 0/);assert.doesNotMatch(text(noOpponentAir),/选择对手后/);
  states[0]=Array(6).fill(null);tree=render();
  const quests=walk(tree).find(n=>n.type?.name==='QuestSection');
  assert.equal(quests.props.readOnly,undefined);assert.equal(quests.props.kind,'practice');assert.equal(typeof quests.props.onToggleQuest,'function');
  const practiceTask=quests.props.listTasks({state:store,questState:store.questState}).tasks[0];assert.equal(practiceTask.id,1);assert.equal(practiceTask.status,'unknown');assert.equal(practiceTask.supported,false);assert.equal(practiceTask.goals[0].label,'演習で勝利');
  assert.equal(quests.props.listTasks({questState:{known:false}}).status,'unknown');
- walk(tree).find(n=>n.type==='button'&&n.props['aria-pressed']===false).props.onClick();tree=render();
+ walk(tree).find(n=>n.props.className==='paa-practice-opponent-select').props.onClick();tree=render();
  const opponentSection=walk(tree).find(n=>n.type==='section'&&n.children.some(c=>c?.type==='h3'&&c.children.includes('演习对手')));
  assert(walk(opponentSection).some(n=>n.props['aria-label']==='对手编成'));assert.match(text(opponentSection),/Lv\.55/);
  assert(!text(tree).includes('演习记录'));
@@ -137,7 +137,7 @@ test('practice preserves restored formation until an observed opponent list actu
  const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
  const update=()=>{stateIndex=0;refIndex=0;effects=[];Page({kind:'practice',hidden:true});const effect=effects.find(fn=>String(fn).includes('lastOpponentList.current'));assert(effect);effect();};
  update();store.practiceState={known:true,opponents:[{id:10}],revision:2};update();assert.deepEqual(calls,[]);
- store.practiceState={known:true,opponents:[{id:20}],revision:3};update();assert.deepEqual(calls,[[16,{}],[17,'auto']]);
+ store.practiceState={known:true,opponents:[{id:20}],revision:3};update();assert.deepEqual(calls,[[16,{}],[17,'auto'],[0,Array(6).fill(null)],[4,null],[8,'']]);
 });
 
 test('the whole opponent card selects it, and each lineup still folds independently',()=>{
@@ -235,8 +235,9 @@ test('practice training targets can be searched and selected without altering th
    opponents(tree)[0].props.onClick();tree=render();
    await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();tree=render();
    assert.equal(estimates.at(-1).ownFormation,'lineAbreast');
-   opponents(tree)[1].props.onClick();tree=render();assert.equal(estimates.at(-1).ownFormation,'auto');
-   assert.equal(states[0][0].id,1,'切换对手保留舰队草稿');
+   opponents(tree)[0].props.onClick();tree=render();assert.equal(states[0][0].id,1,'重复选择当前对手保留草稿');
+   opponents(tree)[1].props.onClick();tree=render();assert.equal(states[17],'auto');
+   assert.deepEqual(states[0],Array(6).fill(null),'切换对手清空舰队草稿');
    assert.match(text(trigger(tree)),/测试舰2/,'切换对手保留练级目标');
  }finally{forecast.recommendFormation=originalRecommend;forecast.estimate=originalEstimate;}
 });
@@ -258,7 +259,13 @@ test('training picker shares hover guard and filters and sorts the full roster w
  assert.deepEqual(options().map(n=>n.props.key),[1,2],'default sort is level ascending');
  assert(!walk(tree).some(n=>n.props['aria-label']==='舰队筛选'),'only ship type is a primary filter');
  assert(options().every(option=>walk(option).some(n=>n.props.className==='paa-wb-portrait')),'list displays ship portraits');
- assert.deepEqual(options().map(option=>walk(option).find(n=>n.props.className==='paa-practice-training-lock')?.props['aria-label']),['已锁定','未锁定']);
+ assert.deepEqual(options().map(option=>walk(option).find(n=>n.props.className==='paa-practice-training-lock')?.props['aria-label']),['已锁定',undefined]);
+ let locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');
+ walk(locks).find(n=>n.type==='button'&&n.children.includes('未上锁')).props.onClick();tree=render();
+ assert.deepEqual(options().map(n=>n.props.key),[2]);
+ locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');walk(locks).find(n=>n.type==='button'&&n.children.includes('已上锁')).props.onClick();tree=render();
+ assert.deepEqual(options().map(n=>n.props.key),[1]);
+ locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');walk(locks).find(n=>n.type==='button'&&n.children.includes('全部')).props.onClick();tree=render();
  let types=walk(tree).find(n=>n.props['aria-label']==='舰种筛选');walk(types).find(n=>n.type==='button'&&n.children.includes('驱逐／海防')).props.onClick();tree=render();
  assert.deepEqual(options().map(n=>n.props.key),[2]);
  walk(tree).find(n=>n.props['aria-label']==='排序方式').props.onChange({target:{value:'level-desc'}});tree=render();
@@ -268,6 +275,29 @@ test('training picker shares hover guard and filters and sorts the full roster w
  assert.deepEqual(options().map(n=>n.props.key),[2],'search accepts simplified and original names');
  assert(options().every(n=>walk(n).some(x=>x.type==='input'&&x.props.type==='checkbox')));
  assert.match(walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props['aria-label'],/请添加要培养的舰娘/);
+ walk(options()[0]).find(n=>n.type==='input').props.onChange();tree=render();
+ let stopped=false;walk(tree).find(n=>n.props['aria-label']==='移除翔鶴').props.onClick({stopPropagation(){stopped=true;}});tree=render();
+ assert(stopped);assert.match(walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props['aria-label'],/请添加要培养的舰娘/);
+ assert(walk(tree).some(n=>n.props.className==='paa-practice-training-panel'),'removing a portrait does not toggle the picker');
+});
+
+test('training picker renders a bounded window while scrolling the full roster',()=>{
+ const store=fixture(),states=[];let i=0;store.practiceState={known:true,opponents:[],revision:1};store.questState={known:true,tasks:[]};
+ const template=store.info.ships[1];store.info.ships={};for(let id=1;id<=100;id++)store.info.ships[id]={...template,api_id:id,api_lv:id,api_locked:id%2};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
+   useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
+ const walk=n=>n&&typeof n==='object'?[n,...(n.children||[]).flatMap(walk)]:[],render=()=>{i=0;return Page({kind:'practice'});};
+ let tree=render();walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props.onClick();tree=render();
+ let list=walk(tree).find(n=>n.props.className==='paa-practice-training-list'),options=()=>walk(tree).filter(n=>n.props.className==='paa-practice-training-option');
+ assert.equal(options().length,16);assert.equal(options()[0].props['data-index'],0);
+ assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-training-window').props.style.height,5300);
+ list.props.onScroll({currentTarget:{scrollTop:53*90}});tree=render();
+ assert(options().length<=16);assert(options().some(n=>n.props['data-index']===90));
+ list=walk(tree).find(n=>n.props.className==='paa-practice-training-list');list.props.onScroll({currentTarget:{scrollTop:0}});tree=render();
+ const filter=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');walk(filter).find(n=>n.children?.includes('未上锁')).props.onClick();tree=render();
+ assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-training-window').props.style.height,2650);
+ assert(options().every(n=>n.props.key%2===0));
 });
 
 test('training picker waits for label focus before dismissing on blur',t=>{
