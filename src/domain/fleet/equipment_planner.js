@@ -1,4 +1,5 @@
 'use strict';
+const {unverifiedRelocation}=require('./airbase_relocation');
 const {selectShipByName}=require('./ship_selection');
 const {matchingNames,matchesName}=require('../../shared/name_matching');
 const R=require('./equipment_rules');
@@ -47,6 +48,7 @@ function createEquipmentPlanner(getStore) {
     (info().airbase || []).forEach(ab => (ab.api_plane_info || []).forEach(p => {
       if (p && Number(p.api_slotid) > 0) occ[Number(p.api_slotid)] = true;
     }));
+    (info().airbaseRelocations||[]).forEach(row=>{if(Number(row?.itemId)>0)occ[Number(row.itemId)]=true;});
     return occ;
   }
   function sourceMap() {
@@ -81,7 +83,7 @@ function createEquipmentPlanner(getStore) {
     const occ = occupiedMap(), out = [];
     Object.keys(info().equips || {}).forEach(idStr => {
       const id = Number(idStr), e = info().equips[idStr];
-      if (!e || occ[id]) return;
+      if (!e || occ[id] || unverifiedRelocation(store(),id)) return;
       const m = mstEquip()[e.api_slotitem_id];
       if (!m || !Array.isArray(m.api_type) || m.api_type.length < 4) throw new Error('装备master数据缺失: '+id);
       out.push({ id, t2: R.specialType({...m,api_id:e.api_slotitem_id},R.tables(store())), t3: Number(m.api_type[3]), master: Number(e.api_slotitem_id) });
@@ -130,7 +132,8 @@ function createEquipmentPlanner(getStore) {
     const plan = {fleet, fleetShips:options.fleetShips||fleetShipIds(fleet), ships:[], expected:[], notes:[]};
     const sources=sourceMap();
     const free = snapshotMemo(store(),'equipmentPlanningFree','all',()=>new Set(freeListAll().map(x => x.id))), seenShips = new Set(), requests = [];
-    const unavailable=new Set(store().planningUnavailableEquipmentIds||[]);
+    const unavailable=new Set([...(store().planningUnavailableEquipmentIds||[]),
+      ...(info().airbaseRelocations||[]).map(row=>Number(row.itemId)).filter(id=>Number.isSafeInteger(id)&&id>0)]);
     const concreteIds=options.projectionOnly?new Set():null;
     const drafts = scheme.ships.map(raw => {
       const sh = typeof raw === 'number' ? {id:raw} : typeof raw === 'string' ? {name:raw} : raw;

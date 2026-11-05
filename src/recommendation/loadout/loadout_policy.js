@@ -5,6 +5,7 @@ const {snapshotMemo}=require('../../domain/fleet/equipment_planner');
 const {openingASW}=require('../../domain/combat/opening_asw');
 const {aswMode}=require('../../domain/combat/asw_capability');
 const {smallCarrierSlot,carrierUtility}=require('./carrier_policy');
+const {unverifiedRelocation}=require('../../domain/fleet/airbase_relocation');
 const combatValue=require('./combat_value');
 const type=m=>Number(m?.api_type?.[2]);
 const master=(store,id)=>store.const.$equips[store.info.equips[id]?.api_slotitem_id];
@@ -72,9 +73,10 @@ function buildAvailableEquipment(store){
   const airbase=new Set();
   for(const base of store.info.airbase||[])for(const slot of base.api_plane_info||[])
     if(slot?.api_slotid>0)airbase.add(Number(slot.api_slotid));
+  for(const row of store.info.airbaseRelocations||[])if(row?.itemId>0)airbase.add(Number(row.itemId));
   return Object.entries(store.info.equips).filter(([id])=>{
     const itemId=Number(id),source=sources.get(itemId);
-    return !locked.has(itemId)&&!airbase.has(itemId)&&(!source||!busy.has(source));
+    return !locked.has(itemId)&&!airbase.has(itemId)&&!unverifiedRelocation(store,itemId,source)&&(!source||!busy.has(source));
   }).map(([id,item])=>({id:Number(id),sourceShipId:sources.get(Number(id))||null,
     master:store.const.$equips[item.api_slotitem_id]}))
     .filter(row=>Array.isArray(row.master?.api_type));

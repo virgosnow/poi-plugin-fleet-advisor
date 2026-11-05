@@ -3,6 +3,7 @@ const crypto=require('crypto');
 const {normalizeName}=require('../shared/name_matching');
 const {createEquipmentPlanner}=require('../domain/fleet/equipment_planner');
 const R=require('../domain/fleet/equipment_rules');
+const {unverifiedRelocation}=require('../domain/fleet/airbase_relocation');
 
 // Snapshots are immutable, so a longer cache TTL costs nothing: staleness at
 // preview/execute is caught by the live fingerprint, not by this expiry. Each
@@ -60,13 +61,14 @@ function businessState(state) {
   if(!info||!info.ships||!info.equips||!Array.isArray(info.fleets)||!masters?.$ships||!masters?.$equips)
     throw error('STORE_NOT_READY','poi 尚未提供完整的舰队、舰娘、装备和主数据');
   return {info:{basic:info.basic||null,ships:info.ships,equips:info.equips,fleets:info.fleets,
-    repairs:info.repairs||[],airbase:info.airbase||[],resources:info.resources||null,maps:info.maps||{},
+    repairs:info.repairs||[],airbase:info.airbase||[],airbaseRelocations:info.airbaseRelocations||[],resources:info.resources||null,maps:info.maps||{},
     presets:info.presets||null,useitems:info.useitems||{},server:info.server||null},
     const:{$ships:masters.$ships,$equips:masters.$equips,$shipTypes:masters.$shipTypes||{},
       $missions:masters.$missions||{},$maps:masters.$maps||{},$useitems:masters.$useitems||{},
       $equipShip:masters.$equipShip||{},$exslotEquips:masters.$exslotEquips||[],
       $exslotEquipShips:masters.$exslotEquipShips||{},$exslotEquipLimits:masters.$exslotEquipLimits||{}},
     expeditionProgress:state.expeditionProgress||null,
+    ...(state.airbaseSync?{airbaseSync:state.airbaseSync}:{}),
     ...(state.selectorTables?{selectorTables:state.selectorTables}:{})};
 }
 
@@ -76,7 +78,7 @@ function fingerprint(state) {
   // A conservative whole-account fingerprint makes a stale preview fail
   // closed. It excludes UI state, clocks and unrelated quest/map changes.
   return hash({basic:s.info.basic,ships:s.info.ships,equips:s.info.equips,fleets:s.info.fleets,
-    repairs:s.info.repairs,airbase:s.info.airbase,masters:executionMasters,selectorTables:s.selectorTables});
+    repairs:s.info.repairs,airbase:s.info.airbase,airbaseRelocations:s.info.airbaseRelocations,airbaseSync:s.airbaseSync,masters:executionMasters,selectorTables:s.selectorTables});
 }
 
 function paginate(snapshot,kind,rows,query) {
@@ -105,6 +107,8 @@ function ownership(store) {
   (store.info.airbase||[]).forEach((base,baseIndex)=>(base.api_plane_info||[]).forEach((plane,index)=>{
     if(plane?.api_slotid>0)owned.set(Number(plane.api_slotid),{location:'airbase',baseIndex,sourceSlot:index});
   }));
+  for(const row of store.info.airbaseRelocations||[])if(integer(row?.itemId)&&owned.get(row.itemId)?.location!=='airbase')
+    owned.set(row.itemId,{location:'airbase',baseIndex:null,sourceSlot:null});
   return owned;
 }
 
@@ -160,7 +164,7 @@ class Snapshots {
     const planner=createEquipmentPlanner(()=>s);
     const rows=Object.entries(s.info.equips).map(([key,item])=>{
       const id=Number(key),master=s.const.$equips[item.api_slotitem_id]||{},source=owners.get(id)||{location:'free'};
-      const sourceAvailable=source.location==='free'||source.location==='ship'&&planner.availableEquipmentSource(source.sourceShipId);
+      const sourceAvailable=source.location==='free'&&!unverifiedRelocation(s,id)||source.location==='ship'&&planner.availableEquipmentSource(source.sourceShipId);
       const row={instanceId:id,masterId:Number(item.api_slotitem_id),name:master.api_name||'',
         type:Number(master.api_type?.[2])||null,iconType:Number(master.api_type?.[3])||null,
         improvement:Number(item.api_level)||0,proficiency:Number(item.api_alv)||0,

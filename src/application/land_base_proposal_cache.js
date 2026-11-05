@@ -3,7 +3,7 @@
 // poi may update nested objects in place, so object identity alone is unsafe.
 function snapshotKey(store){
   const info=store?.info||{};
-  return JSON.stringify([store?.airbaseSync?.complete,info.airbase,info.maps,info.equips,
+  return JSON.stringify([store?.airbaseSync,info.airbase,info.airbaseRelocations,info.maps,info.equips,
     Object.values(info.ships||{}).map(ship=>[ship?.api_slot,ship?.api_slot_ex]),store?.const?.$equips]);
 }
 function argumentsKey(options){

@@ -90,6 +90,14 @@ test('inventory excludes fleet and other base donors and nonready owned slots',(
  assert(!base.inventory(s,{area:'6-5',baseRid:1}).some(row=>row.itemId===1));
  const scheme={ships:[{slots:[6],ex:-1}]};assert(!base.inventory(s,{area:'6-5',baseRid:1,scheme}).some(row=>row.itemId===6));
 });
+test('an aircraft in the port relocation list is not treated as warehouse stock',()=>{
+ const s=setup();s.info.airbaseRelocations=[{itemId:6,startedAt:null}];
+ assert(!base.inventory(s,{area:'6-5',baseRid:1}).some(row=>row.itemId===6));
+ const draft=base.sourceBases(s,'6-5');draft[0].targets=['M',''];
+ draft[0].slots[1]={slotId:2,itemId:6,count:18,maxCount:18,planned:true};
+ const check=base.validatePlan(s,{area:'6-5',bases:draft});
+ assert.equal(check.valid,false);assert(check.issues.some(issue=>issue.includes('转场中')));
+});
 test('recommendations use owned aircraft once, prefer reachable boss and retain a locked slot',()=>{
  const s=setup(),draft=base.sourceBases(s,'6-5');draft[0].slots[0].locked=true;
  const before=JSON.stringify(s),result=base.recommendLandBases(s,{area:'6-5',routeNodes:['A','C','M'],bases:draft});

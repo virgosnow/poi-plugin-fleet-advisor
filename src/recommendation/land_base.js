@@ -3,14 +3,13 @@
 // Radius and combat calculations are delegated to the shared base evaluator.
 const {maps}=require('../../data/sortie/land_base/maps.json');
 const land=require('../domain/combat/land_base');
-const PLANE_TYPES=new Set([6,7,8,9,10,11,25,26,41,45,47,48,49,53,56,57,58,59,91,94]);
+const {eligiblePlane}=require('../domain/fleet/airbase_relocation');
 const RECON_TYPES=new Set([9,10,41,49,59,94]);
 const SURFACE_TYPES=new Set([7,8,11,47,53,57,58,91]);
 const ASW_TYPES=new Set([7,8,10,11,25,26,47,53,57,58,91]);
 const typeOf=master=>Number(master?.api_type?.[2]);
 const validId=id=>Number.isSafeInteger(Number(id))&&Number(id)>0;
 const mapFor=area=>maps.find(map=>map.id===area&&map.available);
-const eligiblePlane=master=>!!master&&Array.isArray(master.api_type)&&PLANE_TYPES.has(typeOf(master));
 const planeCapacity=master=>!eligiblePlane(master)?null:RECON_TYPES.has(typeOf(master))?4:typeOf(master)===53?9:18;
 const positive=value=>typeof value==='number'&&Number.isFinite(value)&&value>=0;
 const enemyCatalog=new Map(require('../../data/sortie/enemy_catalog.json').enemies.map(enemy=>[enemy.apiId,enemy]));
@@ -35,6 +34,7 @@ function sourceBases(store,area){
 function inventory(store,{area,bases,scheme,baseRid}={}){
   const map=mapFor(area);if(!map)return [];
   const items=store?.info?.equips||{},masters=store?.const?.$equips||{},shipItems=new Set();
+  const relocating=new Set((store?.info?.airbaseRelocations||[]).map(row=>Number(row.itemId)));
   for(const ship of Object.values(store?.info?.ships||{}))for(const id of [...(ship?.api_slot||[]),ship?.api_slot_ex])if(validId(id))shipItems.add(Number(id));
   for(const ship of scheme?.ships||[])for(const id of [...(ship?.slots||[]),ship?.ex])if(validId(id))shipItems.add(Number(id));
   const original=new Map();
@@ -48,10 +48,10 @@ function inventory(store,{area,bases,scheme,baseRid}={}){
   const out=[];
   for(const [key,item] of Object.entries(items)){
     const itemId=Number(key),masterId=Number(item?.api_slotitem_id),master=masters[masterId],old=original.get(itemId),draft=reserved.get(itemId);
-    if(!validId(itemId)||!eligiblePlane(master)||shipItems.has(itemId))continue;
+    if(!validId(itemId)||!eligiblePlane(master)||shipItems.has(itemId)||relocating.has(itemId))continue;
     // Until mapinfo has identified all bases an apparently free item might
     // belong to an unsynchronized base. Never present it as warehouse stock.
-    if(!old&&store?.airbaseSync?.complete!==true)continue;
+    if(!old&&(store?.airbaseSync?.complete!==true||store?.airbaseSync?.relocationsComplete===false))continue;
     if(old&&(old.areaId!==map.baseAreaId||baseRid==null||old.rid!==Number(baseRid)||Number(old.slot?.api_state)!==1||!positive(old.slot?.api_count)||old.slot.api_count<=0))continue;
     if(draft?.some(claim=>claim.areaId!==map.baseAreaId||baseRid==null||claim.rid!==Number(baseRid)))continue;
     out.push({itemId,masterId,master,item,source:old?'base':'stock',areaId:old?.areaId??null,rid:old?.rid??null,slotId:old?.slotId??null,
@@ -303,7 +303,7 @@ function validatePlan(store,{area,bases,scheme}={}){
   const occupiedShips=new Set();
   for(const ship of Object.values(ships))for(const id of [...(ship?.api_slot||[]),ship?.api_slot_ex])if(validId(id))occupiedShips.add(Number(id));
   for(const ship of scheme?.ships||[])for(const id of [...(ship?.slots||[]),ship?.ex])if(validId(id))occupiedShips.add(Number(id));
-  const observedBases=new Map(),observedItems=new Map();
+  const observedBases=new Map(),observedItems=new Map(),relocating=new Set((store?.info?.airbaseRelocations||[]).map(row=>Number(row.itemId)));
   for(const b of store?.info?.airbase||[]){
     const areaId=Number(b.api_area_id),rid=Number(b.api_rid),key=`${areaId}:${rid}`;
     const group=observedBases.get(key)||[];group.push(b);observedBases.set(key,group);
@@ -354,6 +354,7 @@ function validatePlan(store,{area,bases,scheme}={}){
       const item=owned[instanceId],master=masters[item?.api_slotitem_id];
       if(!item||!master){issues.push(`${prefix}装备实例或机型资料不足`);continue;}
       if(!eligiblePlane(master)){issues.push(`${prefix}不是可用飞机类型`);continue;}
+      if(relocating.has(instanceId))issues.push(`${prefix}飞机转场中`);
       if(occupiedShips.has(instanceId))issues.push(`${prefix}装备被舰队占用`);
       if(!sources.length&&store?.airbaseSync?.complete!==true)issues.push(`${prefix}装备归属尚未完整同步`);
       if(sources.length>1)issues.push(`${prefix}当前基地装备归属存在冲突`);

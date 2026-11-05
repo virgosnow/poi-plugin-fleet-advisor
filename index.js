@@ -141,7 +141,10 @@ exports.pluginDidLoad=()=>{
     try{practiceObserver?.observe(event.detail,readStore(window));}catch(error){}
     try{basicDataSync?.observe(event.detail,readStore(window));}catch(error){}
   };
-  requestListener=event=>{try{questReader?.observeRequest(event.detail);}catch(error){}};
+  requestListener=event=>{
+    try{questReader?.observeRequest(event.detail);}catch(error){}
+    try{basicDataSync?.observeRequest(event.detail,readStore(window));}catch(error){}
+  };
   networkListener=()=>{try{questReader?.observeFailure();}catch(error){}};
   startListener=()=>{
     try{sessionGeneration++;observedSession=null;pendingHandoff=null;pendingProgressHandoff=null;questReader?.observeStart();questObserver?.resetSession();questAutoRead?.resetSession();
@@ -154,7 +157,7 @@ exports.pluginDidLoad=()=>{
   window.addEventListener('game.start',startListener);
   expeditionProgress.view(readStore(window));
   controller=new Controller({getStore:currentStore,
-    createHost:()=>new PoiHost({window,remote:require('@electron/remote')}),
+    createHost:()=>new PoiHost({window,remote:require('@electron/remote'),getStore:currentStore}),
     createObserver:(host,mode)=>mode==='controls'?new(require('./src/execution/control_observer').ControlObserver)(host):
       new WorkerObserver({createWorker:filename=>host.createObserverWorker(filename)}),
     onProgress:value=>service?.progress(value),onDiagnostic:value=>service?.recordDiagnostic(value)});

@@ -58,6 +58,11 @@ test('projection retains all allocation guards and falls back for partial or nam
   {fleet:1,ships:[{name:'ship1',slots:['gun','gun'],ex:'any'}]},
  ])withEquipmentIndexCache(f.data,()=>assert.deepEqual(p.project(scheme),p.preview('fleet',scheme)));
 });
+test('an aircraft reported as relocating is excluded from stock and explicit execution plans',()=>{
+ const f=fixture();f.data.info.airbaseRelocations=[{itemId:104,startedAt:1000}];
+ assert(!f.api.freeListAll().some(row=>row.id===104));
+ assert.throws(()=>f.plan([{id:1,slots:[104,102,-1],ex:103}]),/无可用装备/);
+});
 test('concrete projection preserves full planner acceptance across inventory allocations',()=>{
  const f=fixture(),p=createFleetPlanner(()=>f.data);f.data.info.ships[2].api_slot_ex=-1;
  let seed=27,valid=0,rejected=0;

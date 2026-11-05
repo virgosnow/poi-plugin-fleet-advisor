@@ -71,6 +71,49 @@ test('fresh base-aircraft data is respected by recommendation and snapshot owner
   assert.equal(require('../../src/application/snapshots').ownership(updated).get(777).location,'airbase');
 });
 
+test('port relocation list reserves detached aircraft in every inventory and survives reload',()=>{
+  const f=setup(),s=require('../helpers/workbench_fixture')();s.info.basic.api_member_id=1;
+  s.info.equips[777]={api_slotitem_id:8,api_level:0};s.const.$equips[8]={api_name:'测试飞机',api_type:[0,0,6,6],api_distance:8};
+  f.sync.observe({path:'/kcsapi/api_req_air_corps/set_plane',body:{api_plane_info:[{api_squadron_id:1,api_state:2,api_slotid:777}]}},s);
+  f.sync.observe({path:'/kcsapi/api_port/port',body:{api_plane_info:{api_base_convert_slot:[777]}}},s);
+  const updated=f.sync.view(s);assert.deepEqual(updated.info.airbaseRelocations,[{itemId:777,startedAt:10000}]);
+  assert(!require('../../src/recommendation/loadout/loadout_policy').availableEquipment(updated).some(row=>row.id===777));
+  assert(require('../../src/domain/fleet/equipment_planner').createEquipmentPlanner(()=>updated).occupiedMap()[777]);
+  assert.equal(require('../../src/application/snapshots').ownership(updated).get(777).location,'airbase');
+  const g=setup();g.sync.restore(f.sync.snapshot(),s);assert.deepEqual(g.sync.view(s).info.airbaseRelocations,updated.info.airbaseRelocations);
+  f.sync.observe({path:'/kcsapi/api_port/port',body:{}},s);assert.deepEqual(f.sync.view(s).info.airbaseRelocations,[]);
+});
+
+test('an observed transfer does not make a partial relocation list complete',()=>{
+  const f=setup(),s=require('../helpers/workbench_fixture')();s.info.basic.api_member_id=1;
+  s.info.equips[777]={api_slotitem_id:8,api_level:0};s.const.$equips[8]={api_name:'测试飞机',api_type:[0,0,6,6],api_distance:8};
+  f.sync.observe({path:'/kcsapi/api_req_air_corps/set_plane',body:{api_plane_info:[{api_squadron_id:1,api_state:2,api_slotid:777}]}},s);
+  let updated=f.sync.view(s);
+  assert.equal(updated.airbaseSync.relocationsComplete,false);
+  assert(!require('../../src/recommendation/loadout/loadout_policy').availableEquipment(updated).some(row=>row.id===777));
+  f.sync.observe({path:'/kcsapi/api_port/port',body:{api_plane_info:{api_base_convert_slot:[]}}},s);
+  updated=f.sync.view(s);assert.equal(updated.airbaseSync.relocationsComplete,true);
+  assert(require('../../src/recommendation/loadout/loadout_policy').availableEquipment(updated).some(row=>row.id===777));
+});
+
+test('an already relocating item from port has unknown start time and does not cross accounts',()=>{
+  const f=setup();f.sync.observe({path:'/kcsapi/api_port/port',body:{api_plane_info:{api_base_convert_slot:[777]}}},f.store);
+  assert.deepEqual(f.sync.view(f.store).info.airbaseRelocations,[{itemId:777,startedAt:null}]);
+  f.store.info.basic.api_member_id=2;assert.equal(f.sync.view(f.store).info.airbaseRelocations,undefined);
+});
+test('replacement reserves the removed instance; an in-base swap does not',()=>{
+  const f=setup();f.store.info.airbase=[{api_area_id:6,api_rid:1,api_plane_info:[
+    {api_squadron_id:1,api_slotid:777,api_state:1},{api_squadron_id:2,api_slotid:888,api_state:1}]}];
+  const request={path:'/kcsapi/api_req_air_corps/set_plane',body:{api_area_id:'6',api_base_id:'1',api_squadron_id:'1',api_item_id:'888'}};
+  f.sync.observeRequest(request,f.store);
+  f.sync.observe({path:request.path,body:{api_plane_info:[{api_squadron_id:1,api_state:1,api_slotid:888},
+    {api_squadron_id:2,api_state:1,api_slotid:777}]}},f.store);
+  assert.equal(f.sync.view(f.store).info.airbaseRelocations,undefined);
+  f.sync.observeRequest({...request,body:{...request.body,api_item_id:'999'}},f.store);
+  f.sync.observe({path:request.path,body:{api_plane_info:[{api_squadron_id:1,api_state:1,api_slotid:999}]}},f.store);
+  assert.deepEqual(f.sync.view(f.store).info.airbaseRelocations,[{itemId:777,startedAt:10000}]);
+});
+
 test('failed datasets back off without starving other datasets and eventually recover',async()=>{
   const f=setup(),original=f.reader.read;let failures=0;
   f.reader.read=async args=>{if(args.kind==='mapinfo'&&failures++===0)throw Error('temporary');return original(args);};
