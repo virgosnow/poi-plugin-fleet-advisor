@@ -71,10 +71,10 @@ function enemySummary(enemy){
     familyKey:family,familyName,variantRank:/flagship/i.test(catalog?.name||name)?2:/elite/i.test(catalog?.name||name)?1:0,
     apiId:identityVerified?enemy.apiId:null,identityVerified,type,priority,reason};
 }
-function nodeSummary(id,node,area,encounterStage='unknown'){
+function nodeSummary(id,node,area,encounterStage='unknown',phase){
   if(!node)return {id,kind:id==='start'?'start':'unknown',enemies:[],threatStatus:id==='start'?'none':'unknown'};
   const rawPatterns=Object.entries(node.phases||{}).flatMap(([phase,group])=>(group.patterns||[]).map(pattern=>({...pattern,phase})));
-  const patterns=require('../combat/encounter_stage').filterFormations(area,id,rawPatterns,encounterStage);
+  const patterns=require('../combat/encounter_stage').filterFormations(area,id,rawPatterns,encounterStage,phase);
   // Preserve the flagship of the first documented main fleet before enemies
   // are grouped or sorted by threat. Resolve a pattern alias within its phase.
   let bossFlagship=null;
@@ -124,7 +124,7 @@ function previewGraph(map,route,data){
     if(point.phase&&route.phase&&point.phase!==route.phase)continue;
     for(const to of point.destinations)add(point.from,to);
   }
-  const result={nodes:[...ids].map(id=>({...nodeSummary(id,data.nodes[id],map.area,route.encounterStage),
+  const result={nodes:[...ids].map(id=>({...nodeSummary(id,data.nodes[id],map.area,route.encounterStage,route.phase),
     target:route.targetNodes.includes(id)})),edges:[...edges.values()]};
   previewCache.set(key,result);return result;
 }
@@ -235,7 +235,7 @@ function profileForRoute(area,route,selectedPaths){
   const knownFuel=detailed.every(p=>p.fuelConsumed!==null);
   const uncertain=incomplete||truncated||detailed.some(p=>p.uncertain);
   const ordered=detailed.slice().sort((a,b)=>a.hops-b.hops||a.nodes.join('').localeCompare(b.nodes.join('')));
-  const result={status:uncertain?'possible':'known',area,targetNodes:route.targetNodes,encounterStage:route.encounterStage||'unknown',
+  const result={status:uncertain?'possible':'known',area,phase:route.phase||null,targetNodes:route.targetNodes,encounterStage:route.encounterStage||'unknown',
     source:data.source?.url||null,
     pathCount:detailed.length,truncated,incomplete,
     counts:{surface:range('surfaceBattles'),air:range('airBattles'),
@@ -276,7 +276,7 @@ function previewForMap(area,{target='boss',phase,paths,encounterStage='unknown'}
   const known=new Set(graph.nodes.map(n=>n.id));
   const result={...profile,area,referenceOnly:true,targetNodes:route.targetNodes,
     routePaths:profile.routePaths||[],examples:profile.examples||[],
-    mapPreview:{...graph,nodes:graph.nodes.concat(Object.entries(data.nodes).filter(([id])=>!known.has(id)).map(([id,node])=>nodeSummary(id,node,area,encounterStage)))}};
+    mapPreview:{...graph,nodes:graph.nodes.concat(Object.entries(data.nodes).filter(([id])=>!known.has(id)).map(([id,node])=>nodeSummary(id,node,area,encounterStage,phase)))}};
   overviewCache.set(key,result);return result;
 }
 module.exports={profileForRoute,previewForMap,consumption,hasAswNodes};

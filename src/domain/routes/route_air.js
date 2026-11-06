@@ -47,7 +47,7 @@ function antiAirEnvelope(patterns){
   }
   return {status:'known',proportion,fixed,...profiles.length?{profiles}:{}};
 }
-function nodeAir(area,id,node,cross,encounterStage='unknown'){
+function nodeAir(area,id,node,cross,encounterStage='unknown',gaugePhase){
   if(!node)return {id,enemyAirPower:null,issues:['节点敌情缺失']};
   if(noAirBattle.has(node.kind))return {id,enemyAirPower:0,issues:[],noAirBattle:true};
   const allPatterns=Object.entries(node.phases||{}).flatMap(([phase,group])=>{
@@ -62,7 +62,7 @@ function nodeAir(area,id,node,cross,encounterStage='unknown'){
     };
     return rows.map(row=>({...resolve(row),phase}));
   });
-  const patterns=filterFormations(area,id,allPatterns,encounterStage),values=[],issues=[],bounds=[];
+  const patterns=filterFormations(area,id,allPatterns,encounterStage,gaugePhase),values=[],issues=[],bounds=[];
   if(!patterns.length)issues.push('敌编成缺失');
   for(const pattern of patterns){
     const conflicts=pending.filter(e=>e.area===area&&e.node===id&&e.pattern===pattern.pattern);
@@ -91,7 +91,7 @@ function nodeAir(area,id,node,cross,encounterStage='unknown'){
   const secondary=hasCompositionConflict?applyCrosscheckEvidence(area,id,(cross?.kcwikiVariants||[])
     .map(variant=>({...variant,source:'kcwiki'})),allPatterns):[];
   if(secondary.some(variant=>variant.evidenceConflict))issues.push('差异编成资料与核对记录冲突');
-  const variants=filterFormations(area,id,secondary,encounterStage);
+  const variants=filterFormations(area,id,secondary,encounterStage,gaugePhase);
   if(hasCompositionConflict){
     if(!cross?.kcwikiVariants?.length)issues.push('差异编成资料不足');
     for(const variant of variants){
@@ -116,12 +116,12 @@ function nodeAir(area,id,node,cross,encounterStage='unknown'){
     upperBound:!issues.length&&bounds.length?Math.max(maximum,...bounds):null,
     issues:[...new Set([...issues,...(bounds.length?['敌制空数值存在来源差异']:[])])]};
 }
-function encounterAir(area,encounterStage='unknown'){
-  const key=area+'|'+encounterStage;
+function encounterAir(area,encounterStage='unknown',gaugePhase){
+  const key=area+'|'+encounterStage+'|'+(gaugePhase||'');
   if(cache.has(key))return cache.get(key);
   if(!/^\d-\d$/.test(area||''))return null;
   let data;try{data=require(`../../../data/sortie/encounters/${area}.json`);}catch(_){return null;}
-  const value={source:data.source?.url||null,nodes:new Map(Object.entries(data.nodes).map(([id,node])=>[id,nodeAir(area,id,node,data.crossCheck?.nodes?.[id],encounterStage)]))};
+  const value={source:data.source?.url||null,nodes:new Map(Object.entries(data.nodes).map(([id,node])=>[id,nodeAir(area,id,node,data.crossCheck?.nodes?.[id],encounterStage,gaugePhase)]))};
   cache.set(key,value);return value;
 }
 const referenceCache=new Map();
@@ -133,9 +133,10 @@ function boundedSet(cache,key,value,limit){
 function routeAirReference(result,area,profile){
   const paths=profile?.routePaths?.map(p=>p.nodes)||profile?.examples||[];
   const encounterStage=profile?.encounterStage||result?.encounterStage||'unknown';
-  const key=area+'|'+encounterStage+'|'+paths.map(p=>p.join('>')).join('|');
+  const gaugePhase=profile?.phase||result?.phase||null;
+  const key=area+'|'+encounterStage+'|'+(gaugePhase||'')+'|'+paths.map(p=>p.join('>')).join('|');
   if(referenceCache.has(key))return referenceCache.get(key);
-  return boundedSet(referenceCache,key,buildReference(area,paths.map(p=>p.slice()),encounterStage),256);
+  return boundedSet(referenceCache,key,buildReference(area,paths.map(p=>p.slice()),encounterStage,gaugePhase),256);
 }
 // Base stages use recorded enemy slots and the game equipment masters. The
 // returned interval is a deterministic 5th–95th percentile reference, not a
@@ -186,12 +187,12 @@ function withLandBases(store,reference,landBases,area){
   return remember({...reference,nodes,landBase:true,landBaseRangeKind:'p05-p95',
     basis:'基地航空战按敌机逐槽及逐波制空击坠模拟，不假设敌舰击沉；区间为 5%–95% 参考分位，并非极限或保证。基地飞机的部分特殊损耗未计入。'});
 }
-function buildReference(area,paths,encounterStage){
+function buildReference(area,paths,encounterStage,gaugePhase){
   const ids=[...new Set(paths.flat())].filter(id=>!id.startsWith('start'));
   const empty={superiority:null,supremacy:null,enemyAirPower:null,scope:'selectedRoute',nodes:[],limitingNodes:[],
     routeSustainability:'notSimulated'};
   if(!ids.length)return {...empty,status:'unselected',reason:'选择路线后显示制空门槛'};
-  const data=encounterAir(area,encounterStage);
+  const data=encounterAir(area,encounterStage,gaugePhase);
   if(!data)return {...empty,status:'unknown',reason:'该海域缺少逐点敌情'};
   const nodes=ids.map(id=>data.nodes.get(id)||nodeAir(area,id,null));
   const maximum=Math.max(0,...nodes.filter(n=>valid(n.enemyAirPower)).map(n=>n.enemyAirPower));

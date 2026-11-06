@@ -34,17 +34,54 @@ test('a bare historical clear flag is not proof a monthly gauge is cleared this 
     assert.equal(encounterStage(store(id,{api_cleared:1} ),area),'unknown');
   assert.equal(encounterStage(store(64,{api_cleared:1}),'6-4'),'after');
 });
-test('3-5 final prioritizes marked forms without discarding unlabelled alternatives',()=>{
+test('3-5 final and clear follow fixed forms while retaining the uncertain F node',()=>{
   for(const id of ['E','F','G','H','K']){
     const rows=phases('3-5',id),before=filterFormations('3-5',id,rows,'before');
     assert(before.length&&before.every(row=>row.finalForm!==true));
     for(const stage of ['final','after']){
       const result=filterFormations('3-5',id,rows,stage);
       assert.equal(result[0].finalForm,true);
-      if(['G','H'].includes(id))assert(result.every(row=>row.finalForm===true));
+      if(['E','G','H','K'].includes(id))assert(result.every(row=>row.finalForm===true));
       else assert.equal(result.length,rows.length);
     }
   }
+});
+test('completed first gauges use their own post-clear pool during the next gauge',()=>{
+  for(const [area,id,node] of [['7-2',72,'G'],['7-3',73,'E']]){
+    const map={api_gauge_type:1,api_gauge_num:2,api_required_defeat_count:4,api_defeat_count:1};
+    const stage=encounterStage(store(id,map),area,'gauge1');
+    assert.equal(stage,'priorCleared');
+    const rows=phases(area,node),after=filterFormations(area,node,rows,stage);
+    assert(after.length);
+    if(area==='7-2')assert.deepEqual(after.map(row=>row.pattern),[4,5,6]);
+    else assert.deepEqual(after.map(row=>row.pattern),[1,2]);
+    assert.equal(encounterStage(store(id,map),area,'gauge2'),'before');
+    map.api_defeat_count=4;assert.equal(encounterStage(store(id,map),area,'gauge1'),'after');
+    map.api_defeat_count=5;assert.equal(encounterStage(store(id,map),area,'gauge1'),'unknown');
+  }
+});
+test('reviewed final and post-clear pools remain distinct across normal maps',()=>{
+  for(const [area,id] of [['7-3','E'],['7-3','P'],['7-4','M'],['7-4','P'],['7-5','K'],['7-5','Q'],['7-5','T']]){
+    const rows=phases(area,id),final=filterFormations(area,id,rows,'final');
+    assert(final.length&&final.every(row=>row.finalForm===true),`${area} ${id}`);
+    assert(filterFormations(area,id,rows,'before').every(row=>row.finalForm!==true),`${area} ${id}`);
+  }
+  for(const id of ['M','P'])assert(filterFormations('7-4',id,phases('7-4',id),'after').every(row=>row.finalForm!==true));
+  assert.deepEqual(filterFormations('5-4','P',phases('5-4','P'),'after').map(row=>row.pattern),[1,2]);
+  assert.equal(filterFormations('5-4','P',phases('5-4','P'),'before').length,6);
+});
+test('7-5 J applies its third-gauge final rule to air, battle and map display only for that gauge',()=>{
+  const {routeAirReference}=require('../../../src/domain/routes/route_air'),{nodeFormations}=require('../../../src/ui/maps/node_formations');
+  const ref=phase=>routeAirReference({},'7-5',{examples:[['J']],encounterStage:'final',phase});
+  const second=ref('gauge2'),third=ref('gauge3');
+  assert.equal(second.nodes[0].airFormations.length,4);
+  assert.equal(third.nodes[0].airFormations.length,2);
+  assert.notStrictEqual(second,third,'phase-specific air results cannot share a stale cache entry');
+  assert.deepEqual(nodeFormations('7-5','J','final','gauge3').map(row=>row.pattern),[3,4]);
+  assert.equal(nodeFormations('7-5','J','final','gauge2').length,4);
+  const profile={area:'7-5',phase:'gauge3',encounterStage:'final',routePaths:[{nodes:['J']}],
+    mapPreview:{nodes:[{id:'J'}]}};
+  assert.deepEqual(routeEncounters(profile).nodes[0].formations.map(row=>row.pattern),[3,4]);
 });
 test('5-5 before and final preserve pre-clear patterns and after uses distinct post-clear set',()=>{
   const rows=phases('5-5','S');
@@ -61,28 +98,54 @@ test('4-5 T final uses only the documented strengthened boss formations',()=>{
   const air=stage=>routeAirReference({},'4-5',{examples:[['T']],encounterStage:stage}).enemyAirPower;
   assert.equal(air('before'),138);assert.equal(air('final'),111);assert.equal(air('after'),138);
 });
-test('5-6 final prioritizes marked forms while clear selects explicitly post-clear variants',()=>{
+test('5-6 final and clear select their documented encounter variants',()=>{
   for(const id of ['X','Z']){
     const rows=phases('5-6',id);
     assert.deepEqual(filterFormations('5-6',id,rows,'before').map(r=>r.pattern),[1,2,3]);
-    assert.deepEqual(filterFormations('5-6',id,rows,'final').map(r=>r.pattern),[4,5,6,1,2,3]);
+    assert.deepEqual(filterFormations('5-6',id,rows,'final').map(r=>r.pattern),[4,5,6]);
     assert.deepEqual(filterFormations('5-6',id,rows,'after').map(r=>r.pattern),[7,8,9]);
     assert.deepEqual(filterFormations('5-6',id,rows,'notCleared').map(r=>r.pattern),[1,2,3,4,5,6]);
   }
 });
-test('6-5 final prioritizes marked forms; after clear excludes them at boss and en route',()=>{
-  for(const id of ['A','C','F','G','H','M']){
+test('6-5 final uses documented final forms; before and after use normal forms',()=>{
+  for(const id of ['A','B','C','D','E','F','G','H','I','J','M']){
     const rows=phases('6-5',id);
-    assert.equal(filterFormations('6-5',id,rows,'final')[0].finalForm,true);
+    assert(filterFormations('6-5',id,rows,'final').every(row=>row.finalForm===true),id);
+    assert(filterFormations('6-5',id,rows,'before').every(row=>row.finalForm!==true),id);
     assert(filterFormations('6-5',id,rows,'after').every(row=>row.finalForm!==true));
+    assert.equal(filterFormations('6-5',id,rows,'unknown').length,rows.length);
   }
+  const rows=phases('6-5','M');
+  assert.deepEqual(filterFormations('6-5','M',rows,'before').map(row=>row.pattern),[1,2]);
+  assert.deepEqual(filterFormations('6-5','M',rows,'final').map(row=>row.pattern),[3]);
+  assert.deepEqual(filterFormations('6-5','M',rows,'after').map(row=>row.pattern),[1,2]);
+  const secondary={source:'kcwiki',finalForm:null,availability:null};
+  assert(filterFormations('6-5','M',[...rows,secondary],'final').includes(secondary));
+  const unsourced=[{pattern:1,finalForm:null},{source:'kcwiki',finalForm:true}];
+  assert.equal(filterFormations('6-5','M',unsourced,'final').length,2,
+    'a secondary annotation alone does not prove the primary fleet is unavailable');
 });
 test('structured route encounters use the same stage filter for each visited battle',()=>{
   const data=require('../../../data/sortie/encounters/6-5.json');
   const profile={area:'6-5',encounterStage:'final',routePaths:[{nodes:['F','M']}],targetNodes:['M'],mapPreview:{nodes:[{id:'F'},{id:'M'}]}};
   const evidence=routeEncounters(profile,data);
   assert.equal(evidence.status,'known');
-  for(const node of evidence.nodes)assert.equal(node.formations[0].finalForm,true);
+  for(const node of evidence.nodes)assert(node.formations.every(row=>row.finalForm===true));
+});
+
+test('6-5 stage changes both battle formations and route air inputs',()=>{
+  const {routeAirReference}=require('../../../src/domain/routes/route_air');
+  const {nodeFormations}=require('../../../src/ui/maps/node_formations');
+  const ref=stage=>routeAirReference({},'6-5',{examples:[['H','M']],encounterStage:stage});
+  for(const [stage,head,patterns] of [['before',206,[1,2]],['final',209,[3]],['after',206,[1,2]]]){
+    const reference=ref(stage);
+    assert.equal(reference.nodes.find(row=>row.id==='H').enemyAirPower,head);
+    assert.equal(reference.nodes.find(row=>row.id==='M').enemyAirPower,312,
+      'ordinary pattern 2 and final pattern 3 have the same enemy air power');
+    assert.deepEqual(nodeFormations('6-5','M',stage).map(row=>row.pattern),patterns);
+    const boss=reference.nodes.find(row=>row.id==='M');
+    assert.equal(boss.airFormations.length,patterns.length);
+  }
 });
 test('3-5 G preserves unlabelled secondary-source fleets in final battle and air reference',()=>{
   const data=require('../../../data/sortie/encounters/3-5.json');
@@ -150,6 +213,20 @@ test('reviewed final and pre-final fleets produce stage-specific air values',()=
     assert.equal(result.status,'known',`${area} ${node} ${stage}: ${result.reason}`);
     assert.equal(result.enemyAirPower,value,`${area} ${node} ${stage}`);
   }
+});
+test('7-4 final air uses Chinese wiki values for each formation throughout the UI and prediction',()=>{
+  const {routeAirReference}=require('../../../src/domain/routes/route_air');
+  const {nodeFormations}=require('../../../src/ui/maps/node_formations');
+  const reference=routeAirReference({},'7-4',{examples:[['P']],encounterStage:'final'});
+  const node=reference.nodes[0];
+  assert.equal(reference.status,'known');
+  assert.equal(reference.enemyAirPower,160);
+  assert.equal(reference.superiority,240);
+  assert.equal(reference.supremacy,480);
+  assert.deepEqual(node.issues,[]);
+  assert.deepEqual(node.airFormations.map(row=>[row.pattern,row.enemyAirPower,row.airSuperiority,row.airSupremacy]),
+    [[5,160,240,480],[6,157,236,471]]);
+  assert.deepEqual(nodeFormations('7-4','P','final').map(row=>[row.pattern,row.enemyAirPower]),[[5,160],[6,157]]);
 });
 test('changed source values do not silently override reviewed cross-source evidence',()=>{
   const data=structuredClone(require('../../../data/sortie/encounters/3-5.json'));

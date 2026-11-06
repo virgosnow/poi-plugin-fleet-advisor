@@ -46,6 +46,21 @@
     "3-5": {
       "E": [
         {
+          "apiIds": [1529, 1529, 1575, 1575, 1575, 1532],
+          "finalForm": false,
+          "stageBasis": "2026-11-06: E点最终形态固定为轻空母旗舰；中文资料此条为无轻空母的通常编成。"
+        },
+        {
+          "apiIds": [1529, 1529, 1577, 1575, 1575, 1534],
+          "finalForm": false,
+          "wikiwikiPattern": 4
+        },
+        {
+          "apiIds": [1529, 1529, 1577, 1577, 1534, 1532],
+          "finalForm": false,
+          "wikiwikiPattern": 1
+        },
+        {
           "apiIds": [
             1560,
             1529,
@@ -54,6 +69,8 @@
             1575,
             1534
           ],
+          "finalForm": true,
+          "stageBasis": "2026-11-06: E点轻空母编成在攻略中列为最终形态，中文资料的完整舰队序列与日文表中低司令部版本有差异。",
           "air": 23
         },
         {
@@ -153,6 +170,21 @@
         }
       ],
       "K": [
+        {
+          "apiIds": [1591, 1526, 1526, 1529, 1575, 1575],
+          "finalForm": false,
+          "wikiwikiPattern": 3
+        },
+        {
+          "apiIds": [1591, 1526, 1526, 1529, 1576, 1576],
+          "finalForm": false,
+          "wikiwikiPattern": 1
+        },
+        {
+          "apiIds": [1591, 1526, 1526, 1543, 1576, 1576],
+          "finalForm": false,
+          "wikiwikiPattern": 5
+        },
         {
           "apiIds": [
             1591,

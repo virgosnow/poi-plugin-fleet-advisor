@@ -3731,10 +3731,24 @@
         "airSuperiority"
       ],
       "wikiwiki": 234,
-      "kcwiki": null,
+      "kcwiki": 236,
       "computed": 236,
-      "status": "pending",
-      "note": "原表自相矛盾：敌制空157×规则值236≠记载234；保留原值待核查"
+      "enemyAirPower": 157,
+      "apiIds": [2062, 1592, 1622, 1622, 1572, 1571],
+      "status": "resolved",
+      "note": "完整编成及敌制空157与中文wiki一致；按中文wiki采用空优236，日文原表记为234。",
+      "source": "https://m.kcwiki.cn/wiki/7-4"
+    },
+    {
+      "area": "7-4",
+      "node": "P",
+      "pattern": 5,
+      "kind": "fieldConflict",
+      "fields": ["enemyAirPower"],
+      "values": {"enemyAirPower": {"wikiwiki": 154, "kcwiki": 160}},
+      "status": "resolved",
+      "note": "同一编成采用中文wiki的敌制空160、空优240、空确480。",
+      "source": "https://m.kcwiki.cn/wiki/7-4"
     },
     {
       "area": "7-4",

@@ -19,7 +19,7 @@ function landBaseAirState(air,formation){
   const low=state(power.min),high=state(power.max);
   return `预计${low===high?low:`${low}～${high}`}`;
 }
-function nodeFormations(area,id,encounterStage='unknown'){
+function nodeFormations(area,id,encounterStage='unknown',phase){
   if(!/^\d-\d$/.test(area||'')||!/^[A-Z][0-9]?$/.test(id||''))return [];
   let data;try{data=require(`../../../data/sortie/encounters/${area}.json`);}catch(e){if(e.code==='MODULE_NOT_FOUND')return [];throw e;}
   const node=data.nodes?.[id];if(!node)return [];
@@ -42,6 +42,6 @@ function nodeFormations(area,id,encounterStage='unknown'){
         availability:row.availability,ships:(source?.enemyShips||[]).map(ship),escort:(source?.escortFleet?.enemyShips||[]).map(ship)};
     });
   });
-  return require('../../domain/combat/encounter_stage').filterFormations(area,id,formations,encounterStage);
+  return require('../../domain/combat/encounter_stage').filterFormations(area,id,formations,encounterStage,phase);
 }
 module.exports={nodeFormations,landBaseAirState};

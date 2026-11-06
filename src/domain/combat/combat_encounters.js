@@ -154,7 +154,7 @@ function routeEncounters(profile,data=mapData(profile?.area),lookup=catalog){
       if(previous)previous.formation=[...new Set([...previous.formation,...form.formation])];
       else unique.set(key,{...form,formation:[...form.formation]});
     }
-    const formations=stage.filterFormations(profile.area,id,[...unique.values()],profile.encounterStage);
+    const formations=stage.filterFormations(profile.area,id,[...unique.values()],profile.encounterStage,profile.phase);
     if(record.status!=='known'||formationCross.status!=='known'||alternatives.status!=='known'||formations.length>LIMITS.formationsPerNode){
       reasons.push(`${id} 点敌编成资料待确认`);
     }

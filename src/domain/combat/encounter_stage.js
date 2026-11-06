@@ -20,6 +20,12 @@ function encounterStage(store,area,phase){
     // cannot appear; they do not reveal the selected gauge's final state.
     if(selected!==active){
       const total=row.api_required_defeat_count,done=row.api_defeat_count;
+      // In 7-2 and 7-3 the first boss changes when its own gauge is broken,
+      // even while the second gauge is still being cleared. Do not apply the
+      // first boss's cleared state to unrelated nodes on the same map.
+      if(selected<active&&active===1&&['7-2','7-3'].includes(area)&&
+        Number(row.api_gauge_type)===1&&Number.isInteger(total)&&total>0&&Number.isInteger(done)&&done>=0&&done<=total)
+        return done===total?'after':'priorCleared';
       return Number.isInteger(total)&&total>0&&Number.isInteger(done)&&done>=0&&done<total?'notCleared':'unknown';
     }
   }
@@ -75,8 +81,9 @@ function applyCrosscheckEvidence(area,node,variants,primaryPatterns){
 // `finalForm:null` means unlabelled, not provably unavailable in final form.
 // Prefer labelled final formations for the displayed flagship but retain
 // unlabelled candidates unless the map's post-clear policy proves otherwise.
-function filterFormations(area,node,formations,stage){
+function filterFormations(area,node,formations,stage,phase){
   const rows=Array.isArray(formations)?formations:[];
+  if(stage==='priorCleared')stage=area==='7-2'&&node==='G'||area==='7-3'&&node==='E'?'after':'notCleared';
   if(!['before','final','after','notCleared'].includes(stage))return rows.slice();
   const after=row=>row.availability==='afterClear'||row.phase==='afterClear';
   const before=row=>row.availability==='beforeClear'||row.phase==='beforeClear';
@@ -85,24 +92,42 @@ function filterFormations(area,node,formations,stage){
   const unknownSecondary=row=>row.source==='kcwiki'&&row.finalForm==null&&row.availability==null;
   let out=rows.filter(row=>stage==='after'?!before(row):!after(row));
   if(stage==='before')out=out.filter(row=>row.finalForm!==true);
-  // 3-5 H's non-final fleets are documented as pre-battle variants. G's
-  // final/cleared air requirement is documented as the light-carrier fleet.
-  // Keep unlabelled rows at E/F/K: F has a documented low-HQ final exception.
+  // 3-5's notes fix E/G/H and the boss to final forms after clearance.
+  // F has unlabelled alternatives and a documented low-HQ exception.
   // https://wikiwiki.jp/kancolle/北方海域/3-5
   // https://m.kcwiki.cn/wiki/3-5
-  if(area==='3-5'&&['G','H'].includes(node)&&['final','after'].includes(stage))
+  if(area==='3-5'&&['E','G','H','K'].includes(node)&&['final','after'].includes(stage))
     out=out.filter(row=>row.finalForm===true||unknownSecondary(row));
   // 4-5 T explicitly changes to the strengthened flagship on the final
   // battle, and restores its earlier formations after gauge destruction.
   // https://wikiwiki.jp/kancolle/西方海域/4-5
   if(area==='4-5'&&node==='T'&&stage==='final')out=out.filter(row=>row.finalForm===true||unknownSecondary(row));
+  // These tables distinguish pre-battle and final-stage boss/raid fleets.
+  // 3-5 F has unlabelled alternatives and remains deliberately unfiltered.
+  const finalNodes={'5-6':['X','Z'],'7-3':['E','P'],'7-4':['M','P'],'7-5':['K','Q','T']};
+  if(stage==='final'&&finalNodes[area]?.includes(node)&&out.some(row=>row.source!=='kcwiki'&&row.finalForm===true))
+    out=out.filter(row=>row.finalForm===true||unknownSecondary(row));
+  // The third-gauge last battle is accompanied by carriers at J. The source
+  // does not prove equivalent availability rules for earlier gauges.
+  if(area==='7-5'&&node==='J'&&stage==='final'&&phase==='gauge3')
+    out=out.filter(row=>row.source==='kcwiki'||[3,4].includes(row.pattern));
+  // 6-5 labels its final-stage fleets at each combat node. During the last
+  // gauge battle use those documented fleets; after clear the ordinary
+  // variants return. An unrelated secondary variant without stage evidence
+  // remains unknown rather than inheriting the primary table's annotation.
+  // https://wikiwiki.jp/kancolle/中部海域/6-5
+  if(area==='6-5'&&stage==='final'&&out.some(row=>row.source!=='kcwiki'&&row.finalForm===true))
+    out=out.filter(row=>row.finalForm===true||unknownSecondary(row));
   if(stage==='after'){
     const explicit=out.filter(after);
     if(explicit.length)out=out.filter(row=>after(row)||unknownSecondary(row));
     // 6-5 explicitly returns to non-final random formations after clear.
     // https://wikiwiki.jp/kancolle/中部海域/6-5
-    else if(area==='6-5'||area==='4-5'&&node==='T')out=out.filter(row=>row.finalForm!==true);
+    else if(area==='6-5'||area==='7-3'&&['E','P'].includes(node)||area==='7-4'&&['M','P'].includes(node)||area==='4-5'&&node==='T')out=out.filter(row=>row.finalForm!==true);
   }
+  // 5-4's permanent clear has its own documented boss pool.
+  if(area==='5-4'&&node==='P'&&stage==='after')
+    out=out.filter(row=>row.source==='kcwiki'||[1,2].includes(row.pattern));
   if(stage==='final'||stage==='after'&&area==='3-5')
     out=out.map((row,index)=>({row,index})).sort((a,b)=>Number(b.row.finalForm===true)-Number(a.row.finalForm===true)||a.index-b.index).map(x=>x.row);
   return out;
