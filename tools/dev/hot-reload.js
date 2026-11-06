@@ -52,7 +52,7 @@
   const statusFields=['sourceFleet','shipDetails'];
   // Capture only live fields, including when reloading an older mounted version
   // that still has the retired JSON editor and local-library state hooks.
-  const draftFields=['slots','fleet','area','purpose','target','phase','missionId','goal','incomeUnit','style','choices','excluded','sourceFleet','shipType','shipFleet','draftContext','pathIndex','nodeId','mapRoute','routeDrafts','landBaseDrafts','routeRulesOpen','combatDeferredPhase','routePhaseAnchor','shipDetails','attributeDetails','selectedQuests','expeditionCompleted','opponentId','questsOpen','practiceGoal','practiceFormation','trainingShipIds','openOpponents'];
+  const draftFields=['slots','fleet','area','purpose','target','phase','missionId','goal','incomeUnit','style','choices','excluded','sourceFleet','shipType','shipLock','draftContext','pathIndex','nodeId','mapRoute','routeDrafts','landBaseDrafts','routeRulesOpen','combatDeferredPhase','routePhaseAnchor','shipDetails','attributeDetails','selectedQuests','expeditionCompleted','opponentId','questsOpen','practiceGoal','practiceFormation','trainingShipIds','openOpponents'];
   function workbenchHooks() {
     const el=panel();let root=el?.[Object.keys(el||{}).find(k=>k.startsWith('__reactFiber$'))];
     if(!root)return [];

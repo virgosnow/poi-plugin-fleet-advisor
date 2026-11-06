@@ -173,3 +173,15 @@ test('popup grid navigation follows its columns and skips folded stages',()=>{
   press('ArrowDown',rows[0]);press('ArrowUp',rows[4]);press('ArrowRight',rows[1]);press('ArrowLeft',rows[2]);press('End',rows[2]);
   assert.deepEqual(focused,[2,2,2,1,5]);
 });
+
+test('route popup uses the same region-wide placement as the map picker, including its reset button',()=>{
+  const {pickerPlacement}=require('../../src/ui/components/picker_placement');
+  const region={getBoundingClientRect:()=>({left:30,right:500,width:470})};
+  const anchor={getBoundingClientRect:()=>({left:70,right:454,width:384,bottom:100}),closest:selector=>selector==='.paa-area-picker'?region:null};
+  const placement=pickerPlacement(anchor,1200);
+  assert.equal(placement.width,478);assert.equal(placement.left,-44);
+  assert.equal(placement.rect.left+placement.left,26,'four pixels beyond the region on the left');
+  assert.equal(placement.rect.left+placement.left+placement.width,504,'four pixels beyond the region on the right');
+  const narrow=pickerPlacement(anchor,400);assert.equal(narrow.width,376);
+  assert(narrow.rect.left+narrow.left>=12);assert(narrow.rect.left+narrow.left+narrow.width<=388);
+});

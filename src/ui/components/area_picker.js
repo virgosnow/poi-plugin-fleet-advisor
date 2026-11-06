@@ -4,6 +4,7 @@ const REGION_ORDER=new Map([1,2,3,7,4,5,6].map((world,index)=>[world,index]));
 const {missionSummary,referenceIncome}=require('../expedition/expedition_model');
 const {normalizeName}=require('../../shared/name_matching');
 const usePickerToggle=require('./picker_hover');
+const {panelWidth,panelOffset,pickerPlacement}=require('./picker_placement');
 const INCOME_ORDERS={fuel:'燃料',ammo:'弹药',steel:'钢材',bauxite:'铝土'};
 const MISSION_REGIONS={1:'镇守府',2:'南西诸岛',3:'北方',4:'西方',5:'南方',6:'中部',7:'南西'};
 function missionRegion(m,masters={}){
@@ -13,7 +14,15 @@ function missionRegion(m,masters={}){
 function missionRegions(missions,masters={}){
   const keys=new Set(missions.map(m=>missionRegion(m,masters)));
   return ['1','2','3','7','4','5','6','other'].filter(key=>keys.has(key))
-    .map(key=>({key,name:key==='other'?'其他':MISSION_REGIONS[key]}));
+    .map(key=>{
+      const numbers=key==='other'?[]:missions.filter(m=>missionRegion(m,masters)===key).map(m=>{
+        // Lettered expeditions have internal numeric IDs; use the displayed
+        // number so A/B/D/E missions are not mistaken for 100+ entries.
+        const display=masters[m.missionId]?.api_disp_no??m.number??(m.missionId<100?m.missionId:'');
+        return /^\d+$/.test(String(display))?Number(display):null;
+      }).filter(number=>Number.isInteger(number)&&number>0);
+      return {key,name:key==='other'?'其他':MISSION_REGIONS[key],start:numbers.length?Math.min(...numbers):null};
+    });
 }
 function filterMissions(missions,summary,{query='',region='all',masters={}}={}){
   const words=normalizeName(query).toLowerCase().trim().split(/\s+/).filter(Boolean);
@@ -69,9 +78,9 @@ module.exports=function createAreaPicker(React){
       const panel=dialog.current,root=anchor.current,doc=root.ownerDocument,win=doc.defaultView;
       // Stay below the trigger, but shift horizontally and scroll inside on small hosts.
       const place=()=>{
-        const r=root.getBoundingClientRect(),width=Math.min(520,doc.documentElement.clientWidth-24);
+        const {rect:r,width,left}=pickerPlacement(root,doc.documentElement.clientWidth);
         panel.style.width=`${width}px`;
-        panel.style.left=`${Math.max(12-r.left,Math.min(0,doc.documentElement.clientWidth-12-r.left-width))}px`;
+        panel.style.left=`${left}px`;
         panel.style.maxHeight=`${Math.max(100,Math.min(expedition?400:320,doc.documentElement.clientHeight-r.bottom-18))}px`;
       };
       const outside=e=>{if(e.type==='focusin'&&pointerInside.current)return;if(!root.contains(e.target)){picker.dismiss();setOpen(false);}};
@@ -102,7 +111,9 @@ module.exports=function createAreaPicker(React){
       return summaries.get(entry.missionId);
     };
     const visible=expedition?sortMissions(filterMissions(catalog,brief,{query,region,masters:missionMasters}),brief,order):catalog;
-    const statusIcon=summary=>h('span',{className:'paa-mission-state','data-state':summary.status,'aria-label':summary.statusText},
+    const statusIcon=(summary,showFleet=false)=>summary.status==='running'&&showFleet?
+      h('span',{className:'paa-mission-running-fleet','data-state':'running','aria-label':summary.statusText},`${summary.runningFleets.join('/')}队`):
+      h('span',{className:'paa-mission-state','data-state':summary.status,'aria-label':summary.statusText},
       h('svg',{viewBox:'0 0 16 16',width:12,height:12,'aria-hidden':true,fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round'},
         summary.status==='locked'?[h('rect',{key:'lock',x:3.5,y:7,width:9,height:6.5,rx:1.5}),h('path',{key:'shackle',d:'M5.5 7V5a2.5 2.5 0 0 1 5 0v2'})]:
         summary.status==='completed'?h('path',{d:'m3 8 3 3 7-7'}):summary.status==='running'?[h('circle',{key:'circle',cx:8,cy:8,r:5.5}),h('path',{key:'hands',d:'M8 4v4l3 2'})]:
@@ -114,7 +125,7 @@ module.exports=function createAreaPicker(React){
     const option=entry=>{
       const summary=expedition?brief(entry):null;
       return h('button',{key:id(entry),type:'button',
-        'aria-current':id(entry)===value?'true':undefined,'aria-label':`${id(entry)}${entry.name?' '+entry.name:''}`,
+        'aria-current':id(entry)===value?'true':undefined,'aria-label':`${id(entry)}${entry.name?' '+entry.name:''}${summary?.status==='running'?'，'+summary.statusText:''}`,
         'data-monthly':summary?.monthly||undefined,'data-completion':summary?.completion,
         onClick:()=>{if(disabled||hidden)return;if(id(entry)!==value)onChange(id(entry));close();}},
         ...(summary?[h('strong',{className:'paa-mission-option-number'},summary.number),
@@ -123,7 +134,7 @@ module.exports=function createAreaPicker(React){
             rewardIcon(netResource),h('span',null,Number.isFinite(summary.income?.hourly?.[netResource])?
               `${Math.round(summary.income.hourly[netResource]*10)/10}/时`:'—')):rewardIcons(summary),
           h('span',{className:'paa-mission-duration'},summary.time),
-          h('span',{className:'paa-mission-option-state'},monthBadge(summary),statusIcon(summary),
+          h('span',{className:'paa-mission-option-state'},monthBadge(summary),statusIcon(summary,true),
             summary.completion==='locked'?h('small',{className:'paa-mission-locked-label'},'未解锁'):null)]:
           [h('strong',null,id(entry)),entry.name?h('small',null,entry.name):null]));
     };
@@ -149,8 +160,8 @@ module.exports=function createAreaPicker(React){
                 ...Object.entries(INCOME_ORDERS).map(([id,name])=>[id,`${name}净收益/时`])].map(([id,name])=>h('option',{key:id,value:id},name)))):null,
           expedition?h('div',{className:'paa-mission-area-tabs',role:'group','aria-label':'筛选远征海域'},
             ...[{key:'all',name:'全海域'},...missionRegions(catalog,missionMasters)].map(item=>h('button',{
-              type:'button',key:item.key,'aria-pressed':region===item.key,'aria-label':item.key==='all'?'全海域':`${item.name}海域`,
-              onClick:()=>setRegion(item.key)},item.name))):null,
+              type:'button',key:item.key,'aria-pressed':region===item.key,'aria-label':item.key==='all'?'全海域':`${item.name}海域${item.start?`，远征从 ${item.start} 号开始`:''}`,
+              onClick:()=>setRegion(item.key)},item.name,item.start?h('span',{className:'paa-mission-area-number','aria-hidden':true},`（${item.start}~）`):null))):null,
           h('div',{className:'paa-area-regions'},expedition?h('div',{className:'paa-area-maps paa-mission-list'},...visible.map(option)):groups(visible).map(group=>h('section',{key:group.world,className:'paa-area-region','aria-label':group.name},
             h('h4',null,h('span',null,group.world),group.name),
             h('div',{className:'paa-area-maps'},...group.maps.map(option)))),
@@ -162,3 +173,5 @@ module.exports.sortMissions=sortMissions;
 module.exports.missionSummary=missionSummary;
 module.exports.filterMissions=filterMissions;
 module.exports.missionRegions=missionRegions;
+module.exports.panelWidth=panelWidth;
+module.exports.panelOffset=panelOffset;

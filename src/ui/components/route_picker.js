@@ -3,6 +3,7 @@ const {routeFormula}=require('../models/route_presentation');
 const renderCombatBalance=require('./combat_balance');
 const {LABELS}=require('../../domain/combat/combat_balance');
 const usePickerToggle=require('./picker_hover');
+const {pickerPlacement}=require('./picker_placement');
 const routeBlocked=option=>['notFound','unconfirmed'].includes(option?.status);
 const combatScore=option=>{
   const {status,balance}=option?.combat||{};
@@ -43,9 +44,9 @@ module.exports=function createRoutePicker(React){
       if(!open||disabled||hidden)return;
       const root=anchor.current,dialog=panel.current,doc=root.ownerDocument,win=doc.defaultView;
       const place=()=>{
-        const r=root.getBoundingClientRect(),width=Math.min(520,doc.documentElement.clientWidth-24);
+        const {rect:r,width,left}=pickerPlacement(root,doc.documentElement.clientWidth);
         dialog.style.width=`${width}px`;
-        dialog.style.left=`${Math.max(12-r.left,Math.min(0,doc.documentElement.clientWidth-12-r.left-width))}px`;
+        dialog.style.left=`${left}px`;
         dialog.style.maxHeight=`${Math.max(100,Math.min(350,doc.documentElement.clientHeight-r.bottom-18))}px`;
       };
       const outside=e=>{if(e.type==='focusin'&&pointerInside.current)return;if(!root.contains(e.target)){picker.dismiss();setOpen(false);}};

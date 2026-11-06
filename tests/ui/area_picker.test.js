@@ -149,7 +149,7 @@ test('expedition region tabs filter alongside search and sorting without changin
   const calls=[],ui=harness({kind:'expedition',missions,missionMasters,value:101,onChange:id=>calls.push(id)});ui.open();
   const tabs=()=>ui.all(n=>n.type==='button'&&n.props['aria-pressed']!==undefined);
   const options=()=>ui.all(n=>n.type==='button'&&n.props['data-completion']);
-  assert.deepEqual(tabs().map(n=>n.props['aria-label']),['全海域','镇守府海域','北方海域','南西海域','其他海域']);
+  assert.deepEqual(tabs().map(n=>n.props['aria-label']),['全海域','镇守府海域','北方海域，远征从 21 号开始','南西海域，远征从 43 号开始','其他海域']);
   assert.equal(tabs()[0].props['aria-pressed'],true);assert.equal(options().length,5);
   ui.find(n=>n.props['aria-label']==='镇守府海域').props.onClick();ui.render();
   assert.equal(options().length,2);assert.equal(ui.find(n=>n.props['aria-label']==='镇守府海域').props['aria-pressed'],true);
@@ -578,4 +578,55 @@ test('expedition metrics distinguish actual sparkle coverage, both drum gates an
   assert.equal(label(render({count:0}).children[1]),'桶数待核对');
   assert.equal(label(render({},mission,{bonus:0}).children[2]),'无收益加成');assert.equal(tone(render({},mission,{bonus:0}).children[2]),'neutral');
   assert.equal(label(render({},mission,null).children[2]),'收益待核算');assert.equal(render({count:0}).children[2].children[1].children[0],'—');
+});
+
+test('expedition dropdown identifies the fleet running each mission on its own button',()=>{
+  const missions=[{missionId:41,name:'一号任务'},{missionId:42,name:'二号任务'},{missionId:43,name:'三号任务'},{missionId:44,name:'未进行'}];
+  const missionMasters={41:{api_time:60},42:{api_time:120,api_reset_type:1},43:{api_time:90},44:{api_time:50}};
+  const calls=[],props={kind:'expedition',missions,missionMasters,value:41,onChange:id=>calls.push(id),
+    fleets:[{api_mission:[0]},{api_mission:[1,41]},{api_mission:[1,42]},{api_mission:[1,43]}]};
+  const ui=harness(props);ui.open();
+  for(const [id,n] of [[41,2],[42,3],[43,4]]){
+    const row=ui.find(node=>node.type==='button'&&node.props['aria-label']?.startsWith(`${id} `));
+    assert(row);assert.match(row.props['aria-label'],new RegExp(`第 ${n} 舰队远征中`));
+    const badge=row.children.find(node=>node?.props?.className==='paa-mission-option-state').children.find(node=>node?.props?.className==='paa-mission-running-fleet');
+    assert(badge);assert.equal(badge.children[0],`${n}队`);assert.match(badge.props['aria-label'],new RegExp(`第 ${n} 舰队远征中`));
+  }
+  const other=ui.find(node=>node.type==='button'&&node.props['aria-label']==='44 未进行');
+  assert(!other.children.find(node=>node?.props?.className==='paa-mission-option-state').children.some(node=>node?.props?.className==='paa-mission-running-fleet'));
+  const trigger=ui.find(node=>node.props.className==='paa-area-trigger'),selectedState=trigger.children.find(node=>node?.props?.className?.includes('paa-mission-selected-state'));
+  assert(selectedState.children.some(node=>node?.props?.className==='paa-mission-state'&&node.props['data-state']==='running'),'trigger retains the existing clock');
+  props.fleets[1]={api_mission:[0,41]};ui.render();
+  const finished=ui.find(node=>node.type==='button'&&node.props['aria-label']==='41 一号任务');
+  assert(!finished.children.find(node=>node?.props?.className==='paa-mission-option-state').children.some(node=>node?.props?.className==='paa-mission-running-fleet'));
+  ui.find(node=>node.type==='button'&&node.props['aria-label'].startsWith('42 二号任务')).props.onClick();assert.deepEqual(calls,[42]);
+});
+
+test('expedition region tabs show the actual first numeric display number without treating lettered IDs as numbers',()=>{
+  const missions=[{missionId:101,world:1},{missionId:1,world:1},{missionId:10,world:2},{missionId:9,world:2},
+    {missionId:17,world:3},{missionId:41,world:7},{missionId:25,world:4},{missionId:33,world:5},{missionId:999}];
+  const missionMasters={101:{api_disp_no:'A2'},1:{api_disp_no:'01'},9:{api_disp_no:'09'},10:{api_disp_no:'10'},
+    17:{api_disp_no:'17'},41:{api_disp_no:'41'},25:{api_disp_no:'25'},33:{api_disp_no:'33'}};
+  const rows=create.missionRegions(missions,missionMasters);
+  assert.deepEqual(rows.map(({key,start})=>[key,start]),[['1',1],['2',9],['3',17],['7',41],['4',25],['5',33],['other',null]]);
+  const ui=harness({kind:'expedition',missions,missionMasters,value:1,onChange(){}});ui.open();
+  for(const [name,start] of [['镇守府',1],['南西诸岛',9],['北方',17],['南西',41],['西方',25],['南方',33]]){
+    const tab=ui.find(n=>n.props['aria-label']===`${name}海域，远征从 ${start} 号开始`);
+    assert(tab);assert(tab.children.some(n=>n?.props?.className==='paa-mission-area-number'&&n.children[0]===`（${start}~）`));
+  }
+  assert.deepEqual(create.missionRegions([{missionId:101,world:1}],missionMasters).map(row=>row.start),[null]);
+});
+
+test('map and expedition panels follow their region width and stay inside the viewport',()=>{
+  assert.equal(create.panelWidth(360,1200),360);
+  assert.equal(create.panelWidth(640,1200),640);
+  assert.equal(create.panelWidth(600,500),476);
+  assert.equal(create.panelWidth(360,400),360);
+});
+
+test('picker popups extend left to the region edge and remain inside the viewport',()=>{
+  assert.equal(create.panelOffset(73,35,468,1513),-38,'leftward extension preserves the right edge');
+  assert.equal(create.panelOffset(100,100,520,1000),0,'a matching preferred edge needs no offset');
+  assert.equal(create.panelOffset(40,-5,476,500),-28,'viewport left margin wins when needed');
+  assert.equal(create.panelOffset(400,350,200,550),-62,'viewport right margin wins when needed');
 });
