@@ -15,7 +15,7 @@ module.exports=React=>{
   };
   const incomeFormula=(row,missionId,outcome)=>{
     const parts=E.incomeBreakdown(row,missionId),terms=parts.filter(part=>part.key!=='great'||outcome==='great');
-    const labels={base:'基础',great:'大成功',bonus:'加成',cost:'补给'};
+    const labels={base:'基础',great:'大成功',bonus:'加成',cost:'补给',repair:'修理参考'};
     const rendered=terms.map((part,index)=>{
       const value=part[outcome],known=Number.isFinite(value);
       const sign=index===0?(known&&value<0?'− ':''):(known&&value<0||part.key==='cost'&&(!known||value===0)?'− ':'+ ');
@@ -54,7 +54,7 @@ module.exports=React=>{
     const greatPercent=Number.isFinite(rate)?Math.round(Math.min(100,Math.max(0,rate))):null;
     const successPercent=greatPercent===null?null:100-greatPercent;
     const basePreview=!hasShips&&!income,baseRows=basePreview?E.baseRewardRows(mission?.missionId):null;
-    const incomeLabel=basePreview?'基础奖励':expedition?.eligible===false?'达标后净收益':'净收益';
+    const incomeLabel=basePreview?'基础奖励':expedition?.eligible===false?'达标后净收益':income?.repair?.status==='reference'?'参考净收益':'净收益';
     const rewardRows=income?.rows||baseRows||['燃料','弹药','钢材','铝土'].map(name=>({name,net:null,greatNet:null}));
     const chainItem=(item,index)=>item.missionId?h('button',{key:index,type:'button',className:'paa-exp-chain-item',
       'data-mission-id':item.missionId,'data-completed':item.completed,'data-tooltip':item.name||undefined,'aria-label':item.text,disabled:disabled||!onMissionChange,
@@ -77,9 +77,10 @@ module.exports=React=>{
           h('div',{className:'paa-exp-requirements-content'},conditionList(conditions))),
         missing.length?h('div',{className:'paa-exp-shortfalls','aria-label':'未满足的出航条件'},h('div',{className:'paa-exp-condition-caption'},'参考编成 · 尚未满足出航条件'),conditionList(missing)):null),
       h('section',{className:'paa-exp-income','data-rate':rateState,'aria-label':(incomeUnit==='hour'?'每小时':'单次')+incomeLabel},
-        h('div',{className:'paa-exp-section-head'},h('div',{className:'paa-exp-income-title'},h('h4',null,incomeLabel),basePreview||!income?h('span',null,basePreview?'未扣补给 · 未计加成':'待核算补给'):null),
+        h('div',{className:'paa-exp-section-head'},h('div',{className:'paa-exp-income-title'},h('h4',null,incomeLabel),basePreview||!income?h('span',null,basePreview?'未扣补给 · 未计加成':'待核算补给'):
+          income.repair?h('span',{tabIndex:0,'data-tooltip':income.repair.note||income.repair.reason},income.repair.status==='reference'?'含修理参考':'修理待确认'):null),
           h('div',{className:'paa-exp-income-unit',role:'group','aria-label':'收益时间单位'},...['trip','hour'].map(unit=>h('button',{key:unit,type:'button','aria-pressed':incomeUnit===unit,onClick:()=>onIncomeUnitChange?.(unit)},unit==='hour'?'每小时':'单次')))),
-        h('div',{className:'paa-exp-income-table','data-columns':showGreat&&showSuccess?3:2,'data-has-items':items.length>0,'data-great-available':Number.isFinite(rate)?rate>0:'unknown','data-unit':incomeUnit,'data-preview':basePreview,role:'table','aria-label':basePreview?'远征基础奖励':'扣补给后的远征收益'},
+        h('div',{className:'paa-exp-income-table','data-columns':showGreat&&showSuccess?3:2,'data-has-items':items.length>0,'data-great-available':Number.isFinite(rate)?rate>0:'unknown','data-unit':incomeUnit,'data-preview':basePreview,role:'table','aria-label':basePreview?'远征基础奖励':income?.repair?.status==='reference'?'扣补给和参考修理后的远征收益':'扣补给后的远征收益'},
           h('div',{className:'paa-exp-income-row paa-exp-income-heading',role:'row'},h('span',{role:'columnheader'},'奖励'),showSuccess?h('span',{role:'columnheader'},outcomeLabel('成功',successPercent)):null,showGreat?h('span',{role:'columnheader',className:'paa-exp-great-heading'},outcomeLabel('大成功',greatPercent)):null),
           ...rewardRows.map(r=>h('div',{className:'paa-exp-income-row',role:'row',key:r.name},h('span',{role:'rowheader'},resource(r.name)),
             showSuccess?h('strong',{role:'cell','data-negative':r.net<0,'data-zero':(basePreview?r.success:r.net)===0,'data-missing':!Number.isFinite(basePreview?r.success:r.net)},...incomeValue(basePreview?r.success:r.net,incomeUnit,master?.api_time)):null,showGreat?h('strong',{role:'cell',className:'paa-exp-resource-great','data-negative':r.greatNet<0,'data-zero':(basePreview?r.great:r.greatNet)===0,'data-missing':!Number.isFinite(basePreview?r.great:r.greatNet)},...incomeValue(basePreview?r.great:r.greatNet,incomeUnit,master?.api_time)):null)),

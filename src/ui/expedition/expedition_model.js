@@ -25,7 +25,7 @@ function missionSummary(mission,master={},useItems={},progress={},fleets=[]){
   const statusText=[running.length?`第 ${running.join('、')} 舰队远征中`:'',completionText].filter(Boolean).join(' · ');
   const name=mission.name||master.api_name||'远征名称待载入';
   const unlocked=running.length>0||!!(current&&[0,1,2].includes(record.state))||!!(list?.period===period&&list.ids.includes(mission.missionId));
-  return {number:master.api_disp_no||String(mission.missionId),name,time,minutes,rewards,monthly,status,completion,statusText,unlocked};
+  return {number:master.api_disp_no||String(mission.missionId),name,time,minutes,rewards,monthly,status,completion,statusText,unlocked,runningFleets:running};
 }
 const TYPES={DD:'驱逐',DE:'海防',CL:'轻巡',CLT:'雷巡',CA:'重巡',CAV:'航巡',CVL:'轻空母',CV:'正空',CVB:'装甲空母',BB:'战舰',FBB:'高速战舰',BBV:'航战',AV:'水母',AO:'补给舰',LHA:'登陆舰',AS:'潜水母舰',CT:'练巡',AR:'工作舰',DDorDE:'驱逐 / 海防',SSLike:'潜水舰',CVLike:'空母 / 水母',CVE:'护卫空母'};
 const LABELS={flagshipLevel:'旗舰等级',shipCount:'舰船数量',levelSum:'舰队总等级',flagshipType:'旗舰舰种',drumCarriers:'载桶舰数',drums:'运输桶数',resupply:'补给',minMorale:'士气',totalFirepower:'总火力',totalAntiAir:'总对空',totalAsw:'总对潜',totalLos:'总索敌'};
@@ -125,6 +125,8 @@ function incomeBreakdown(row,missionId){
     {key:'bonus',label:'收益加成',success:knownBase&&Number.isFinite(row.success)?row.success-base:null,
       great:knownBase&&Number.isFinite(row.great)?row.great-greatBase:null},
     {key:'cost',label:'补给消耗',success:cost,great:cost},
+    ...(Number.isFinite(row.repairCost)&&row.repairCost>0?
+      [{key:'repair',label:'修理参考',success:-row.repairCost,great:-row.repairCost}]:[]),
   ];
 }
 function referenceIncome(missionId){

@@ -9,6 +9,7 @@ const {availableEquipment}=require('./loadout/loadout_policy');
 const expeditions=require('../domain/expeditions/expeditions');
 const expeditionIncome=require('../domain/expeditions/expedition_income');
 const expeditionLoadout=require('../domain/expeditions/expedition_loadout');
+const expeditionRepair=require('../domain/expeditions/expedition_repair');
 const {context,holdDraftEquipment,idsKey,num,schemeOf,shipCost,shipFamilyKey,usableSlots}=require('./context');
 
 function missionRates(store,missionId){
@@ -70,9 +71,14 @@ function prepareExpeditionSearch(store,args,spec,missionId){
   const inventory=availableEquipment(store),incomeSearch=expeditionLoadout.incomeSearch(store,pool,inventory,spec,missionId,args.heldSlots);
   const statsOf=row=>({firepower:num(row.ship.api_karyoku),antiAir:num(row.ship.api_taiku),asw:num(row.ship.api_taisen),los:num(row.ship.api_sakuteki)});
   const statKeys=Object.keys(spec.totals||{});
+  const engagement=expeditionRepair.typeOf(missionId);
   const metadata=new Map(pool.map(row=>{
     const stats=statsOf(row),incomeGroup=incomeSearch.capacity.get(row.id)*2+Number(Number(row.ship.api_ship_id)===487);
-    return [row.id,{row,family:shipFamilyKey(row),cost:shipCost(row,rates.fuel,rates.ammo),stats,
+    // A per-hull risk reference makes cheaper alternatives survive candidate
+    // generation; final ranking recalculates with the full fitted fleet.
+    const repair=engagement?expeditionRepair.repairReference(store,[{id:row.id}],missionId,{checks:[]}):null;
+    const risk=repair?.status==='reference'?(repair.fuel+repair.steel)*(engagement===1?.5:1):0;
+    return [row.id,{row,family:shipFamilyKey(row),cost:shipCost(row,rates.fuel,rates.ammo)+risk,stats,
       vector:statKeys.map(key=>stats[key]),level:row.level/3,incomeGroup,sparkled:Number(row.ship.api_cond)>=50}];
   }));
   const types=new Set((spec.fleetCompos||[{}]).flatMap(Object.keys));if(spec.flagshipType)types.add(spec.flagshipType);
@@ -122,8 +128,9 @@ const gapScore=evaluation=>{
       Math.min(...g.detail.map(option=>option.parts.reduce((sum,p)=>sum+Math.max(0,p.need-p.actual)/Math.max(1,p.need),0))):1),0),count:gaps.length};
 };
 const gapOrder=(a,b)=>a.gap.hard-b.gap.hard||a.gap.ratio-b.gap.ratio||a.gap.count-b.gap.count;
-function expeditionCandidate(prepared,parts,selectedFlagship,count,goal,variant,sparkleTarget,incomeMode,allowMissing=false){
-  const {ctx,metadata,incomeSearch,pools,incomeGroups,rankings,want}=prepared,weights=EXPEDITION_WEIGHTS;
+function expeditionCandidate(prepared,parts,selectedFlagship,count,goal,variant,sparkleTarget,incomeMode,allowMissing=false,coverageFactor=1){
+  const {ctx,metadata,incomeSearch,pools,incomeGroups,rankings}=prepared,weights=EXPEDITION_WEIGHTS;
+  const want=coverageFactor===1?prepared.want:prepared.want.map(([key,need])=>[key,need*coverageFactor]);
   const family=row=>metadata.get(row.id).family;
   const rows=ctx.fixed.map(id=>ctx.byId.get(id)),used=new Set(ctx.fixed);
   if(!used.has(selectedFlagship.id)){
@@ -147,7 +154,7 @@ function expeditionCandidate(prepared,parts,selectedFlagship,count,goal,variant,
     const preference=goal==='great'?Number(wantSparkle):sparkleTarget===0?0:-1;
     // Scores depend on remaining requirements, not which hulls created
     // them. Rank once, then exclude the already selected ship families.
-    const key=mode?JSON.stringify([mode,variant,preference,type,totals,incomeActive?incomeState:null,goal]):
+    const key=mode||coverageFactor!==1?JSON.stringify([mode,coverageFactor,variant,preference,type,totals,incomeActive?incomeState:null,goal]):
       prepared.rankingKey(variant,preference,type,totals,incomeActive?incomeState:null,Number(incomeActive&&goal==='great'));
     let ranking=rankings.get(key);
     if(!ranking){
@@ -230,7 +237,9 @@ function searchExpeditionFleet(store,args,shared={}){
     rejected.sort((a,b)=>gapOrder(a,b)||a.cost.fuel+a.cost.ammo-b.cost.fuel-b.cost.ammo);
     if(rejected.length>16)rejected.pop();
   };
+  const engagement=expeditionRepair.typeOf(missionId);
   const candidateRow=(scheme,evaluation,ordered)=>({scheme,evaluation,incomePotential:incomeSearch.potential(ordered),
+    repair:engagement?expeditionRepair.repairReference(store,scheme.ships,missionId,evaluation):null,
     cost:{fuel:ordered.reduce((n,r)=>n+r.fuel*rates.fuel,0),ammo:ordered.reduce((n,r)=>n+r.ammo*rates.ammo,0),unit:'fullSupplyEquivalent',source:rates.source}});
   // Several deterministic cost/attribute trade-offs cover alternative
   // compositions and aggregate stat requirements without factorial search.
@@ -259,7 +268,7 @@ function searchExpeditionFleet(store,args,shared={}){
   // bounded shortlist; shorter fleets cannot preserve that position.
   const minHeldSize=(args.heldSlots||[]).reduce((size,ship,index)=>
     ship&&ship.holdPosition!==false&&(ship.pin||Object.keys(ship.keep||{}).length)?Math.max(size,index+1):size,0);
-  const collect=(candidateVariants,candidateFlags,onRow)=>{
+  const collect=(candidateVariants,candidateFlags,onRow,coverageFactor=1)=>{
     const passSeen=new Set();
     for(const ordered of questSeedRows){
       if(ordered.length<Math.max(spec.shipCount,minHeldSize)||!flagshipEligible(ordered[0]))continue;
@@ -275,7 +284,7 @@ function searchExpeditionFleet(store,args,shared={}){
     for(const incomeMode of incomeSearch.active?[false,true]:[false])
       for(const parts of compositions)for(let count=Math.max(spec.shipCount,ctx.fixed.length,minHeldSize);count<=6;count++)
       for(const sparkleTarget of sparkleTargets)for(const variant of candidateVariants)for(const selectedFlagship of candidateFlags){
-      const rows=expeditionCandidate(prepared,parts,selectedFlagship,count,goal,variant,sparkleTarget,incomeMode);
+      const rows=expeditionCandidate(prepared,parts,selectedFlagship,count,goal,variant,sparkleTarget,incomeMode,false,coverageFactor);
       if(!rows)continue;
       {
         const ordered=[selectedFlagship,...rows.filter(row=>row.id!==selectedFlagship.id)];
@@ -306,6 +315,9 @@ function searchExpeditionFleet(store,args,shared={}){
     }
   };
   collect(variants,flagships,row=>{if(!row.evaluation.eligible)retainRejected(row);else valid.push(row);});
+  if(engagement===2)collect(variants.slice(-4),flagships,row=>{
+    if(!row.evaluation.eligible)retainRejected(row);else valid.push(row);
+  },2.2);
   shared.onProgress?.({stage:'expedition-fit'});
   // Only when hard constraints prevented the normal generator from producing
   // any candidate, assemble a bounded reference fleet without relaxing
@@ -324,16 +336,22 @@ function searchExpeditionFleet(store,args,shared={}){
     }
   }
   const probabilityOrder=(a,b)=>goal==='great'?Math.min(100,b.evaluation.greatSuccess.estimatedPercent)-Math.min(100,a.evaluation.greatSuccess.estimatedPercent):0;
-  const sparkleOrder=(a,b)=>goal==='success'?a.evaluation.greatSuccess.sparkledCount-b.evaluation.greatSuccess.sparkledCount:0;
+  const economicComparison=!!spec.totals;
+  const sparkleOrder=(a,b)=>goal==='success'&&!economicComparison?a.evaluation.greatSuccess.sparkledCount-b.evaluation.greatSuccess.sparkledCount:0;
+  // For stat-gated dispatches, avoiding sparkle is a preference rather than a
+  // reason to spend hundreds of additional resources on a heavy hull.
+  const sparkleCost=row=>economicComparison&&goal==='success'?20*row.evaluation.greatSuccess.sparkledCount:0;
+  const repairCost=row=>row.repair?.status==='reference'?row.repair.fuel+row.repair.steel:0;
+  const candidateCost=row=>row.cost.fuel+row.cost.ammo+repairCost(row)+sparkleCost(row);
   const oldOrder=(a,b)=>probabilityOrder(a,b)||sparkleOrder(a,b)||
     (goal==='great'?a.evaluation.greatSuccess.sparkledCount-b.evaluation.greatSuccess.sparkledCount:0)||
     (goal==='great'?a.scheme.ships.length-b.scheme.ships.length:0)||
     (goal==='great'?Math.max(0,a.evaluation.greatSuccess.rawPercent-100)-Math.max(0,b.evaluation.greatSuccess.rawPercent-100):0)||
-    (a.cost.fuel+a.cost.ammo)-(b.cost.fuel+b.cost.ammo)||
+    candidateCost(a)-candidateCost(b)||
     a.scheme.ships.length-b.scheme.ships.length||
     (goal==='great'?a.evaluation.greatSuccess.rawPercent-b.evaluation.greatSuccess.rawPercent||a.evaluation.greatSuccess.drums-b.evaluation.greatSuccess.drums:0);
   valid.sort(oldOrder);
-  const estimatedNet=row=>incomeSearch.resources*(1+row.incomePotential)*(goal==='great'?1.5:1)-row.cost.fuel-row.cost.ammo;
+  const estimatedNet=row=>incomeSearch.resources*(1+row.incomePotential)*(goal==='great'?1.5:1)-candidateCost(row);
   // Fit a bounded union of the old cost shortlist and reward-aware candidates.
   // Probability remains the first criterion for the great-success goal.
   const shortlist=[],candidateKeys=new Set(),take=rows=>{
@@ -345,6 +363,15 @@ function searchExpeditionFleet(store,args,shared={}){
     }
   };
   take(valid);if(incomeSearch.active)take(valid.slice().sort((a,b)=>probabilityOrder(a,b)||sparkleOrder(a,b)||estimatedNet(b)-estimatedNet(a)||oldOrder(a,b)));
+  if(engagement===2){
+    // Keep a small high-stat beam: a more expensive fleet can reach the
+    // community-observed no-damage line and actually cost less to repair.
+    const margin=row=>{
+      const checks=row.evaluation.checks.filter(c=>c.type.startsWith('total')&&Number(c.right)>0);
+      return checks.length?Math.min(...checks.map(c=>Math.min(2.2,c.left/c.right))):0;
+    };
+    take(valid.slice().sort((a,b)=>probabilityOrder(a,b)||margin(b)-margin(a)||oldOrder(a,b)));
+  }
   if(spec.totals||!shortlist.length)take(rejected);
   const selected=new Set(),distinct=[];
   // Inventory and preview indexes belong to this immutable search only.
@@ -395,7 +422,8 @@ function searchExpeditionFleet(store,args,shared={}){
       if(distinct.some(row=>row.evaluation.eligible))break;
     }
   }
-  const net=row=>expeditionLoadout.planningNet(row.income,missionId,goal==='great'?row.evaluation.greatSuccess.estimatedPercent/100:0);
+  const net=row=>{const value=expeditionLoadout.planningNet(row.income,missionId,goal==='great'?row.evaluation.greatSuccess.estimatedPercent/100:0);
+    return value===undefined?undefined:value-sparkleCost(row);};
   const usage=new Map(distinct.map(row=>[row,expeditionLoadout.cargoUse(store,row.scheme.ships,inventory)]));
   distinct.sort((a,b)=>Number(b.evaluation.eligible)-Number(a.evaluation.eligible)||
     (!a.evaluation.eligible&&!b.evaluation.eligible?gapOrder(a,b):0)||probabilityOrder(a,b)||sparkleOrder(a,b)||(net(a)!==undefined&&net(b)!==undefined?net(b)-net(a):0)||
@@ -407,7 +435,7 @@ function searchExpeditionFleet(store,args,shared={}){
     ...(closest?{closestRecommendation:{...publicRow(closest),rank:1,status:'closest',departureReady:false,shortfalls:expeditions.requirementGaps(closest.evaluation)}}:{}),
     search:{kind:'boundedHeuristic',evaluated,compositions:options.length,globalOptimal:false,
       ...(spec.totals?{fitted:distinct.length,rescue:rescueAttempted}:{}),
-      reason:'满足出航与大成功目标后，比较至20%加成为止的净收益；优先大发并节省装备，不追逐额外收益'},
+      reason:'满足出航与大成功目标后，比较至20%加成为止的净收益；优先大发并节省装备，不追逐额外收益'+(engagement?'，并参考交战损伤的修理消耗':'')},
     ...(available.length?{}:{reason:quests.length?'本轮未找到同时满足已选任务和远征条件的编成，请调整勾选任务或固定舰娘。':closest?'未找到达标方案，已提供最接近的参考编成；请调整未满足的出航条件':'未找到可预览的参考编成；请检查可用舰娘、排除设置与固定舰娘'})};
 }
 // Fit only the chosen hulls. Mandatory drums and the selected probability
@@ -503,7 +531,7 @@ function fitExpeditionEquipment(store,{scheme,missionId,goal='success',heldSlots
   }
   const warnings=evaluation.checks.filter(c=>!c.sat&&['drums','drumCarriers'].includes(c.type))
     .map(c=>`${c.type==='drums'?'运输桶':'载桶舰娘'}不足：${c.left} / ${c.right}，请调整舰娘、手动装备或可用运输桶`);
-  return {scheme:fitted,evaluation,warnings,drumTarget:Math.max(target,evaluation.greatSuccess.drums),income:expeditionIncome.missionIncome(store,fitted.ships,missionId)};
+  return {scheme:fitted,evaluation,warnings,drumTarget:Math.max(target,evaluation.greatSuccess.drums),income:expeditionIncome.missionIncome(store,fitted.ships,missionId,evaluation)};
 }
 // Workbench-local adjustment: evaluate equipment for exactly these hulls, in
 // exactly this order. Never run the fleet search or fill an empty ship slot.

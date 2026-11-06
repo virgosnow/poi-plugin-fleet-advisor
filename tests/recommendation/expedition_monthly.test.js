@@ -246,3 +246,45 @@ test('mandatory drums reserve scarce ASW-compatible slots instead of filling the
     assert.equal(fit.evaluation.greatSuccess.drums,6);
   }
 });
+
+test('stat-gated expeditions do not pick an expensive battleship just to save one sparkling ship',()=>{
+  const store=empty(),base={firepower:62,antiAir:52,asw:52,los:40};
+  for(const typeId of [2,3,5,9])store.const.$shipTypes[typeId]={api_equip_type:{}};
+  [5,3,2,2,2,5,9].forEach((typeId,index)=>{const id=index+1,cost=id===7?250:id===6?30:15;
+    hull(store,id,typeId,id===7?{firepower:160,antiAir:52,asw:52,los:40}:base,2,cost);
+    Object.assign(store.info.ships[id],{api_cond:id===6?60:49,api_maxhp:id===7?100:40,api_nowhp:id===7?100:40});
+    store.const.$ships[id].api_taik=[40,id===7?100:40];
+  });
+  store.const.$missions[111]={api_use_fuel:.5,api_use_bull:.5};
+  const result=recommendExpeditionFleet(store,{missionId:111,fleet:2,goal:'success',limit:1,fixedShipIds:[1,2,3,4,5]});
+  assert(result.recommendations[0],JSON.stringify(result.closestRecommendation?.shortfalls));
+  const ships=result.recommendations[0].scheme.ships.map(ship=>ship.id);
+  assert(ships.includes(6),JSON.stringify(ships));assert(!ships.includes(7),JSON.stringify(ships));
+});
+
+test('combat expedition candidate generation retains lower repair-cost hulls',()=>{
+  const store=empty(),base={firepower:50,antiAir:50,asw:45,los:35};
+  for(const typeId of [2,3,5,9])store.const.$shipTypes[typeId]={api_equip_type:{}};
+  [5,3,2,2,2,9,5].forEach((typeId,index)=>{const id=index+1;
+    hull(store,id,typeId,base,2,30);Object.assign(store.info.ships[id],{api_cond:49,api_maxhp:id===6?200:40,api_nowhp:id===6?200:40});
+    store.const.$ships[id].api_taik=[40,id===6?200:40];
+  });
+  store.const.$missions[104]={api_use_fuel:.5,api_use_bull:.5};
+  const fixedShipIds=[1,2,3,4,5],result=recommendExpeditionFleet(store,{missionId:104,fleet:2,goal:'success',limit:1,fixedShipIds});
+  const row=result.recommendations[0];assert(row,JSON.stringify(result.closestRecommendation?.shortfalls));
+  const ships=row.scheme.ships.map(ship=>ship.id);assert(ships.includes(7),JSON.stringify(ships));assert(!ships.includes(6),JSON.stringify(ships));
+  assert.equal(row.income.repair.status,'reference');assert(row.income.repair.steel>0);
+});
+
+test('combat II retains high-stat alternatives that reach the reported no-damage line',()=>{
+  const store=empty(),strong={firepower:130,antiAir:140,asw:120,los:80};
+  for(const typeId of [2,3,5,9])store.const.$shipTypes[typeId]={api_equip_type:{}};
+  [5,3,2,2,2,5,9].forEach((typeId,index)=>{const id=index+1,stats=id===6?{...strong,firepower:50}:id===7?{...strong,firepower:100}:strong;
+    const fuel=id<=5?100:id===6?15:80;hull(store,id,typeId,stats,2,fuel);
+    Object.assign(store.info.ships[id],{api_cond:49,api_maxhp:100,api_nowhp:100});store.const.$ships[id].api_taik=[100,100];
+  });
+  store.const.$missions[105]={api_use_fuel:.5,api_use_bull:.5};
+  const result=recommendExpeditionFleet(store,{missionId:105,fleet:2,goal:'success',limit:1,fixedShipIds:[1,2,3,4,5]}),row=result.recommendations[0];
+  assert(row,JSON.stringify(result.closestRecommendation?.shortfalls));assert(row.scheme.ships.some(ship=>ship.id===7),JSON.stringify(row.scheme));
+  assert.equal(row.income.repair.protectedLine,true);
+});

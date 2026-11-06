@@ -54,7 +54,7 @@ function grossReward(base,bonus,great=false){
     Math.floor(base*numerator*bonus.synergyBasisPoints/(denominator*BASIS_POINTS));
 }
 
-function missionIncome(store,slots,missionId){
+function missionIncome(store,slots,missionId,evaluation){
   const rewards=DATA.missions[missionId]?.resources,mission=store.const.$missions?.[missionId];
   if(!rewards||rewards.length!==4||!rewards.every(Number.isFinite)||
     !Number.isFinite(mission?.api_use_fuel)||!Number.isFinite(mission?.api_use_bull))return null;
@@ -68,11 +68,14 @@ function missionIncome(store,slots,missionId){
       equipment:itemIds.map(id=>({masterId:store.info.equips[id]?.api_slotitem_id,stars:store.info.equips[id]?.api_level||0}))});
   }
   const bonus=rewardBonus(ships),cost=resupplyCost(ships,{fuel:mission.api_use_fuel,ammo:mission.api_use_bull});
+  const repair=require('./expedition_repair').repairReference(store,slots,missionId,evaluation);
   const rows=rewards.map((base,index)=>{
     const used=index===0?cost.fuelCost:index===1?cost.ammoCost:0;
+    const repairCost=repair?.status==='reference'?(index===0?repair.fuel:index===2?repair.steel:0):0;
     const success=grossReward(base,bonus),great=grossReward(base,bonus,true);
-    return {name:RESOURCE_NAMES[index],base,cost:used,success,great,net:success-used,greatNet:great-used};
-  }).filter(row=>row.success||row.cost);
-  return {bonus:bonus.totalRate,cost,rows};
+    return {name:RESOURCE_NAMES[index],base,cost:used,...(repair?.status==='reference'?{repairCost}:{}),
+      success,great,net:success-used-repairCost,greatNet:great-used-repairCost};
+  }).filter(row=>row.success||row.cost||row.repairCost);
+  return {bonus:bonus.totalRate,cost,rows,...(repair?{repair}:{})};
 }
 module.exports={equipmentRewardRate,rewardBonus,resupplyCost,grossReward,missionIncome};

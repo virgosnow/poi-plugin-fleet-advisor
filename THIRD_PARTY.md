@@ -32,6 +32,7 @@ MCP 服务采用 Node.js 内置 HTTP 实现，不捆绑协议 SDK 或客户端�
 | 合计属性、装备蓝字、远征改修和飞机搭载补正 | [远征：要求属性时的改修与舰载机](https://wikiwiki.jp/kancolle/遠征#about_stat)；`expedition_stats.js` 独立实现，未确认的飞机贡献使用保守下限 |
 | 特大发组合加成 | [特大発動艇](https://wikiwiki.jp/kancolle/特大発動艇) |
 | 婚舰补给修正 | [ケッコンカッコカリ](https://wikiwiki.jp/kancolle/ケッコンカッコカリ) |
+| 交战类型、损伤及修理消耗 | [远征：交战型远征](https://wikiwiki.jp/kancolle/遠征#monthlyensei)、[入渠：修理费用](https://wikiwiki.jp/kancolle/入渠)；四分之一耐久为比较情景，并非资料给出的概率或平均损伤 |
 
 `tools/data/import-expedition-wiki.py` 解析奖励、装备加成、特大发组合和大成功参考表，保存地址、取得信息及原文 SHA-256。完整 Wiki 原文只存项目外。
 

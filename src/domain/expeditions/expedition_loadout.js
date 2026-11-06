@@ -33,7 +33,7 @@ function planningNet(income,missionId,greatChance=0){
   if(!income)return undefined;
   if(income.bonus<=.2+1e-10)return income.rows.reduce((n,r)=>n+r.net+(r.greatNet-r.net)*greatChance,0);
   return rewards[missionId].resources.reduce((n,v)=>n+Math.floor(v*6/5)*(1-greatChance)+Math.floor(v*9/5)*greatChance,0)-
-    income.cost.fuelCost-income.cost.ammoCost;
+    income.cost.fuelCost-income.cost.ammoCost-(income.repair?.status==='reference'?income.repair.fuel+income.repair.steel:0);
 }
 function fits(store,item,shipId,k){
   return snapshotMemo(store,'expedition-fit',`${shipId}:${item.id}:${k}:${item.sourceShipId||0}`,()=>{

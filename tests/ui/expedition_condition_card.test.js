@@ -91,3 +91,17 @@ test('resource breakdown follows available outcomes and adds exactly to net inco
   }
   assert.equal(JSON.stringify(income),before);
 });
+
+test('combat expedition income labels repair as a reference and separates it from resupply',()=>{
+  const income={repair:{status:'reference',note:'假设受损四分之一，非实际概率'},rows:[
+    {name:'燃料',base:100,success:100,great:150,cost:20,repairCost:12,net:68,greatNet:118},
+    {name:'钢材',base:0,success:0,great:0,cost:0,repairCost:18,net:-18,greatNet:-18}]};
+  const tree=create(React).overview({rate:50,income,hasShips:true,expedition:{eligible:true},mission:{missionId:104}});
+  const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join('');
+  assert(find(tree,node=>node.type==='h4'&&text(node)==='参考净收益'));
+  assert(find(tree,node=>node.props['data-tooltip']===income.repair.note&&text(node)==='含修理参考'));
+  const fuel=find(tree,node=>node.props.className==='paa-exp-formula-group'&&node.props['aria-label']==='燃料单次收益明细');
+  const repair=find(fuel,node=>node.props['data-kind']==='repair');assert.equal(text(repair),'− 修理参考 12');
+  const unknown=create(React).overview({rate:0,income:{...income,repair:{status:'unknown',reason:'耐久待确认'}},hasShips:true,mission:{missionId:104}});
+  assert(find(unknown,node=>node.props['data-tooltip']==='耐久待确认'&&text(node)==='修理待确认'));
+});
