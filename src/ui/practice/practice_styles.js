@@ -34,14 +34,14 @@ module.exports=`
 ${trainingSizeRules}
 ${trainingOverflowRules}
 .paa-practice-training-trigger[aria-expanded=true]{border-color:var(--paa-accent)}.paa-practice-training-trigger[aria-expanded=true] .paa-area-chevron{transform:translateY(3px) rotate(225deg)}
-.paa-practice-training-panel{position:absolute;top:calc(100% + 6px);left:0;z-index:30;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;width:min(520px,calc(100vw - 24px));max-height:560px;padding:10px;border:1px solid var(--paa-line);border-radius:9px;background:var(--paa-card);box-shadow:0 8px 24px #0005}
-.paa .paa-practice-training-controls :is(input,select){font-size:14px}
+.paa-practice-training-panel{position:absolute;top:calc(100% + 6px);left:0;z-index:30;box-sizing:border-box;display:flex;flex-direction:column;gap:5px;width:min(100%,calc(100vw - 24px));max-height:560px;padding:10px;border:1px solid var(--paa-line);border-radius:9px;background:var(--paa-card);box-shadow:0 8px 24px #0005}
+.paa .paa-practice-training-controls :is(input,select){font-size:13px}
 .paa .paa-practice-training-tabs,.paa .paa-practice-training-lock-filter{display:flex;align-items:flex-start;gap:8px;min-width:0}
-.paa .paa-practice-training-lock-filter{padding-bottom:8px;border-bottom:1px solid var(--paa-line)}
+.paa .paa-practice-training-lock-filter{padding-bottom:6px;border-bottom:1px solid var(--paa-line)}
 .paa-practice-training-filter-label{box-sizing:border-box;flex:0 0 34px;height:20px;margin-top:4px;border-radius:4px;background:rgba(148,163,184,.1);color:var(--paa-muted);font-size:12px;font-weight:400;line-height:20px;text-align:center;white-space:nowrap}.paa-practice-training-filter-options{display:flex;flex:1;flex-wrap:wrap;gap:4px;min-width:0}
-.paa .paa-practice-training-filter-options>button{flex:none;min-height:28px;padding:2px 7px;border-color:transparent;background:transparent;color:var(--paa-muted);font-size:14px;font-weight:400;line-height:22px;white-space:nowrap}
+.paa .paa-practice-training-filter-options>button{flex:none;min-height:28px;padding:2px 7px;border-color:transparent;background:transparent;color:var(--paa-muted);font-size:13px;font-weight:400;line-height:22px;white-space:nowrap}
 .paa .paa-practice-training-filter-options>button[aria-pressed=true]{border-color:var(--paa-line);background:var(--paa-soft);color:var(--paa-accent)}
-.paa-practice-training-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:55px;max-height:350px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:2px}
+.paa-practice-training-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:55px;max-height:350px;margin-top:3px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:2px}
 .paa-practice-training-option{box-sizing:border-box;display:flex;align-items:center;gap:8px;min-height:44px;margin:0;padding:5px 10px;border:1px solid transparent;border-radius:6px;font-size:13px;line-height:1.4;cursor:pointer;content-visibility:auto;contain-intrinsic-size:auto 50px}.paa-practice-training-option:hover{background:var(--paa-soft)}.paa-practice-training-option[data-selected=true]{border-color:var(--paa-accent);background:var(--paa-soft);color:var(--paa-accent)}.paa-practice-training-option[data-unavailable=true]{opacity:.5;cursor:not-allowed}
 .paa-practice-training-window{position:relative;flex:none;min-width:0}.paa-practice-training-window>.paa-practice-training-option{position:absolute;left:0;right:0;height:49px;min-height:49px;content-visibility:visible}
 .paa .paa-practice-training-option *{cursor:inherit}.paa .paa-practice-training-option[data-unavailable=true] input[type=checkbox]:disabled{cursor:not-allowed}
@@ -60,6 +60,14 @@ ${trainingOverflowRules}
 .paa-practice-block p{margin:0;font-size:12px;line-height:1.5}
 .paa-practice-block p.paa-practice-cache-note{margin:0 0 8px}
 .paa-practice-opponent-layout{position:relative;min-width:0;container:practice-opponents / inline-size;--paa-opponent-detail-width:min(232px,47%)}
+/* Keep the connected opponent panel and its selection indicator under the run mask. */
+.paa-workspace[aria-busy=true] .paa-practice-opponent-layout{z-index:0}
+/* Disabled opponent buttons are already dimmed; match their text and portraits. */
+.paa-workspace[aria-busy=true] .paa-practice-enemy-content,
+.paa-practice[data-calculating=true] .paa-practice-enemy-content{opacity:.45}
+/* Left-side controls and forecasts stay in place, including in narrow layouts. */
+.paa-practice[data-calculating=true] .paa-wb-left>:is(.paa-practice-context,.paa-practice-opponent-section,.paa-practice-forecast-section,.paa-quest-section){position:relative;isolation:isolate}
+.paa-practice[data-calculating=true] .paa-wb-left>:is(.paa-practice-context,.paa-practice-opponent-section,.paa-practice-forecast-section,.paa-quest-section)::after{content:'';position:absolute;inset:0;z-index:10;border-radius:10px;background:rgba(112,128,150,.18);cursor:progress;pointer-events:auto}
 .paa-practice-opponent-layout[data-has-opponents=true]{min-height:260px}
 .paa-practice-opponents{position:relative;display:grid;gap:6px;min-width:0;transition:margin-right .22s ease}
 .paa-practice-opponent-layout[data-open=true] .paa-practice-opponents{margin-right:calc(var(--paa-opponent-detail-width) + 8px)}

@@ -185,6 +185,39 @@ test('execution cards follow confirmed per-ship events and do not recalculate th
  assert.equal(inspect.mock.callCount(),0);assert.equal(summary.mock.callCount(),0);
 });
 
+test('practice application attaches shared progress to matching ships and keeps stop available',t=>{
+ const store=fixture();store.practiceState={known:true,opponents:[],revision:1};store.questState={known:true,tasks:[]};
+ store.info.fleets=[{api_ship:[1,2],api_mission:[0]},{api_ship:[],api_mission:[1]},{api_ship:[],api_mission:[0]}];
+ const service={preview:()=>({})},h=harness(t,require('../../src/ui/practice/practice_page'),{getStore:()=>store,getController:()=>service,subscribe:()=>()=>{}});
+ let stopped=0;h.render({kind:'practice',automaticOperations:true,onStop:()=>stopped++});
+ h.set('slots',[W.entry(store,1),W.entry(store,2),null,null,null,null]);
+ h.render({busy:true,executionPlan:{fleet:1,targets:[1,99]}});
+ const card=id=>find(h.tree,n=>n.props['data-ship-id']===id);
+ const progress=id=>find(card(id),n=>n.type?.name==='ExecutionCard');
+ assert.equal(progress(1).props.running,true);assert.equal(progress(1).props.ship,1);assert.equal(progress(1).props.index,0);
+ assert.equal(progress(2).props.running,false);
+ const stop=find(h.tree,n=>n.props.className==='paa-primary paa-wb-apply');stop.props.onClick({});assert.equal(stopped,1);
+ h.render({stopping:true});assert.equal(progress(1).props.stopping,true);
+ find(h.tree,n=>n.props.className==='paa-primary paa-wb-apply').props.onClick({});assert.equal(stopped,1);
+ h.render({busy:false,stopping:false});assert.equal(progress(1).props.running,false);
+ const select=find(h.tree,n=>n.props['aria-label']==='编入舰队');
+ assert.equal(select.children[0].props.disabled,false);assert.equal(select.children[1].props.disabled,true);assert.match(text(select.children[1]),/远征中/);
+ assert.equal(select.children[3].props.disabled,true);assert.match(text(select.children[3]),/未同步/);
+ h.render({busy:true,executionPlan:{fleet:2,targets:[1,2]}});assert.equal(progress(1).props.running,false);
+});
+
+test('practice application keeps the visible snapshot and refreshes preview after stopping',t=>{
+ let store=fixture();store.practiceState={known:true,opponents:[],revision:1};store.questState={known:true,tasks:[]};
+ const service={preview:()=>({})},preview=t.mock.method(service,'preview');
+ const h=harness(t,require('../../src/ui/practice/practice_page'),{getStore:()=>store,getController:()=>service,subscribe:()=>()=>{}});
+ h.render({kind:'practice',busy:false});h.set('slots',[W.entry(store,1),null,null,null,null,null]);h.render();
+ const before=preview.mock.callCount(),oldName=store.const.$ships[store.info.ships[1].api_ship_id].api_name;
+ h.render({busy:true,executionPlan:{fleet:1,targets:[1]}});
+ store={...store,const:{...store.const,$ships:{...store.const.$ships,[store.info.ships[1].api_ship_id]:{...store.const.$ships[store.info.ships[1].api_ship_id],api_name:'更新舰名'}}}};
+ h.render({busy:true,stopping:true});assert.equal(preview.mock.callCount(),before);assert(text(h.tree).includes(oldName));assert(!text(h.tree).includes('更新舰名'));
+ h.render({busy:false,stopping:false});assert.equal(preview.mock.callCount(),before+1);assert(text(h.tree).includes('更新舰名'));
+});
+
 test('job polling never keeps a finished local run busy; MCP jobs still expose stopping',async t=>{
   let finish,job=null,cancelled=0;
   const status=()=>({mcpEnabled:false,activeJobId:job?.jobId||null,mcpHttp:{active:false}});

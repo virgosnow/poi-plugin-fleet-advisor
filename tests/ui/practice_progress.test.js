@@ -25,6 +25,8 @@ test('practice recommendation blocks the retained cards with shared progress unt
  assert.equal(walk(tree).find(n=>n.props.className==='paa-wb-complete').props.disabled,false);
  const run=walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();
  tree=render();let result=walk(tree).find(n=>n.props.className==='paa-wb-fleet-results');
+ assert.equal(tree.props['data-calculating'],true);const left=walk(tree).find(n=>n.props.className==='paa-wb-left');
+ assert.equal(left.props['aria-busy'],true);assert.equal(left.props.inert,'');
  assert.equal(result.props['aria-busy'],true);assert.equal(walk(result).find(n=>n.props.className==='paa-wb-fleet-results-content').props.inert,'');
  assert(walk(result).some(n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay'));
  assert.equal(walk(result).filter(n=>n.props.className==='paa-wb-empty').length,6);
@@ -34,6 +36,7 @@ test('practice recommendation blocks the retained cards with shared progress unt
  report({stage:'finalize'});assert.match(progress.props.channel.value,/核对结果 · 预计总进度 95%/);
  resolve({scheme:{ships:[W.entry(store,1)]},enemyKnown:true});await run;tree=render();
  assert(!walk(tree).some(n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay'));
+ assert.equal(tree.props['data-calculating'],false);assert.equal(walk(tree).find(n=>n.props.className==='paa-wb-left').props.inert,undefined);
  assert(walk(tree).some(n=>n.props['data-ship-id']===1));
  const second=walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();await new Promise(done=>setTimeout(done,35));reject(new Error('测试异常'));await second;
  tree=render();assert(!walk(tree).some(n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay'));

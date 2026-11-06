@@ -19,7 +19,7 @@ function createQuestPrecheck(store,quests){
   return scheme=>quests.every(quest=>evaluate(quest.fleet,scheme.ships,scheme.fleet)!=='unmet');
 }
 function satisfiesQuests(store,scheme,quests){return createQuestChecker(store,quests)(scheme);}
-function questSeeds(store,ctx,args,quests,{limit=128,templates=[]}={}){
+function questSeeds(store,ctx,args,quests,{limit=128,templates=[],rankPower}={}){
   if(!quests.length)return [];
   const selectors=new Map();
   function visit(node){
@@ -38,8 +38,8 @@ function questSeeds(store,ctx,args,quests,{limit=128,templates=[]}={}){
   const keyIndex=new Map(keys.map((key,index)=>[key,index]));
   // Keep multiple distinct families for each role/type signature. This is a
   // bounded search, not a guarantee that every possible fleet is examined.
-  const buckets=new Map();
-  for(const row of ctx.roster.slice().sort((a,b)=>b.power-a.power||a.id-b.id)){
+  const buckets=new Map(),rankPowerValue=typeof rankPower==='function'?rankPower:row=>row.power;
+  for(const row of ctx.roster.slice().sort((a,b)=>rankPowerValue(b)-rankPowerValue(a)||a.id-b.id)){
     const signature=JSON.stringify([row.stype,readings.get(row.id)]),bucket=buckets.get(signature)||[];
     if(bucket.length<6&&!bucket.some(item=>shipFamilyKey(item)===shipFamilyKey(row)))bucket.push(row);
     buckets.set(signature,bucket);
@@ -113,7 +113,7 @@ function questSeeds(store,ctx,args,quests,{limit=128,templates=[]}={}){
         if((!template||candidate.length===template.length)&&(counts.get(candidate.length)||0)<24&&!missing.length&&![...locks.keys()].some(index=>index>=candidate.length)&&quests.every(quest=>evaluate(quest.fleet,candidate.map(item=>({id:item.id})),ctx.fleet).status==='met')){
           const id=candidate.map(item=>item.id).join(',');if(!seen.has(id)){seen.add(id);result.push(candidate);counts.set(candidate.length,(counts.get(candidate.length)||0)+1);}
         }
-        next.push({rows:candidate,rank,power:candidate.reduce((sum,item)=>sum+item.power,0),key:candidate.map(item=>item.id).join(',')});
+        next.push({rows:candidate,rank,power:candidate.reduce((sum,item)=>sum+rankPowerValue(item),0),key:candidate.map(item=>item.id).join(',')});
       }
     }
     next.sort((a,b)=>b.rank-a.rank||b.power-a.power||a.key.localeCompare(b.key));

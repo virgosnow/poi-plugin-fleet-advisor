@@ -2,6 +2,89 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fixture=require('../helpers/workbench_fixture'),F=require('../../src/config/recommendation_filters');
 const {recommendPractice,opponentProfile}=require('../../src/recommendation/practice');
+function openingRoleFixture(){
+ const s=fixture();
+ for(const [id,type,fire,torp,asw] of [[1,3,20,20,10],[2,2,25,40,85],[3,11,110,0,0],[4,4,50,90,20],[5,9,120,0,0],[6,9,115,0,0],[7,2,20,30,10],[8,2,20,30,10]]){
+  Object.assign(s.const.$ships[id],{api_stype:type,api_slot_num:3,api_maxeq:type===11?[20,15,10]:[0,0,0],api_ctype:1,api_aftershipid:'0'});
+  Object.assign(s.info.ships[id],{api_locked:1,api_lv:70,api_slot:[-1,-1,-1],api_onslot:type===11?[20,15,10]:[0,0,0],api_karyoku:[fire,fire],api_raisou:[torp,torp],api_taisen:[asw,asw],api_taiku:[20,20]});
+  s.const.$shipTypes[type]={api_equip_type:{2:1,14:1,15:1,...(type===4?{22:1}:{}),6:1,7:1,8:1}};
+ }
+ for(const [mid,type,name,stat] of [[500,2,'主炮',{api_houg:9}],[501,14,'声呐',{api_tais:12}],[502,15,'爆雷',{api_tais:8}],[503,22,'甲標的 甲型',{api_raig:10}],[504,6,'舰战',{api_tyku:8}],[505,8,'舰攻',{api_raig:8}]]){
+  s.const.$equips[mid]={api_id:mid,api_name:name,api_type:[0,0,type,type],...stat};
+  for(let n=1;n<=4;n++)s.info.equips[mid*10+n]={api_id:mid*10+n,api_slotitem_id:mid,api_level:0};
+ }
+ s.const.$ships[100]={api_id:100,api_name:'潜艇',api_stype:13,api_souk:[10,20]};
+ s.const.$ships[101]={api_id:101,api_name:'敌战舰',api_stype:9,api_souk:[50,100]};
+ return s;
+}
+test('mixed practice selects a truly equipped opening ASW escort and opening torpedo ship',()=>{
+ const s=openingRoleFixture(),forecast=require('../../src/domain/combat/practice_forecast'),original=forecast.estimate;
+ const {openingASW}=require('../../src/domain/combat/opening_asw');
+ try{
+  forecast.estimate=()=>({status:'unknown'});
+  const opponent={ships:[{masterId:100},{masterId:101}]};
+  const result=recommendPractice(s,{capacity:3,trainingShipIds:[1],opponent}).scheme;
+  assert.equal(result.ships[0].id,1,'the explicit training target remains flagship');
+  const escort=result.ships.find(e=>e.id===2),torpedo=result.ships.find(e=>e.id===4);
+  assert(escort,'a small ASW escort is selected');assert(torpedo,'an opening torpedo hull is selected');
+  assert.equal(openingASW(s,{id:2,ship:s.info.ships[2],master:s.const.$ships[2],before:{slots:s.info.ships[2].api_slot,ex:0},after:escort}).eligible,true,JSON.stringify(result));
+  assert(torpedo.slots.some(id=>s.const.$equips[s.info.equips[id]?.api_slotitem_id]?.api_type?.[2]===22));
+ }finally{forecast.estimate=original;}
+});
+test('practice does not claim opening ASW when required gear is unavailable',()=>{
+ const s=openingRoleFixture(),forecast=require('../../src/domain/combat/practice_forecast'),original=forecast.estimate;
+ for(const [id,item] of Object.entries(s.info.equips))if([501,502].includes(item.api_slotitem_id))delete s.info.equips[id];
+ try{forecast.estimate=()=>({status:'unknown'});
+  const result=recommendPractice(s,{capacity:3,trainingShipIds:[1],opponent:{ships:[{masterId:100},{masterId:101}]}});
+  assert.equal(result.scheme.ships.length,3);assert.equal(result.scheme.ships[0].id,1);
+  const {openingASW}=require('../../src/domain/combat/opening_asw');
+  assert(!result.scheme.ships.some(e=>{const ship=s.info.ships[e.id];return openingASW(s,{id:e.id,ship,master:s.const.$ships[ship.api_ship_id],before:{slots:ship.api_slot,ex:ship.api_slot_ex},after:e}).eligible===true;}));
+ }finally{forecast.estimate=original;}
+});
+test('opening torpedo is preferred over an automatically selected carrier, while a manual carrier is retained',()=>{
+ const s=openingRoleFixture(),forecast=require('../../src/domain/combat/practice_forecast'),original=forecast.estimate;
+ s.const.$ships[102]={api_id:102,api_name:'敌航母',api_stype:11,api_souk:[20,50]};
+ try{forecast.estimate=()=>({status:'unknown'});
+  const args={capacity:2,trainingShipIds:[1],opponent:{ships:[{masterId:102}]}};
+  assert.deepEqual(recommendPractice(s,args).scheme.ships.map(e=>e.id),[1,4]);
+  const manual={id:3,pin:true,slots:[-1,-1,-1],ex:-1,keep:{}};
+  assert.deepEqual(recommendPractice(s,{...args,slots:[null,manual]}).scheme.ships.map(e=>e.id),[1,3]);
+ }finally{forecast.estimate=original;}
+});
+test('opening roles do not displace a better or known practice forecast',()=>{
+ const s=openingRoleFixture(),forecast=require('../../src/domain/combat/practice_forecast');
+ const xp=require('../../src/domain/combat/practice_experience'),resources=require('../../src/domain/combat/practice_resources');
+ const originals=[forecast.estimate,xp.estimateFromScenarios,resources.estimate];
+ s.const.$ships[102]={api_id:102,api_name:'敌航母',api_stype:11,api_souk:[20,50]};
+ const args={capacity:2,trainingShipIds:[1],opponent:{ships:[{masterId:102}]}};
+ let roleResult='bad',otherResult='good';
+ try{
+  forecast.estimate=(_store,scheme,_enemy,{samples})=>{
+   const outcome=scheme.ships.some(ship=>ship.id===4)?roleResult:otherResult;
+   if(outcome==='unknown')return {status:'unknown'};
+   return {status:'estimated',samples,rows:[{label:outcome==='good'?'S':'D',count:samples}],xpScenarios:[]};
+  };
+  xp.estimateFromScenarios=(_store,scheme)=>({status:'estimated',expectedTotal:scheme.ships.length*100,expectedPerShip:scheme.ships.map(()=>100)});
+  resources.estimate=()=>({status:'known',fuel:0,ammoDay:0,ammoNight:0,bauxite:{max:0}});
+  assert(!recommendPractice(s,args).scheme.ships.some(ship=>ship.id===4),'a zero-win role fleet must not replace a winning fleet');
+  roleResult='unknown';
+  assert(!recommendPractice(s,args).scheme.ships.some(ship=>ship.id===4),'an unknown role forecast must not replace a known one');
+  roleResult='good';otherResult='good';
+  assert(recommendPractice(s,args).scheme.ships.some(ship=>ship.id===4),'comparable winning fleets retain the opening role preference');
+  roleResult='good';otherResult='unknown';
+  assert(recommendPractice(s,args).scheme.ships.some(ship=>ship.id===4),'a known forecast can replace an unknown one');
+ }finally{[forecast.estimate,xp.estimateFromScenarios,resources.estimate]=originals;}
+});
+test('opening ASW trial does not borrow equipment held by a different manual ship',()=>{
+ const s=openingRoleFixture(),forecast=require('../../src/domain/combat/practice_forecast'),original=forecast.estimate;
+ for(const [id,item] of Object.entries(s.info.equips))if(item.api_slotitem_id===501&&Number(id)!==5011)delete s.info.equips[id];
+ const held={id:1,pin:true,slots:[5011,-1,-1],ex:-1,keep:{0:true}};
+ try{forecast.estimate=()=>({status:'unknown'});
+  const ships=recommendPractice(s,{capacity:3,trainingShipIds:[],slots:[held],opponent:{ships:[{masterId:100},{masterId:101}]}}).scheme.ships;
+  assert.equal(ships[0].slots[0],5011);
+  assert.equal(ships.flatMap(e=>e.slots).filter(id=>id===5011).length,1);
+ }finally{forecast.estimate=original;}
+});
 function armorChoiceFixture(armor){
  const s=fixture();for(const id of Object.keys(s.info.ships))if(Number(id)>2)delete s.info.ships[id];
  Object.assign(s.const.$ships[1],{api_name:'测试战舰',api_stype:9});
@@ -12,6 +95,24 @@ function armorChoiceFixture(armor){
  if(armor!==undefined)s.const.$ships[100].api_souk=armor;
  return s;
 }
+test('practice excludes level 99 only from automatic choices',()=>{
+ const store=armorChoiceFixture(60);store.info.ships[1].api_lv=99;store.info.ships[2].api_lv=98;
+ const opponent={ships:[{masterId:100,level:80}]};
+ assert.deepEqual(recommendPractice(store,{capacity:1,opponent,trainingShipIds:[]}).scheme.ships.map(s=>s.id),[2]);
+ assert.deepEqual(recommendPractice(store,{capacity:1,opponent,trainingShipIds:[],slots:[{id:1,slots:[],keep:{}}]}).scheme.ships.map(s=>s.id),[2]);
+ assert.equal(recommendPractice(store,{capacity:1,opponent,trainingShipIds:[1]}).scheme.ships[0].id,1);
+ assert.equal(recommendPractice(store,{capacity:1,opponent,trainingShipIds:[],slots:[{id:1,slots:[],pin:true}]}).scheme.ships[0].id,1);
+ assert.equal(recommendPractice(store,{capacity:1,opponent,slots:[{id:1,slots:[]}]}).scheme.ships[0].id,1);
+});
+test('married ships have lower automatic priority but remain available and honor manual choices',()=>{
+ const store=armorChoiceFixture();store.info.ships[1].api_karyoku=[125,125];store.info.ships[1].api_lv=100;store.info.ships[2].api_lv=80;
+ const recommend=args=>recommendPractice(store,{capacity:1,trainingShipIds:[],...args}).scheme.ships[0].id;
+ assert.equal(recommend({}),2,'prefer a competitive unmarried ship');
+ assert.equal(recommend({slots:[{id:1,slots:[],keep:{}}]}),2,'previous automatic choices are reassessed');
+ assert.equal(recommend({slots:[{id:1,slots:[],pin:true}]}),1);
+ assert.equal(recommendPractice(store,{capacity:1,trainingShipIds:[1]}).scheme.ships[0].id,1);
+ delete store.info.ships[2];assert.equal(recommend({}),1,'married ships remain eligible when needed');
+});
 test('unknown opponent armour keeps the balanced default rather than assuming a soft target',()=>{
  const forecast=require('../../src/domain/combat/practice_forecast'),original=forecast.estimate;
  try{
@@ -99,7 +200,7 @@ test('practice anchors one strong ship then fills with low-level growth hulls',(
  const s=fixture();
  [100,90,80,65,56,45,30,25].forEach((strength,index)=>{
   const ship=s.info.ships[index+1];ship.api_karyoku=[strength,strength];ship.api_raisou=[0,0];ship.api_taiku=[0,0];
-  ship.api_lv=[99,98,70,60,50,90,1,1][index];
+  ship.api_lv=[98,97,70,60,50,90,1,1][index];
  });
  const ships3=recommendPractice(s,{capacity:3}).scheme.ships.map(ship=>ship.id);
  assert.equal(ships3[0],1,'strongest ship is the anchor');
@@ -298,6 +399,15 @@ test('practice quest selection fills a fleet satisfying task requirements and re
  assert(result.scheme.ships.some(x=>x.id===1));assert(result.scheme.ships.some(x=>x.id===2));
  const {evaluateFleetRequirements}=require('../../src/domain/quests/fleet_requirements'),{resolvePracticeCodes}=require('../../src/domain/quests/practice_quests');
  assert.equal(evaluateFleetRequirements(resolvePracticeCodes(['P368'])[0].fleet,s,result.scheme.ships,1).status,'met');
+});
+
+test('practice quest seeds only use a level 99 task ship when explicitly selected',()=>{
+ const s=fixture();for(const [id,name] of [[1,'天津風'],[2,'雪風'],[3,'自由舰三'],[4,'自由舰四'],[5,'自由舰五'],[6,'自由舰六'],[7,'自由舰七'],[8,'自由舰八']])s.const.$ships[id].api_name=name;
+ s.info.ships[1].api_lv=99;
+ assert.throws(()=>recommendPractice(s,{trainingShipIds:[],questCodes:['P368']}),/未找到/);
+ const pinned={id:1,pin:true,slots:[-1,-1],ex:-1,keep:{}};
+ assert(recommendPractice(s,{slots:[pinned],trainingShipIds:[],questCodes:['P368']}).scheme.ships.some(ship=>ship.id===1));
+ assert(recommendPractice(s,{trainingShipIds:[1],questCodes:['P368']}).scheme.ships.some(ship=>ship.id===1));
 });
 
 test('practice rejects unreviewed or impossible selected task constraints',()=>{

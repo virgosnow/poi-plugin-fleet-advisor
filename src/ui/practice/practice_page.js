@@ -20,14 +20,15 @@ const empty=()=>Array(6).fill(null);
 const TRAINING_ROW_STEP=53,TRAINING_OVERSCAN=4,TRAINING_VISIBLE=8;
 const rankText=rank=>`${rank}${['SS','S','A','B'].includes(rank)?'胜':'败'}`;
 const {listPracticeQuests:practiceTasks,countPracticeQuests}=require('../../domain/quests/practice_quests');
-module.exports=(React,{getStore,getController,setQuestPageActive})=>{
+module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
   const h=React.createElement,EquipmentIcon=require('../components/equipment_icon')(React),ResourceIcon=require('../components/resource_icon')(React),badges=require('../components/mechanism_badges')(React),QuestSection=require('../components/quest_section')(React),ShipPicker=shipPicker(React),EquipmentPicker=equipmentPicker(React);
   const CalculationProgress=createProgressComponent(React);
-  return function PracticePage({kind='practice',hidden=false,busy=false,stopping=false,onStop,stopButtonRef,onApply,operationFeedback,automaticOperations,automaticFilters}){
+  const ExecutionCard=require('../components/execution_card')(React,{subscribe,getStore});
+  return function PracticePage({kind='practice',hidden=false,busy=false,stopping=false,onStop,stopButtonRef,onApply,operationFeedback,executionPlan,automaticOperations,automaticFilters}){
     const [slots,setSlots]=React.useState(empty),[fleet,setFleet]=React.useState(1),[opponentId,setOpponentId]=React.useState(null);
     const [attributeDetails,setAttributeDetails]=React.useState({}),[popup,setPopup]=React.useState(null),[search,setSearch]=React.useState('');
     const [revision,setRevision]=React.useState(0),[working,setWorking]=React.useState(false),[message,setMessage]=React.useState(''),[questsOpen,setQuestsOpen]=React.useState(false);
-    const [shipFleet,setShipFleet]=React.useState('all'),[shipType,setShipType]=React.useState('all'),[shipSort,setShipSort]=React.useState('level-desc');
+    const [shipLock,setShipLock]=React.useState('locked'),[shipType,setShipType]=React.useState('all'),[shipSort,setShipSort]=React.useState('level-desc');
     const [equipmentGroup,setEquipmentGroup]=React.useState('all'),[equipmentCategory,setEquipmentCategory]=React.useState('all'),[equipmentSort,setEquipmentSort]=React.useState('default');
     const [openOpponents,setOpenOpponents]=React.useState({});
     const [practiceFormation,setPracticeFormation]=React.useState('auto');
@@ -36,7 +37,9 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
     const [selectedQuests,setSelectedQuests]=React.useState([]);
     const [trainingLock,setTrainingLock]=React.useState('locked'),[trainingScroll,setTrainingScroll]=React.useState(0);
     const [shipWindow,setShipWindow]=React.useState(0);
-    const grid=React.useRef(null),popupList=React.useRef(null),forecastCache=React.useRef(null),opponentList=React.useRef(null),store=getStore(),practice=store.practiceState||{},quest=store.questState||{};
+    const observed=React.useRef(null),previewRef=React.useRef(null);
+    if(!busy||!observed.current)observed.current=getStore();
+    const grid=React.useRef(null),popupList=React.useRef(null),forecastCache=React.useRef(null),opponentList=React.useRef(null),store=observed.current,practice=store.practiceState||{},quest=store.questState||{};
     const trainingAnchor=React.useRef(null),trainingDialog=React.useRef(null),trainingTrigger=React.useRef(null),trainingPointerInside=React.useRef(false),trainingList=React.useRef(null),trainingPendingFocus=React.useRef(null),editingTrainingSearch=React.useRef(false);
     const calculationChannel=React.useRef({value:'',listeners:new Set()}),progressTimer=React.useRef(null);
     React.useEffect(()=>()=>clearInterval(progressTimer.current),[]);
@@ -45,12 +48,12 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
       onOpen:()=>setTrainingOpen(true),onClose:()=>{editingTrainingSearch.current=false;setTrainingOpen(false);},
       shouldHoldOpen:()=>editingTrainingSearch.current&&trainingAnchor.current?.ownerDocument?.activeElement===trainingDialog.current?.querySelector('input[type=search]')});
     const closeTraining=()=>{editingTrainingSearch.current=false;trainingPicker.dismiss();setTrainingOpen(false);trainingTrigger.current?.focus();};
-    React.useEffect(()=>{setQuestPageActive?.('practice',!hidden&&!busy);return()=>setQuestPageActive?.('practice',false);},[hidden,busy]);
+    React.useEffect(()=>{setQuestPageActive?.('practice',!hidden&&!busy&&!working);return()=>setQuestPageActive?.('practice',false);},[hidden,busy,working]);
     React.useEffect(()=>{if(hidden||busy)return;let previous=getStore();const timer=setInterval(()=>{const next=getStore();
       if(next.practiceState?.revision!==previous.practiceState?.revision||next.questState!==previous.questState||
         ['ships','equips','fleets','resources'].some(key=>next.info?.[key]!==previous.info?.[key])){previous=next;setRevision(v=>v+1);}},1000);return()=>clearInterval(timer);},[hidden,busy]);
     React.useEffect(()=>drag(grid.current,(a,b)=>setSlots(previous=>{const next=previous.slice();[next[a],next[b]]=[next[b],next[a]];return next;}),hidden||busy||working),[hidden,busy,working,slots]);
-    React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;setShipWindow(0);},[popup,search,shipType,shipFleet,shipSort,equipmentGroup,equipmentCategory,equipmentSort]);
+    React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;setShipWindow(0);},[popup,search,shipType,shipLock,shipSort,equipmentGroup,equipmentCategory,equipmentSort]);
     // An opponent must be selected explicitly before generating a recommendation.
     const opponents=practice.opponents||[],selected=opponents.find(o=>o.id===opponentId)||null;
     const opponentKey=opponents.map(opponent=>opponent.id).join(',');
@@ -71,7 +74,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
       trainingList.current?.querySelector(`[data-index="${index}"] input`)?.focus();trainingPendingFocus.current=null;},[trainingScroll]);
     React.useEffect(()=>{if(!trainingOpen||hidden||busy||working)return;const root=trainingAnchor.current,panel=trainingDialog.current;if(!root||!panel)return;
       const doc=root.ownerDocument,win=doc.defaultView;
-      const place=()=>{const r=root.getBoundingClientRect(),width=Math.min(520,doc.documentElement.clientWidth-24);panel.style.width=`${width}px`;
+      const place=()=>{const r=root.getBoundingClientRect(),width=Math.max(0,Math.min(r.width,doc.documentElement.clientWidth-24));panel.style.width=`${width}px`;
         panel.style.left=`${Math.max(12-r.left,Math.min(0,doc.documentElement.clientWidth-12-r.left-width))}px`;
         panel.style.maxHeight=`${Math.max(100,Math.min(560,doc.documentElement.clientHeight-r.bottom-18))}px`;};
       const outside=e=>{if(!root.contains(e.target)){trainingPicker.dismiss();setTrainingOpen(false);}};
@@ -153,18 +156,17 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
       const range=value=>value===null?'待确认':value.min===value.max?String(value.min):`${value.min}–${value.max}`;
       const referenceAir=forecast?.air?.status==='estimated'?forecast.air:null,referenceLoss=referenceAir?.bauxite;
       const items=[['燃料',String(consumption.fuel)],['弹药',range({min:consumption.ammoDay,max:consumption.ammoNight})],
-        ['铝土',referenceLoss?`参考 ${range(referenceLoss)}`:consumption.bauxite===null?'待确认':consumption.bauxite.max===0?'0':`≤${consumption.bauxite.max}`],...(consumption.hasJets?[['钢材',range(consumption.steel)]]:[])];
-      const scenario=consumption.bauxite?.max>0&&consumption.airScenarios?.find(row=>row.state==='supremacy'),airRange=scenario?.stageOneBauxite;
-      const airNote=referenceLoss?`假设对手配装 · 敌方制空 ${range(referenceAir.enemyAirPower)}`:
-        airRange?`空确时制空损耗 ${range(airRange)} 铝 · 对空损耗另计`:'铝为理论上限';
-      const airDetails=consumption.airScenarios?.map(row=>`${row.label}：${range(row.stageOneBauxite)} 铝（不含对空）`).join('\n');
-      return {items,detail:[consumption.detail,`满补给出击 · ${airNote}`,...(referenceAir?.assumptions||[]),airDetails].filter(Boolean).join('\n')};
+        ['铝土',referenceLoss?range(referenceLoss):consumption.bauxite===null?'待确认':consumption.bauxite.max===0?'0':`≤${consumption.bauxite.max}`],...(consumption.hasJets?[['钢材',range(consumption.steel)]]:[])];
+      const airNote=referenceLoss?'铝土按假设配装估算，实际受敌方防空与制空影响。':
+        consumption.bauxite===null?'铝土消耗待确认。':consumption.bauxite.max===0?'无需补充舰载机。':'铝土为理论上限，并非平均消耗。';
+      return {items,detail:['满补给、满载；弹药范围为昼战至夜战。',airNote,consumption.hasJets?'喷式强袭可能额外消耗钢材。':''].filter(Boolean).join('\n')};
     };
     const fmtRange=value=>!value?'—':value.min===value.max?String(value.min):`${value.min}–${value.max}`;
     let mechanisms=new Map(),speed=null,preview=null,ownAir=null;
     if(filled.length){
       try{speed=fleetSpeed(store,filled);mechanisms=fleetMechanisms(store,filled,speed,undefined,{conditionalGroundDouble:true,practice:true});}catch(_){}
-      try{preview=getController()?.preview('fleet',scheme);}catch(_){}
+      if(busy)preview=previewRef.current;
+      else{try{preview=getController()?.preview('fleet',scheme);}catch(_){}previewRef.current=preview;}
       try{
         const projected=filled.map(entry=>{
           const target=projectShip(store,entry.id,{slots:entry.slots,ex:entry.ex??-1});
@@ -189,25 +191,25 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
         h('path',{d:'M8 2 15 14H1ZM8 6v4m0 2v.1'}):
         [h('circle',{key:'outline',cx:8,cy:8,r:6}),h('path',{key:'mark',d:kind==='check'?'m5 8 2 2 4-4':'M5 8h6'})]);
       const airHint=opponentAir?`假设对手配装 · 敌方 ${fmtRange(opponentAir.enemyAirPower)}`:!selected?'选择对手后可参考制空状态':!enemy.known?'对手舰队资料待同步':'对手制空待确认';
-      const airDetail=[filled.length?'己方按出击前满载计算。':'添加舰娘后显示己方制空。',ownAir?.reason,
-        opponentAir?`对手制空 ${fmtRange(opponentAir.enemyAirPower)}：按假设的可开发装备及熟练度范围计算，非实际配装。`:airHint,
-        stateText?`参考制空状态：${stateText}`:''].filter(Boolean).join('\n');
+      const airDetail=[filled.length?`我方制空：${airValue}（满载）`:'添加舰娘后显示我方制空',ownAir?.reason,
+        opponentAir?`敌方制空：${fmtRange(opponentAir.enemyAirPower)}（假设可开发装备）`:airHint,
+        stateText?`预计：${stateText}`:''].filter(Boolean).join('\n');
       const flag=experience?.status==='estimated'?experience.ships.find(row=>row.flagship):null;
       const escorts=experience?.status==='estimated'?experience.ships.filter(row=>!row.flagship&&row.normal):[];
       const escort=escorts.length?{min:Math.min(...escorts.map(row=>row.normal.min)),max:Math.max(...escorts.map(row=>row.normal.max))}:null;
       const expRows=(experience?.ships||[]).map(row=>{const ship=store.info.ships[row.id],master=store.const.$ships[ship?.api_ship_id];
         return [`${master?.api_name||'舰娘'}${row.flagship?'（旗舰）':''}`,fmtRange(row.normal),fmtRange(row.mvp)];});
       const expDetail=experience?.status==='estimated'?metricTooltips.attributes({title:'经验参考',sections:[{title:'模拟战果范围',columns:['舰娘','普通','MVP'],rows:expRows}],
-        notes:experience.notes||[]}):{'data-tooltip':experience?.reason||(!selected?'选择对手后计算':!filled.length?'添加舰娘后计算':'经验资料待确认')};
+        notes:['根据模拟战果估算；普通经验不含 MVP，被击沉无经验。',...(experience.sOnly?['S 胜显示参考值，实际可能波动。']:[]),...(experience.notes?.some(note=>note.includes('练巡'))?['练巡加成按资料估算。']:[])]}):{'data-tooltip':experience?.reason||(!selected?'选择对手后计算':!filled.length?'添加舰娘后计算':'经验资料待确认')};
       const xpValue=flag?.normal?(experience.sOnly?`约 ${flag.representativeNormal}`:fmtRange(flag.normal)):selected&&filled.length?'待确认':'—';
-      const xpHint=escort?`${experience.sOnly?'S 胜参考':'战果参考'} · 随伴 ${fmtRange(escort)}`:experience?.status==='estimated'?`${experience.sOnly?'S 胜参考':'战果参考'} · 悬停查看明细`:!selected?'选择对手后计算':!filled.length?'添加舰娘后计算':experience?.reason||'经验资料待确认';
+      const xpHint=escort?`随伴 ${fmtRange(escort)}`:experience?.status==='estimated'?'参考模拟战果':!selected?'选择对手后计算':!filled.length?'添加舰娘后计算':experience?.reason||'经验资料待确认';
       const resources=resourceSummary();
       return h('div',{className:'paa-wb-metrics','data-columns':3,'aria-label':'经验、制空与资源消耗','aria-live':'polite'},
         h('div',{className:'paa-wb-metric speed','data-tier':experience?.status==='estimated'?'2':'0','data-has-requirement':'true',tabIndex:0,'aria-label':`旗舰经验参考：${xpValue}`,...expDetail},
           h('svg',{viewBox:'0 0 16 16','aria-hidden':true},h('circle',{cx:8,cy:8,r:5,fill:'none',stroke:'currentColor',strokeWidth:1.6}),h('path',{d:'m5.5 8 1.5 1.5 3-3',fill:'none',stroke:'currentColor',strokeWidth:1.4})),
           h('strong',null,`旗舰经验 ${xpValue}`),h('small',null,xpHint)),
-        h('div',{className:'paa-wb-metric air','data-tone':stateText?(airWarning?'warning':'blue'):'neutral',tabIndex:0,'aria-label':`综合制空 ${airValue}${stateText?`，参考${stateText}`:''}`,'data-tooltip':airDetail},
-          h('span',{className:'paa-wb-metric-state'},metricIcon(airWarning?'warning':stateText?'check':'neutral'),stateText?`参考${stateText}`:'综合制空'),h('strong',{'data-label':'我方'},airValue),h('small',null,airHint)),
+        h('div',{className:'paa-wb-metric air','data-tone':stateText?(airWarning?'warning':'blue'):'neutral',tabIndex:0,'aria-label':`综合制空 ${airValue}${stateText?`，预计${stateText}`:''}`,'data-tooltip':airDetail},
+          h('span',{className:'paa-wb-metric-state'},metricIcon(airWarning?'warning':stateText?'check':'neutral'),stateText?`预计${stateText}`:'综合制空'),h('strong',{'data-label':'我方'},airValue),h('small',null,airHint)),
         h('div',{className:'paa-wb-metric los paa-practice-resources','data-tone':resources.items.length?'green':'neutral',tabIndex:0,'aria-label':'预计资源消耗','data-tooltip':resources.detail},
           h('span',{className:'paa-wb-metric-state'},metricIcon(resources.items.length?'check':'neutral'),'预计消耗'),
           h('small',{className:'paa-practice-resource-items'},resources.items.length?resources.items.map(([name,value])=>h('span',{className:'paa-practice-consumption-item',key:name,'aria-label':`${name} ${value}`},
@@ -228,14 +230,37 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
     const replacementTypeLabel=W.TYPES[replacementType]||store.const.$shipTypes?.[replacementType]?.api_name||'未知舰种';
     const selection={kind:'practice',filters:automaticFilters};
     const pickRows=popup?(popup.slot===undefined?W.replacementCandidates(store,slots,popup.index,search,'all',selection,shipPickerCache.current.get(store,selection),{sortFirstFleet:false})
-      .filter(row=>(shipType==='all'||(shipType.startsWith('type:')?String(row.typeId)===shipType.slice(5):shipPicker.shipGroup(row.typeId)===shipType))&&(shipFleet==='all'||row.fleet===Number(shipFleet)))
+      .filter(row=>(shipType==='all'||(shipType.startsWith('type:')?String(row.typeId)===shipType.slice(5):shipPicker.shipGroup(row.typeId)===shipType))&&shipPicker.matchesLock(store,row.id,shipLock))
       .sort((a,b)=>shipSort==='level-asc'?a.level-b.level||a.id-b.id:shipSort==='morale-desc'?b.cond-a.cond||b.level-a.level||a.id-b.id:
         shipSort==='name'?a.name.localeCompare(b.name,'ja')||b.level-a.level||a.id-b.id:b.level-a.level||a.id-b.id):
       W.equipmentOptions(store,slots,popup.index,popup.slot,search)):[];
     const currentEquipment=popup?.slot!==undefined?(popup.slot==='ex'?slots[popup.index]?.ex:slots[popup.index]?.slots[popup.slot]):null;
-    const pick=row=>{const next=slots.slice();if(popup.slot===undefined)next[popup.index]={...W.entry(store,row.id),pin:true};
+    const refreshEquipment=async(next)=>{
+      const initialStore=getStore(),startSelection={...selectionRef.current},channel=calculationChannel.current;
+      const progress=createCalculationProgress();let active=true;
+      const publish=value=>{channel.value=value;for(const listener of channel.listeners)listener(value);};
+      publish(progress.update({stage:'prepareEquipment'}));
+      progressTimer.current=setInterval(()=>{const value=progress.tick();if(value)publish(value);},1000);
+      setWorking(true);
+      await new Promise(resolve=>setTimeout(resolve,20));
+      try{
+        const service=getController(),{snapshotId}=service.createSnapshot();
+        const held=next.filter(Boolean).map(slot=>({...slot,pin:true}));
+        const result=await service.recommendPracticeFleet({snapshotId,fleet,slots:held,opponent:selected,
+          capacity:held.length,trainingShipIds:[],equipmentOnly:true},value=>{if(active)publish(progress.update(value));});
+        if(selectionRef.current.opponentId!==startSelection.opponentId||selectionRef.current.opponentKey!==startSelection.opponentKey)return;
+        const current=getStore();
+        if(current.info!==initialStore.info||current.const!==initialStore.const)throw Error('舰队资料已变化，请重新补全');
+        const updated=W.withEquipment(next,result.scheme);
+        service.preview('fleet',W.scheme(updated,fleet));
+        setSlots(updated);
+      }catch(error){setMessage('自动配装未完成：'+(error.message||'请重新补全'));}
+      finally{active=false;clearInterval(progressTimer.current);progressTimer.current=null;setWorking(false);}
+    };
+    const pick=row=>{const next=slots.slice(),replacing=popup.slot===undefined&&!!next[popup.index];
+      if(popup.slot===undefined){if(next[popup.index]?.id===row.id){setPopup(null);return;}next[popup.index]={...W.entry(store,row.id),pin:true};}
       else{const old=next[popup.index],s={...old,slots:old.slots.slice(),keep:{...old.keep,[popup.slot]:true}};if(popup.slot==='ex')s.ex=row.id;else s.slots[popup.slot]=row.id;next[popup.index]=s;}
-      setSlots(next);setPopup(null);setMessage('');};
+      setSlots(next);setPopup(null);setMessage('');if(replacing)return refreshEquipment(next);};
     const complete=async()=>{if(disabled||!selected)return;const startSelection={...selectionRef.current};
       const progress=createCalculationProgress(),channel=calculationChannel.current;
       const publish=value=>{channel.value=value;for(const listener of channel.listeners)listener(value);};
@@ -281,7 +306,8 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
         collapse(h,{open:attributeDetails[slot.id],id:detailId},h('dl',{className:'paa-fleet-ship-stats','aria-label':'舰娘当前属性','data-tooltip':'舰娘当前属性，未计入本页尚未应用的配装'},
           ...details.stats(ship).map(s=>h('div',{key:s.label},h('dt',null,statIcon.react(React,s.label),s.label),h('dd',null,s.value??'—')))))),
         h('div',{className:'paa-wb-mechanisms','aria-label':'当前配装机制'},...badges((mechanisms.get(slot.id)||[]).filter(b=>!['special-shelling','special-night','special-submarine','smoke'].includes(b.key)))),
-        h('div',{className:'paa-wb-gears'},...slot.slots.map((_,i)=>gear(i)),ship.api_slot_ex!==0?gear('ex'):h('div',{className:'paa-wb-gear-unopened'},'增 · 未开启')));
+        h('div',{className:'paa-wb-gears'},...slot.slots.map((_,i)=>gear(i)),ship.api_slot_ex!==0?gear('ex'):h('div',{className:'paa-wb-gear-unopened'},'增 · 未开启')),
+        h(ExecutionCard,{running:!!(busy&&!hidden&&executionPlan?.fleet===fleet&&executionPlan.targets?.[index]===slot.id),stopping,fleet,index,ship:slot.id}));
     };
     const chooseOpponent=o=>{
       if(disabled)return;
@@ -294,8 +320,8 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
       h('span',{className:'paa-wb-calculation-label'},h('span',{className:'paa-wb-calculation-heading'},
         h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),'计算中'),
         h(CalculationProgress,{channel:calculationChannel.current}))):null;
-    return h('div',{className:'paa-workbench paa-practice','data-kind':kind},h('div',{className:'paa-wb-columns'},
-      h('section',{className:'paa-wb-left'},h('div',{className:'paa-wb-context-controls paa-practice-context'},
+    return h('div',{className:'paa-workbench paa-practice','data-kind':kind,'data-calculating':working},h('div',{className:'paa-wb-columns'},
+      h('section',{className:'paa-wb-left','aria-busy':working,inert:working?'':undefined},h('div',{className:'paa-wb-context-controls paa-practice-context'},
         h('div',{className:'paa-practice-training',ref:trainingAnchor,onPointerEnter:trainingPicker.enter,onPointerLeave:trainingPicker.leave,
           onClickCapture:trainingPicker.guardClick,onKeyDown:e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeTraining();}},
           onBlur:e=>{const anchor=e.currentTarget;if(anchor.contains(e.relatedTarget))return;
@@ -383,16 +409,16 @@ module.exports=(React,{getStore,getController,setQuestPageActive})=>{
       h('section',{className:'paa-wb-right'},h('div',{className:'paa-wb-command-area','data-running':!!busy},h('div',{className:'paa-wb-command-row'},
         h('div',{className:'paa-wb-edit-controls'},h('button',{type:'button',className:'paa-wb-complete',disabled:disabled||!selected,onClick:complete},
           h('svg',{width:15,height:15,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'m4 16 9-9 3 3-9 9zM4 3v4M2 5h4M14 1v3M12.5 2.5h3'})),working?'计算中…':'一键补全'),
-          h('button',{type:'button',className:'paa-wb-quiet',disabled,onClick:()=>{setSlots(empty());setMessage('');setShipFleet('all');}},'一键清空')),
+          h('button',{type:'button',className:'paa-wb-quiet',disabled,onClick:()=>{setSlots(empty());setMessage('');setShipLock('locked');}},'一键清空')),
         automaticOperations||busy?h('div',{className:'paa-wb-apply-controls'},h('label',{className:'paa-wb-field'},h('span',null,'编入'),h('select',{'aria-label':'编入舰队',value:fleet,disabled,onChange:e=>setFleet(Number(e.target.value))},
-          ...[1,2,3,4].map(n=>h('option',{key:n,value:n},`第 ${n} 舰队`)))),
-          h('button',{type:'button',className:'paa-primary paa-wb-apply',ref:stopButtonRef,'data-running':!!busy,disabled:busy?stopping:disabled||!preview,onClick:e=>busy?onStop?.(e):onApply?.(scheme)},busy?(stopping?'正在停止…':'停止操作'):'应用编成')):null)),
+          ...[1,2,3,4].map(n=>{const f=store.info?.fleets?.[n-1],unavailable=!f||!Array.isArray(f.api_mission),away=f&&!unavailable&&Number(f.api_mission[0])!==0;return h('option',{key:n,value:n,disabled:unavailable||away},`第 ${n} 舰队${unavailable?'（未同步）':away?'（远征中）':''}`);}))),
+          h('button',{type:'button',className:'paa-primary paa-wb-apply',ref:stopButtonRef,'data-running':!!busy,disabled:busy?stopping:disabled||!preview,'data-tooltip':busy?'停止后续操作，已发送的操作会正常完成':undefined,onClick:e=>{if(busy){if(!stopping)onStop?.(e);}else if(!disabled&&preview)onApply?.(scheme);}},busy?(stopping?'正在停止…':'停止操作'):'应用编成')):null)),
         operationFeedback,message?h('p',{className:'paa-fleet-warning',role:'status'},message):null,
         h('div',{className:'paa-wb-fleet-results','aria-busy':working},
           h('div',{className:'paa-wb-fleet-results-content','aria-hidden':working||undefined,inert:working?'':undefined},
             metrics(),h('div',{className:'paa-wb-ships',ref:grid},...slots.map(card),calculationOverlay('paa-practice-narrow-overlay'))),
           calculationOverlay()))),
-      popup&&popup.slot===undefined?ShipPicker({index:popup.index,rows:pickRows,search,setSearch,shipFleet,setShipFleet,shipType,setShipType,shipSort,setShipSort,replacementType,replacementTypeLabel,disabled,onClose:()=>setPopup(null),onPick:pick,hint:'选择舰娘后可继续调整装备',listRef:popupList,store,kind:'practice',windowScroll:shipWindow,onWindowScroll:setShipWindow}):
+      popup&&popup.slot===undefined?ShipPicker({index:popup.index,rows:pickRows,search,setSearch,shipLock,setShipLock,shipType,setShipType,shipSort,setShipSort,replacementType,replacementTypeLabel,disabled,onClose:()=>setPopup(null),onPick:pick,listRef:popupList,store,kind:'practice',windowScroll:shipWindow,onWindowScroll:setShipWindow}):
       popup?EquipmentPicker({index:popup.index,slot:popup.slot,rows:pickRows,search,setSearch,group:equipmentGroup,setGroup:setEquipmentGroup,
         category:equipmentCategory,setCategory:setEquipmentCategory,sort:equipmentSort,setSort:setEquipmentSort,store,currentEquipment,disabled,listRef:popupList,
         onClose:()=>setPopup(null),onPick:pick,onClear:()=>pick({id:-1})}):null);

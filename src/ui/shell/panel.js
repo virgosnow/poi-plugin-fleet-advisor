@@ -8,7 +8,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
   const h=React.createElement,settingFeedback=require('../settings/settings_feedback');
   const Workbench=createWorkbench(React,{getController,getStore,subscribe,setQuestPageActive});
   const CurrentFleet=require('../fleet/current_fleet')(React,{getStore,setQuestPageActive,getController,subscribe});
-  const PracticePage=require('../practice/practice_page')(React,{getStore,setQuestPageActive,getController});
+  const PracticePage=require('../practice/practice_page')(React,{getStore,setQuestPageActive,getController,subscribe});
   const ExecutionFeedback=require('../components/execution_feedback')(React,{subscribe,getStore});
   const filterSettings=require('../settings/recommendation_settings')(React);
   const experimentalControls=require('../settings/experimental_settings')(React);
