@@ -62,11 +62,32 @@ test('a second base can continue against the verified inventory while background
   store.info.airbase.push({api_area_id:6,api_rid:2,api_action_kind:0,
     api_plane_info:[1,2,3,4].map(n=>({api_squadron_id:n,api_slotid:0,api_state:0}))});
   options.landBase.bases.push({areaId:6,rid:2,mode:0,slots:[8,0,0,0].map((itemId,i)=>({slotId:i+1,itemId}))});
-  const seen=[];t.mock.method(landBase,'enterBase',async()=>{});t.mock.method(landBase,'closeBase',async()=>{});
+  const seen=[],navigation=[];t.mock.method(landBase,'enterBase',async(_session,area,base)=>navigation.push(['enter',area,base]));
+  t.mock.method(landBase,'selectBase',async(_session,area,base,previous)=>navigation.push(['tab',area,previous,base]));
+  t.mock.method(landBase,'closeBase',async(_session,area,base)=>navigation.push(['close',area,base]));
   t.mock.method(landBase,'configureOpenBase',async(_session,{base,verifiedInventory})=>{
     seen.push(structuredClone(verifiedInventory));const row=store.info.airbase.find(x=>x.api_rid===base.rid).api_plane_info[0];
     row.api_slotid=base.slots[0].itemId;row.api_state=1;store.airbaseSync.complete=false;return {ok:true,changed:1};
   });
   const result=await c.run('fleet',{},options);assert.equal(result.changed,2);
   assert.equal(seen[1].find(x=>x.base===1).slots[0].item,7);
+  assert.deepEqual(navigation,[['enter',6,1],['tab',6,1,2],['close',6,2]]);
+});
+
+test('after committing an action mode, the next base reopens directly from the same area',async t=>{
+  const {store,options,c}=fixture();options.landBase.bases[0].mode=1;options.landBase.bases[0].modePlanned=true;
+  store.info.airbase.push({api_area_id:6,api_rid:2,api_action_kind:0,
+    api_plane_info:[1,2,3,4].map(n=>({api_squadron_id:n,api_slotid:0,api_state:0}))});
+  options.landBase.bases.push({areaId:6,rid:2,mode:0,slots:[8,0,0,0].map((itemId,i)=>({slotId:i+1,itemId}))});
+  const calls=[];t.mock.method(landBase,'enterBase',async(_session,area,base)=>calls.push(['enter',area,base]));
+  t.mock.method(landBase,'openBaseFromArea',async(_session,area,base)=>calls.push(['reopen',area,base]));
+  t.mock.method(landBase,'selectBase',async()=>{throw Error('closed panel cannot switch tabs');});
+  t.mock.method(landBase,'closeBase',async(_session,area,base)=>calls.push(['close',area,base]));
+  t.mock.method(landBase,'configureOpenBase',async(_session,{base})=>{
+    const live=store.info.airbase.find(row=>row.api_rid===base.rid),slot=live.api_plane_info[0];
+    slot.api_slotid=base.slots[0].itemId;slot.api_state=1;live.api_action_kind=base.mode;
+    return {ok:true,changed:base.rid===1?2:1};
+  });
+  const result=await c.run('fleet',{},options);assert.equal(result.changed,3);
+  assert.deepEqual(calls,[['enter',6,1],['reopen',6,2],['close',6,2]]);
 });

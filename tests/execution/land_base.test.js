@@ -1,8 +1,30 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {moveAircraftToEmptySlot,swapAircraftPositions,changeBaseAction,placeStockAircraft,configureOpenBase}=require('../../src/execution/land_base');
+const {openBaseFromArea,selectBase,moveAircraftToEmptySlot,swapAircraftPositions,changeBaseAction,placeStockAircraft,configureOpenBase}=require('../../src/execution/land_base');
 const context={area:6,base:3,from:3,to:4,itemId:7,mode:2,beforeSlots:[
   {slotId:1,itemId:5,state:2},{slotId:2,itemId:0,state:0},{slotId:3,itemId:7,state:1},{slotId:4,itemId:0,state:0}]};
+test('switching bases verifies the current panel, a clean target tab and the resulting panel',async()=>{
+  const calls=[],session={controlMode:true,until:async(kind,arg,predicate)=>{
+    calls.push([kind,arg]);const result={valid:true,area:6,base:arg.base||1,point:{x:10,y:20}};assert(predicate(result));return result;},
+    input:async(_x,_y,mutation,_kind,options)=>{assert.equal(mutation,undefined);calls.push(options.controlId);}};
+  await selectBase(session,6,2,1);
+  assert.deepEqual(calls,[['airbase-panel',{area:6,base:1}],['airbase-tab',{area:6,base:2}],
+    'airbase.tab.2',['airbase-panel',{area:6,base:2}]]);
+});
+test('an unconfirmed base tab stops without clicking or attempting recovery',async()=>{
+  let inputs=0;const session={controlMode:true,until:async kind=>{if(kind==='airbase-tab')throw Error('tab not confirmed');return {valid:true};},
+    input:async()=>{inputs++;}};
+  await assert.rejects(selectBase(session,6,2,1),/tab not confirmed/);assert.equal(inputs,0);
+});
+test('reopening after a committed mode starts at the verified area without navigating home',async()=>{
+  const calls=[],session={controlMode:true,until:async(kind,arg,predicate)=>{
+    calls.push([kind,arg]);const result={valid:true,area:6,base:arg.base||1,point:{x:10,y:20}};assert(predicate(result));return result;},
+    input:async(_x,_y,_mutation,_kind,options)=>calls.push(options.controlId)};
+  await openBaseFromArea(session,6,2);
+  assert.deepEqual(calls,[['airbase-area',{}],['airbase-navigation',{stage:'open',area:6}],'airbase.nav.open',
+    ['airbase-panel',{area:6}],['airbase-panel',{area:6,base:1}],['airbase-tab',{area:6,base:2}],
+    'airbase.tab.2',['airbase-panel',{area:6,base:2}]]);
+});
 test('base move submits once and confirms only after the observed result',async()=>{
   const calls=[],session={until:async kind=>{calls.push(kind);return {valid:true};},drag:async mutation=>calls.push(mutation),confirmMutation:()=>calls.push('confirm')};
   assert.deepEqual(await moveAircraftToEmptySlot(session,context),{ok:true,changed:1});

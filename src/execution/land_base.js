@@ -3,25 +3,39 @@ const {planLandBases,assertExecutable}=require('../domain/fleet/land_base_execut
 const {baseInventory}=require('../domain/fleet/land_base_inventory');
 const {enterScreen}=require('./navigation');
 
+async function navigateBase(session,area,stage,controlId){
+  const c=await session.until('airbase-navigation',{stage,area},reading=>reading.valid,6000);
+  await session.input(c.point.x,c.point.y,undefined,'click',{settleMs:0,controlId});
+}
+
+async function selectBase(session,area,base,previousBase){
+  if(!session.controlMode||!Number.isSafeInteger(area)||!Number.isSafeInteger(base)||!Number.isSafeInteger(previousBase))
+    throw Error('基地控件识别不可用');
+  await session.until('airbase-panel',{area,base:previousBase},reading=>reading.valid,6000);
+  if(previousBase===base)return;
+  const tab=await session.until('airbase-tab',{area,base},reading=>reading.valid,6000);
+  await session.input(tab.point.x,tab.point.y,undefined,'click',{settleMs:0,controlId:'airbase.tab.'+base});
+  await session.until('airbase-panel',{area,base},reading=>reading.valid,6000);
+}
+
+async function openBaseFromArea(session,area,base){
+  if(!session.controlMode||!Number.isSafeInteger(area)||!Number.isSafeInteger(base))throw Error('基地控件识别不可用');
+  await session.until('airbase-area',{},reading=>reading.valid&&reading.area===area,6000);
+  await navigateBase(session,area,'open','airbase.nav.open');
+  const panel=await session.until('airbase-panel',{area},reading=>reading.valid,6000);
+  if(panel.base!==base)await selectBase(session,area,base,panel.base);
+}
+
 async function enterBase(session,area,base){
   if(!session.controlMode||!Number.isSafeInteger(area)||!Number.isSafeInteger(base))throw Error('基地控件识别不可用');
   await enterScreen(session,'home');
-  const navigate=async(stage,controlId)=>{
-    const c=await session.until('airbase-navigation',{stage,area},reading=>reading.valid,6000);
-    await session.input(c.point.x,c.point.y,undefined,'click',{settleMs:0,controlId});
-  };
+  const navigate=(stage,controlId)=>navigateBase(session,area,stage,controlId);
   await navigate('sortie','airbase.nav.sortie');
   await navigate('choose-sortie','airbase.nav.choose-sortie');
   let selected=await session.until('airbase-area',{},reading=>reading.valid,6000);
   if(selected.area!==area){await navigate('area','airbase.nav.area.'+area);
     selected=await session.until('airbase-area',{},reading=>reading.valid&&reading.area===area,6000);}
-  await navigate('open','airbase.nav.open');
-  const panel=await session.until('airbase-panel',{area},reading=>reading.valid,6000);
-  if(panel.base!==base){
-    const tab=await session.until('airbase-tab',{area,base},reading=>reading.valid,6000);
-    await session.input(tab.point.x,tab.point.y,undefined,'click',{settleMs:0,controlId:'airbase.tab.'+base});
-    await session.until('airbase-panel',{area,base},reading=>reading.valid,6000);
-  }
+  await openBaseFromArea(session,area,base);
 }
 
 async function closeBase(session,area,base){
@@ -169,4 +183,4 @@ async function configureOpenBase(session,{area,base:target,resumeSlot=0,verified
   }
   return {ok:true,changed};
 }
-module.exports={enterBase,closeBase,moveAircraftToEmptySlot,swapAircraftPositions,changeBaseAction,placeStockAircraft,configureOpenBase};
+module.exports={enterBase,openBaseFromArea,selectBase,closeBase,moveAircraftToEmptySlot,swapAircraftPositions,changeBaseAction,placeStockAircraft,configureOpenBase};

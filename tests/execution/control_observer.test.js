@@ -66,6 +66,20 @@ test('closing an unchanged base requires a fresh observation and rejects pending
   await assert.rejects(observer.prepareInput(input),/Unique enabled control/);
 });
 
+test('base tab switches require the exact area, unique target and no pending edits',()=>{
+  const tab=button('airbase.tab.2',{base:2}),s={version:1,valid:true,blocked:false,scene:'airbase',
+    airbase:{phase:'base',area:6,base:1,mode:0,tabs:[tab],models:[
+      {base:1,mode:0,pendingMode:-1,nameChanged:false},{base:2,mode:0,pendingMode:0,nameChanged:false}]}};
+  assert(observeControls(s,'airbase-tab',{area:6,base:2},store).valid);
+  const pending=clone(s);pending.airbase.models[0].pendingMode=1;
+  assert.equal(observeControls(pending,'airbase-tab',{area:6,base:2},store).valid,false);
+  const renamed=clone(s);renamed.airbase.models[1].nameChanged=true;
+  assert.equal(observeControls(renamed,'airbase-tab',{area:6,base:2},store).valid,false);
+  const duplicate=clone(s);duplicate.airbase.tabs.push(tab);
+  assert.equal(observeControls(duplicate,'airbase-tab',{area:6,base:2},store).valid,false);
+  assert.equal(observeControls(s,'airbase-tab',{area:7,base:2},store).valid,false);
+});
+
 test('base action completion requires the panel to close and poi to observe the exact mode',()=>{
   const s={version:1,valid:true,blocked:false,scene:'airbase-area',area:6,controls:[]},live={info:{airbase:[{api_area_id:6,api_rid:1,api_action_kind:1}]}};
   assert(observeControls(s,'airbase-action-done',{area:6,base:1,mode:1},live).valid);

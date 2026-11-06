@@ -153,16 +153,19 @@ class Controller {
       if(JSON.stringify([baseInventory(this.getStore().info),this.getStore().info.airbaseRelocations])!==baseBefore)
         throw Error('基地航空队状态已变化，停止配置；舰队可能已更改，请核对');
       stages.landBase={changed:0};
-      let inventory=baseInventory(this.getStore().info);
+      let inventory=baseInventory(this.getStore().info),location=null;
       for(const base of plan.landBase.bases.filter(row=>row.operations.length||row.modeChange)){
         this.session.check();
         if(JSON.stringify(baseInventory(this.getStore().info))!==JSON.stringify(inventory))throw Error('基地库存已变化，停止配置');
         const target=pinnedBase.bases.find(row=>row.rid===base.rid);
         this.onProgress({phase:'land-base',base:base.rid});
-        await landBase.enterBase(this.session,base.areaId,base.rid);
+        if(!location)await landBase.enterBase(this.session,base.areaId,base.rid);
+        else if(location.area!==base.areaId)throw Error('基地海域已变化，停止配置');
+        else if(location.open)await landBase.selectBase(this.session,base.areaId,base.rid,location.base);
+        else await landBase.openBaseFromArea(this.session,base.areaId,base.rid);
         const result=await landBase.configureOpenBase(this.session,{area:pinnedBase.area,base:target,verifiedInventory:inventory});
         stages.landBase.changed+=result.changed;
-        if(!base.modeChange)await landBase.closeBase(this.session,base.areaId,base.rid);
+        location={area:base.areaId,base:base.rid,open:!base.modeChange};
         const expected=structuredClone(inventory),row=expected.find(item=>item.area===base.areaId&&item.base===base.rid);
         for(const op of base.operations){
           const dest=row.slots.find(slot=>slot.slot===op.slotId);
@@ -179,6 +182,7 @@ class Controller {
         inventory=baseInventory(this.getStore().info);
         if(JSON.stringify(inventory)!==JSON.stringify(expected))throw Error('基地库存未按预期更新，请核对后重试');
       }
+      if(location?.open)await landBase.closeBase(this.session,location.area,location.base);
       const observed=this.getStore().info.airbase;
       for(const base of plan.landBase.bases){
         const live=observed.find(row=>row.api_area_id===base.areaId&&row.api_rid===base.rid);
