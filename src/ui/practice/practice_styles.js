@@ -78,6 +78,8 @@ ${trainingOverflowRules}
 .paa-practice-opponent-indicator[data-ready=true]{visibility:visible;transition:transform .26s cubic-bezier(.2,.65,.3,1)}
 .paa-practice-opponent-indicator[data-ready=true][data-tracking=true]{transition:none}
 .paa-practice-opponent-item{position:relative;z-index:1;min-width:0;border-radius:8px}.paa-practice-opponent-row{box-sizing:border-box;display:flex;align-items:center;gap:4px;min-width:0;height:52px;padding-right:5px}
+/* Keep the selected row's result aligned with rows that still show a toggle. */
+.paa-practice-opponent-item[data-selected=true] .paa-practice-opponent-row::after{content:'';flex:none;width:34px}
 .paa-practice-opponent-item:not([data-disabled=true]),.paa-practice-opponent-item:not([data-disabled=true]) *{cursor:pointer}
 .paa-practice-opponent-item:hover:not([data-selected=true]):not([data-disabled=true]){background:rgba(140,180,240,.08);box-shadow:inset 0 0 0 1px #6f9edc}
 .paa-practice-opponent-item[data-selected=true]{background:rgba(101,153,220,.14);box-shadow:inset 0 0 0 1px #6f9edc}
@@ -114,6 +116,7 @@ ${trainingOverflowRules}
  .paa-practice-opponent-layout[data-open=true] .paa-practice-opponent-portrait{display:none}
  .paa .paa-practice-opponent-layout[data-open=true] .paa-practice-opponent-select{gap:4px;padding-inline:6px}
  .paa .paa-practice-opponent-layout[data-open=true] .paa-practice-opponent-toggle{width:30px}
+ .paa-practice-opponent-layout[data-open=true] .paa-practice-opponent-item[data-selected=true] .paa-practice-opponent-row::after{width:30px}
  .paa-practice-enemy-ship{padding-inline:0}.paa-practice-enemy-head{gap:4px}.paa-practice-enemy-index{flex-basis:9px}.paa-practice-enemy-portrait{width:34px;height:24px}
 }
 .paa-practice-forecast{display:flex;align-items:center;gap:20px}.paa-practice-pie{width:92px;height:92px;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
