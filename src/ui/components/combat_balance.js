@@ -43,23 +43,30 @@ function renderCombatBalance(h,assessment){
 function renderDetails(h,assessment){
   const rows=Array.isArray(assessment?.diagnostics?.nodes)?assessment.diagnostics.nodes:[];
   const journeys=assessment?.diagnostics?.journeys;
-  const stopped=Number.isInteger(journeys?.stoppedBeforeTarget)&&journeys.stoppedBeforeTarget>0&&
+  const stopped=Number.isInteger(journeys?.stoppedBeforeTarget)&&journeys.stoppedBeforeTarget>=0&&
     Number.isInteger(journeys.samples)&&journeys.samples>=journeys.stoppedBeforeTarget?
-    `${journeys.stoppedBeforeTarget} / ${journeys.samples} 个参考场景在目标前大破停止。`:'';
+    `道中：${journeys.stoppedBeforeTarget} / ${journeys.samples} 个参考场景在目标前大破停止。`:'';
   const target=assessment?.diagnostics?.target;
+  const targetDamage=Number.isFinite(target?.flagshipDamage)?`，旗舰平均损伤 ${(target.flagshipDamage*100).toFixed(0)}%`:'';
   const outcome=Number.isInteger(target?.visits)&&target.visits>0&&Number.isInteger(target.sVictories)&&
     target.sVictories>=0&&target.sVictories<=target.visits?
-    `目标战 S 胜参考：${target.sVictories} / ${target.visits}${target.includeNight?'（含夜战）':''}；战后大破只计损耗。`:'';
+    `目标战：S 胜参考 ${target.sVictories} / ${target.visits}${target.includeNight?'（含夜战）':''}${targetDamage}；战后大破只计损耗。`:target&&target.visits===0?
+      '目标战：参考场景均未抵达，无法评价战果。':'';
   const percent=value=>Number.isFinite(value)&&value>=0?`${(value*100).toFixed(1)}%`:'—';
   const supply=value=>Number.isFinite(value)&&value>=0?(value>=1?'满':`${Math.round(value*100)}%`):'—';
   const whirlpools=assessment?.diagnostics?.supplyEstimates||[];
+  const branch=assessment?.diagnostics?.representativePath;
+  const branchNote=Array.isArray(branch)&&branch.length?(assessment?.diagnostics?.branchUncertain?
+    `分支概率不完整，按较危险的 ${branch.join('→')} 分支参考。`:
+    `逐点明细为综合较不利的 ${branch.join('→')} 分支；总评价在所选分支内按参考概率加权。`):'';
   const supplyNote=whirlpools.length?'漩涡后显示各舰剩余比例均值，按电探搭载舰数估算。'+
     (whirlpools.some(node=>node.strongChance)?'强漩涡暂按约 10% 发生率参考。':'')+
     (whirlpools.some(node=>node.assumedBaseRate)?'损失率未知的节点暂按普通漩涡 30% 参考。':''):'';
   const ratio=(left,right)=>h('span',{className:'paa-balance-ratio','aria-label':`${left} / ${right}`},
     h('span',null,left),h('span',{'aria-hidden':true},'/'),h('span',null,right));
   return h('div',{className:'paa-balance-details'},
-    h('p',null,`${stopped}${outcome}从当前耐久出发，损失为该点新增战损占最大耐久的比例；场景次数并非实际概率。油弹按满补给出发和参考分支估算。${supplyNote}`),
+    h('p',null,stopped,stopped&&outcome?h('br'):null,outcome,stopped||outcome?h('br'):null,
+      `${branchNote}从当前耐久出发，损失为该点新增战损占最大耐久的比例；场景次数并非实际概率。油弹按满补给出发和参考分支估算。${supplyNote}`),
     rows.length?h('table',{'aria-label':'逐点敌我战况参考'},
       h('thead',null,h('tr',null,...['节点','战前油弹','我方损失','敌方损失','大破场景'].map(label=>h('th',{key:label,scope:'col'},label)))),
       h('tbody',null,...rows.map((row,i)=>h('tr',{key:`${row.id}:${i}`},

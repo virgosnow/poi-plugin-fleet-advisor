@@ -16,7 +16,7 @@ const {assessCombat}=require('../../application/combat_assessment');
 const {assessRouteChoices}=require('../../application/route_combat_assessments');
 const {runRouteCombatBatch}=require('./route_combat_batch');
 const {createShipPickerCache}=require('./ship_picker_cache');
-const {shipGroup}=require('../components/ship_picker');
+const {shipGroup,matchesLock}=require('../components/ship_picker');
 const equipmentPicker=require('../components/equipment_picker');
 const blank=()=>Array(6).fill(null),pad=rows=>rows.concat(Array(Math.max(0,6-rows.length)).fill(null));
 const {createCalculationProgress,createProgressComponent}=require('../components/calculation_progress');
@@ -108,7 +108,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const [questState,setQuestState]=React.useState(()=>getStore().questState);
     const [routeRulesOpen,setRouteRulesOpen]=React.useState(false);
     const [combatDetailsOpen,setCombatDetailsOpen]=React.useState(false);
-    const [shipFleet,setShipFleet]=React.useState('all'),[shipSort,setShipSort]=React.useState('level-desc');
+    const [shipLock,setShipLock]=React.useState('locked'),[shipSort,setShipSort]=React.useState('level-desc');
     const [routeDrafts,setRouteDrafts]=React.useState({});
     const [selectedQuests,setSelectedQuests]=React.useState([]);
     const [noPlan,setNoPlan]=React.useState('');
@@ -128,6 +128,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const mapDialog=React.useRef(null),noPlanDialog=React.useRef(null);
     const operation=React.useRef(0),routeCache=React.useRef(null),latest=React.useRef(null),prepared=React.useRef(false);
     const routeCombatGeneration=React.useRef(0),routeCombatContext=React.useRef(null),routeCombatSnapshot=React.useRef(null),routeRequests=React.useRef(new Map());
+    // Non-serializable, snapshot-bound results from the initial route assessment.
+    const preparedRoutes=React.useRef(new Map());
     const handledNavigation=React.useRef(null);
     // Store references must stay outside serializable drafts (hot reload backs
     // drafts up on disk); an old or restored draft simply gets reassessed.
@@ -205,7 +207,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     };
     // Retain only last-search failures until clear or a new search. Successful
     // recommendations and their fleet-specific labels are stale after an edit.
-    const invalidateRouteCombat=()=>{routeCombatGeneration.current++;routeCombatSnapshot.current=null;setRouteCombatResults({});setBatchRouteChoices({});};
+    const invalidateRouteCombat=()=>{routeCombatGeneration.current++;routeCombatSnapshot.current=null;preparedRoutes.current.clear();setRouteCombatResults({});setBatchRouteChoices({});};
     const invalidateRouteChoices=()=>{if(kind==='normal'){
       invalidateRouteCombat();
       setChoices(current=>current.filter(c=>['notFound','unconfirmed'].includes(c.status)).map(({key,phase,status})=>({key,phase,status})));
@@ -224,7 +226,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       // Retire pending recommendations before clearing the old map's draft.
       operation.current++;routeCache.current=null;prepared.current=false;
       invalidateRouteCombat();
-      commit(blank());setChoices([]);setRouteDrafts({});setLandBaseDrafts({});setBasePopup(null);setSelectedQuests([]);setExcluded([]);setPopup(null);setNoPlan('');setSearch('');setShipFleet('all');
+      commit(blank());setChoices([]);setRouteDrafts({});setLandBaseDrafts({});setBasePopup(null);setSelectedQuests([]);setExcluded([]);setPopup(null);setNoPlan('');setSearch('');setShipLock('locked');
       setWorking(false);setActivity('');
       setArea(value);const selected=catalog.find(m=>m.area===value);
       setTarget(selected?.bossNodes?.length?'boss':selected?.terminalNodes?.[0]||'boss');
@@ -234,7 +236,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       value=Number(value);if(value===missionId)return;
       operation.current++;routeCache.current=null;prepared.current=false;resultViews.current.clear();
       setExpeditionCompleted(false);
-      if(preserveDraft){setReport({valid:false});setError('');setNotice('');}else{commit(blank());setShipFleet('all');}
+      if(preserveDraft){setReport({valid:false});setError('');setNotice('');}else{commit(blank());setShipLock('locked');}
       setChoices([]);setSelectedQuests([]);setExcluded([]);setPopup(null);setNoPlan('');setSearch('');
       setWorking(false);setActivity('');
       setShipType('all');setEquipmentCategory('all');setMissionId(value);setGoal(defaultGoal);
@@ -257,7 +259,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         if(nextArea!==area)changeArea(nextArea);
         else if(changed){
           operation.current++;routeCache.current=null;prepared.current=false;invalidateRouteCombat();resultViews.current.clear();
-          commit(blank());setChoices([]);setRouteDrafts({});setExcluded([]);setPopup(null);setNoPlan('');setSearch('');setShipFleet('all');
+          commit(blank());setChoices([]);setRouteDrafts({});setExcluded([]);setPopup(null);setNoPlan('');setSearch('');setShipLock('locked');
           setWorking(false);setActivity('');setMapRoute('');setPathIndex(0);setNodeId(null);
         }
         if(changed){setTarget(nextTarget);setPhase(nextPhase);setCombatDeferredPhase(nextPhase);setRoutePhaseAnchor(nextPhase);setPurpose('clear');}
@@ -374,7 +376,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       updateLandBases(bases=>airbaseEditor.changeTarget(bases,rid,wave,value).map(base=>base.rid===rid?
         {...base,targetsLocked:true,...(value?{mode:1,modePlanned:true}:{})}:base));
     };
-    React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;setShipWindow(0);},[popup,basePopup,search,equipmentCategory,equipmentGroup,equipmentSort,shipType,shipFleet,shipSort]);
+    React.useEffect(()=>{if(popupList.current)popupList.current.scrollTop=0;setShipWindow(0);},[popup,basePopup,search,equipmentCategory,equipmentGroup,equipmentSort,shipType,shipLock,shipSort]);
     const choosePlan=(row,key=conditionKey,selectedRoute='')=>{
       const current=getStore(),next=W.merge(current,slots,row.scheme,{preservePositions:kind!=='normal'}),
         nextRoute=row.routeKey||selectedRoute||'';
@@ -388,6 +390,15 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       slots.map((s,i)=>s&&(s.pin||Object.keys(s.keep).length)?[i,s.id,s.pin,Object.keys(s.keep).map(k=>[k,k==='ex'?s.ex:s.slots[k]])]:null),...(selectedQuests.length?[selectedQuests]:[])]);
     const normalHolds=rows=>W.recommendationHolds(rows,{preservePositions:false}).filter(Boolean).map(hold=>
       ({...hold,keep:Object.fromEntries(Object.entries(hold.keep).sort(([a],[b])=>a.localeCompare(b)))})).sort((a,b)=>a.id-b.id);
+    const preparedRoute=(key,current,rows=slots)=>{
+      const entry=preparedRoutes.current.get(key);
+      if(!entry||entry.info!==current.info||entry.master!==current.const||
+        entry.signature!==JSON.stringify([kind,area,target,purpose,missionId,goal,fleet,excluded,filterKey,normalHolds(rows),selectedQuests])||
+        entry.fingerprint!==normalSnapshotKey(current,area)||
+        entry.baseSignature!==null&&entry.baseSignature!==airbaseView.planningSignature(current)||
+        entry.report.settingsKey!==JSON.stringify({...settings,phase:phaseForRoute(key,current)}))return null;
+      return entry;
+    };
     const publishCalculation=value=>{const channel=calculationChannel.current;channel.value=value;for(const listener of channel.listeners)listener(value);};
     const startProgressTimer=(progress,isActive)=>{
       const timer=setInterval(()=>{
@@ -407,6 +418,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const startRouteCombat=(found,requestedPhase,initialStore,baseStore,baseSignature,sourceFingerprint,signature,proposeLandBases,selectLandBaseCombat,timings)=>{
       const generation=++routeCombatGeneration.current,context=routeCombatContext.current,service=getController();
       const initialInfo=initialStore.info,initialMaster=initialStore.const;
+      const prepared=new Map();preparedRoutes.current.clear();
       routeCombatSnapshot.current={info:initialInfo,master:initialMaster,signature};
       const routeOptions=require('../../domain/routes/route_plans').recommendedOptions(area,target,undefined,selectionSettings,initialStore)
         .filter(option=>!option.fallback||found.routeResults?.some(row=>row.key===option.key&&row.status==='available'));
@@ -429,12 +441,30 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           landBases:landBases?.length?(option,merged,checked)=>proposeLandBases(baseStore,
             {area,routeNodes:require('../../domain/routes/route_plans').orderedPathNodes(require('../../domain/routes/route_plans').fleetPaths(checked.route,option)),
               scheme:W.scheme(merged,fleet),bases:landBases}):undefined,
-          selectLandBaseCombat,onTiming:timings?rows=>timings.push(...rows):undefined}),
+          refineLandBaseEquipment:landBases?.length&&typeof service?.recommendNormalEquipment==='function'?async({option,slots:merged,proposal})=>{
+            const {snapshotId}=service.createSnapshot();
+            const result=await service.recommendNormalEquipment({snapshotId,scheme:W.scheme(merged,fleet),area,target,
+              phase:option.phase||requested||undefined,routeKey:option.fallback?undefined:option.key,
+              heldSlots:W.recommendationHolds(merged,{preservePositions:false}),landBases:proposal.bases});
+            if(cancelled())return null;
+            const updated=W.withEquipment(merged,result.scheme);
+            const checked=W.inspect(service,baseStore,updated,{...settings,fleet,phase:option.phase||requested||''});
+            const issue=W.draftRouteIssue(checked,option,checked.valid);
+            if(!checked.valid||issue)throw Error(checked.error||issue?.message||'联合配装未满足所选路线');
+            return {slots:updated,report:checked};
+          }:undefined,
+          selectLandBaseCombat,onTiming:timings?rows=>timings.push(...rows):undefined,
+          onPrepared:(option,result)=>prepared.set(option.key,{...result,info:initialInfo,master:initialMaster,
+            fingerprint:sourceFingerprint,baseSignature,signature})}),
         publish:(requested,result,combat)=>{
           if(sourceFingerprint!==null&&normalSnapshotKey(getStore(),area)!==sourceFingerprint){invalidateRouteCombat();return;}
-          const options=choicesFor(result);
+          const options=choicesFor(result).map(option=>{
+            const ready=prepared.get(option.key);
+            return ready&&option.row?{...option,row:{...option.row,scheme:W.scheme(ready.slots,fleet)}}:option;
+          });
           const complete={...Object.fromEntries(routeOptions.filter(option=>(option.phase||'')===requested)
             .map(option=>[option.key,{status:'unknown'}])),...combat};
+          preparedRoutes.current=prepared;
           setBatchRouteChoices(previous=>({...previous,...Object.fromEntries(options.map(option=>[option.key,option]))}));
           setRouteCombatResults(previous=>({...previous,...complete}));
         },
@@ -524,7 +554,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         while(routeCache.current.size>8)routeCache.current.delete(routeCache.current.keys().next().value);
         const options=W.routeChoices(found);setChoices(previous=>previous.filter(c=>(routeOnly||['notFound','unconfirmed'].includes(c.status))&&!options.some(o=>o.key===c.key)).concat(options));
         let defaultRoute=null,rankedCombat=null;
-        if(kind==='normal'&&!automatic){
+        if(kind==='normal'&&(!automatic||landBases?.length)){
           setCombatDeferredPhase('');
           const sortStart=timings?performance.now():0;
           combatRequest=startRouteCombat(found,requestedPhase,initialStore,baseStore,baseSignature,sourceFingerprint,combatSignature,proposeLandBases,selectLandBaseCombat,timings);
@@ -532,7 +562,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           // With no player-selected route, wait for the same assessments that
           // order the picker before committing a fleet. This avoids first
           // showing a catalogue default and then jumping to the best route.
-          if(!requestedRoute||String(requestedRoute).startsWith('fallback:')){
+          if(landBases?.length||!requestedRoute||String(requestedRoute).startsWith('fallback:')){
             const combat=await combatRequest;rankedCombat=combat;
             if(!alive.current||token!==operation.current||![origin,key].includes(latest.current))return;
             const assessedStore=getStore();
@@ -572,9 +602,15 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         if(kind==='normal'&&!selectedKey&&found.routeResults?.length)
           throw Error(found.reason||found.message||'当前条件下没有可到达的路线方案，请调整固定舰娘或目标');
         if(!found.recommendations?.length&&!(kind==='expedition'&&found.closestRecommendation))throw Error(found.reason||found.message||'当前条件下没有可用方案，请调整固定舰娘或目标');
-        const row=kind==='normal'?found.recommendations.find(r=>r.routeKey===(selectedKey||found.recommendations[0]?.routeKey)):
+        let row=kind==='normal'?found.recommendations.find(r=>r.routeKey===(selectedKey||found.recommendations[0]?.routeKey)):
           found.recommendations[0]||found.closestRecommendation;
         if(!row)throw Error('所选路线没有可用方案，当前编成已保留，请调整固定舰娘或装备');
+        if(kind==='normal'&&landBases?.length){
+          const ready=preparedRoutes.current.get(row.routeKey||selectedKey);
+          if(ready)row={...row,scheme:W.scheme(ready.slots,fleet)};
+          else if(rankedCombat?.[row.routeKey||selectedKey]?.status==='unknown')
+            throw Error((rankedCombat[row.routeKey||selectedKey].reasons||[]).join('；')||'陆航与舰队配装尚未完成核对，请重试');
+        }
         let finalBaseProposal=null;
         if(kind==='normal'&&landBases?.length){
           const option=options.find(candidate=>candidate.key===(row.routeKey||selectedKey));
@@ -715,8 +751,12 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const currentDraftCombat=currentDraft?.usable&&currentDraft.revision===revision&&currentDraft.fleet===fleet&&
         Array.isArray(currentDraft.slots)&&JSON.stringify(W.scheme(currentDraft.slots,fleet))===JSON.stringify(W.scheme(slots,fleet))&&
         currentDraftSnapshot?.info===store.info&&currentDraftSnapshot?.master===store.const?currentDraft.combat:null;
+      const preparedCandidate=kind==='normal'&&mapRoute?preparedRoute(mapRoute,store):null;
+      const reusableCombat=preparedCandidate&&preparedCandidate.report===report&&!dirty&&!preselecting&&!working&&
+        !preparedCandidate.combat?.reasons?.some(reason=>reason.includes('超过时间预算'))&&
+        JSON.stringify(preparedCandidate.landBaseProposal?.bases||null)===JSON.stringify(routeBases||null)?preparedCandidate.combat:null;
       const combat=kind==='normal'&&(!combatDeferredPhase||combatDeferredPhase!==effectivePhase)?
-        assessCombat({store,report,option:selectedRoute,dirty:dirty||preselecting||working,landBases:routeBases}):
+        reusableCombat||assessCombat({store,report,option:selectedRoute,dirty:dirty||preselecting||working,landBases:routeBases}):
         currentDraftCombat||{status:'awaitingCompletion'};
       if(selectedRoute&&combat?.balance&&!dirty&&!preselecting&&!working)selectedRoute.combat=combat;
       const fallbackThreat=item=>item&&rows.length?{...item,status:'partial',warnings:['尚未按当前舰队核对']} : item;
@@ -844,10 +884,10 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const shipCards=pendingShipView.current||slots.map(shipCard);
     const popupRows=popup&&!paused&&!resumePending.current?(popup.slot===undefined?(()=>{
       const selection={kind,filters:selectionSettings},prepared=pickerCache.current.get(store,selection);
-      const key=JSON.stringify([slots.map(slot=>slot?.id||null),popup.index,search,shipType,shipFleet,shipSort]);
+      const key=JSON.stringify([slots.map(slot=>slot?.id||null),popup.index,search,shipType,shipLock,shipSort]);
       if(pickerRowsCache.current?.prepared===prepared&&pickerRowsCache.current.key===key)return pickerRowsCache.current.rows;
       const rows=W.replacementCandidates(store,slots,popup.index,search,'all',selection,prepared,{sortFirstFleet:false})
-        .filter(row=>(shipType==='all'||(shipType.startsWith('type:')?String(row.typeId)===shipType.slice(5):shipGroup(row.typeId)===shipType))&&(shipFleet==='all'||row.fleet===Number(shipFleet)))
+        .filter(row=>(shipType==='all'||(shipType.startsWith('type:')?String(row.typeId)===shipType.slice(5):shipGroup(row.typeId)===shipType))&&matchesLock(store,row.id,shipLock))
         .sort((a,b)=>shipSort==='level-asc'?a.level-b.level||a.id-b.id:shipSort==='morale-desc'?b.cond-a.cond||b.level-a.level||a.id-b.id:
           shipSort==='name'?a.name.localeCompare(b.name,'ja')||b.level-a.level||a.id-b.id:b.level-a.level||a.id-b.id);
       pickerRowsCache.current={prepared,key,rows};return rows;
@@ -873,7 +913,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         if(k==='ex')next[popup.index].ex=row.id;else next[popup.index].slots[k]=row.id;}
       invalidateRouteChoices();
       commit(next);setPopup(null);
-      if(popup.slot===undefined&&(kind!=='normal'||prepared.current||replacing&&mapRoute))return refreshEquipment(next,{activate:kind==='normal'&&!prepared.current});
+      if(replacing&&(kind!=='normal'||prepared.current||mapRoute))return refreshEquipment(next,{activate:kind==='normal'&&!prepared.current});
     };
     const field=(label,value,onChange,options,route)=>h('label',{className:'paa-wb-field','data-route-caption':!!route},h('span',null,label),h('select',{'aria-label':label,value,disabled,onChange:e=>onChange(e.target.value)},...options.map(([value,name,optionDisabled])=>h('option',{key:value,value,disabled:optionDisabled},name))),
       route?h('span',{className:'paa-wb-route-caption','aria-hidden':true},h('span',{className:'paa-wb-route-name'},route.name),h('span',{className:'paa-wb-route-path'},`（${route.displayPathLabel||route.strategy?.pathLabel||route.pathLabel||route.nodes.join('→')}）`)):null);
@@ -884,7 +924,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           // A gauge is a fresh composition: don't carry a saved fleet, fixed
           // equipment, exclusions or predictions into the next stage.
           operation.current++;routeCache.current=null;routeRequests.current.clear();prepared.current=false;invalidateRouteCombat();resultViews.current.clear();
-          commit(blank());setChoices([]);setRouteDrafts({});setExcluded([]);setPopup(null);setSearch('');setShipFleet('all');
+          commit(blank());setChoices([]);setRouteDrafts({});setExcluded([]);setPopup(null);setSearch('');setShipLock('locked');
           setWorking(false);setActivity('');setPhase('');setCombatDeferredPhase(nextPhase);setRoutePhaseAnchor(nextPhase);setPurpose('clear');
           setMapRoute(value);setPathIndex(0);setNodeId(null);setRouteRulesOpen(false);return;
         }
@@ -897,12 +937,15 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           const usable=!!currentInspection?.valid&&!W.draftRouteIssue(currentInspection,selectedRoute,true)&&
             (currentArrival.value==='固定到达'||currentArrival.value.startsWith('到达概率'));
           const reading=usable?(!combatDeferredPhase||combatDeferredPhase!==effectivePhase?
-            assessCombat({store:current,report:currentInspection,option:selectedRoute,dirty:false,landBases:routeBases}):currentDraftCombat):null;
+            currentInspection===report&&combat?.status!=='pending'?combat:
+              assessCombat({store:current,report:currentInspection,option:selectedRoute,dirty:false,landBases:routeBases}):currentDraftCombat):null;
           const draftCombat=reading||null;
           const saved={slots,excluded,prepared:prepared.current,draftContext,pathIndex,nodeId,routeRulesOpen,error,notice,usable,revision,fleet,combat:draftCombat,
             landBaseEntry:landBaseEntry?{...landBaseEntry,bases:routeBases}:null,
             choices:choices.filter(c=>['notFound','unconfirmed'].includes(c.status)).map(({key,phase,status,diagnostics,message})=>({key,phase,status,diagnostics,message}))};
-          routeDraftCombatSnapshots.current.set(saved,{info:current.info,master:current.const});
+          const cached=preparedRoute(mapRoute,current);
+          routeDraftCombatSnapshots.current.set(saved,{info:current.info,master:current.const,
+            ...(cached?.report===currentInspection?{report:currentInspection,fingerprint:cached.fingerprint}:{} )});
           setRouteDrafts(previous=>({...previous,[mapRoute]:saved}));
         }
         if(!value){setRoutePhaseAnchor(effectivePhase);setMapRoute('');setPathIndex(0);setNodeId(null);setNotice('');setError('');return;}
@@ -912,7 +955,11 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           const constraints=rows=>JSON.stringify(normalHolds(rows));
           if(constraints(saved.slots)!==constraints(slots)||JSON.stringify(saved.excluded||[])!==JSON.stringify(excluded))invalidateRouteCombat();
           const current=getStore(),nextSettings={...settings,phase:phaseForRoute(value,current)};
-          const inspection=saved.prepared?W.inspect(getController(),current,saved.slots,nextSettings):{valid:false};
+          const snapshot=routeDraftCombatSnapshots.current.get(saved);
+          const reusable=snapshot?.report&&snapshot.info===current.info&&snapshot.master===current.const&&
+            snapshot.fingerprint===normalSnapshotKey(current,area)&&snapshot.report.settingsKey===JSON.stringify(nextSettings)&&
+            saved.revision===revision&&saved.fleet===fleet;
+          const inspection=saved.prepared?(reusable?snapshot.report:W.inspect(getController(),current,saved.slots,nextSettings)):{valid:false};
           operation.current++;observed.current=current;prepared.current=!!saved.prepared;
           if(Object.prototype.hasOwnProperty.call(saved,'landBaseEntry'))setLandBaseDrafts(previous=>{
             const next={...previous};if(saved.landBaseEntry)next[area]=saved.landBaseEntry;else delete next[area];return next;
@@ -920,6 +967,14 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           setSlots(saved.slots);setExcluded(saved.excluded||[]);setChoices(saved.choices||[]);setDraftContext(saved.draftContext);
           setReport(inspection);setPathIndex(saved.pathIndex||0);setNodeId(saved.nodeId||null);setRouteRulesOpen(!!saved.routeRulesOpen);
           setMapRoute(value);setPopup(null);setNotice(saved.notice||'');setError(!saved.prepared||inspection.valid?(saved.error||''):inspection.error||'编成需要重新核对');return;
+        }
+        const current=getStore(),ready=prepared.current?preparedRoute(value,current):null;
+        if(ready){
+          operation.current++;observed.current=current;setSlots(ready.slots);setReport(ready.report);
+          setDraftContext(conditionKey);setPathIndex(0);setNodeId(null);setPopup(null);setNotice('');setError('');
+          if(ready.landBaseProposal)setLandBaseDrafts(previous=>({...previous,[area]:{
+            bases:ready.landBaseProposal.bases,warnings:ready.landBaseProposal.warnings||[]}}));
+          setMapRoute(value);return;
         }
         inspectSelection(value);setMapRoute(value);setNodeId(null);
         if((!combatDeferredPhase||combatDeferredPhase!==phaseForRoute(value))&&prepared.current&&
@@ -934,7 +989,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         kind==='normal'?h(AreaPicker,{maps:catalog,mapMasters:store.const.$maps,value:area,onChange:changeArea,disabled,hidden}):
         h(React.Fragment,null,h(AreaPicker,{kind:'expedition',missions:catalog,missionMasters:store.const.$missions,missionProgress:store.expeditionProgress,fleets:store.info.fleets,useItems:store.const.$useitems,value:missionId,onChange:changeMission,disabled,hidden}),expeditionView.goal({value:goal,onChange:changeGoal,disabled})),normalRouteControl);
     const commandControls=h('div',{className:'paa-wb-command-area','data-running':!!busy},h('div',{className:'paa-wb-command-row'},h('div',{className:'paa-wb-edit-controls'},h('button',{type:'button',className:'paa-wb-complete',disabled,onClick:()=>complete()},h('svg',{width:15,height:15,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'m4 16 9-9 3 3-9 9zM4 3v4M2 5h4M14 1v3M12.5 2.5h3'})),working&&activity==='complete'?'计算中…':'一键补全'),
-          h('button',{type:'button',className:'paa-wb-quiet',disabled,onClick:()=>{if(kind==='normal'){operation.current++;routeCache.current=null;prepared.current=false;invalidateRouteCombat();resultViews.current.clear();setExcluded([]);setPopup(null);setBasePopup(null);setLandBaseDrafts({});setSearch('');setWorking(false);setActivity('');setPhase('');setCombatDeferredPhase('');setRoutePhaseAnchor('');setPurpose('clear');setMapRoute('');setPathIndex(0);setNodeId(null);setRouteRulesOpen(false);setRouteDrafts({});}else setExpeditionCompleted(false);commit(blank());setChoices([]);setShipFleet('all');}},'一键清空'),
+          h('button',{type:'button',className:'paa-wb-quiet',disabled,onClick:()=>{if(kind==='normal'){operation.current++;routeCache.current=null;prepared.current=false;invalidateRouteCombat();resultViews.current.clear();setExcluded([]);setPopup(null);setBasePopup(null);setLandBaseDrafts({});setSearch('');setWorking(false);setActivity('');setPhase('');setCombatDeferredPhase('');setRoutePhaseAnchor('');setPurpose('clear');setMapRoute('');setPathIndex(0);setNodeId(null);setRouteRulesOpen(false);setRouteDrafts({});}else setExpeditionCompleted(false);commit(blank());setChoices([]);setShipLock('locked');}},'一键清空'),
         ),
         automaticOperations||busy?h('div',{className:'paa-wb-apply-controls'},field('编入',fleet,value=>{const next=Number(value);setFleet(next);setReport({valid:false});},[1,2,3,4].filter(n=>kind!=='expedition'||n>1).map(n=>{const f=store.info?.fleets?.[n-1],unavailable=!f||!Array.isArray(f.api_mission),away=f&&!unavailable&&Number(f.api_mission[0])!==0;return [n,`第 ${n} 舰队${unavailable?'（未同步）':away?'（远征中）':''}`,unavailable||kind!=='expedition'&&away];})),
         h('button',{type:'button',className:'paa-primary paa-wb-apply',ref:stopButtonRef,'data-running':!!busy,'data-warning':!!applyWarning,
@@ -1053,9 +1108,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         rows:baseRows,search,setSearch,group:equipmentGroup,setGroup:setEquipmentGroup,category:equipmentCategory,setCategory:setEquipmentCategory,
         sort:equipmentSort,setSort:setEquipmentSort,store,currentEquipment:baseCurrent,disabled,listRef:popupList,
         onClose:()=>setBasePopup(null),onPick:pickBase,onClear:()=>pickBase({id:0})}):
-      popup&&popup.slot===undefined?ShipPicker({index:popup.index,rows:popupRows,search,setSearch,shipFleet,setShipFleet,shipType,setShipType,
-        shipSort,setShipSort,replacementType,replacementTypeLabel,disabled,onClose:()=>setPopup(null),onPick:pick,listRef:popupList,store,kind,windowScroll:shipWindow,onWindowScroll:setShipWindow,
-        hint:kind==='expedition'?'换入后自动推荐远征装备':kind==='normal'&&!prepared.current?'先预选舰娘，一键补全后统一配装':'换入后自动推荐装备'}):
+      popup&&popup.slot===undefined?ShipPicker({index:popup.index,rows:popupRows,search,setSearch,shipLock,setShipLock,shipType,setShipType,
+        shipSort,setShipSort,replacementType,replacementTypeLabel,disabled,onClose:()=>setPopup(null),onPick:pick,listRef:popupList,store,kind,windowScroll:shipWindow,onWindowScroll:setShipWindow}):
       popup?EquipmentPicker({index:popup.index,slot:popup.slot,rows:popupRows,search,setSearch,group:equipmentGroup,setGroup:setEquipmentGroup,
         category:equipmentCategory,setCategory:setEquipmentCategory,sort:equipmentSort,setSort:setEquipmentSort,store,currentEquipment,disabled,listRef:popupList,
         onClose:()=>setPopup(null),onPick:pick,onClear:()=>pick({id:-1}),onAuto:slots[popup.index].keep[popup.slot]?()=>{const next=slots.slice(),s=next[popup.index];

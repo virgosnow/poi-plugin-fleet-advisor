@@ -26,6 +26,18 @@ test('base planning receives the merged fleet inspection for each route',async()
  assert.equal(seen.length,1);assert.equal(seen[0].actual,report);assert.equal(seen[0].option.key,'lower');
 });
 
+test('prepared route retains its inspected fleet and selected base proposal',async()=>{
+  const slots=[{id:2}],report={valid:true},proposal={bases:[{rid:1,targets:['N']}],warnings:[]},prepared=[];
+  const run=createRouteCombatAssessor({merge:()=>slots,inspect:()=>report,yieldControl:async()=>{}});
+  const option={key:'lower',row:{scheme:{ships:[{id:2}]}}};
+  const results=await run({slots:[],options:[option],landBases:()=>({bases:[]}),
+    selectLandBaseCombat:()=>({assessment:{status:'estimated'},proposal}),
+    onPrepared:(route,result)=>prepared.push({route,result})});
+  assert.equal(prepared.length,1);assert.equal(prepared[0].route,option);
+  assert.equal(prepared[0].result.slots,slots);assert.equal(prepared[0].result.report,report);
+  assert.equal(prepared[0].result.combat,results.lower);assert.equal(prepared[0].result.landBaseProposal,proposal);
+});
+
 test('missing candidates and failed inspections never acquire a battle grade',async()=>{
   let assessed=0;
   const run=createRouteCombatAssessor({merge:()=>[],inspect:()=>({valid:false,error:'候选不可用'}),
@@ -51,6 +63,16 @@ test('exceptions in one route do not prevent independent routes being checked',a
   const result=await run({slots:[],options:[{key:'bad',row:{scheme:{bad:true}}},{key:'good',row:{scheme:{}}}]});
   assert.equal(result.bad.status,'unknown');assert.match(result.bad.reasons[0],/失效/);
   assert.equal(result.good.status,'estimated');
+});
+test('borderline final verdict gets more scenarios without losing a completed result on timeout',async()=>{
+  let fail=false;const seen=[];
+  const run=createRouteCombatAssessor({merge:()=>[],inspect:()=>({valid:true}),yieldControl:async()=>{},
+    assess:({samples})=>{seen.push(samples||32);return samples===64&&fail?{status:'unknown'}:
+      {status:'estimated',uncertain:!samples,samples:samples||32};}});
+  const input={slots:[],options:[{key:'a',row:{scheme:{}}}]};
+  let result=await run(input);assert.deepEqual(seen,[32,64]);assert.equal(result.a.samples,64);
+  seen.length=0;fail=true;result=await run(input);
+  assert.deepEqual(seen,[32,64]);assert.equal(result.a.samples,32);
 });
 
 test('real workbench merge and preview preserve held ships while inspecting each recommendation',async()=>{

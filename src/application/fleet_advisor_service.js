@@ -375,9 +375,24 @@ class FleetAdvisorService {
   }
   async recommendNormalEquipment(args,onProgress){
     const snapshot=this.snapshots.get(args.snapshotId);
+    const original=args.landBases!==undefined?args.scheme:null;
     args={...this.equipmentRecommendationArgs(snapshot.store,args),automaticFilters:this.getRecommendationFilters().normal};
-    const input=reserveLandBaseEquipment(snapshot.store,args.landBaseEquipmentIds);
+    let ids=args.landBaseEquipmentIds||[];
+    if(args.landBases!==undefined){
+      const check=require('../recommendation/land_base').validatePlan(snapshot.store,{area:args.area,bases:args.landBases,scheme:original});
+      if(!check.valid)throw error('INVALID_QUERY','基地航空队方案无法用于配装：'+check.issues.join('；'));
+      // The ordinary equipment tool starts from empty unlocked slots. During
+      // joint base fitting the supplied fleet is also a valuable, already
+      // checked combat baseline; it must remain eligible for comparison.
+      args={...args,combatBaseline:pageQueries.resolveCandidate(snapshot.store,original).scheme};
+      ids=[...new Set([...ids,...args.landBases.flatMap(base=>base.slots||[]).map(slot=>slot.itemId).filter(id=>id>0)])];
+    }
+    const input=reserveLandBaseEquipment(snapshot.store,ids);
     const result=pageQueries.verifyConstraints(await this.recommendations.run('recommendNormalEquipment',input,args,onProgress),args,true);
+    if(args.landBases!==undefined){
+      const check=require('../recommendation/land_base').validatePlan(snapshot.store,{area:args.area,bases:args.landBases,scheme:result.scheme});
+      if(!check.valid)throw error('INVALID_QUERY','基地航空队与舰队配装冲突：'+check.issues.join('；'));
+    }
     return {snapshotId:args.snapshotId,...result,evaluation:pageQueries.evaluateRoute(snapshot.store,
       {...args,scheme:result.scheme,fleet:result.scheme.fleet},this.getRecommendationFilters().normal)};
   }

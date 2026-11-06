@@ -43,6 +43,7 @@ function plannedStats(store,entry){
       (bonus&&known?blue[bonus]-oldBlue[bonus]:0));
     return {firePower:panel('api_karyoku','api_houg','firePower'),torpedo:panel('api_raisou','api_raig','torpedo'),
       antiAir:panel('api_taiku','api_tyku','antiAir'),armor:panel('api_soukou','api_souk'),
+      accuracy:raw(target,'api_houm'),
       known,reasons:[...new Set([...oldBlue.reasons,...blue.reasons])]};
   });
   }finally{perf.end(timing);}
@@ -99,7 +100,9 @@ function equipmentValue(store,entry,item,slot,{air=0,los=false,auxiliary=false,d
     const m=item.master,t=type(m),blueValue=equipmentAffinity(store,entry,item,air);
     if(!auxiliary){
       const fit=dayFit&&[1,2,3].includes(type(m))?fitChange(store,entry.id,entry,slot,item.id):null;
-      return rawAttack(m)+blueValue+.2*air*Number(m.api_tyku||0)+(fit?.known?fit.delta*2:0);
+      // Main-gun selection must weigh both visible accuracy and fit together.
+      // This is a preference, not a conversion to an actual hit probability.
+      return rawAttack(m)+Number(m.api_houm||0)*2+blueValue+.2*air*Number(m.api_tyku||0)+(fit?.known?fit.delta*4:0);
     }
     const radar=[12,13,93].includes(t),{radars,aaCore}=roles||utilityRoles(store,entry);
     // Prefer a complementary role once a ship already has a radar. This is a
@@ -146,4 +149,8 @@ const rankGuns=(store,entry,items,slot,air,dayFit=true)=>rankEquipment(store,ent
 function gunFit(store,entry){
   return snapshotMemo(store,'combatValue.gunFit',JSON.stringify([entry.id,entry.slots,entry.ex]),()=>fitForLoadout(store,entry.id,entry));
 }
-module.exports={targetFor,blueStats,plannedStats,airExposure,losNeeded,antiAirScore,equipmentValue,rankGuns,rankEquipment,gunFit};
+// Keep the effect bounded and saturate large positive equipment bonuses: hit
+// chance has a cap, while a large negative fit penalty must remain visible.
+// This is a ranking proxy, not a prediction of the actual hit rate.
+const accuracyScore=(accuracy,fit=0)=>Math.max(-30,Math.min(12,accuracy+fit))*1.5;
+module.exports={targetFor,blueStats,plannedStats,airExposure,losNeeded,antiAirScore,equipmentValue,rankGuns,rankEquipment,gunFit,accuracyScore};

@@ -1,4 +1,5 @@
 'use strict';
+const {outcomes}=require('./joint_fitting_comparison');
 // Keep the forecast used for route ordering and the aircraft/targets ultimately
 // shown to the player together. Comparisons are bounded reference scenarios,
 // never an assertion about a real win or retreat probability.
@@ -60,22 +61,24 @@ function createLandBaseCombatSelector({assess=require('./combat_assessment').ass
         if(!valid(reading))continue;
         const a=original.diagnostics,b=reading.diagnostics;
         if(a.journeys.samples!==b.journeys.samples||a.target.id!==b.target.id)continue;
+        const before=outcomes(original),after=outcomes(reading);
+        if(!before||!after||before.key!==after.key)continue;
         // First compare safe arrival, then S after the target battle (including
         // night battle when available). These are sampled scenarios, not real
         // probabilities; an improved route may trade some Boss S outcomes.
         const worstBefore=worstEnroute(original),worstAfter=worstEnroute(reading);
-        const sameOutcome=b.journeys.completed===a.journeys.completed&&b.target.sVictories===a.target.sVictories;
+        const sameOutcome=Math.abs(after.arrivals-before.arrivals)<1e-9&&Math.abs(after.sVictory-before.sVictory)<1e-9;
         const improvesWorst=sameOutcome&&worstBefore!==null&&worstAfter!==null&&worstAfter<worstBefore;
-        const improves=b.journeys.completed>a.journeys.completed||
-          b.journeys.completed===a.journeys.completed&&b.target.sVictories>a.target.sVictories||improvesWorst;
+        const improves=after.arrivals>before.arrivals+1e-9||
+          Math.abs(after.arrivals-before.arrivals)<1e-9&&after.sVictory>before.sVictory+1e-9||improvesWorst;
         if(!emergency&&!improves)continue;
         all.push({assessment:reading,proposal:{bases:candidate,warnings:[...new Set([...warnings,...tuned.warnings||[],
           ...(emergency?['战况压倒性劣势，优先尝试基地航空队支援道中；战况仅为有限场景参考']:
             improvesWorst?['两种方案的通关参考接近，按道中风险场景择优；样本有限，不保证实战改善']:[])])]}});
       }
       // An incomplete comparison cannot identify the best candidate fairly.
-      if((!exhausted||emergency)&&all.length){all.sort((a,b)=>b.assessment.diagnostics.journeys.completed-a.assessment.diagnostics.journeys.completed||
-        b.assessment.diagnostics.target.sVictories-a.assessment.diagnostics.target.sVictories||
+      if((!exhausted||emergency)&&all.length){all.sort((a,b)=>outcomes(b.assessment).arrivals-outcomes(a.assessment).arrivals||
+        outcomes(b.assessment).sVictory-outcomes(a.assessment).sVictory||
         (worstEnroute(a.assessment)??Infinity)-(worstEnroute(b.assessment)??Infinity));best=all[0];}
       else if(emergency&&fallback)best=fallback;
       else if(emergency)best.proposal.warnings=[...new Set([...warnings,'战况压倒性劣势，但未找到可确认的道中支援方案，请检查飞机航程和手动锁定'])];

@@ -77,8 +77,8 @@ test('per-node details distinguish simulated losses and unvisited or air raid no
   assert.deepEqual(body.children.map(row=>row.children.map(cellText)),[
     ['A 点','满 / 满','12.5%','40.0%','3 / 32'],['B 点','80% / 80%','1.0%','—','1 / 29'],['C 点','— / 76%','—','—','—'],
     ['D 点','满 / 80%','0.0%','0.0%','0 / 1'],['E 点','100% / 满','0.0%','0.0%','0 / 1']]);
-  assert.match(v.children[0].children[0],/并非实际概率/);
-  assert.match(v.children[0].children[0],/油弹按满补给出发和参考分支估算/);
+  assert.match(v.children[0].children.at(-1),/并非实际概率/);
+  assert.match(v.children[0].children.at(-1),/油弹按满补给出发和参考分支估算/);
   const styles=require('../../src/ui/workbench/workbench_styles');
   assert.match(styles,/\.paa-balance-details table\{[^}]*table-layout:fixed/);
   assert.match(styles,/\.paa-balance-details :is\(th,td\)\{[^}]*text-align:center/);
@@ -97,14 +97,25 @@ test('a newly selected stage prompts for explicit completion instead of claiming
 test('route details state why the target is not reached without calling scene counts a probability',()=>{
   const v=render.renderDetails(h,{diagnostics:{journeys:{samples:32,completed:0,stoppedBeforeTarget:32},nodes:[]}});
   assert.match(v.children[0].children[0],/32 \/ 32 个参考场景在目标前大破停止/);
-  assert.match(v.children[0].children[0],/从当前耐久出发/);
-  assert.match(v.children[0].children[0],/并非实际概率/);
+  assert.match(v.children[0].children.at(-1),/从当前耐久出发/);
+  assert.match(v.children[0].children.at(-1),/并非实际概率/);
 });
 
 test('target victory details distinguish post-battle repairs from en-route retreat',()=>{
   const v=render.renderDetails(h,{diagnostics:{journeys:{samples:32,completed:32,stoppedBeforeTarget:0},
     target:{id:'C',visits:32,sVictories:32,severe:32,includeNight:true},nodes:[]}});
-  assert.match(v.children[0].children[0],/目标战 S 胜参考：32 \/ 32（含夜战）/);
-  assert.match(v.children[0].children[0],/战后大破只计损耗/);
-  assert(!v.children[0].children[0].includes('目标前大破停止'));
+  assert.match(v.children[0].children[0],/道中：0 \/ 32/);
+  assert.match(v.children[0].children[2],/目标战：S 胜参考 32 \/ 32（含夜战）/);
+  assert.match(v.children[0].children[2],/战后大破只计损耗/);
+});
+
+test('target result is not presented as an S failure when no scenario reached it',()=>{
+  const v=render.renderDetails(h,{diagnostics:{journeys:{samples:32,stoppedBeforeTarget:32},
+    target:{id:'C',visits:0,sVictories:0},nodes:[]}});
+  assert.match(v.children[0].children[2],/均未抵达，无法评价战果/);
+});
+test('the node table distinguishes weighted branches from incomplete route probabilities',()=>{
+  const view=branchUncertain=>render.renderDetails(h,{diagnostics:{representativePath:['A','C'],branchUncertain,nodes:[]}});
+  assert.match(view(false).children[0].children.at(-1),/总评价在所选分支内按参考概率加权/);
+  assert.match(view(true).children[0].children.at(-1),/分支概率不完整，按较危险的 A→C 分支参考/);
 });

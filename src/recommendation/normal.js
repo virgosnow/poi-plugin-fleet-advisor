@@ -1210,11 +1210,12 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
       '在本轮有界搜索中未找到到达率可确认的可用编成；不等于不存在解') })};
 }
 
-function recommendNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=[],routeKey,automaticFilters}){
+function recommendNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=[],routeKey,automaticFilters,landBases,combatBaseline}){
   if(!phase&&routeKey)phase=routePlans.routeOptions(area,target).find(r=>r.key===routeKey)?.phase;
-  return withEquipmentIndexCache(store,()=>searchNormalEquipment(store,{scheme,area,target,phase,heldSlots,routeKey,automaticFilters}));
+  return withEquipmentIndexCache(store,()=>searchNormalEquipment(store,{scheme,area,target,phase,heldSlots,routeKey,automaticFilters,landBases,combatBaseline}));
 }
-function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=[],routeKey,automaticFilters}){
+function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=[],routeKey,automaticFilters,landBases,combatBaseline}){
+  const withBases=profile=>landBases?.some(base=>base.targets?.some(Boolean))?{...profile,landBases}:profile;
   const ctx=context(store,{fleet:scheme.fleet,fixedShipIds:scheme.ships.map(s=>s.id)},1);
   const rows=scheme.ships.map(s=>ctx.byId.get(s.id));
   if(!rows.length)return {scheme};
@@ -1251,7 +1252,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
       const route=routes.evaluateSearchRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:candidate});
       const fullProfile=profileForRoute(area,route);
       const selectedPaths=selectedRoute?routeProfilePaths(route,selectedRoute):null;
-      const profile=selectedRoute?profileForRoute(area,route,selectedPaths):fullProfile;
+      const profile=withBases(selectedRoute?profileForRoute(area,route,selectedPaths):fullProfile);
       // For this combat-first policy, do not accumulate the equipment-only
       // bonus on a cached score when the same candidate is evaluated again.
       const scored=scoreRoute(route,profile,rows,'superiority',area,store,candidate);
@@ -1269,6 +1270,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   };
   const initial=evaluate(base);
   if(!initial)throw error('INVALID_QUERY','当前舰娘或手动装备无法生成有效配装，当前编成已保留');
+  const baselineCandidate=landBases?.some(base=>base.targets?.some(Boolean))?evaluate(combatBaseline||scheme):null;
   const safeRecon=reconSurvivalLoadout(store,base,inventory,initial.scores.aircraftRisk,heldSlots);
   for(const fitted of [...aviationBattleshipLoadouts(store,base,inventory,{area,profile:initial.profile,heldSlots}),...(safeRecon?[safeRecon]:[])]){
     evaluate(fitted);
@@ -1322,9 +1324,12 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
     }
     if(fitted!==seed.scheme)evaluate(fitted);
     const preparedRoute=routes.evaluateSearchRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:fitted});
-    const preparedProfile=profileForRoute(area,preparedRoute,routeProfilePaths(preparedRoute,selectedRoute));
-    const reference=routeAirReference(preparedRoute,area,preparedProfile);
-    const air=fitAirForPriority(store,fitted,inventory,reference.superiority,reference,'superiority',heldSlots,seed.scores);
+    const preparedProfile=withBases(profileForRoute(area,preparedRoute,routeProfilePaths(preparedRoute,selectedRoute)));
+    const rawReference=routeAirReference(preparedRoute,area,preparedProfile);
+    const reference=landBases?.some(base=>base.targets?.some(Boolean))?
+      require('../domain/routes/route_air').withLandBases(store,rawReference,landBases,area):rawReference;
+    const required=require('../domain/routes/route_air').routeGoalThreshold(reference,'superiority');
+    const air=fitAirForPriority(store,fitted,inventory,required,reference,'superiority',heldSlots,seed.scores);
     if(air)evaluate(air);
     const fit=gearVariant(store,fitted,inventory,'los',seed.profile,area,phase,{heldSlots,maxPlacements:24,allowCombatLoss:true,
       stopWhen:value=>{const route=routes.evaluateSearchRoute(store,{area,target,phase,fleet:scheme.fleet,scheme:normalize(value)});
@@ -1350,15 +1355,24 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
       (selectedRoute.arrivalMode==='boss'?chance.min*1e11:0)+
       -row.planning.losShortfall*1e9+row.scores.rank-row.scores.routePriority*1e8;
   };
-  candidates.sort((a,b)=>(selectedRoute?.arrivalMode==='boss'?
+  const baselineEligible=baselineCandidate&&(selectedRoute?
+    routePlans.fleetRequirementAssessment(baselineCandidate.route,selectedRoute).eligible&&
+      (routePlans.strategyAssessment(baselineCandidate.route,selectedRoute)?.eligible??true)&&
+      (selectedRoute.fallback?baselineCandidate.planning.chance.min>0:baselineCandidate.planning.chance.probability>0)&&
+      baselineCandidate.planning.losShortfall===0:!!baselineCandidate.evidence);
+  const floor=baselineEligible?require('./loadout/combat_floor').createCombatFloor(store,baselineCandidate.scheme,baselineCandidate.profile):null;
+  const preservesCombat=row=>!floor||floor(row.scheme)&&
+    (row.scores.openingTorpedoCount??0)>=(baselineCandidate.scores.openingTorpedoCount??0);
+  const rankedCandidates=floor?candidates.filter(preservesCombat):candidates;
+  rankedCandidates.sort((a,b)=>(selectedRoute?.arrivalMode==='boss'?
     (b.route.probability??b.route.chanceRange?.[0]??0)-(a.route.probability??a.route.chanceRange?.[0]??0):0)||rank(b)-rank(a));
-  let chosen=selectedRoute?candidates.find(row=>{
+  let chosen=selectedRoute?rankedCandidates.find(row=>{
     if(!routePlans.fleetRequirementAssessment(row.route,selectedRoute).eligible)return false;
     const strategy=routePlans.strategyAssessment(row.route,selectedRoute);
     if(strategy)return strategy.eligible;
     const chance=routePlans.optionPlanning(row.route,selectedRoute).chance;
     return selectedRoute.fallback?chance.min>0:chance.probability>0;
-  }):candidates.find(row=>row.evidence);
+  }):rankedCandidates.find(row=>row.evidence);
   if(!chosen){
     const diagnostics=selectedRoute?routePlans.routeDiagnostics(candidates[0].route,selectedRoute):
       bestPathDiagnostics(candidates[0].route,candidates[0].profile,target);
@@ -1367,6 +1381,7 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
   }
   for(const proposal of auxiliaryVariants(store,chosen.scheme,inventory,{profile:chosen.profile,heldSlots})){
     const trial=evaluate(proposal.scheme);if(!trial)continue;
+    if(!preservesCombat(trial))continue;
     if(selectedRoute&&(!routePlans.fleetRequirementAssessment(trial.route,selectedRoute).eligible||
       routePlans.strategyAssessment(trial.route,selectedRoute)?.eligible===false))continue;
     const before=selectedRoute?chosen.planning.chance:chosen.evidence?.pathChance,
@@ -1380,7 +1395,8 @@ function searchNormalEquipment(store,{scheme,area,target='boss',phase,heldSlots=
     chosen=trial;perf.count('loadout.auxiliary.accepted');
   }
   const ordered=orderEquipment(store,chosen.scheme,heldSlots);
-  const checked=ordered===chosen.scheme?chosen:evaluate(ordered)||chosen;
+  const orderedCandidate=ordered===chosen.scheme?chosen:evaluate(ordered);
+  const checked=orderedCandidate&&preservesCombat(orderedCandidate)?orderedCandidate:chosen;
   return {scheme:checked.scheme,variants:candidates.length,selectedPath:selectedRoute?(routePlans.optionPaths(selectedRoute).length>1?checked.planning.nodes:selectedRoute.nodes):checked.evidence.selectedPath,
     pathChance:selectedRoute?(routePlans.strategyAssessment(checked.route,selectedRoute)?.chance||routePlans.optionPlanning(checked.route,selectedRoute).chance):checked.evidence.pathChance};
 }

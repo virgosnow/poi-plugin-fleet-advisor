@@ -17,14 +17,16 @@ const {routeDifficulty,usefulPower}=require('./route_economy');
 const combatValue=require('./loadout/combat_value');
 const {survivalPenalty}=require('./loadout/aircraft_survival');
 
-function airGoalScore(result,airGoal,area,profile){
-  const reference=routeAirReference(result,area,profile);
+function airGoalScore(result,airGoal,area,profile,store){
+  const rawReference=routeAirReference(result,area,profile);
+  const reference=profile?.landBases?.some(base=>base.targets?.some(Boolean))?
+    require('../domain/routes/route_air').withLandBases(store,rawReference,profile.landBases,area):rawReference;
   if(airGoal==='ignore')return {airGoalStatus:'notRequested',airGoalRequired:null,
     airGoalBaseRequired:null,
      airGoalTier:0,airGoalShortfall:0,routeAirReference:reference,
      routeAirEstimate:result.airControl?.fleetAirPower?.slots?.some(s=>[7,8,11].includes(s.aircraftType)&&s.planes?.[1]>0)?
        estimateRouteAir(result.airControl.fleetAirPower,reference):undefined};
-  const base=reference[airGoal];
+  const base=require('../domain/routes/route_air').routeGoalThreshold(reference,airGoal);
   const needsPlane=base===0&&reference.nodes.some(n=>!n.noAirBattle&&n.kind!=='asw');
   const required=Number.isInteger(base)&&base>=0?Math.max(needsPlane?1:0,base):null;
   const air=result.airControl?.fleetAirPower;
@@ -94,8 +96,8 @@ function combatCapabilityCore(rows,result,profile,store,scheme,airExposure){
     scheme.ships.find(e=>e.id===row.id)||{id:row.id})]));
   const daySurfaceNodes=profile?Math.max(0,(profile.counts?.surface?.maximum||0)-(profile.counts?.night?.maximum||0)):1;
   const surfaceValues=rows.map(row=>{const stats=panels.get(row.id),entry=scheme.ships.find(e=>e.id===row.id),fit=entry?combatValue.gunFit(store,entry):null;
-    const fitValue=daySurfaceNodes&&fit?.known?Math.max(-12,Math.min(12,fit.value))*0.5:0;
-    return stats.firePower*1.5+stats.torpedo*0.8+fitValue+
+    const accuracyValue=daySurfaceNodes?combatValue.accuracyScore(stats.accuracy,fit?.known?fit.value:0):0;
+    return stats.firePower*1.5+stats.torpedo*0.8+accuracyValue+
     stats.armor*0.45+(airExposure?stats.antiAir:num(row.ship.api_taiku))*0.15+
       row.level*0.25+([7,11,18].includes(row.stype)?60:0);});
   const surface=surfaceValues.reduce((n,value)=>n+value,0);
@@ -127,7 +129,7 @@ function combatCapabilityCore(rows,result,profile,store,scheme,airExposure){
   const aswNodes=aswEncounterWeight(profile);
   const nightNodes=profile?.counts?.night?.maximum||0;
   const night=rows.filter(row=>![7,11,18].includes(row.stype)).reduce((sum,row)=>
-    sum+panels.get(row.id).firePower+panels.get(row.id).torpedo+
+    sum+panels.get(row.id).firePower+panels.get(row.id).torpedo+combatValue.accuracyScore(panels.get(row.id).accuracy)+
       row.level*0.15,0);
   const combatNodes=surfaceNodes+airNodes+aswNodes+nightNodes;
   const strength=combatNodes?
@@ -328,7 +330,7 @@ function scoreRouteCore(result,profile,rows,airGoal,area,store,scheme){
   const reach=assumed[1],lower=chance[0],probability=assumed[0];
   const air=result.airControl?.fleetAirPower;
   const airMin=air?.status==='range'?air.min:0;
-  const airScore=airGoalScore(result,airGoal,area,profile);
+  const airScore=airGoalScore(result,airGoal,area,profile,store);
   // On 2-3 a six-submarine fleet cannot be hit by ordinary opening air
   // strikes or use daytime spotting. Do not trade several torpedoes for the
   // default air-superiority preference; explicit supremacy remains honored.

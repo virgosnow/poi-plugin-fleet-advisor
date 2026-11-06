@@ -102,7 +102,8 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
   };
   const visited=new Set(reference?.paths?.flat()||[]);
   const battleThresholds=(reference?.nodes||[]).filter(n=>visited.has(n.id)&&!n.noAirBattle)
-    .map(n=>Number.isFinite(n.enemyAirPower)?n.enemyAirPower:n.upperBound)
+    .map(n=>Number.isFinite(n.enemyAirPowerRange?.max)?n.enemyAirPowerRange.max:
+      Number.isFinite(n.enemyAirPower)?n.enemyAirPower:n.upperBound)
     .filter(n=>Number.isFinite(n)&&n>=0).map(n=>Math.max(1,goal==='supremacy'?n*3:Math.ceil(n*1.5)));
   const departureFloor=battleThresholds.length?Math.max(...battleThresholds):null;
   // Within an unchanged allocation, all candidates with these SAME aircraft
@@ -262,6 +263,14 @@ function airLoadoutCore(store,scheme,inventory,required,reference,goal='superior
     for(const position of positions.filter(where)){
       const old=slots.get(position.shipId)[position.slot],oldType=typeOf(old);
       if([7,8,11,57].includes(oldType)&&(!allowAttackLoss||attackCount(position.shipId)<=1))continue;
+      // Base-aware fitting is a bounded refinement of an already viable
+      // fleet. Prefer retaining its surface armament and its sole spotting
+      // aircraft to turning combat ships into extra fighter carriers.
+      if(reference?.landBase&&!carrier(position)){
+        const outfit=slots.get(position.shipId),guns=outfit.filter(id=>[1,2,3].includes(typeOf(id))).length;
+        if([1,2,3].includes(oldType))continue;
+        if([10,11].includes(oldType)&&guns>=2&&outfit.filter(id=>[10,11].includes(typeOf(id))).length<=1)continue;
+      }
       if(position.stype===10){
         if(old>0&&![6,7,9,10,11,12,13,21,24,27,35,39,45].includes(oldType))continue;
         if([10,11].includes(oldType)&&!slots.get(position.shipId).some((id,k)=>k!==position.slot&&[10,11].includes(typeOf(id))))continue;

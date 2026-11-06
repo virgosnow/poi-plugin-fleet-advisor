@@ -32,6 +32,17 @@ function complete(store,heldSlots=[]){return completeCombatLoadout(store,emptyLo
   availableEquipment(store),{area:'2-1',heldSlots}).ships[0];}
 const reference={status:'known',enemyAirPower:10,paths:[['Z']],nodes:[{id:'Z',boss:true,enemyAirPower:10}]};
 
+test('carrier fitting uses the post-base enemy interval for the departure rejection',()=>{
+  const store=carrierFixture([36,24,18,6]);
+  const ref={...reference,landBase:true,enemyAirPower:200,
+    nodes:[{id:'Z',boss:true,enemyAirPower:200,enemyAirPowerRange:{min:25,max:30}}]};
+  const starting={fleet:1,ships:[{id:1,slots:[101,201,301,401],ex:-1}]};
+  const fit=airLoadout(store,starting,availableEquipment(store),300,ref,'superiority',[]);
+  assert(fit,'the pre-base 300 threshold must not reject a viable post-base fit');
+  assert(reading(store,fit,ref).estimate.margins.superiority.min>=0);
+  assert(fit.ships[0].slots.some(id=>[7,8].includes(type(store,id))), 'retain an attacking aircraft');
+});
+
 test('carrier seeds use the smallest positive fighter slot even without tiny utility slots',()=>{
   const store=carrierFixture([36,24,18]);
   const entry=complete(store);

@@ -325,6 +325,45 @@ test('switching routes does not reuse a cached fleet after in-place account chan
   assert.equal(calls,2,'same object references must not reuse a pre-change recommendation');
 });
 
+test('completed route assessments switch immediately and preserve each route draft',async()=>{
+  const h=harness(),options=require('../../src/domain/routes/route_plans').recommendedOptions('3-5').filter(o=>!o.fallback).slice(0,2);
+  h.set('mapRoute',options[0].key);let searches=0;
+  h.service.recommendNormalFleet=()=>{searches++;return {routeResults:options.map((o,i)=>({...o,status:'available',chance:{probability:1},recommendationIndex:i})),
+    recommendations:options.map((o,i)=>({routeKey:o.key,scheme:W.scheme([W.entry(h.store,i+1)],1)}))};};
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();
+  for(let i=0;i<100&&!h.get('batchRouteChoices')[options[1].key];i++){
+    await new Promise(resolve=>setTimeout(resolve,10));h.render();
+  }
+  assert(h.get('batchRouteChoices')[options[1].key]);
+  const inspected=W.inspect;let inspections=0;W.inspect=(...args)=>{inspections++;return inspected(...args);};
+  try{
+    const pending=h.find(h.render(),n=>n.type?.name==='RoutePicker').props.onChange(options[1].key);
+    assert.equal(pending,undefined,'a ready route switches synchronously');
+    assert.equal(h.get('working'),false);assert.equal(h.get('slots')[0].id,2);assert.equal(searches,1);
+    assert.equal(inspections,0,'a ready route does not inspect the same fleet again');
+    h.render();h.find(h.render(),n=>n.type?.name==='RoutePicker').props.onChange(options[0].key);h.render();
+    assert.equal(h.get('slots')[0].id,1);assert.equal(searches,1);
+    const count=inspections;
+    h.find(h.render(),n=>n.type?.name==='RoutePicker').props.onChange(options[1].key);h.render();
+    assert.equal(h.get('slots')[0].id,2);assert.equal(inspections,count,'returning to the unchanged prepared draft reuses its inspection');
+  }finally{W.inspect=inspected;}
+});
+
+test('completed route assessments are not reused after an in-place account change',async()=>{
+  const h=harness(),options=require('../../src/domain/routes/route_plans').recommendedOptions('3-5').filter(o=>!o.fallback).slice(0,2);
+  h.set('mapRoute',options[0].key);let searches=0;
+  h.service.recommendNormalFleet=()=>{searches++;return {routeResults:options.map((o,i)=>({...o,status:'available',chance:{probability:1},recommendationIndex:i})),
+    recommendations:options.map((o,i)=>({routeKey:o.key,scheme:W.scheme([W.entry(h.store,i+1)],1)}))};};
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();h.render();
+  for(let i=0;i<100&&!h.get('batchRouteChoices')[options[1].key];i++){
+    await new Promise(resolve=>setTimeout(resolve,10));h.render();
+  }
+  assert(h.get('batchRouteChoices')[options[1].key]);
+  h.store.info.ships[1].api_nowhp=(h.store.info.ships[1].api_nowhp||10)-1;
+  await h.find(h.render(),n=>n.type?.name==='RoutePicker').props.onChange(options[1].key);
+  assert.equal(searches,2,'a changed account must not reuse the completed assessment');
+});
+
 test('in-flight requests with different in-place account states are not deduplicated',async()=>{
   const h=harness(),option=require('../../src/domain/routes/route_plans').recommendedOptions('3-5').find(o=>!o.fallback);
   h.set('mapRoute',option.key);const finish=[];let calls=0;
@@ -772,7 +811,7 @@ test('hot reload includes the deferred phase gate and route phase anchor',()=>{
   const fields=source.match(/const draftFields=\[([^\]]+)\]/)?.[1]||'';
   assert.match(fields,/'combatDeferredPhase'/);
   assert.match(fields,/'routePhaseAnchor'/);
-  assert.match(fields,/'shipFleet'/);
+  assert.match(fields,/'shipLock'/);
 });
 
 test('a changed snapshot during foreground completion cannot apply a stale recommendation',async()=>{
@@ -1077,6 +1116,23 @@ test('adding ships before normal-map completion retains worn gear and skips fitt
   await pick(0,2);assert.equal(h.calls.equipment,0,'changing maps resets the deferred fitting state');
 });
 
+test('adding to an existing normal or expedition draft keeps worn equipment without refitting',async()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind);h.store.const.$equips[500]={api_id:500,api_name:'现有装备',api_type:[0,0,1,1]};
+    h.store.info.equips[102]={api_id:102,api_slotitem_id:500};h.store.info.ships[2].api_slot=[102,-1];
+    h.set('slots',[{...W.entry(h.store,1),preselectionComplete:true},null,null,null,null,null]);
+    if(kind==='normal')h.set('mapRoute','guide:3-5-05');
+    const method=kind==='normal'?'recommendNormalEquipment':'recommendExpeditionEquipment';
+    h.service[method]=args=>{h.calls.equipment++;return {scheme:args.scheme};};
+    h.set('popup',{index:1});let list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+    await list.children.find(n=>n?.type==='button'&&n.props.key===2).props.onClick();
+    assert.deepEqual(h.get('slots')[1].slots,[102,-1]);assert.equal(h.calls.equipment,0,kind);assert.equal(h.get('working'),false);
+    h.set('popup',{index:1});list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
+    await list.children.find(n=>n?.type==='button'&&n.props.key===3).props.onClick();
+    assert.equal(h.calls.equipment,1,`${kind} replacement still refits`);
+  }
+});
+
 test('replacing a preselected ship stays idle but does not mark the replacement as preselected',async()=>{
   const h=harness();const pick=async(index,id)=>{h.set('popup',{index});const list=h.find(h.render(),n=>n.props.className==='paa-wb-popup-list');
     await list.children.find(n=>n?.type==='button'&&n.props.key===id).props.onClick();};
@@ -1214,8 +1270,9 @@ test('restored preselection and failed completion do not activate fitting',async
   assert.equal(h.calls.equipment,0);assert(h.get('slots')[1].preselected);
 });
 
-test('ship picker filters by fleet and broad ship groups and sorts without changing the game',async()=>{
+test('ship picker filters by lock and broad ship groups and sorts without changing the game',async()=>{
   const h=harness('normal',{minLevel:90});
+  Object.values(h.store.info.ships).forEach(ship=>{ship.api_locked=[2,4].includes(ship.api_id)?1:0;});
   h.store.const.$ships[2].api_name='朝潮改二丁';h.store.info.ships[2].api_cond=20;
   h.store.info.fleets[0].api_ship=[2,4];h.store.info.ships[4].api_lv=70;
   h.store.info.ships[1].api_lv=99;h.store.info.ships[2].api_lv=50;
@@ -1224,10 +1281,10 @@ test('ship picker filters by fleet and broad ship groups and sorts without chang
   const ids=()=>list().children.filter(n=>n?.type==='button').map(n=>n.props.key);
   const group=label=>h.control(h.render(),label);
   const button=(label,text)=>h.find(group(label),n=>n.type==='button'&&n.children.includes(text));
-  assert.equal(h.get('shipFleet'),'all');assert.equal(h.get('shipType'),'all');
-  assert.equal(h.control(h.render(),'排序方式').props.value,'level-desc');assert.equal(ids()[0],1);
-  button('舰队筛选','第一舰队').props.onClick();assert.deepEqual(ids(),[4,2]);
-  button('舰队筛选','全部').props.onClick();button('舰种筛选','驱逐／海防').props.onClick();
+  assert.equal(h.get('shipLock'),'locked');assert.equal(h.get('shipType'),'all');
+  assert.equal(h.control(h.render(),'排序方式').props.value,'level-desc');assert.equal(ids()[0],4);
+  button('锁定筛选','已锁定').props.onClick();assert.deepEqual(ids(),[4,2]);
+  button('锁定筛选','全部').props.onClick();button('舰种筛选','驱逐／海防').props.onClick();
   assert(ids().every(id=>[1,2].includes(h.store.const.$ships[h.store.info.ships[id].api_ship_id].api_stype)));
   h.control(h.render(),'排序方式').props.onChange({target:{value:'level-asc'}});
   const levels=ids().map(id=>h.store.info.ships[id].api_lv);assert.deepEqual(levels,levels.slice().sort((a,b)=>a-b));
@@ -1237,48 +1294,49 @@ test('ship picker filters by fleet and broad ship groups and sorts without chang
   assert.equal(choice.props['data-tooltip'],undefined);
   await choice.props.onClick();assert.equal(h.get('slots')[0].id,2);assert.equal(h.calls.equipment,0);
   h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
-  assert.equal(h.get('shipType'),'type:2');assert.equal(h.get('shipFleet'),'all');assert.equal(h.get('shipSort'),'level-desc');
+  assert.equal(h.get('shipType'),'type:2');assert.equal(h.get('shipLock'),'all');assert.equal(h.get('shipSort'),'level-desc');
   assert(!ids().includes(7),'same ship type does not include other ships in the broad group');
   button('舰种筛选','巡洋舰').props.onClick();assert.deepEqual(ids(),[1]);
   h.control(h.render(),'搜索候选').props.onChange({target:{value:'朝潮'}});assert.deepEqual(ids(),[]);
   assert.equal(h.calls.equipment+h.calls.fleet,0);assert.equal(JSON.stringify(h.store),before);
 });
 
-test('ship picker remembers the fleet filter across empty slots and replacements',()=>{
+test('ship picker remembers the lock filter across empty slots and replacements',()=>{
   for(const kind of ['normal','expedition']){
     const h=harness(kind);h.store.info.fleets.forEach((fleet,i)=>{fleet.api_ship=[[2,4],[3],[7],[8]][i];});
+    Object.values(h.store.info.ships).forEach(ship=>{ship.api_locked=[2,4,7].includes(ship.api_id)?1:0;});
     h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
     const ids=()=>h.find(h.render(),n=>n.props.className==='paa-wb-popup-list').children.filter(n=>n?.type==='button').map(n=>n.props.key);
     const button=(group,label)=>h.find(h.control(h.render(),group),n=>n.type==='button'&&n.children.includes(label));
     h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
     const dialog=h.find(h.render(),n=>n.props.className==='paa-wb-popup');
-    assert.equal(dialog.props['data-picker'],'ship');assert.equal(h.get('shipType'),'type:2');assert.equal(h.get('shipFleet'),'all');
+    assert.equal(dialog.props['data-picker'],'ship');assert.equal(h.get('shipType'),'type:2');assert.equal(h.get('shipLock'),'locked');
     assert.equal(button('舰种筛选','同舰种：驱逐').props['aria-pressed'],true);
-    assert(ids().includes(3));assert(ids().includes(8));assert(!ids().includes(7));
+    assert(ids().includes(2));assert(!ids().includes(3));assert(!ids().includes(7));
     button('舰种筛选','驱逐／海防').props.onClick();assert(ids().includes(7));
     h.find(h.render(),n=>n.props.className==='paa-wb-empty').props.onClick();
-    assert.equal(h.get('shipType'),'all');assert.equal(h.get('shipFleet'),'all');assert.equal(ids().length,8);
-    for(const [label,expected] of [['第一舰队',[2,4]],['第二舰队',[3]],['第三舰队',[7]],['第四舰队',[8]]]){
-      button('舰队筛选',label).props.onClick();assert.deepEqual(ids(),expected,label);
+    assert.equal(h.get('shipType'),'all');assert.equal(h.get('shipLock'),'locked');assert.equal(ids().length,3);
+    for(const [label,expected] of [['已锁定',[2,4,7]],['未锁定',[1,3,5,6,8]]]){
+      button('锁定筛选',label).props.onClick();assert.deepEqual(ids().sort((a,b)=>a-b),expected,label);
     }
     h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
-    assert.equal(h.get('shipFleet'),'4','switching slot keeps the selected fleet');
+    assert.equal(h.get('shipLock'),'unlocked','switching slot keeps the lock filter');
     h.find(h.render(),n=>n.props.className==='paa-wb-empty').props.onClick();
-    assert.equal(h.get('shipFleet'),'4','opening an empty slot keeps the selected fleet');
-    button('舰队筛选','全部').props.onClick();assert.equal(ids().length,8);
+    assert.equal(h.get('shipLock'),'unlocked','opening an empty slot keeps the lock filter');
+    button('锁定筛选','全部').props.onClick();assert.equal(ids().length,8);
     h.find(h.render(),n=>n.props.className==='paa-wb-replace').props.onClick();
-    assert.equal(h.get('shipType'),'type:2');assert.equal(h.get('shipFleet'),'all');assert.equal(h.calls.equipment+h.calls.fleet,0);
+    assert.equal(h.get('shipType'),'type:2');assert.equal(h.get('shipLock'),'all');assert.equal(h.calls.equipment+h.calls.fleet,0);
   }
 });
 
-test('resetting a map or expedition and clearing the draft reset the temporary fleet filter',()=>{
+test('resetting a map or expedition and clearing the draft reset the temporary lock filter',()=>{
   for(const kind of ['normal','expedition']){
-    const h=harness(kind);h.set('shipFleet','3');h.set('popup',null);
+    const h=harness(kind);h.set('shipLock','locked');h.set('popup',null);
     h.find(h.render(),n=>n.props.className==='paa-wb-quiet'&&n.children.includes('一键清空')).props.onClick();
-    assert.equal(h.get('shipFleet'),'all');
-    h.set('shipFleet','2');
+    assert.equal(h.get('shipLock'),'locked');
+    h.set('shipLock','unlocked');
     h.find(h.render(),n=>n.type?.name==='AreaPicker').props.onChange(kind==='normal'?'1-1':37);
-    assert.equal(h.get('shipFleet'),'all');
+    assert.equal(h.get('shipLock'),'locked');
   }
 });
 
@@ -1291,10 +1349,10 @@ test('ship picker warms roster data in the background and reuses it on open and 
     const cleanup=effect.fn();await new Promise(resolve=>setTimeout(resolve,230));assert.equal(builds,1);
     h.find(h.render(),node=>node.props.className==='paa-wb-empty').props.onClick();h.render();
     assert.equal(builds,1,'opening reuses the warmed roster');
-    h.set('shipFleet','all');
+    h.set('shipLock','all');
     const image=h.find(h.render(),node=>node.type==='img'&&node.props.src==='/fixture/banner.png');
     assert(image);assert.equal(image.props.loading,'lazy');assert.equal(image.props.decoding,'async');
-    h.set('shipFleet','all');h.set('search','测试');h.render();
+    h.set('shipLock','all');h.set('search','测试');h.render();
     h.set('shipSort','level-asc');h.render();assert.equal(builds,1,'filters do not rebuild the roster');
     h.store.info.ships[2].api_lv=1;h.render();assert.equal(builds,2,'in-place roster changes refresh the cache');
     cleanup();
