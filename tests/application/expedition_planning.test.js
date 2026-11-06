@@ -28,8 +28,5 @@ test('an expedition draft can be planned for an away fleet without borrowing its
   const fitted=await service.recommendExpeditionEquipment({snapshotId,scheme:row.scheme,missionId:1,goal:'success'});
   assert.deepEqual(fitted.scheme.ships.map(ship=>ship.id),row.scheme.ships.map(ship=>ship.id));
   assert(fitted.scheme.ships.every(ship=>!ship.slots?.includes(801)&&ship.ex!==801));
-  await service.saveScheme({name:'expedition-draft',scheme:row.scheme});
-  const named=await service.recommendExpeditionEquipment({snapshotId,schemeName:'expedition-draft',missionId:1,goal:'success'});
-  assert.deepEqual(named.scheme.ships.map(ship=>ship.id),row.scheme.ships.map(ship=>ship.id));
   assert.equal(JSON.stringify(store),before);
 });

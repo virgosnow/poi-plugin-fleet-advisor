@@ -53,14 +53,14 @@ test('current fleets/presets expose the same observed mechanisms and preserve im
   assert.throws(()=>s.queryFleetStatus({...args,presetId:1,scheme:{fleet:2,ships:[2]}}),e=>e.code==='INVALID_QUERY');
   assert.equal(s.queryFleetStatus({...args,presetId:999}).heading.exists,false);
 });
-test('display-only preset/progress changes do not invalidate execution but equipment changes do',t=>{
+test('display-only preset/progress changes do not change the inventory fingerprint',t=>{
   const data=store(),s=service(t,data),snap=s.createSnapshot(),before=fingerprint(data);
   data.info.presets.api_deck[1].api_name='新的预设';data.info.maps[73].api_gauge_num=1;data.const.$maps[73].api_name='地图';
   data.expeditionProgress.records[1].state=0;
   assert.equal(fingerprint(data),before);
-  assert(s.previewFleet({snapshotId:snap.snapshotId,scheme:{fleet:1,ships:[1]}}).planId);
+  assert(s.evaluateFleet({snapshotId:snap.snapshotId,scheme:{fleet:1,ships:[1]}}).valid);
   data.info.equips[101].api_level=1;assert.notEqual(fingerprint(data),before);
-  assert.throws(()=>s.previewFleet({snapshotId:snap.snapshotId,scheme:{fleet:1,ships:[1]}}),e=>e.code==='STATE_CHANGED');
+  assert(s.evaluateFleet({snapshotId:snap.snapshotId,scheme:{fleet:1,ships:[1]}}).valid,'snapshot remains immutable');
 });
 test('map and expedition query details mirror the pages; selected route metrics include aircraft-loss estimates',t=>{
   const data=store(),s=service(t,data),snapshotId=s.createSnapshot().snapshotId,args={snapshotId};
@@ -167,14 +167,14 @@ test('closest reference fleets receive the same fixed-hull and equipment verific
   assert.doesNotThrow(()=>verifyConstraints({closestRecommendation:row},{fixedShipIds:[2]}));
 });
 
-test('all 27 MCP tools have a reproducible complete Markdown parameter reference',()=>{
+test('all read-only MCP tools have a reproducible complete Markdown parameter reference',()=>{
   const generator=require('../../tools/dev/generate-mcp-reference');
   const doc=fs.readFileSync(path.join(__dirname,'../../docs/MCP_API.md'),'utf8');
   assert.equal(doc.slice(doc.indexOf(generator.marker)),generator.reference());
-  assert.equal(TOOL_DEFS.length,27);
+  assert.equal(TOOL_DEFS.length,20);assert(TOOL_DEFS.every(tool=>tool.readOnly));
   for(const tool of TOOL_DEFS)assert(doc.includes('\n#### `'+tool.name+'`\n'));
 });
-test('two independent HTTP clients query/recommend/refit and share one mock execution lock',async t=>{
+test('two independent HTTP clients query, recommend and refit without write tools',async t=>{
   const data=store(),s=service(t,data);s.httpPort=0;s.setMcpEnabled(true);await s.startMcpServer();
   s.setExperimentalSettings({automaticOperations:true});
   s.setRecommendationFilters({normal:{excludeUnremodeled:false}});
@@ -193,7 +193,7 @@ test('two independent HTTP clients query/recommend/refit and share one mock exec
   };
   const a=client(),b=client();
   for(const c of [a,b])await c.rpc('initialize',{protocolVersion:'2026-07-28',capabilities:{},clientInfo:{name:'offline-test',version:'1'}});
-  assert.equal((await a.rpc('tools/list')).tools.length,27);
+  assert.equal((await a.rpc('tools/list')).tools.length,20);
   const resource=(await b.rpc('resources/list')).resources[0];
   assert.equal(JSON.parse((await b.rpc('resources/read',{uri:resource.uri})).contents[0].text).version,'2');
   const {snapshotId}=await a.tool('create_snapshot'),args={snapshotId};
@@ -216,25 +216,13 @@ test('two independent HTTP clients query/recommend/refit and share one mock exec
   const expeditionScheme=exped.recommendations[0].scheme;
   assert((await b.tool('recommend_expedition_equipment',{...args,missionId:1,scheme:expeditionScheme})).income);
   assert((await b.tool('evaluate_expedition',{...args,missionId:1,scheme:expeditionScheme})).greatSuccess);
-  await assert.rejects(s.setComputationSettings({schemeCache:false}),e=>e.code==='INVALID_QUERY');
-  assert.equal((await a.tool('get_status')).schemes.enabled,true);
-  await a.tool('save_scheme',{name:'协议回归',scheme:fitted.scheme});
-  assert.equal((await b.tool('query_schemes',{name:'协议回归'})).total,1);
-  assert((await b.tool('evaluate_fleet',{...args,schemeName:'协议回归'})).valid);
-  const plan=await b.tool('preview_fleet',{...args,schemeName:'协议回归'});
-  // Offline execution substitute: no host, image observer, game RPC or mouse.
-  let runs=0,finish;
-  s.controller.run=()=>{runs++;return new Promise(resolve=>{finish=()=>resolve({ok:true,done:true,changed:0});});};
-  s.controller.stop=()=>{};
-  const accepted=await a.tool('execute_plan',{planId:plan.planId,idempotencyKey:'offline-http-operation'});
-  assert.equal((await b.tool('execute_plan',{planId:plan.planId,idempotencyKey:'offline-http-operation'})).jobId,accepted.jobId);
-  const conflict=await b.rpc('tools/call',{name:'fleet_advisor_execute_plan',arguments:{planId:plan.planId,idempotencyKey:'another-operation'}});
-  assert.equal(conflict.structuredContent.error.code,'BUSY');assert.equal(runs,1);
-  assert.equal((await b.tool('get_job',{idempotencyKey:'offline-http-operation'})).state,'running');
-  assert.equal((await b.tool('cancel_job',{jobId:accepted.jobId})).state,'stopping');
-  finish();await new Promise(resolve=>setImmediate(resolve));
-  assert((await a.tool('get_job',{jobId:accepted.jobId})).verified);
-  assert((await a.tool('delete_scheme',{name:'协议回归'})).deleted);
+  assert((await b.tool('evaluate_fleet',{...args,scheme:fitted.scheme})).valid);
+  const status=await a.tool('get_status');assert.equal(status.capabilities.execute,false);assert.equal(status.capabilities.preview,false);
+  for(const suffix of ['preview_fleet','execute_plan','get_job','cancel_job','save_scheme','query_schemes','delete_scheme']){
+    const response=await fetch(address,{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({jsonrpc:'2.0',id:500,method:'tools/call',params:{name:'fleet_advisor_'+suffix,arguments:{}}})});
+    const result=await response.json();assert.equal(result.error?.code,-32602,suffix);
+  }
 });
 
 test('map route queries expose the same fleet-specific caption as the workbench without narrowing the catalog',()=>{

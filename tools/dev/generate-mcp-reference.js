@@ -17,9 +17,7 @@ function reference(){
       return '| `'+key+'` | '+cell(shape(s))+' | '+(t.inputSchema.required?.includes(key)?'yes':'no')+' | '+cell([s.description,bounds].filter(Boolean).join(' '))+' |';
     });
     return ['#### `'+t.name+'`','',t.description,'',
-      'Effect: **'+(t.readOnly?'read-only':t.name.endsWith('execute_plan')?'game write':t.name.endsWith('cancel_job')?'stop subsequent game steps':'temporary local scheme cache write')+'**.',
-      ...(t.inputSchema.oneOf?['','Exactly one of `scheme` / `schemeName` is required.']:[]),
-      ...(t.name.endsWith('get_job')?['','Provide `jobId` or `idempotencyKey`.']:[]),
+      'Effect: **read-only**.',
       '',...(rows.length?['| Parameter | Type / allowed values | Required | Meaning / constraints |','| --- | --- | --- | --- |',...rows]:['Parameters: `{}`.'])].join('\n');
   }).join('\n\n')+'\n\n<!-- END GENERATED TOOL REFERENCE -->\n';
 }

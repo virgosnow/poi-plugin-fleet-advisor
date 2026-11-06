@@ -8,48 +8,6 @@ function directory(t){
   return dir;
 }
 
-test('all cache categories draw from one capacity pool, including on ordinary worker writes',async t=>{
-  const storage=directory(t),root=path.join(storage,'recommendation-cache'),budget=1000;
-  const {Schemes}=require('../../src/infrastructure/persistence/scheme_store');
-  const {cacheFiles}=require('../../src/infrastructure/cache/disk_cache_budget');
-  const library=new Schemes(storage,()=>Date.now(),{getCacheLimit:()=>budget});
-  await library.set({name:'scratch',scheme:{fleet:1,ships:[1]}});
-  const schemeBytes=fs.statSync(library.file).size;
-  const result=new RecommendationCache(root,{version:'v1',maxBytes:budget,budgetRoot:root});
-  const calc=new RecommendationCache(path.join(root,'calculations'),{version:'v1',maxBytes:budget,budgetRoot:root});
-  const total=async()=>(await Promise.all(['results','calculations','schemes'].map(k=>cacheFiles(root,k)))).flat().reduce((n,f)=>n+f.size,0);
-  result.write('a'.repeat(64),Buffer.alloc(480));
-  const firstSize=fs.statSync(path.join(root,'a'.repeat(64)+'.bin')).size;
-  assert(firstSize>budget/2,'one category can use more than half of the shared capacity');assert(firstSize+schemeBytes<=budget);
-  fs.utimesSync(path.join(root,'a'.repeat(64)+'.bin'),new Date(Date.now()-10000),new Date(Date.now()-10000));
-  calc.write('b'.repeat(64),Buffer.alloc(480));
-  assert.equal(result.read('a'.repeat(64)),null,'a calculation write reclaims an older result file');
-  assert(calc.read('b'.repeat(64)));assert(await total()<=budget);assert.equal(library.list().total,1);
-  result.write('c'.repeat(64),Buffer.alloc(480));
-  assert.equal(calc.read('b'.repeat(64)),null,'a result write reclaims calculation space too');assert(await total()<=budget);
-  const replacement={fleet:1,ships:[1],note:'x'.repeat(550)};
-  await library.set({name:'scratch',scheme:replacement,overwrite:true});
-  assert.equal(result.read('c'.repeat(64)),null,'scheme growth reclaims computation space');assert(await total()<=budget);
-  const before=fs.readFileSync(library.file,'utf8');
-  await assert.rejects(library.set({name:'scratch',scheme:{...replacement,note:'x'.repeat(1500)},overwrite:true}),e=>e.code==='CACHE_CAPACITY_EXCEEDED');
-  assert.equal(fs.readFileSync(library.file,'utf8'),before);assert.deepEqual(library.get('scratch').scheme,replacement);
-});
-
-test('shared capacity refuses growth when reclaimable files stay locked, without touching settings',async t=>{
-  const storage=directory(t),root=path.join(storage,'recommendation-cache');fs.mkdirSync(root);
-  const {Schemes}=require('../../src/infrastructure/persistence/scheme_store');
-  const library=new Schemes(storage,()=>Date.now(),{getCacheLimit:()=>1000});
-  await library.set({name:'scratch',scheme:{fleet:1,ships:[1]}});
-  const file=path.join(root,'a'.repeat(64)+'.bin');fs.writeFileSync(file,Buffer.alloc(700));
-  const settings=path.join(storage,'mcp-state.json');fs.writeFileSync(settings,'unchanged');
-  const unlink=fs.promises.unlink.bind(fs.promises),mocked=t.mock.method(fs.promises,'unlink',async target=>{
-    if(target===file)throw Object.assign(Error('locked'),{code:'EBUSY'});return unlink(target);
-  });
-  const before=fs.readFileSync(library.file,'utf8');
-  await assert.rejects(library.set({name:'other',scheme:{fleet:1,ships:[2]}}),e=>e.code==='CACHE_CAPACITY_EXCEEDED');
-  assert.equal(fs.readFileSync(library.file,'utf8'),before);assert.equal(library.list().total,1);
-  assert.equal(fs.readFileSync(settings,'utf8'),'unchanged');mocked.mock.restore();
-});
 test('async search scopes preserve pure tables across awaits without leaking, and cache hits skip dispatch',async t=>{
   const dir=directory(t),{calculationTable}=require('../../src/shared/calculation_cache');let calculations=0;
   const calculate=async scope=>{

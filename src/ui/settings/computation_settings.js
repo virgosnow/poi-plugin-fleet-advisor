@@ -50,7 +50,7 @@ module.exports=(React,{getController})=>{
           h('span',{className:'paa-settings-value'},h('select',{id:'paa-expedition-threads','aria-label':'远征线程',value:value.expeditionThreads,disabled:locked,onChange:e=>change({expeditionThreads:Number(e.target.value)})},
             h('option',{value:2},'2 线程（默认）'),h('option',{value:1},'1 线程')),feedback(React,feedbacks.expeditionThreads)))),
       h('section',{className:'paa-settings-card paa-cache-card','aria-label':'缓存文件'},
-        h('div',{className:'paa-settings-section-head'},h('div',{className:'paa-settings-label'},h('h3',null,'缓存文件'),feedback(React,undefined,{label:'缓存文件',text:'各类缓存共用一个磁盘容量上限。游戏数据缓存包含本地任务记录和 MCP 编成方案，清理后这些记录会丢失。\n日志用于问题排查，已有日志可在这里单独清理。\n清理不会改变游戏舰队、游戏编成预设或设置。'}))),
+        h('div',{className:'paa-settings-section-head'},h('div',{className:'paa-settings-label'},h('h3',null,'缓存文件'),feedback(React,undefined,{label:'缓存文件',text:'各类缓存共用一个磁盘容量上限。游戏数据缓存包含本地任务记录，清理后这些记录会丢失。\n日志用于问题排查，已有日志可在这里单独清理。\n清理不会改变游戏舰队、游戏编成预设或设置。'}))),
         h('div',{className:'paa-cache-list'},
         h('div',{className:'paa-cache-row paa-cache-capacity'},
           h('div',{className:'paa-settings-row paa-resource-control paa-cache-capacity-controls'},h('span',{className:'paa-settings-label'},h('label',{htmlFor:'paa-cache-limit'},'磁盘缓存上限')),

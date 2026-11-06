@@ -1,14 +1,13 @@
 'use strict';
 const os=require('os');
-const DEFAULTS={threads:0,expeditionThreads:2,resultCache:true,calculationCache:true,schemeCache:true,cacheLimitMiB:256};
+const DEFAULTS={threads:0,expeditionThreads:2,resultCache:true,calculationCache:true,cacheLimitMiB:256};
 const LIMITS=[128,256,384,512];
-const CACHE_FLAGS=Object.freeze({resultCache:true,calculationCache:true,schemeCache:true});
+const CACHE_FLAGS=Object.freeze({resultCache:true,calculationCache:true});
 function normalize(value={}){
   return {threads:Number.isInteger(value?.threads)&&value.threads>=0&&value.threads<=8?value.threads:0,
     expeditionThreads:[1,2].includes(value?.expeditionThreads)?value.expeditionThreads:2,
     resultCache:typeof value?.resultCache==='boolean'?value.resultCache:true,
     calculationCache:typeof value?.calculationCache==='boolean'?value.calculationCache:true,
-    schemeCache:typeof value?.schemeCache==='boolean'?value.schemeCache:true,
     cacheLimitMiB:LIMITS.includes(value?.cacheLimitMiB)?value.cacheLimitMiB:[32,64].includes(value?.cacheLimitMiB)?128:DEFAULTS.cacheLimitMiB};
 }
 function validate(value){
@@ -17,7 +16,7 @@ function validate(value){
   for(const [key,item] of Object.entries(value))if(!(key in DEFAULTS)||normalized[key]!==item)throw Error('无效的计算资源选项：'+key);
 }
 // Offline cache comparisons may use normalize(); player preferences always
-// keep all three caches enabled, including settings saved by older versions.
+// keep computation caches enabled, including settings saved by older versions.
 function normalizePreferences(value){return {...normalize(value),...CACHE_FLAGS};}
 function validatePreferences(value){
   validate(value);

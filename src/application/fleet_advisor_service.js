@@ -2,7 +2,7 @@
 const fs=require('fs'),path=require('path'),crypto=require('crypto');
 const {Controller}=require('./controller');
 const {Snapshots,fingerprint,businessState,error}=require('./snapshots');
-const {Schemes,validateSchemeShape}=require('../infrastructure/persistence/scheme_store');
+const {validateSchemeShape}=require('./scheme_validation');
 const {QuestProgress}=require('../infrastructure/persistence/quest_progress');
 const {QuestProgressObserver}=require('../infrastructure/quests/quest_progress_observer');
 const {contract}=require('./contract');
@@ -19,7 +19,6 @@ const performanceTrace=require('../shared/performance_trace');
 const {PerformanceLogs}=require('../infrastructure/cache/performance_logs');
 const {inspectCache,maintainCache}=require('../infrastructure/cache/recommendation_cache');
 
-const PLAN_TTL_MS=5*60*1000;
 const JOB_RETENTION_MS=24*60*60*1000;
 const TERMINAL=new Set(['succeeded','failed','cancelled','interrupted']);
 const nowIso=()=>new Date().toISOString();
@@ -44,8 +43,7 @@ class FleetAdvisorService {
   constructor({controller,getStore,storageDir,now=()=>Date.now(),createRecommendationWorker,prepareRecommendationWorker,releaseRecommendationWorker,readQuests}) {
     this.controller=controller;this.getStore=getStore;this.now=now;this.storageDir=storageDir;
     this.readQuests=readQuests;
-    this.snapshots=new Snapshots(getStore,now);this.schemes=new Schemes(storageDir,now,
-      {getCacheLimit:()=>this.computationSettings.cacheLimitMiB*1024**2});
+    this.snapshots=new Snapshots(getStore,now);
     this.computationSettings=computationSettings.normalizePreferences();
     this.questProgress=new QuestProgress(storageDir,{now,getCacheLimit:()=>this.computationSettings.cacheLimitMiB*1024**2});
     this.questProgressObserver=new QuestProgressObserver({progress:this.questProgress,now,onChange:()=>this.emit({type:'questProgress'})});
@@ -56,7 +54,7 @@ class FleetAdvisorService {
       getSettings:()=>this.computationSettings,
       getDiagnostics:()=>this.experimentalSettings?.performanceDebug?{level:'modules'}:performanceTrace.options(),
       onProfile:report=>this.experimentalSettings?.performanceDebug?this.performanceLogs.write(report):undefined});
-    this.plans=new Map();this.jobs=new Map();this.keys=new Map();
+    this.jobs=new Map();
     this.recommendationPages=new Set();
     this.listeners=new Set();this.epoch=crypto.randomUUID();this.activeJobId=null;this.bridge=null;this.disposed=false;
     this.stateFile=path.join(storageDir,'mcp-state.json');
@@ -85,19 +83,18 @@ class FleetAdvisorService {
           job.updatedAt=nowIso();
         }
         this.jobs.set(job.jobId,job);
-        if(job.idempotencyKey)this.keys.set(job.idempotencyKey,{jobId:job.jobId,planId:job.planId});
       }
       this.persist();
     }catch(_){
       // Corrupt persistence must never silently grant execution permission.
-      this.mcpEnabled=false;this.experimentalSettings=experimentalSettings.normalize();this.jobs.clear();this.keys.clear();
+      this.mcpEnabled=false;this.experimentalSettings=experimentalSettings.normalize();this.jobs.clear();
     }
   }
   persist() {
     if(!this.persistenceReady)return;
     for(const [id,job] of this.jobs){
       if(TERMINAL.has(job.state)&&this.now()-Date.parse(job.createdAt)>JOB_RETENTION_MS){
-        this.jobs.delete(id);if(job.idempotencyKey)this.keys.delete(job.idempotencyKey);
+        this.jobs.delete(id);
       }
     }
     const record={mcpEnabled:this.mcpEnabled,httpPort:this.httpPort,recommendationFilters:this.recommendationFilters,
@@ -155,12 +152,11 @@ class FleetAdvisorService {
     await this.cacheReady;
     const cache=await inspectCache(this.recommendations.cacheDir);
     if(this.performanceLogs.lastError)cache.logs={...cache.logs,writeError:this.performanceLogs.lastError};
-    const schemes=await this.schemes.inspectCache(),progress=await this.questProgress.inspectCache();
-    const gameData={files:Number.isFinite(schemes.files)&&Number.isFinite(progress.files)?schemes.files+progress.files:null,
-      bytes:Number.isFinite(schemes.bytes)&&Number.isFinite(progress.bytes)?schemes.bytes+progress.bytes:null,
-      ...(schemes.error||progress.error?{error:schemes.error||progress.error}:{}),...(progress.writeError?{writeError:progress.writeError}:{})};
+    const progress=await this.questProgress.inspectCache();
+    const gameData={files:progress.files,bytes:progress.bytes,
+      ...(progress.error?{error:progress.error}:{}),...(progress.writeError?{writeError:progress.writeError}:{})};
     return {settings:this.getComputationSettings(),...computationSettings.resources(this.computationSettings),
-      busy:this.recommendations.queued>0,cache:{...cache,schemes,gameData}};
+      busy:this.recommendations.queued>0,cache:{...cache,gameData}};
   }
   getQuestGoalProgress(task,goal){return this.questProgress.get(this.getStore(),task,goal);}
   async queryQuests(args={}){
@@ -175,9 +171,8 @@ class FleetAdvisorService {
     const options={limitMiB:this.computationSettings.cacheLimitMiB};
     const first=await maintainCache(this.recommendations.cacheDir,options);
     if(!first.overLimit)return first;
-    // Only this owner can evict the scheme file and clear its in-memory map.
-    const schemes=await this.schemes.clearCache(),gameData=await this.questProgress.clearCache(),last=await maintainCache(this.recommendations.cacheDir,options);
-    return {removed:first.removed+schemes.removed+gameData.removed+last.removed,failed:first.failed+schemes.failed+gameData.failed+last.failed,
+    const gameData=await this.questProgress.clearCache(),last=await maintainCache(this.recommendations.cacheDir,options);
+    return {removed:first.removed+gameData.removed+last.removed,failed:first.failed+gameData.failed+last.failed,
       ...(last.overLimit?{error:'部分文件被占用，缓存总占用仍超过上限'}:{})};
   }
   async setComputationSettings(value){
@@ -211,11 +206,10 @@ class FleetAdvisorService {
     return {filters:this.getRecommendationFilters(),computation:{...await this.getComputationStatus(),maintenance}};
   }
   async clearRecommendationCache(kind){
-    if(!['results','calculations','schemes','gameData','logs','all'].includes(kind))throw error('INVALID_QUERY','无效的缓存类别');
+    if(!['results','calculations','gameData','logs','all'].includes(kind))throw error('INVALID_QUERY','无效的缓存类别');
     const maintenance=await this.recommendations.maintain(async()=>{
       const operations=[];
-      if(!['schemes','gameData'].includes(kind))operations.push(()=>maintainCache(this.recommendations.cacheDir,{clear:kind}));
-      if(['schemes','gameData','all'].includes(kind))operations.push(()=>this.schemes.clearCache());
+      if(kind!=='gameData')operations.push(()=>maintainCache(this.recommendations.cacheDir,{clear:kind}));
       if(kind==='gameData'||kind==='all')operations.push(()=>this.questProgress.clearCache());
       const result={removed:0,failed:0};
       // Failure in one category must not prevent the other from being cleared.
@@ -255,9 +249,8 @@ class FleetAdvisorService {
     const records=job.diagnostics||(job.diagnostics=[]);
     records.push({time:nowIso(),...event});if(records.length>200)records.shift();
   }
-  // Single master switch: enabled exposes the whole MCP surface (queries,
-  // previews AND execution) with the bridge running; disabled stops the
-  // bridge entirely so nothing is exposed locally.
+  // Single master switch: enabled exposes the read-only MCP tools through
+  // the bridge; disabled stops the bridge entirely.
   setMcpEnabled(value){
     if(value===true&&!this.persistenceReady)throw error('PERSISTENCE_UNAVAILABLE','任务记录不可写，不能开启 MCP 接入');
     const previous=this.mcpEnabled;
@@ -276,13 +269,12 @@ class FleetAdvisorService {
       mcpHttp:{port:this.bridge?.httpPort||null,wanted:this.httpPort,
         address:this.bridge?.httpAddress||null,
         active:!!this.bridge,error:this.bridgeError||null},
-      capabilities:{snapshot:true,preview:true,execute:this.experimentalSettings.automaticOperations,structuralEvaluation:true,numericEvaluation:true,
+      capabilities:{snapshot:true,preview:false,execute:false,structuralEvaluation:true,numericEvaluation:true,
         numericMetrics:['airPower','lineOfSight','speed','openingASW'],route:true,eventRoutes:false,
         normalRouteBranches:true,normalRouteAirControl:true,
         normalFleetRecommendation:true,expeditionFleetRecommendation:true,
         currentFleets:true,gamePresets:true,shipMechanisms:true,normalMapDetails:true,
         normalEquipmentRecommendation:true,expeditionEquipmentRecommendation:true,manualConstraints:true},
-      schemes:{enabled:this.computationSettings.schemeCache,count:this.schemes.items.size,error:this.schemes.storeError||null},
       recognition:'current-plugin-runtime',bridgeError:this.bridgeError||this.storageError||null};
   }
   // (Re)creates the loopback bridge with the current httpPort. Owned here so
@@ -313,7 +305,7 @@ class FleetAdvisorService {
   queryFleetPresets({snapshotId}){return {snapshotId,...pageQueries.presets(this.snapshots.get(snapshotId).store)};}
   queryFleetStatus(args){
     const {snapshotId}=args,store=this.snapshots.get(snapshotId).store;
-    const scheme=args.scheme!==undefined||args.schemeName!==undefined?this.resolveSchemeSource(args):undefined;
+    const scheme=args.scheme;
     if(scheme&&args.fleet!==undefined&&args.fleet!==scheme.fleet)throw error('INVALID_QUERY','fleet must match scheme.fleet');
     return {snapshotId,...pageQueries.fleetStatus(store,{...args,scheme},this.now())};
   }
@@ -323,8 +315,7 @@ class FleetAdvisorService {
     const snapshot=this.snapshots.get(snapshotId);
     return {snapshotId,...pageQueries.missions(snapshot.store,query)};
   }
-  evaluateExpedition({snapshotId,fleet,missionId,scheme,schemeName}){
-    if(scheme!==undefined||schemeName!==undefined)scheme=this.resolveSchemeSource({scheme,schemeName});
+  evaluateExpedition({snapshotId,fleet,missionId,scheme}){
     if(scheme&&fleet!==undefined&&fleet!==scheme.fleet)throw error('INVALID_QUERY','fleet must match scheme.fleet');
     fleet=pageQueries.fleetNumber(scheme?.fleet??fleet??2);
     if(!Number.isInteger(missionId))throw error('INVALID_QUERY','missionId 必须是远征编号');
@@ -344,7 +335,6 @@ class FleetAdvisorService {
   }
   evaluateNormalRoute({snapshotId,...args}){
     const snapshot=this.snapshots.get(snapshotId);
-    if(args.scheme!==undefined||args.schemeName!==undefined)args={...args,scheme:this.resolveSchemeSource(args)};
     return {snapshotId,...pageQueries.evaluateRoute(snapshot.store,{...args,fleet:args.fleet??args.scheme?.fleet??1},this.getRecommendationFilters().normal)};
   }
   async recommendNormalFleet(args,onProgress){
@@ -393,13 +383,13 @@ class FleetAdvisorService {
   }
   async recommendExpeditionEquipment(args,onProgress){
     const snapshot=this.snapshots.get(args.snapshotId);
-    const scheme=this.resolveSchemeSource(args);
+    const scheme=args.scheme;
     const input=require('../domain/fleet/expedition_planning_store')(snapshot.store,scheme?.fleet);
-    args=this.equipmentRecommendationArgs(input,{...args,scheme,schemeName:undefined});
+    args=this.equipmentRecommendationArgs(input,{...args,scheme});
     return {snapshotId:args.snapshotId,...pageQueries.verifyConstraints(await this.recommendations.run('recommendExpeditionEquipment',input,args,onProgress),args,true)};
   }
   equipmentRecommendationArgs(store,args){
-    const scheme=this.resolveSchemeSource(args);validateSchemeShape(scheme);
+    const scheme=args.scheme;validateSchemeShape(scheme);
     // Equipment-only fitting starts unlocked slots empty. Resolve hull names
     // and order without first requiring the discarded draft loadout to be
     // executable (it may contain gaps or stale transport equipment).
@@ -410,38 +400,8 @@ class FleetAdvisorService {
   createSnapshot(){return this.snapshots.create();}
   queryShips(query){return this.snapshots.queryShips(query);}
   queryEquipment(query){return this.snapshots.queryEquipment(query);}
-  // Scheme tools use disposable local cache data, so none of these
-  // check the execute permission or the busy lock.
-  async saveScheme({name,scheme,overwrite,validateWithSnapshotId}) {
-    validateSchemeShape(scheme);
-    scheme=JSON.parse(JSON.stringify(scheme));
-    const warnings=[];
-    if(validateWithSnapshotId!==undefined){
-      const snapshot=this.snapshots.get(validateWithSnapshotId);
-      try{new Controller({getStore:()=>snapshot.store}).preview('fleet',scheme);}
-      catch(e){warnings.push(e.message);}
-    }
-    return this.recommendations.maintain(async()=>{
-      return {...await this.schemes.set({name,scheme,overwrite:overwrite===true}),warnings};
-    });
-  }
-  querySchemes(query){return this.schemes.list(query);}
-  async deleteScheme({name}) {
-    if(typeof name!=='string')throw error('INVALID_QUERY','name 须为字符串');
-    const removed=await this.recommendations.maintain(()=>this.schemes.remove(name.trim()));
-    return {deleted:true,...removed};
-  }
-  // preview/evaluate accept an inline scheme or a reference into the scheme
-  // store — exactly one of the two.
-  resolveSchemeSource({scheme,schemeName}) {
-    if((scheme===undefined)===(schemeName===undefined))
-      throw error('INVALID_QUERY','scheme 与 schemeName 必须恰好提供一个');
-    if(schemeName===undefined)return scheme;
-    if(typeof schemeName!=='string'||!schemeName.trim())throw error('INVALID_QUERY','schemeName 须为非空字符串');
-    return this.schemes.get(schemeName.trim()).scheme;
-  }
   evaluateFleet(args){
-    const {snapshotId,conditions={}}=args,scheme=this.resolveSchemeSource(args);
+    const {snapshotId,conditions={},scheme}=args;validateSchemeShape(scheme);
     const snapshot=this.snapshots.get(snapshotId);
     if(!conditions||typeof conditions!=='object'||Array.isArray(conditions)||
       conditions.enemyAirPower!==undefined&&(!Number.isInteger(conditions.enemyAirPower)||conditions.enemyAirPower<0)||
@@ -463,42 +423,19 @@ class FleetAdvisorService {
       metrics:{structural:'pass',...evaluateCandidate(snapshot.store,plan,conditions)},ruleVersion:RULE_VERSION};
   }
   preview(kind,scheme,options){return this.controller.preview(kind,scheme,options);}
-  previewFleet(args){
-    const {snapshotId}=args,scheme=this.resolveSchemeSource(args);
-    const snapshot=this.snapshots.get(snapshotId),live=fingerprint(this.getStore());
-    if(fingerprint(snapshot.store)!==live)throw error('STATE_CHANGED','快照后账号状态已变化，请重新读取并预览');
-    let plan;try{plan=this.controller.preview('fleet',scheme);}catch(e){throw error('INVALID_SCHEME',e.message);}
-    const targets=plan.pinned.org.ships.map(x=>x.id),eqByShip=new Map(plan.pinned.eq.ships.map(x=>[x.id,x]));
-    const pinnedScheme={fleet:plan.fleet,ships:targets.map(id=>({id,...(eqByShip.get(id)||{})}))};
-    const planId=crypto.randomUUID(),expiresAt=this.now()+PLAN_TTL_MS;
-    this.plans.set(planId,{planId,snapshotId,pinnedScheme,fingerprint:live,expiresAt,
-      expected:JSON.stringify({targets,eq:plan.equipment.expected}),affectedIds:[...new Set([...targets,...(plan.equipment.donors||[]).map(d=>d.shipId)])]});
-    for(const [id,p] of this.plans)if(p.expiresAt<=this.now()||this.plans.size>20)this.plans.delete(id);
-    return {planId,snapshotId,expiresAt:new Date(expiresAt).toISOString(),pinnedScheme,
-      changed:plan.changed,done:plan.done,targets,affectedShipIds:this.plans.get(planId).affectedIds,
-      equipmentSteps:(plan.equipment.steps||[]).map(({shipId,op})=>({shipId,kind:op.kind,slot:op.j??null,itemId:op.id??null,
-        sourceShipId:op.source?.shipId??null,sourceSlot:op.source?.j??null})),
-      warning:'执行前会重新核对账号状态；成功前不要重复提交其他计划'};
-  }
   assertIdle(){if(this.disposed||this.activeJobId||this.controller.running)throw error('BUSY','已有编成或换装任务正在执行');}
-  newJob(source,planId,scheme,affectedIds,idempotencyKey=null){
-    const job={jobId:crypto.randomUUID(),source,planId,idempotencyKey,state:'accepted',createdAt:nowIso(),updatedAt:nowIso(),
+  newJob(affectedIds){
+    const job={jobId:crypto.randomUUID(),source:'panel',state:'accepted',createdAt:nowIso(),updatedAt:nowIso(),
       events:[],progress:null,result:null,error:null,partialApplied:false,verified:false,affectedShipIds:affectedIds};
     this.jobs.set(job.jobId,job);this.activeJobId=job.jobId;
-    if(idempotencyKey)this.keys.set(idempotencyKey,{jobId:job.jobId,planId});
-    if(source==='panel'){this.saveJobState(job);return job;}
-    try{this.persist();return job;}
-    catch(e){this.jobs.delete(job.jobId);this.activeJobId=null;if(idempotencyKey)this.keys.delete(idempotencyKey);
-      this.persistenceReady=false;this.mcpEnabled=false;this.storageError=e.message;
-      throw error('PERSISTENCE_UNAVAILABLE','任务记录不可写，Agent 执行未启动');}
+    this.saveJobState(job);return job;
   }
   async finishJob(job,scheme,beforeFingerprint,options={}){
     try{
       if(job.state==='stopping')throw error('CANCELLED','任务在启动前已停止');
       this.assertAutomaticOperations();
       job.state='running';job.updatedAt=nowIso();
-      if(!this.saveJobState(job)&&job.source==='mcp')
-        throw error('PERSISTENCE_UNAVAILABLE','任务记录不可写，Agent 执行未启动');
+      this.saveJobState(job);
       const result=await this.controller.run('fleet',scheme,{operationWaitMs:this.experimentalSettings.operationWaitMs,recognitionMode:this.experimentalSettings.recognitionMode,...options});
       job.state='succeeded';job.result=result;job.verified=result.ok===true&&result.done===true;
       job.partialApplied=result.changed>0;
@@ -516,39 +453,17 @@ class FleetAdvisorService {
       job.updatedAt=nowIso();this.activeJobId=null;this.saveJobState(job);
     }
   }
-  executePlan({planId,idempotencyKey}){
-    if(typeof idempotencyKey!=='string'||!idempotencyKey||idempotencyKey.length>128)
-      throw error('INVALID_QUERY','idempotencyKey 必须是 1–128 字符');
-    const prior=this.keys.get(idempotencyKey);
-    if(prior){
-      if(prior.planId!==planId)throw error('IDEMPOTENCY_CONFLICT','同一幂等键已用于另一计划');
-      return {jobId:prior.jobId,state:this.jobs.get(prior.jobId)?.state||'interrupted',duplicate:true};
-    }
-    if(!this.mcpEnabled)throw error('PERMISSION_DENIED','请先在插件面板开启 MCP 接入');
-    this.assertAutomaticOperations();
-    if(!this.persistenceReady)throw error('PERSISTENCE_UNAVAILABLE','任务记录不可写，无法保证幂等执行');
-    this.assertIdle();
-    const plan=this.plans.get(planId);
-    if(!plan||plan.expiresAt<=this.now())throw error('PLAN_EXPIRED','计划不存在或已过期，请重新预览');
-    if(fingerprint(this.getStore())!==plan.fingerprint)throw error('STATE_CHANGED','预览后账号状态已变化，请重新读取并预览');
-    const fresh=this.controller.preview('fleet',plan.pinnedScheme);
-    if(JSON.stringify({targets:fresh.pinned.org.ships.map(x=>x.id),eq:fresh.equipment.expected})!==plan.expected)
-      throw error('STATE_CHANGED','固定实例计划已变化，请重新预览');
-    const job=this.newJob('mcp',planId,plan.pinnedScheme,plan.affectedIds,idempotencyKey);
-    queueMicrotask(()=>{void this.finishJob(job,plan.pinnedScheme,plan.fingerprint).catch(()=>{});});
-    return {jobId:job.jobId,state:'accepted',duplicate:false};
-  }
   async run(kind,scheme,options={}){
     if(kind!=='fleet')throw error('INVALID_SCHEME','面板仅接受统一舰队方案');
     this.assertAutomaticOperations();
     this.assertIdle();
     const plan=this.controller.preview('fleet',scheme,options),targets=plan.pinned.org.ships.map(x=>x.id);
     const beforeFingerprint=fingerprint(this.getStore());
-    const job=this.newJob('panel',null,scheme,targets);
+    const job=this.newJob(targets);
     return this.finishJob(job,scheme,beforeFingerprint,options);
   }
-  getJob({jobId,idempotencyKey}){
-    const id=jobId||this.keys.get(idempotencyKey)?.jobId,job=this.jobs.get(id);
+  getJob({jobId}){
+    const job=this.jobs.get(jobId);
     if(!job)throw error('JOB_NOT_FOUND','任务不存在或记录已过期');
     return {...job};
   }
@@ -560,6 +475,6 @@ class FleetAdvisorService {
     return {jobId,state:'stopping'};
   }
   stop(){if(this.activeJobId)return this.cancelJob({jobId:this.activeJobId});return this.controller.stop();}
-  async dispose(){this.disposed=true;if(this.activeJobId)this.controller.stop();await this.recommendations.dispose();if(this.bridge)await this.bridge.close();await this.schemes.pending;await this.questProgress.pending;this.controller.dispose();}
+  async dispose(){this.disposed=true;if(this.activeJobId)this.controller.stop();await this.recommendations.dispose();if(this.bridge)await this.bridge.close();await this.questProgress.pending;this.controller.dispose();}
 }
 module.exports={FleetAdvisorService,observedState};

@@ -16,8 +16,7 @@ function setup(t,saved){
   t.after(async()=>{await service.dispose();
     if(!path.resolve(storageDir).startsWith(path.resolve(os.tmpdir())+path.sep))throw Error('Unsafe test cleanup');
     fs.rmSync(storageDir,{recursive:true,force:true});});
-  const preview=()=>service.previewFleet({snapshotId:service.createSnapshot().snapshotId,scheme:{fleet:2,ships:[1,2]}});
-  return {service,controller,calls,data,storageDir,preview};
+  return {service,controller,calls,data,storageDir};
 }
 const disabled=e=>e.code==='AUTOMATIC_OPERATIONS_DISABLED';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -38,41 +37,29 @@ test('experimental normalization defaults off, including older settings and malf
   assert.equal(settings.normalize({recognitionMode:'image'}).recognitionMode,'image','retain an explicit image-only choice');
   for(const value of [null,[],{automaticOperations:'true'},{unknown:true}])assert.throws(()=>settings.validate(value));
 });
-test('new and migrated services prohibit panel/MCP execution while retaining read-only tools and preview',async t=>{
-  const {service:s,calls,data,preview}=setup(t,{mcpEnabled:true,jobs:[]}),before=JSON.stringify(data);
-  assert.deepEqual(s.getExperimentalSettings(),{automaticOperations:false,performanceDebug:false,operationWaitMs:0,recognitionMode:'controls'});assert.equal(s.getStatus().capabilities.execute,false);
-  const plan=preview();assert(plan.planId);assert(s.queryFleets({snapshotId:plan.snapshotId}).items.length);
-  assert(s.evaluateFleet({snapshotId:plan.snapshotId,scheme:{fleet:2,ships:[1,2]}}).valid);
+test('automatic operations default off while MCP remains read-only',async t=>{
+  const {service:s,calls,data}=setup(t,{mcpEnabled:true,jobs:[]}),before=JSON.stringify(data);
+  const {snapshotId}=s.createSnapshot();assert(s.queryFleets({snapshotId}).items.length);
+  assert(s.evaluateFleet({snapshotId,scheme:{fleet:2,ships:[1,2]}}).valid);
   await assert.rejects(s.run('fleet',{fleet:2,ships:[1,2]}),disabled);
-  assert.throws(()=>s.executePlan({planId:plan.planId,idempotencyKey:'disabled'}),disabled);
-  const response=await handleMcpPost(s,JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{
-    name:'fleet_advisor_execute_plan',arguments:{planId:plan.planId,idempotencyKey:'http-disabled'}}}));
-  const result=JSON.parse(response.body).result;
-  assert.equal(result.isError,true);assert.equal(result.structuredContent.error.code,'AUTOMATIC_OPERATIONS_DISABLED');
-  assert.equal(result.structuredContent.error.retryable,false);assert.match(result.structuredContent.error.nextAction,/Experimental/);
+  const response=await handleMcpPost(s,JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'fleet_advisor_execute_plan',arguments:{}}}));
+  assert.equal(JSON.parse(response.body).error.code,-32602);assert.equal(s.getStatus().capabilities.execute,false);
   assert.equal(calls.run,0);assert.equal(s.jobs.size,0);assert.equal(JSON.stringify(data),before);
 });
-test('explicit permission enables execution and persists independently from MCP and recommendation resets',async t=>{
-  const {service:s,calls,preview,storageDir}=setup(t);
-  s.setExperimentalSettings({automaticOperations:true});assert.equal(s.getStatus().capabilities.execute,true);
-  assert.equal(JSON.parse(fs.readFileSync(s.stateFile)).experimentalSettings.automaticOperations,true);
-  await s.run('fleet',{fleet:2,ships:[1,2]});assert.equal(calls.run,1);
-  const plan=preview();assert.throws(()=>s.executePlan({planId:plan.planId,idempotencyKey:'mcp-off'}),e=>e.code==='PERMISSION_DENIED');
-  s.setMcpEnabled(true);const job=s.executePlan({planId:plan.planId,idempotencyKey:'permitted'});await tick();
-  assert.equal(calls.run,2);assert.equal(s.getJob({jobId:job.jobId}).state,'succeeded');
-  assert.equal(s.executePlan({planId:plan.planId,idempotencyKey:'permitted'}).duplicate,true);assert.equal(calls.run,2);
-  await s.resetRecommendationSettings();assert.equal(s.getExperimentalSettings().automaticOperations,true);
+test('explicit permission enables panel operations without enabling MCP execution',async t=>{
+  const {service:s,calls,storageDir}=setup(t);s.setExperimentalSettings({automaticOperations:true});
+  assert.equal(s.getStatus().capabilities.execute,false);await s.run('fleet',{fleet:2,ships:[1,2]});assert.equal(calls.run,1);
+  s.setMcpEnabled(true);await s.resetRecommendationSettings();assert.equal(s.getExperimentalSettings().automaticOperations,true);
   const reopened=new FleetAdvisorService({storageDir,getStore:s.getStore,controller:{dispose(){}}});
   try{assert.equal(reopened.getExperimentalSettings().automaticOperations,true);}finally{await reopened.dispose();}
-  s.setExperimentalSettings({automaticOperations:false});
-  assert.throws(()=>s.executePlan({planId:plan.planId,idempotencyKey:'old-preview'}),disabled);
-  assert.equal(s.mcpEnabled,true);assert.equal(s.getJob({jobId:job.jobId}).state,'succeeded');
+  s.setExperimentalSettings({automaticOperations:false});await assert.rejects(s.run('fleet',{fleet:2,ships:[1,2]}),disabled);
 });
-test('turning off cancels an accepted MCP job before its queued callback can create game input',async t=>{
-  const {service:s,calls,preview}=setup(t);s.setMcpEnabled(true);s.setExperimentalSettings({automaticOperations:true});
-  const job=s.executePlan({planId:preview().planId,idempotencyKey:'queued'});
-  s.setExperimentalSettings({automaticOperations:false});await tick();
-  assert.equal(s.getJob({jobId:job.jobId}).state,'cancelled');assert.equal(calls.run,0);assert.equal(calls.stop,1);
+test('MCP execution and cancellation are unavailable even when panel operations are enabled',async t=>{
+ const {service:s}=setup(t);s.setMcpEnabled(true);s.setExperimentalSettings({automaticOperations:true});
+ for(const name of ['fleet_advisor_execute_plan','fleet_advisor_cancel_job']){
+   const response=await handleMcpPost(s,JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name,arguments:{}}}));
+   assert.equal(JSON.parse(response.body).error.code,-32602);
+ }
 });
 test('revoking permission during an active run requests cancellation and preserves its stop/status controls',async t=>{
   const {service:s,controller,calls}=setup(t);let rejectRun;
@@ -135,8 +122,8 @@ test('queued log clearing runs after a completed calculation has persisted its r
   assert((await s.getComputationStatus()).cache.logs.writeError,'logging failure is visible without failing the recommendation');
 });
 
-test('three extra waits persist and reach panel and MCP execution without changing permissions',async t=>{
-  const {service:s,controller,preview,storageDir}=setup(t),options=[];
+test('three extra waits persist and reach panel execution without changing permissions',async t=>{
+  const {service:s,controller,storageDir}=setup(t),options=[];
   controller.run=async(kind,scheme,settings)=>{options.push(settings);return {ok:true,done:true,changed:0};};
   assert.deepEqual(settings.OPERATION_WAITS,[0,300,800]);
   s.setExperimentalSettings({automaticOperations:true});
@@ -146,10 +133,6 @@ test('three extra waits persist and reach panel and MCP execution without changi
     assert.equal(JSON.parse(fs.readFileSync(s.stateFile)).experimentalSettings.operationWaitMs,operationWaitMs);
     await s.run('fleet',{fleet:2,ships:[1,2]});assert.deepEqual(options.at(-1),{operationWaitMs,recognitionMode:'controls'});
   }
-  // MCP and panel share the execution options path; a single MCP execution
-  // verifies that handoff without repeating three identical job lifecycles.
-  s.setMcpEnabled(true);const job=s.executePlan({planId:preview().planId,idempotencyKey:'wait-800'});await tick();
-  assert.equal(s.getJob({jobId:job.jobId}).state,'succeeded');assert.deepEqual(options.at(-1),{operationWaitMs:800,recognitionMode:'controls'});
   s.setExperimentalSettings({automaticOperations:false});
   const reopened=new FleetAdvisorService({storageDir,getStore:s.getStore,controller:{dispose(){}}});
   try{assert.equal(reopened.getExperimentalSettings().operationWaitMs,800);}finally{await reopened.dispose();}
@@ -177,16 +160,15 @@ test('extra wait slider is a subordinate three-stop control with local feedback 
   }
 });
 
-test('recognition mode persists independently and both panel and MCP executions use the selected mode',async t=>{
-  const {service:s,controller,preview}=setup(t),seen=[];
+test('recognition mode persists independently and panel execution uses the selected mode',async t=>{
+  const {service:s,controller}=setup(t),seen=[];
   controller.run=async(kind,scheme,options)=>{seen.push(options.recognitionMode);return {ok:true,done:true,changed:0};};
   s.setExperimentalSettings({recognitionMode:'controls'});
   assert.equal(s.getExperimentalSettings().automaticOperations,false);
   assert.equal(JSON.parse(fs.readFileSync(s.stateFile)).experimentalSettings.recognitionMode,'controls');
   await assert.rejects(s.run('fleet',{fleet:2,ships:[1,2]}),disabled);
   s.setExperimentalSettings({automaticOperations:true});await s.run('fleet',{fleet:2,ships:[1,2]});
-  s.setMcpEnabled(true);const job=s.executePlan({planId:preview().planId,idempotencyKey:'controls'});await tick();
-  assert.equal(s.getJob({jobId:job.jobId}).state,'succeeded');assert.deepEqual(seen,['controls','controls']);
+  assert.deepEqual(seen,['controls']);
   await s.resetRecommendationSettings();assert.equal(s.getExperimentalSettings().recognitionMode,'controls');
   for(const value of ['unknown',true,1,null])assert.throws(()=>settings.validate({recognitionMode:value}));
   assert.equal(settings.normalize({recognitionMode:'unknown'}).recognitionMode,'controls');

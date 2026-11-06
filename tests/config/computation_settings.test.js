@@ -13,9 +13,8 @@ test('resource defaults migrate old settings and validate explicit budgets',()=>
   assert.equal(S.DEFAULTS.cacheLimitMiB,256);assert.deepEqual(S.LIMITS,[128,256,384,512]);
   for(const cacheLimitMiB of S.LIMITS){S.validate({cacheLimitMiB});assert.equal(S.normalize({cacheLimitMiB}).cacheLimitMiB,cacheLimitMiB);}
   for(const cacheLimitMiB of [32,64])assert.equal(S.normalize({cacheLimitMiB}).cacheLimitMiB,128,'legacy small budgets migrate to the smallest offered size');
-  assert.equal(S.normalize({}).schemeCache,true);assert.equal(S.normalize({schemeCache:false}).schemeCache,false);
   assert.deepEqual(S.normalizePreferences({resultCache:false,calculationCache:false,schemeCache:false}),S.DEFAULTS);
-  for(const key of ['resultCache','calculationCache','schemeCache'])for(const value of [false,true])assert.throws(()=>S.validatePreferences({[key]:value}),/固定启用/);
+  for(const key of ['resultCache','calculationCache'])for(const value of [false,true])assert.throws(()=>S.validatePreferences({[key]:value}),/固定启用/);
   assert.throws(()=>S.validate({schemeCache:0}));
   assert.equal(new C.RecommendationCache('unused').maxBytes,256*1024*1024,'each cache may use the full shared budget');
   for(const value of [{threads:9},{threads:-1},{threads:1.2},{expeditionThreads:0},{expeditionThreads:3},{expeditionThreads:1.5},{resultCache:1},{cacheLimitMiB:32},{cacheLimitMiB:64},{cacheLimitMiB:99},{cacheLimitMiB:1024},{unknown:true},null,[]])assert.throws(()=>S.validate(value));
@@ -26,6 +25,20 @@ test('resource defaults migrate old settings and validate explicit budgets',()=>
   assert.equal(S.resources({threads:8,expeditionThreads:1},32).effectiveExpeditionThreads,1);
   assert.equal(S.resources({threads:8,expeditionThreads:1},32).effectiveThreads,8);
   assert.equal(S.resources({},1).effectiveExpeditionThreads,1);
+});
+test('retired MCP scheme cache is neither loaded nor deleted during cache cleanup',async t=>{
+  const {FleetAdvisorService}=require('../../src/application/fleet_advisor_service');
+  const storageDir=directory(t),file=path.join(storageDir,'schemes.json'),original='{"legacy":"preserve"}';
+  fs.writeFileSync(file,original);
+  fs.writeFileSync(path.join(storageDir,'mcp-state.json'),JSON.stringify({computationSettings:{schemeCache:false}}));
+  const service=new FleetAdvisorService({storageDir,getStore:require('../helpers/workbench_fixture'),controller:{dispose(){}}});
+  try{
+    await service.cacheReady;
+    assert.equal(service.getComputationSettings().schemeCache,undefined);
+    assert.equal(service.schemes,undefined);
+    await service.clearRecommendationCache('all');
+    assert.equal(fs.readFileSync(file,'utf8'),original);
+  }finally{await service.dispose();}
 });
 for(const asyncMode of [false,true])test(`independent persistent cache switches preserve results (${asyncMode?'async':'sync'})`,async t=>{
   const {calculationTable}=require('../../src/shared/calculation_cache');
@@ -112,94 +125,6 @@ test('global recommendation reset persists four sections together and preserves 
     const saved=JSON.parse(fs.readFileSync(service.stateFile,'utf8'));
     assert.deepEqual(saved.recommendationFilters,F.normalize());assert.deepEqual(saved.computationSettings,S.DEFAULTS);
     assert.equal(saved.mcpEnabled,true);assert.equal(saved.httpPort,49999);
-  }finally{await service.dispose();}
-});
-
-test('settings clears MCP scheme cache in memory and on disk, independently or with all caches',async t=>{
-  const {FleetAdvisorService}=require('../../src/application/fleet_advisor_service');
-  const storageDir=directory(t),store=require('../helpers/workbench_fixture')(),before=JSON.stringify(store);
-  const service=new FleetAdvisorService({storageDir,getStore:()=>store,controller:{dispose(){}}});
-  try{
-    service.persist();const stateBefore=fs.readFileSync(service.stateFile,'utf8');
-    const scheme={fleet:1,ships:[1]},root=service.recommendations.cacheDir,name='a'.repeat(64)+'.bin';
-    fs.mkdirSync(path.join(root,'calculations'),{recursive:true});
-    fs.writeFileSync(path.join(root,name),'result');fs.writeFileSync(path.join(root,'calculations',name),'calculation');
-    await service.saveScheme({name:'scratch',scheme});
-    const status=await service.getComputationStatus();
-    assert.equal(status.cache.schemes.count,1);assert.equal(status.cache.schemes.bytes,fs.statSync(service.schemes.file).size);
-    assert.equal((await service.clearRecommendationCache('results')).cache.schemes.count,1);
-    const cleared=await service.clearRecommendationCache('schemes');
-    assert.equal(cleared.cache.schemes.bytes,0);assert.equal(cleared.cache.calculations.files,1);
-    assert.equal(service.querySchemes().total,0);assert.throws(()=>service.resolveSchemeSource({schemeName:'scratch'}),e=>e.code==='SCHEME_NOT_FOUND');
-    await service.saveScheme({name:'scratch',scheme});
-    const all=await service.clearRecommendationCache('all');assert.deepEqual(all.maintenance,{removed:2,failed:0});
-    for(const group of Object.values(all.cache)){assert.equal(group.bytes,0);assert.equal(group.files,0);}
-    assert.equal(service.querySchemes().total,0);
-    const reopened=new FleetAdvisorService({storageDir,getStore:()=>store,controller:{dispose(){}}});
-    try{assert.equal(reopened.querySchemes().total,0);assert.deepEqual(reopened.getComputationSettings(),service.getComputationSettings());}
-    finally{await reopened.dispose();}
-    assert.equal(JSON.stringify(store),before);assert.equal(fs.readFileSync(service.stateFile,'utf8'),stateBefore,'execution/settings state is not a cache');
-  }finally{await service.dispose();}
-});
-
-test('all-cache cleanup still clears schemes when another cache directory cannot be inspected',async t=>{
-  const {FleetAdvisorService}=require('../../src/application/fleet_advisor_service'),storageDir=directory(t);
-  const service=new FleetAdvisorService({storageDir,getStore:require('../helpers/workbench_fixture'),controller:{dispose(){}}});
-  try{
-    await service.saveScheme({name:'temporary',scheme:{fleet:1,ships:[1]}});
-    fs.writeFileSync(service.recommendations.cacheDir,'not a directory');
-    const result=await service.clearRecommendationCache('all');
-    assert.equal(result.maintenance.failed,1);assert.equal(result.maintenance.removed,1);
-    assert(result.cache.results.error);assert.equal(result.cache.schemes.bytes,0);assert.equal(service.querySchemes().total,0);
-  }finally{await service.dispose();}
-});
-
-test('legacy disabled preferences migrate to enabled and queued scheme writes remain available',async t=>{
-  const {FleetAdvisorService}=require('../../src/application/fleet_advisor_service'),{invokeTool}=require('../../src/bridge/service_api');
-  const storageDir=directory(t),options={storageDir,getStore:require('../helpers/workbench_fixture'),controller:{dispose(){}}};
-  fs.writeFileSync(path.join(storageDir,'mcp-state.json'),JSON.stringify({computationSettings:{threads:2,cacheLimitMiB:128,resultCache:false,calculationCache:false,schemeCache:false}}));
-  const service=new FleetAdvisorService(options);
-  try{
-    const settings=service.getComputationSettings();
-    assert.equal(settings.threads,2);assert.equal(settings.cacheLimitMiB,128);
-    for(const key of ['resultCache','calculationCache','schemeCache']){
-      assert.equal(settings[key],true);assert.equal(JSON.parse(fs.readFileSync(service.stateFile)).computationSettings[key],true);
-      for(const value of [false,true])await assert.rejects(service.setComputationSettings({[key]:value}),e=>e.code==='INVALID_QUERY');
-    }
-    const args={name:'temporary',scheme:{fleet:1,ships:[1]}};
-    await invokeTool(service,'fleet_advisor_save_scheme',args);
-    let release,started;const running=new Promise(r=>{started=r;});
-    const compute=service.recommendations.maintain(()=>{started();return new Promise(r=>{release=r;});});await running;
-    const queued=invokeTool(service,'fleet_advisor_save_scheme',{...args,name:'queued'});
-    const capacity=service.setComputationSettings({cacheLimitMiB:256});release();await compute;await queued;await capacity;
-    assert.equal(service.getStatus().schemes.enabled,true);assert.equal(service.querySchemes().total,2);
-    const reopened=new FleetAdvisorService(options);
-    try{assert.equal(reopened.getComputationSettings().schemeCache,true);assert.equal(reopened.querySchemes().total,2);}
-    finally{await reopened.dispose();}
-    await invokeTool(service,'fleet_advisor_delete_scheme',{name:'temporary'});assert.equal(service.querySchemes().total,1);
-    await service.clearRecommendationCache('schemes');assert.equal(service.querySchemes().total,0);
-    await invokeTool(service,'fleet_advisor_save_scheme',args);assert.equal(service.querySchemes().total,1);
-  }finally{await service.dispose();}
-});
-
-test('lowering the shared disk limit counts scheme files and does not divide remaining capacity by category',async t=>{
-  const {FleetAdvisorService}=require('../../src/application/fleet_advisor_service');
-  const storageDir=directory(t),service=new FleetAdvisorService({storageDir,getStore:require('../helpers/workbench_fixture'),controller:{dispose(){}}});
-  try{
-    await service.saveScheme({name:'temporary',scheme:{fleet:1,ships:[1]}});
-    const root=service.recommendations.cacheDir;fs.mkdirSync(path.join(root,'calculations'),{recursive:true});
-    const result=path.join(root,'a'.repeat(64)+'.bin'),calculation=path.join(root,'calculations','b'.repeat(64)+'.bin');
-    fs.writeFileSync(result,'');fs.truncateSync(result,90*1024**2);
-    fs.writeFileSync(calculation,'');fs.truncateSync(calculation,90*1024**2);
-    fs.utimesSync(result,new Date(Date.now()-10000),new Date(Date.now()-10000));
-    const status=await service.setComputationSettings({cacheLimitMiB:128});
-    assert.equal(status.cache.results.files,0);assert.equal(status.cache.calculations.bytes,90*1024**2);
-    assert.equal(status.cache.schemes.count,1);assert(Object.values(status.cache).reduce((sum,g)=>sum+g.bytes,0)<=128*1024**2);
-    await service.setComputationSettings({cacheLimitMiB:256});
-    fs.truncateSync(service.schemes.file,129*1024**2);
-    const small=await service.setComputationSettings({cacheLimitMiB:128});
-    assert.equal(small.cache.schemes.count,0);assert.equal(service.querySchemes().total,0);
-    assert(Object.values(small.cache).reduce((sum,g)=>sum+g.bytes,0)<=128*1024**2);
   }finally{await service.dispose();}
 });
 

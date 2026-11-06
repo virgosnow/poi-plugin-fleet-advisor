@@ -11,9 +11,7 @@ const uuid=description=>str(description,{format:'uuid'});
 const snapshotId=uuid('Immutable snapshot ID from create_snapshot. Sliding TTL: 15 minutes.');
 const fleet=int(1,4,'Observed/destination fleet number, 1-based.');
 const ids={type:'array',uniqueItems:true,maxItems:6,items:int(1),description:'Owned ship INSTANCE IDs, not catalog IDs.'};
-const schemeName=str('Exact local scheme name.',{minLength:1,maxLength:64});
-const source={scheme:schemeSchema,schemeName};
-const exactlyOneSource={oneOf:[{required:['scheme']},{required:['schemeName']}]};
+const source={scheme:schemeSchema};
 const slot={oneOf:[int(0,4),enumOf(['ex'],'Expansion slot.')],description:'Zero-based normal slot 0..4, or ex. Five-slot ships supported.'};
 const nullableItem={oneOf:[int(1),{type:'integer',const:-1},{type:'null'}]};
 const heldSlots={type:'array',maxItems:6,description:'Position-indexed draft with null holes. pin or keep retains the hull and, by default, its position. Set holdPosition=false to allow fleet sorting. keep keys retain exact equipment or -1 for empty. Unlocked equipment is refitted from empty.',items:{oneOf:[{type:'null'},object({
@@ -26,7 +24,7 @@ const mapArgs={area:str('Normal map ID, e.g. 5-2.',{pattern:'^[1-7]-[1-6]$'}),
   routeKey:str('Exact query_normal_map.routes[].key, including merged branches and speed strategies.')};
 const constraints={fleet,fixedShipIds:ids,excludedShipIds:{type:'array',uniqueItems:true,items:int(1)},heldSlots};
 const airGoal=enumOf(['ignore','superiority','supremacy'],'MCP default superiority. A six-submarine 2-3 fleet prioritizes torpedo combat over the default superiority preference; its actual air status is still reported. Explicit supremacy remains prioritized. Conservative aircraft-loss estimates are not combat guarantees.');
-const goal=enumOf(['success','great'],'success: prefer unsparkled automatic hulls, meet dispatch requirements, then optimize net income; spare slots may hold drums that improve great-success probability. great: prioritize estimated great-success probability. Manual hulls/equipment remain fixed.');
+const goal=enumOf(['success','great'],'success: meet dispatch requirements, prefer unsparkled automatic hulls while considering resource cost, and optimize net income; spare slots may hold drums that improve great-success probability. great: prioritize estimated great-success probability. Manual hulls/equipment remain fixed.');
 const paging={snapshotId,limit:int(1,100,'Default 50.'),cursor:str('Opaque nextCursor; retain all other query arguments when paging.')};
 const sorting=(keys,fields)=>({sort:enumOf(keys,'Default instanceId.'),order:enumOf(['asc','desc'],'Default asc.'),
   fields:{type:'array',items:enumOf(fields,'Projected field.'),description:'Optional projection; instanceId/name always returned.'}});
@@ -39,7 +37,7 @@ const TOOL_DEFS=Object.freeze([
     {category:enumOf(['sortie','expedition','practice','other'],'Game quest category.'),period:enumOf(['daily','weekly','monthly','quarterly','yearly','once','limited'],'Catalog period; unmatched quests are excluded and counted as unknown.'),state:enumOf(['available','active','complete'],'Game quest state.'),search:str('Title or description substring.'),offset:int(0),limit:int(1,100,'Default 50.')}),
   tool('query_fleets','List four actual fleets: members, expedition state/return time, supply, aircraft, damage, fatigue and repair summaries.',{snapshotId},['snapshotId']),
   tool('query_fleet_presets','List game presets and synchronization state. Presets store hull membership only; inspecting one uses each ship current equipment.',{snapshotId},['snapshotId']),
-  tool('query_fleet_status','Inspect actual fleet (default 1), presetId, or scheme/schemeName. Returns equipment/aircraft, HP/supply, air power, all LoS coefficients, speed, combat+expedition tags and numeric attack/rate details. Read-only; unsynchronized data stays unknown.',
+  tool('query_fleet_status','Inspect actual fleet (default 1), presetId, or an inline scheme. Returns equipment/aircraft, HP/supply, air power, all LoS coefficients, speed, combat+expedition tags and numeric attack/rate details. Read-only; unsynchronized data stays unknown.',
     {snapshotId,fleet,presetId:int(1),...source},['snapshotId']),
   tool('query_ships','Page owned ship instances. Prefer small limit and fields. sort=level, order=desc, limit=1 finds the highest-level ship without scanning the account.',
     {...paging,name:str('Name substring, simplified/traditional matching.'),fleet,shipType:int(1),...sorting(SHIP_SORTS,SHIP_FIELDS)},['snapshotId']),
@@ -48,40 +46,28 @@ const TOOL_DEFS=Object.freeze([
       availableOnly:bool('Exclude unavailable donors and airbases.'),equipableOnly:bool('Requires targetShipId.'),...sorting(EQUIPMENT_SORTS,EQUIPMENT_FIELDS)},['snapshotId']),
   tool('query_equipment_options','List legal slot replacements grouped by master ID, stars and proficiency, ordered by category. Returns selectable instance, count, stats and current highlight. Optional scheme reserves equipment worn by its other ships.',
     {snapshotId,shipId:int(1),slot,scheme:schemeSchema,search:str('Name/category search.')},['snapshotId','shipId','slot']),
-  tool('save_scheme','Cache a full temporary scheme locally, without game changes. Scheme cache is always enabled (get_status.schemes.enabled=true). Shares the disk limit with result/calculation caches; CACHE_CAPACITY_EXCEEDED means no scheme was saved. Cache cleanup may delete it; not permanent storage. Collision requires overwrite=true. Optional snapshot validation adds warnings.',
-    {name:schemeName,scheme:schemeSchema,overwrite:bool('Explicitly overwrite this name.'),validateWithSnapshotId:snapshotId},['name','scheme'],false),
-  tool('query_schemes','Read temporary scheme cache, separate from game presets. name is exact; search is substring. Returns full schemes and filtered total. After cache cleanup, recreate missing schemes or pass inline scheme JSON.',
-    {name:schemeName,search:str('Name substring.'),offset:int(0),limit:int(1,100)}),
-  tool('delete_scheme','Delete a temporary cached scheme, not a game preset. Returns the deleted scheme for recovery through save_scheme.',{name:schemeName},['name'],false),
   tool('evaluate_fleet','Validate candidate structure, instance availability, equipment, air-power range, LoS, speed and opening ASW. For routing and route-loss air estimates use evaluate_normal_route.',
-    {snapshotId,...source,conditions:object({enemyAirPower:int(0),los:object({coefficient:int(1,4),minimum:{type:'number',minimum:0},maximum:{type:'number',minimum:0}},['coefficient'])})},['snapshotId'],true,exactlyOneSource),
-  tool('query_expeditions','Read requirements, rewards, duration, unlock/completion/running state and reference net hourly income. evaluate_expedition returns actual candidate net income.',
+    {snapshotId,...source,conditions:object({enemyAirPower:int(0),los:object({coefficient:int(1,4),minimum:{type:'number',minimum:0},maximum:{type:'number',minimum:0}},['coefficient'])})},['snapshotId','scheme']),
+  tool('query_expeditions','Read requirements, rewards, duration, unlock/completion/running state and reference net hourly income. evaluate_expedition calculates candidate income and identifies reference repair costs.',
     {snapshotId,missionId:int(1),search:str('Number/name/duration/resource search.'),sort:enumOf(['number','short','long','fuel','ammo','steel','bauxite'],'Default number; resources sort by reference net hourly income.')},['snapshotId']),
-  tool('evaluate_expedition','Evaluate observed fleet (default 2) or scheme/schemeName: dispatch checks, estimated great-success probability and success/great net rewards after resupply. Does not dispatch.',
+  tool('evaluate_expedition','Evaluate observed fleet (default 2) or an inline scheme: dispatch checks, estimated great-success probability and success/great net rewards after resupply. For combat expeditions income.repair describes a reference damage scenario, not an expected loss; net rows subtract its fuel/steel cost when known. Does not dispatch.',
     {snapshotId,fleet,missionId:int(1),...source},['snapshotId','missionId']),
-  tool('recommend_expedition_fleet','Recommend expedition ships/equipment with independent filters. Returns success/great goals, checks, probability and net income. If no eligible result exists, closestRecommendation is an explicitly ineligible reference with shortfalls; never treat it as dispatch-ready. Honors manual locks; read-only.',
+  tool('recommend_expedition_fleet','Recommend expedition ships/equipment with independent filters. Returns success/great goals, checks, probability and net income. Combat expedition net income includes the explicitly labeled repair reference, not an observed or expected loss. If no eligible result exists, closestRecommendation is an explicitly ineligible reference with shortfalls; never treat it as dispatch-ready. Honors manual locks; read-only.',
     {snapshotId,missionId:int(1),goal,...constraints,fleet:int(2,4,'Default 2.'),fixedFlagshipId:int(1),limit:int(1,5)},['snapshotId','missionId']),
-  tool('recommend_expedition_equipment','Refit equipment only; preserve supplied hulls/order. Returns full scheme, dispatch checks, great-success estimate and net income. Only heldSlots.keep equipment is retained. No game change.',
-    {snapshotId,...source,missionId:int(1),goal,heldSlots},['snapshotId','missionId'],true,exactlyOneSource),
+  tool('recommend_expedition_equipment','Refit equipment only; preserve supplied hulls/order. Returns full scheme, dispatch checks, great-success estimate and net income. Combat expedition net income includes the explicitly labeled repair reference, not an observed or expected loss. Only heldSlots.keep equipment is retained. No game change.',
+    {snapshotId,...source,missionId:int(1),goal,heldSlots},['snapshotId','missionId','scheme']),
   tool('query_normal_maps','List supported map IDs, route rules, Boss/terminal nodes and static air thresholds. For routes/progress/nodes/enemies use query_normal_map.',{snapshotId},['snapshotId']),
   tool('query_normal_map','Read map route keys/names/requirements, nodes/enemies, gauge progress and threat summary before choosing ships. routeKey selects one route; nodeId returns that node threat.',
     {snapshotId,...mapArgs,nodeId:str('profile.mapPreview.nodes[].id.')},['snapshotId','area']),
-  tool('evaluate_normal_route','Evaluate fleet (default 1) or scheme/schemeName on a map. routeKey adds selected/merged route arrival probability, blockers, per-node LoS gates and route-specific aircraft-loss air estimates. Probability excludes battle retreat.',
+  tool('evaluate_normal_route','Evaluate fleet (default 1) or an inline scheme on a map. routeKey adds selected/merged route arrival probability, blockers, per-node LoS gates and route-specific aircraft-loss air estimates. Probability excludes battle retreat.',
     {snapshotId,...mapArgs,fleet,...source},['snapshotId','area']),
   tool('recommend_normal_fleet','Recommend hulls/equipment for every curated route in the requested map/stage; no route-count cap. When all curated routes fail, automatically search a broad adaptive route. Adaptive routes cannot be requested directly. airGoal defaults to superiority. routeResults include notFound diagnostics and probabilities. routeKey restricts the exact non-adaptive route. Honors saved sortie filters/locks and equipment borrowing: when disabled, use only unequipped inventory and equipment owned by ships in each proposed fleet, including expansion slots. Clients cannot override this setting. Bounded search, not global optimization or victory guarantee.',
     {snapshotId,...mapArgs,...constraints,airGoal},['snapshotId','area']),
   tool('recommend_normal_equipment','Refit only equipment for supplied hulls/order and map/route. Starts unlocked slots empty, retains heldSlots.keep. On 2-3 a six-submarine fleet prioritizes torpedo combat over air superiority. Honors the saved sortie equipment-borrowing setting: when disabled, only unequipped inventory and equipment owned by the supplied hulls can be used. A held item from another ship is a conflict; do not silently discard it. Returns full scheme and route assessment; can fail if hulls cannot meet the route. No game change.',
-    {snapshotId,...source,...mapArgs,heldSlots},['snapshotId','area'],true,exactlyOneSource),
-  tool('preview_fleet','Build a read-only executable plan for a complete scheme or schemeName. Pins owned instances, lists donors/changes. Snapshot must still match live account; plan expires after 5 minutes.',
-    {snapshotId,...source},['snapshotId'],true,exactlyOneSource),
-  tool('execute_plan','GAME WRITE: apply previewed fleet members/order/equipment, possibly changing donor ships. Requires MCP enabled, automatic operations enabled by the player in experimental settings (default OFF), and idle executor. Reuse idempotencyKey after uncertain transport; do not retry partial jobs with a new key.',
-    {planId:uuid('From preview_fleet.'),idempotencyKey:str('Caller-generated operation key.',{minLength:1,maxLength:128})},['planId','idempotencyKey'],false),
-  tool('get_job','Read job progress/result/verification/partialApplied. Supply jobId or original idempotencyKey. After failure/cancel/interruption, inspect a new snapshot before replanning.',
-    {jobId:uuid('Accepted job ID.'),idempotencyKey:str('Original operation key.')},[],true,{anyOf:[{required:['jobId']},{required:['idempotencyKey']}]}),
-  tool('cancel_job','Stop subsequent automatic steps. Already sent game requests cannot roll back. Query job and capture new snapshot to inspect partial changes.',
-    {jobId:uuid('Job to stop.')},['jobId'],false),
+    {snapshotId,...source,...mapArgs,heldSlots},['snapshotId','area','scheme']),
+
 ]);
-const instructions='Fleet Advisor controls KanColle fleet composition/equipment through poi; it does not dispatch sorties/expeditions. Read status/contract, create a snapshot, then query/evaluate/recommend. IDs are owned instances unless labeled masterId. ships is the COMPLETE fleet, not a patch. Game presets store hulls only. Recommendations never change the game. To apply: preview_fleet -> execute_plan -> get_job, with one idempotency key. On partial failure inspect a new snapshot. Route probability excludes battle retreat. Keep unknown data unknown. Tools use fleet_advisor_ prefix.';
+const instructions='Fleet Advisor MCP is read-only. Read status/contract, create a snapshot, then query, evaluate or recommend using inline schemes. IDs are owned instances unless labeled masterId. ships is the COMPLETE fleet, not a patch. Game presets store hulls only. Recommendations do not change the game. Route probability excludes battle retreat. Keep unknown data unknown. Tools use fleet_advisor_ prefix.';
 const SERVER_INFO={name:'poi-plugin-fleet-advisor',version:require('../../package.json').version};
 const PROTOCOL_VERSION='2026-07-28';
 const SUPPORTED_PROTOCOL_VERSIONS=['2025-03-26','2025-06-18','2025-11-25',PROTOCOL_VERSION];

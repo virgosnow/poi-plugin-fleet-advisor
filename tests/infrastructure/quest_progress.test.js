@@ -318,19 +318,18 @@ test('a directly observed boss event can identify the boss when the boss cell is
   const task=f.task('B2');assert.equal(f.progress.get(f.store,task,task.goals[0]),1);
 });
 
-test('game-data cache accounts for and clears both local progress and existing MCP schemes',async t=>{
+test('game-data cache accounts for and clears local quest progress',async t=>{
   const f=fixture(t,['B2']),{FleetAdvisorService}=require('../../src/application/fleet_advisor_service');
   let reads=0;const service=new FleetAdvisorService({controller:{dispose(){}},getStore:()=>{reads++;return f.store;},storageDir:f.dir,now:f.now});
   const task=f.task('B2'),goal=task.goals[0];
-  await service.saveScheme({name:'existing',scheme:{fleet:1,ships:[1]}});
   await service.questProgress.increment(f.store,task,goal);
   let status=await service.getComputationStatus();
-  assert.equal(status.cache.schemes.count,1);assert.equal(status.cache.gameData.files,2);
-  assert.equal(status.cache.gameData.bytes,fs.statSync(service.schemes.file).size+fs.statSync(service.questProgress.file).size);
+  assert.equal(status.cache.gameData.files,1);
+  assert.equal(status.cache.gameData.bytes,fs.statSync(service.questProgress.file).size);
   assert.equal(service.getQuestGoalProgress(task,goal),1);
   const beforeReads=reads;assert.equal(service.getQuestGoalProgressForTasks([task]).get(`${task.id}:${goal.key}`),1);assert.equal(reads-beforeReads,1);
   status=await service.clearRecommendationCache('gameData');
   assert.equal(status.maintenance.failed,0);assert.equal(status.cache.gameData.files,0);
-  assert.equal(service.querySchemes({}).total,0);assert.equal(service.getQuestGoalProgress(task,goal),0);
+  assert.equal(service.getQuestGoalProgress(task,goal),0);
   await service.dispose();
 });

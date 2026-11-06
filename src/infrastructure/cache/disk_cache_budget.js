@@ -1,24 +1,23 @@
 'use strict';
 const fs=require('fs'),path=require('path');
 const {DEFAULTS}=require('../../config/computation_settings');
-const SCHEME_FILE=/^schemes\.json(?:\.corrupt-\d+|\.[a-f0-9-]{36}\.tmp)?$/;
 const GAME_DATA_FILE=/^quest-(?:progress|observations)\.json(?:\.[a-f0-9-]{36}\.tmp)?$/;
 const COMPUTATION_FILE=/^[a-f0-9]{64}(?:\.bin|\.[a-f0-9-]{36}\.tmp)$/;
 const LOG_FILE=/^performance-\d{13}-[a-f0-9-]{36}\.json(?:\.[a-f0-9-]{36}\.tmp)?$/;
-const KINDS=['results','calculations','schemes','gameData','logs'];
+const KINDS=['results','calculations','gameData','logs'];
 const TTL=7*24*60*60*1000;
 
 function location(root,kind){
   root=path.resolve(root);
   if(!KINDS.includes(kind))throw Error('无效的缓存类别');
-  const directory=['schemes','gameData'].includes(kind)?path.dirname(root):['calculations','logs'].includes(kind)?path.join(root,kind):root;
-  return {directory,folders:new Set(['schemes','gameData'].includes(kind)?[directory]:[root,directory]),
-    pattern:kind==='schemes'?SCHEME_FILE:kind==='gameData'?GAME_DATA_FILE:kind==='logs'?LOG_FILE:COMPUTATION_FILE};
+  const directory=kind==='gameData'?path.dirname(root):['calculations','logs'].includes(kind)?path.join(root,kind):root;
+  return {directory,folders:new Set(kind==='gameData'?[directory]:[root,directory]),
+    pattern:kind==='gameData'?GAME_DATA_FILE:kind==='logs'?LOG_FILE:COMPUTATION_FILE};
 }
 function checkDirectory(stat){if(!stat.isDirectory()||stat.isSymbolicLink())throw Error('缓存目录不是普通目录');}
 function record(file,stat,kind){
   if(!stat.isFile()||stat.isSymbolicLink())throw Error('缓存文件不是普通文件');
-  return {file,size:stat.size,time:stat.mtimeMs,kind,primary:kind==='schemes'&&path.basename(file)==='schemes.json'||kind==='gameData'&&['quest-progress.json','quest-observations.json'].includes(path.basename(file))};
+  return {file,size:stat.size,time:stat.mtimeMs,kind,primary:kind==='gameData'&&['quest-progress.json','quest-observations.json'].includes(path.basename(file))};
 }
 // Exact owned paths only; never recurse, follow links or deserialize payloads.
 async function cacheFiles(root,kind){
@@ -50,9 +49,7 @@ async function removeCacheFile(file,unlink=fs.promises.unlink.bind(fs.promises))
 }
 
 // A single pool, without per-category byte quotas. The application serializes
-// scheme writes with the owning recommendation worker. Child workers only read.
-// Primary schemes are protected here because only Schemes may update its memory;
-// the application can clear them if a reduced limit cannot hold that file.
+// cache writes with the owning recommendation worker. Child workers only read.
 function* evictions(files,{limitBytes=DEFAULTS.cacheLimitMiB*1024**2,replace,bytes=0,now=Date.now(),maxEntries=64}={}){
   if(!Number.isSafeInteger(limitBytes)||limitBytes<0||!Number.isSafeInteger(bytes)||bytes<0)throw Error('无效的缓存容量');
   const remaining=files.filter(f=>f.file!==replace),expired=new Set();
