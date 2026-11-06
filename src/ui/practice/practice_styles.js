@@ -52,38 +52,68 @@ ${trainingOverflowRules}
 .paa-practice-block{min-width:0;padding:14px 16px;border:1px solid var(--paa-line);border-radius:10px;background:var(--paa-card)}
 .paa-workbench[data-kind=practice] .paa-wb-left .paa-practice-block h3{margin:0 0 12px;font-size:13px;font-weight:600;line-height:20px;color:var(--paa-text)}
 .paa-workbench[data-kind=practice] .paa-wb-left .paa-practice-opponent-section h3{font-size:14px;line-height:22px}
+.paa-practice-opponent-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.paa-workbench[data-kind=practice] .paa-wb-left .paa-practice-opponent-header h3{margin:0}
+.paa .paa-practice-opponent-clear{min-height:24px;padding:2px 5px;border:0;background:transparent;color:var(--paa-muted);font-size:12px;line-height:20px}
+.paa .paa-practice-opponent-clear:hover:not(:disabled){color:var(--paa-accent);background:var(--paa-soft)}
+.paa .paa-practice-opponent-clear:disabled{opacity:.45}
 .paa-practice-block p{margin:0;font-size:12px;line-height:1.5}
-.paa-practice-block p.paa-practice-cache-note{margin:-6px 0 8px}
-.paa-practice-opponents{position:relative;display:grid;gap:6px}
+.paa-practice-block p.paa-practice-cache-note{margin:0 0 8px}
+.paa-practice-opponent-layout{position:relative;min-width:0;container:practice-opponents / inline-size;--paa-opponent-detail-width:min(232px,47%)}
+.paa-practice-opponent-layout[data-has-opponents=true]{min-height:260px}
+.paa-practice-opponents{position:relative;display:grid;gap:6px;min-width:0;transition:margin-right .22s ease}
+.paa-practice-opponent-layout[data-open=true] .paa-practice-opponents{margin-right:calc(var(--paa-opponent-detail-width) + 8px)}
+.paa-practice-opponent-layout[data-open=true] :is(.paa-practice-opponent-heading small,.paa-practice-opponent-comment,.paa-practice-rank>span){display:none}
+.paa-practice-opponent-layout[data-open=true] .paa-practice-rank{width:auto}
+.paa-practice-opponent-layout[data-open=true] .paa-practice-rank:not([data-outcome]){display:none}
 .paa-practice-opponent-indicator{position:absolute;left:0;top:0;z-index:0;pointer-events:none;visibility:hidden;border-radius:8px;background:rgba(101,153,220,.14);box-shadow:inset 0 0 0 1px #6f9edc}
 .paa-practice-opponent-indicator[data-ready=true]{visibility:visible;transition:transform .26s cubic-bezier(.2,.65,.3,1)}
 .paa-practice-opponent-indicator[data-ready=true][data-tracking=true]{transition:none}
-.paa-practice-opponent-item{position:relative;z-index:1;min-width:0;border-radius:8px}.paa-practice-opponent-row{display:flex;align-items:center;gap:4px;min-width:0;padding-right:5px}
+.paa-practice-opponent-item{position:relative;z-index:1;min-width:0;border-radius:8px}.paa-practice-opponent-row{box-sizing:border-box;display:flex;align-items:center;gap:4px;min-width:0;height:52px;padding-right:5px}
 .paa-practice-opponent-item:not([data-disabled=true]),.paa-practice-opponent-item:not([data-disabled=true]) *{cursor:pointer}
 .paa-practice-opponent-item:hover:not([data-selected=true]):not([data-disabled=true]){background:rgba(140,180,240,.08);box-shadow:inset 0 0 0 1px #6f9edc}
 .paa-practice-opponent-item[data-selected=true]{background:rgba(101,153,220,.14);box-shadow:inset 0 0 0 1px #6f9edc}
 .paa-practice-opponents[data-motion-ready=true] .paa-practice-opponent-item[data-selected=true]{background:transparent;box-shadow:none}
+.paa-practice-opponent-layout[data-open=true] .paa-practice-opponent-indicator{z-index:4;border-radius:8px 0 0 8px}
+.paa-practice-opponent-layout[data-open=true] .paa-practice-opponent-item{z-index:5}
+.paa-practice-opponent-layout[data-open=true] .paa-practice-opponent-item[data-selected=true]{border-radius:8px 0 0 8px}
+.paa-practice-opponent-layout[data-open=true] .paa-practice-opponent-indicator[data-ready=true]::after,
+.paa-practice-opponent-layout[data-open=true] .paa-practice-opponents:not([data-motion-ready=true]) .paa-practice-opponent-item[data-selected=true]::after{content:'';position:absolute;right:-9px;top:0;bottom:0;width:12px;box-sizing:border-box;border-top:1px solid #6f9edc;border-bottom:1px solid #6f9edc;background:linear-gradient(rgba(101,153,220,.14),rgba(101,153,220,.14)),var(--paa-card);pointer-events:none}
 @media(prefers-reduced-motion:reduce){.paa-practice-opponent-indicator[data-ready=true]{transition:none}}
-.paa .paa-practice-opponent-select{display:flex;align-items:center;gap:10px;flex:1;min-width:0;min-height:48px;padding:7px 10px;text-align:left;color:var(--paa-text);background:transparent;border:1px solid transparent;border-radius:8px;cursor:pointer}
+.paa .paa-practice-opponent-select{box-sizing:border-box;display:flex;align-items:center;gap:10px;flex:1;min-width:0;height:52px;min-height:52px;padding:4px 10px;text-align:left;color:var(--paa-text);background:transparent;border:1px solid transparent;border-radius:8px;cursor:pointer}
 .paa .paa-practice-opponent-select:hover:not(:disabled){border-color:transparent;color:var(--paa-text)}
 .paa .paa-practice-opponent-toggle{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;flex:none;width:34px;height:38px;min-height:38px;padding:0;border:1px solid var(--paa-line);border-radius:6px;background:transparent;color:var(--paa-muted)}
 .paa .paa-practice-opponent-toggle:hover:not(:disabled){color:var(--paa-accent);border-color:var(--paa-accent)}
+.paa-practice-opponent-layout[data-open=true] .paa-practice-opponent-toggle:not(:hover){border-color:transparent}
 .paa-practice-opponent-count{font-size:10px;line-height:12px;white-space:nowrap}.paa-practice-opponent-toggle svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:transform .16s ease}.paa-practice-opponent-toggle[aria-expanded=true] svg{transform:rotate(180deg)}
 .paa-practice-opponent-body{display:flex;flex:1;flex-direction:column;min-width:0;gap:3px}.paa-practice-opponent-heading{display:flex;align-items:baseline;gap:5px;min-width:0;white-space:nowrap}.paa-practice-opponent-heading strong{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:14px}.paa-practice-opponent-body small{font-size:12px;color:var(--paa-muted)}.paa-practice-opponent-heading small:first-of-type{min-width:0;overflow:hidden;text-overflow:ellipsis}.paa-practice-opponent-heading small:last-child{flex:none}.paa-practice-opponent-comment{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .paa-practice-opponent-portrait{width:64px;height:38px;flex:none;overflow:hidden;border-radius:4px;background:var(--paa-soft)}.paa-practice-opponent-portrait img{width:100%;height:100%;object-fit:cover}
 .paa-practice-rank{display:inline-flex;align-items:baseline;justify-content:flex-end;gap:3px;flex:none;width:52px;white-space:nowrap;font-size:11px;font-weight:600;line-height:18px}
 .paa-practice-rank strong{font-size:15px;line-height:18px}.paa-practice-rank[data-outcome=win]{color:#896516}.paa-practice-rank[data-outcome=loss]{color:#a0434b}
 :is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa-practice-rank[data-outcome=win]{color:#e8c76f}:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa-practice-rank[data-outcome=loss]{color:#ed9398}
-.paa-practice-enemy-detail{padding:8px;border-top:1px solid var(--paa-line)}
-.paa-practice-enemy-ships{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;font-size:12px;color:var(--paa-text)}
-.paa-practice-enemy-ship{min-width:0;padding:5px 7px;border:1px solid var(--paa-line);border-radius:6px;background:var(--paa-bg)}
-.paa-practice-enemy-head{display:flex;align-items:center;gap:8px}.paa-practice-enemy-portrait{position:relative;width:54px;height:32px;flex:none;border-radius:4px;overflow:hidden;background:var(--paa-soft);display:grid;place-items:center}.paa-practice-enemy-portrait img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.paa-practice-enemy-detail{position:absolute;top:0;right:0;bottom:0;z-index:2;box-sizing:border-box;width:0;min-width:0;overflow:hidden;overscroll-behavior:contain;scrollbar-width:thin;border:1px solid #6f9edc;border-radius:0 8px 8px 0;background:var(--paa-card);visibility:hidden;transition:width .22s ease,visibility 0s linear .22s;pointer-events:none}
+.paa-practice-enemy-detail[data-open=true]{width:var(--paa-opponent-detail-width);visibility:visible;transition:width .22s ease;pointer-events:auto}
+.paa-practice-opponent-layout[data-open=true] .paa-practice-enemy-detail{width:var(--paa-opponent-detail-width);visibility:visible}
+.paa-practice-enemy-content{height:100%;min-height:0}.paa-practice-enemy-content>p{padding:5px 10px}
+.paa-practice-enemy-ships{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(6,minmax(0,1fr));gap:0;width:100%;height:100%;min-width:0;padding:0 7px 0 10px;font-size:12px;color:var(--paa-text)}
+.paa-practice-enemy-ship{position:relative;display:flex;align-items:center;min-width:0;min-height:0;padding:0 2px}.paa-practice-enemy-ship:not(:last-child)::after{content:'';position:absolute;right:0;bottom:0;left:0;height:1px;background:var(--paa-line)}
+.paa-practice-enemy-head{display:flex;flex:1;align-items:center;gap:8px;min-width:0}.paa-practice-enemy-portrait{position:relative;width:48px;height:28px;flex:none;border-radius:4px;overflow:hidden;background:var(--paa-soft);display:grid;place-items:center}.paa-practice-enemy-portrait img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.paa-practice-enemy-index{flex:0 0 12px;color:var(--paa-muted);font-size:11px;line-height:1;text-align:center;font-variant-numeric:tabular-nums}
 .paa-practice-enemy-identity{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}.paa-practice-enemy-identity strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.paa-practice-enemy-identity small{overflow:hidden;text-overflow:ellipsis;color:var(--paa-muted);font-size:11px;white-space:nowrap}
+@container practice-opponents (max-width:350px){
+ .paa-practice-opponent-row{height:48px}
+ .paa .paa-practice-opponent-select{height:48px;min-height:48px;padding-block:2px}
+ .paa-practice-opponent-layout[data-open=true] .paa-practice-opponent-portrait{display:none}
+ .paa .paa-practice-opponent-layout[data-open=true] .paa-practice-opponent-select{gap:4px;padding-inline:6px}
+ .paa .paa-practice-opponent-layout[data-open=true] .paa-practice-opponent-toggle{width:30px}
+ .paa-practice-enemy-ship{padding-inline:0}.paa-practice-enemy-head{gap:4px}.paa-practice-enemy-index{flex-basis:9px}.paa-practice-enemy-portrait{width:34px;height:24px}
+}
 .paa-practice-forecast{display:flex;align-items:center;gap:20px}.paa-practice-pie{width:92px;height:92px;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
 .paa-practice-forecast-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;flex:1;min-width:0}.paa-practice-forecast-legend>div{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:7px;font-size:12px}.paa-practice-forecast-legend strong{font-variant-numeric:tabular-nums;font-weight:600}.paa-practice-forecast-dot{width:8px;height:8px;border-radius:50%}.paa-practice-block .paa-practice-forecast-note{margin-top:10px;color:var(--paa-muted);font-size:11px}
 .paa-practice-consumption-item{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .paa-practice-resources .paa-practice-resource-items{display:flex;align-items:center;gap:9px;min-width:0;overflow-x:auto;white-space:nowrap;font-variant-numeric:tabular-nums;scrollbar-width:thin}
 .paa-practice-resources .paa-practice-consumption-item{gap:3px;color:var(--paa-text)}
+.paa-workbench .paa-practice-narrow-overlay{display:none}
 @container(max-width:780px){
  .paa-workbench[data-kind=practice] .paa-wb-columns{display:flex;flex-direction:column;align-items:stretch}
  .paa-workbench[data-kind=practice] :is(.paa-wb-left,.paa-wb-right){display:contents}
@@ -91,11 +121,16 @@ ${trainingOverflowRules}
  .paa-workbench[data-kind=practice] .paa-wb-left>.paa-practice-opponent-section{order:1}
  .paa-workbench[data-kind=practice] .paa-wb-right>.paa-wb-command-area{order:2;padding:10px 12px;border:1px solid var(--paa-line);border-radius:10px}
  .paa-workbench[data-kind=practice] .paa-wb-right>.paa-operation-feedback,.paa-workbench[data-kind=practice] .paa-wb-right>.paa-fleet-warning{order:2}
- .paa-workbench[data-kind=practice] .paa-wb-right>.paa-wb-metrics{order:3}
+ .paa-workbench[data-kind=practice] :is(.paa-wb-fleet-results,.paa-wb-fleet-results-content){display:contents}
+ .paa-workbench[data-kind=practice] .paa-wb-fleet-results-content>.paa-wb-metrics{order:3}
+ .paa-workbench[data-kind=practice] .paa-wb-fleet-results-content>.paa-wb-ships{order:5}
+ .paa-workbench[data-kind=practice] .paa-wb-fleet-results-content[aria-hidden=true]>.paa-wb-metrics{opacity:.55}
+ .paa-workbench[data-kind=practice] .paa-wb-fleet-results>.paa-wb-fleet-overlay{display:none}
+ .paa-workbench[data-kind=practice] .paa-practice-narrow-overlay{display:flex}
  .paa-workbench[data-kind=practice] .paa-wb-left>.paa-practice-forecast-section{order:4}
- .paa-workbench[data-kind=practice] .paa-wb-right>.paa-wb-ships{order:5}
  .paa-workbench[data-kind=practice] .paa-wb-left>.paa-quest-section{order:6}
 }
 @container(max-width:500px){.paa-practice-forecast-legend{grid-template-columns:minmax(0,1fr)}}
-@container(max-width:400px){.paa-practice-enemy-ships{grid-template-columns:minmax(0,1fr)}.paa .paa-practice-opponent-select{gap:6px;padding-inline:6px}.paa-practice-opponent-portrait{width:48px;height:30px}.paa-practice-rank{width:46px}}
+@container(max-width:400px){.paa .paa-practice-opponent-select{gap:6px;padding-inline:6px}.paa-practice-opponent-portrait{width:48px;height:30px}.paa-practice-rank{width:46px}}
+@media(prefers-reduced-motion:reduce){.paa-practice-opponents,.paa-practice-enemy-detail{transition:none}}
 `;

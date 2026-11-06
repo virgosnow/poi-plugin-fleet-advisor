@@ -350,9 +350,9 @@ class FleetAdvisorService {
   async recommendNormalFleet(args,onProgress){
     return this.recommendWithFilters('recommendNormalFleet','normal',args,onProgress);
   }
-  async recommendPracticeFleet({snapshotId,...args}){
+  async recommendPracticeFleet({snapshotId,...args},onProgress){
     const snapshot=this.snapshots.get(snapshotId),settings=this.getRecommendationFilters().practice;
-    return {snapshotId,...await this.recommendations.run('recommendPracticeFleet',snapshot.store,{...args,settings})};
+    return {snapshotId,...await this.recommendations.run('recommendPracticeFleet',snapshot.store,{...args,settings},onProgress)};
   }
   async recommendWithFilters(method,kind,args,onProgress){
     const snapshot=this.snapshots.get(args.snapshotId),filters=this.getRecommendationFilters()[kind];

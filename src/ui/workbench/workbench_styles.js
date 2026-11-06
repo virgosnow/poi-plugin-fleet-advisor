@@ -108,6 +108,10 @@ module.exports=`
 /* Match the plugin pane, not the host window: poi can dock us beside the game. */
 .paa-masthead{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;margin-bottom:12px}.paa-masthead .paa-tabs{margin:0;flex:1;min-width:0}
 .paa-workspace{position:relative;isolation:isolate;min-width:0}.paa-workspace-content{position:relative}.paa-run-mask{position:absolute;inset:0;z-index:1;border-radius:12px;background:rgba(112,128,150,.18);cursor:wait;pointer-events:auto}.paa-workspace[aria-busy=true] [inert]{user-select:none}
+/* Keep per-ship execution progress below the run mask while leaving the
+   separate stop button above it. The regular idle and calculation layers do
+   not acquire a new stacking context. */
+.paa-workspace[aria-busy=true] .paa-wb-ships{z-index:0}
 .paa-workspace[aria-busy=true] .paa-wb-command-area{z-index:2}.paa-wb-command-area[data-running=true]::after{content:"";position:absolute;inset:0;z-index:1;background:rgba(112,128,150,.18);cursor:wait}.paa button.paa-wb-apply{width:112px;flex:none}.paa button.paa-wb-apply[data-running=true]{position:relative;z-index:2;background:var(--paa-card);color:var(--paa-bad);border-color:var(--paa-bad)}.paa button.paa-wb-apply[data-running=true]:hover:not(:disabled){background:var(--paa-soft);color:var(--paa-bad)}
 .paa-workbench{--paa-wb-columns:minmax(245px,.82fr) minmax(480px,1.55fr);margin:0}.paa-wb-columns{grid-template-columns:var(--paa-wb-columns);gap:14px}
 .paa-wb-context-controls,.paa-wb-command-area{min-width:0;border:1px solid var(--paa-line);border-radius:12px;background:var(--paa-card);padding:12px}

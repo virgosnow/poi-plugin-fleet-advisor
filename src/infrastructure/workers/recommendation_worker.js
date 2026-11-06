@@ -59,7 +59,7 @@ async function runRecommendation(workerData,started=workerStarted,onProgress){
   const execute=async()=>{
   try{
     if(!METHODS.has(workerData.method))throw Error('Unsupported recommendation method');
-    progress?.({stage:workerData.method.includes('Equipment')?'equipment':workerData.method==='recommendExpeditionFleet'?'expedition':'prepare'});
+    progress?.({stage:workerData.method.includes('Equipment')?'equipment':workerData.method==='recommendExpeditionFleet'?'expedition':workerData.method==='recommendPracticeFleet'?'practice':'prepare'});
     const result=workerData.method==='recommendNormalFleet'?await require('../cache/recommendation_cache').cachedRecommendationAsync(
       workerData.cacheDir,workerData.method,workerData.store,workerData.args,async(scope,cache)=>{
         const {pool,recommend}=perf.stage('search.setup',()=>{

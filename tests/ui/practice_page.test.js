@@ -46,7 +46,9 @@ test('practice page displays observed opponents, preserves manual drafts and kee
  const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
  const render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
  const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
- let tree=render();assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-opponent-select').props['aria-pressed'],true);
+ let tree=render();assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-opponent-select').props['aria-pressed'],false);
+ assert.equal(walk(tree).find(n=>n.props.className==='paa-wb-complete').props.disabled,true);
+ walk(tree).find(n=>n.props.className==='paa-practice-opponent-select').props.onClick();tree=render();
  const complete=walk(tree).find(n=>n.props.className==='paa-wb-complete');
  assert(walk(complete).some(n=>n.type==='svg'&&n.props.width===15));assert(complete.children.includes('一键补全'));
  const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
@@ -61,7 +63,7 @@ test('practice page displays observed opponents, preserves manual drafts and kee
  const practiceTask=quests.props.listTasks({state:store,questState:store.questState}).tasks[0];assert.equal(practiceTask.id,1);assert.equal(practiceTask.status,'unknown');assert.equal(practiceTask.supported,false);assert.equal(practiceTask.goals[0].label,'演習で勝利');
  assert.equal(quests.props.listTasks({questState:{known:false}}).status,'unknown');
  walk(tree).find(n=>n.props.className==='paa-practice-opponent-select').props.onClick();tree=render();
- const opponentSection=walk(tree).find(n=>n.type==='section'&&n.children.some(c=>c?.type==='h3'&&c.children.includes('演习对手')));
+ const opponentSection=walk(tree).find(n=>n.type==='section'&&walk(n).some(c=>c?.type==='h3'&&c.children.includes('演习对手')));
  assert(walk(opponentSection).some(n=>n.props['aria-label']==='对手编成'));assert.match(text(opponentSection),/Lv\.55/);
  assert(!text(tree).includes('演习记录'));
  assert(!text(tree).includes('火力'));assert(!text(tree).includes('装甲'));
@@ -132,7 +134,7 @@ test('practice preserves restored formation until an observed opponent list actu
  const store=fixture(),refs=[],calls=[];let stateIndex=0,refIndex=0,effects=[];
  store.practiceState={known:false,opponents:[],revision:1};store.questState={known:true,tasks:[]};
  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
-  useState(initial){const at=stateIndex++;return [typeof initial==='function'?initial():initial,value=>calls.push([at,value])];},
+  useState(initial){const at=stateIndex++;return [at===2?10:typeof initial==='function'?initial():initial,value=>calls.push([at,value])];},
   useRef(value){const at=refIndex++;return refs[at]||(refs[at]={current:value});},useEffect(fn){effects.push(fn);}};
  const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
  const update=()=>{stateIndex=0;refIndex=0;effects=[];Page({kind:'practice',hidden:true});const effect=effects.find(fn=>String(fn).includes('lastOpponentList.current'));assert(effect);effect();};
@@ -140,43 +142,63 @@ test('practice preserves restored formation until an observed opponent list actu
  store.practiceState={known:true,opponents:[{id:20}],revision:3};update();assert.deepEqual(calls,[[16,{}],[17,'auto'],[0,Array(6).fill(null)],[4,null],[8,'']]);
 });
 
-test('the whole opponent card selects it, and each lineup still folds independently',()=>{
- const store=fixture(),states=[];let i=0;
+test('selecting another practice opponent keeps the connected panel open and updates it immediately',()=>{
+ const store=fixture(),states=[],refs=[];let i=0,r=0;
  store.practiceState={known:true,opponents:[
    {id:10,index:1,name:'甲',level:100,ships:[{masterId:1,level:55}]},
    {id:20,index:2,name:'乙',level:90,ships:null}
  ],revision:1};
  store.questState={known:true,tasks:[]};
- const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef(value){const at=r++;return refs[at]||(refs[at]={current:value});},
    useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
  const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
  const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
- const render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
+ const render=()=>{i=0;r=0;return Page({kind:'practice',automaticOperations:false});};
  const items=tree=>walk(tree).filter(node=>node.props.className==='paa-practice-opponent-item');
  const toggle=item=>walk(item).find(node=>node.props.className==='paa-practice-opponent-toggle');
  const select=item=>walk(item).find(node=>node.props.className==='paa-practice-opponent-select');
- const panel=item=>walk(item).find(node=>node.props.className==='paa-collapse');
+ const expanded=item=>select(item).props['aria-pressed']?select(item).props['aria-expanded']:toggle(item).props['aria-expanded'];
+ const panel=tree=>walk(tree).find(node=>node.props.className==='paa-practice-enemy-detail');
  let tree=render(),rows=items(tree);
- assert.equal(rows.length,2);assert.equal(toggle(rows[0]).props['aria-expanded'],false);assert.equal(toggle(rows[1]).props['aria-expanded'],false);
- assert.equal(walk(toggle(rows[0])).find(node=>node.props.className==='paa-practice-opponent-count').children[0],'1艘');
- assert.match(toggle(rows[0]).props['aria-label'],/1 艘/);assert.equal(walk(toggle(rows[1])).find(node=>node.props.className==='paa-practice-opponent-count').children[0],'—');
+ assert.equal(rows.length,2);assert.equal(expanded(rows[0]),false);assert.equal(expanded(rows[1]),false);
+ assert(toggle(rows[0]),'unselected opponents retain their fleet count button');
+ assert.equal(walk(toggle(rows[1])).find(node=>node.props.className==='paa-practice-opponent-count').children[0],'—');
  assert.match(toggle(rows[1]).props['aria-label'],/舰船数量待同步/);
- assert.equal(panel(rows[0]).props['aria-hidden'],true);assert.equal(panel(rows[0]).props.inert,'');
- toggle(rows[0]).props.onClick();rows[0].props.onClick();tree=render();rows=items(tree);
- assert.equal(toggle(rows[0]).props['aria-expanded'],true);assert.equal(toggle(rows[1]).props['aria-expanded'],false);
+ assert.equal(panel(tree).props['aria-hidden'],true);assert.equal(panel(tree).props.inert,'');
+ rows[0].props.onClick();tree=render();rows=items(tree);
+ assert.equal(expanded(rows[0]),true);assert.equal(expanded(rows[1]),false);
  assert.equal(select(rows[0]).props['aria-pressed'],true);assert.equal(select(rows[1]).props['aria-pressed'],false);
- assert.equal(panel(rows[0]).props['aria-hidden'],false);assert(walk(panel(rows[0])).some(node=>node.props['aria-label']==='对手编成'));
- assert(walk(panel(rows[0])).some(node=>node.type==='small'&&node.children.includes('轻巡 · Lv.55')));
- toggle(rows[1]).props.onClick();rows[1].props.onClick();tree=render();rows=items(tree);
- assert.equal(toggle(rows[0]).props['aria-expanded'],true);assert.equal(toggle(rows[1]).props['aria-expanded'],true);
- assert(walk(panel(rows[1])).some(node=>node.children?.includes('对手舰队资料待同步。')));
+ assert.equal(panel(tree).props['aria-hidden'],false);assert(walk(panel(tree)).some(node=>node.props['aria-label']==='对手编成'));
+ assert(walk(panel(tree)).some(node=>node.type==='small'&&node.children.includes('轻巡 · Lv.55')));
+ rows[1].props.onClick();tree=render();rows=items(tree);
+ assert.equal(select(rows[1]).props['aria-pressed'],true,'the selection changes immediately');
+ assert.equal(panel(tree).props['data-open'],true,'the frame stays open without a fading phase');
+ assert.equal(expanded(rows[0]),false);assert.equal(expanded(rows[1]),true);
+ assert(walk(panel(tree)).some(node=>node.children?.includes('对手舰队资料待同步。')));
  select(rows[1]).props.onClick();tree=render();rows=items(tree);
- assert.equal(select(rows[1]).props['aria-pressed'],true);assert.equal(toggle(rows[0]).props['aria-expanded'],true);
- toggle(rows[0]).props.onClick();rows[0].props.onClick();tree=render();rows=items(tree);
- assert.equal(toggle(rows[0]).props['aria-expanded'],false);assert.equal(toggle(rows[1]).props['aria-expanded'],true);
+ assert.equal(select(rows[1]).props['aria-pressed'],true);assert.equal(expanded(rows[1]),true);
+ toggle(rows[0]).props.onClick();tree=render();rows=items(tree);
+ assert.equal(panel(tree).props['data-open'],true);
+ assert.equal(expanded(rows[0]),true);assert.equal(expanded(rows[1]),false);
  assert.equal(select(rows[0]).props['aria-pressed'],true);
  rows[1].props.onClick();tree=render();rows=items(tree);assert.equal(select(rows[1]).props['aria-pressed'],true);
- i=0;const busy=Page({kind:'practice',automaticOperations:false,busy:true});const busyRows=items(busy);busyRows[0].props.onClick();tree=render();rows=items(tree);
+ assert.equal(expanded(rows[0]),false,'selecting a closed opponent also collapses the previous lineup');
+ assert.equal(expanded(rows[1]),true,'selecting an opponent opens its lineup');
+ assert.equal(toggle(rows[1]),undefined,'selected opponent is connected directly to the detail panel');
+ rows[0].props.onClick();tree=render();rows=items(tree);
+ assert.equal(panel(tree).props['data-open'],true,'rapid switches keep the panel open');
+ rows[1].props.onClick();tree=render();rows=items(tree);
+ assert.equal(select(rows[1]).props['aria-pressed'],true,'a newer choice cancels the previous transition');
+ rows[0].props.onClick();tree=render();rows=items(tree);
+ states[0]=[{id:1,slots:[-1,-1],ex:-1},null,null,null,null,null];tree=render();
+ const clear=walk(tree).find(node=>node.props['aria-label']==='取消选择演习对手');clear.props.onClick();tree=render();rows=items(tree);
+ assert(rows.every(row=>select(row).props['aria-pressed']===false),'all opponents remain unselected');
+ assert.equal(panel(tree).props['aria-hidden'],true);assert.equal(states[0][0].id,1,'clearing selection preserves the fleet draft');
+ assert.equal(walk(tree).find(node=>node.props['aria-label']==='取消选择演习对手').props.disabled,true);
+ assert.equal(walk(tree).find(node=>node.props.className==='paa-wb-complete').props.disabled,true,'clearing the opponent disables completion');
+ rows[1].props.onClick();tree=render();rows=items(tree);
+ assert.equal(expanded(rows[1]),true);assert.deepEqual(states[0],Array(6).fill(null),'selecting a new opponent clears the old draft');
+ i=0;r=0;const busy=Page({kind:'practice',automaticOperations:false,busy:true});const busyRows=items(busy);busyRows[0].props.onClick();tree=render();rows=items(tree);
  assert.equal(select(rows[1]).props['aria-pressed'],true,'disabled cards do not change selection');
 });
 
@@ -203,6 +225,7 @@ test('practice training targets can be searched and selected without altering th
    const option=(tree,id)=>walk(tree).find(n=>n.type==='label'&&n.props.key===id);
    const opponents=tree=>walk(tree).filter(n=>n.type==='button'&&n.props.className==='paa-practice-opponent-select');
    let tree=render();
+   opponents(tree)[0].props.onClick();tree=render();
    assert(!walk(tree).some(n=>['演习目标','演习阵形','舰队规模'].includes(n.props['aria-label'])));
    states[0]=[{...ship,pin:true},null,null,null,null,null];
    trigger(tree).props.onClick();tree=render();
@@ -329,14 +352,15 @@ test('training picker waits for label focus before dismissing on blur',t=>{
 });
 
 test('practice quest preselection is passed into completion and unavailable task data is rejected',async()=>{
- const store=fixture(),states=[],requests=[];let i=0;store.practiceState={known:true,opponents:[],revision:1};
+ const store=fixture(),states=[],requests=[];let i=0;store.practiceState={known:true,opponents:[{id:10,index:1,name:'对手',ships:[{masterId:1,level:10}]}],revision:1};
  store.questState={known:true,complete:true,tasks:[{api_no:368,api_category:3,api_state:2,api_title:'「十六駆」演習！'}]};
  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
   useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
  const service={preview:()=>({}),createSnapshot:()=>({snapshotId:'test'}),recommendPracticeFleet:async args=>{requests.push(args);return {scheme:{ships:[W.entry(store,1)]},enemyKnown:true};}};
  const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>service});
  const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[],render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
- let tree=render(),section=walk(tree).find(n=>n.type?.name==='QuestSection');section.props.onToggleQuest('P368');tree=render();
+ let tree=render();walk(tree).find(n=>n.props.className==='paa-practice-opponent-select').props.onClick();tree=render();
+ let section=walk(tree).find(n=>n.type?.name==='QuestSection');section.props.onToggleQuest('P368');tree=render();
  section=walk(tree).find(n=>n.type?.name==='QuestSection');assert.deepEqual(section.props.selectedQuests,['P368']);
  await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();assert.deepEqual(requests[0].questCodes,['P368']);
  store.questState={known:true,complete:false,tasks:store.questState.tasks};tree=render();await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();assert.equal(requests.length,1);
