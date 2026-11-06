@@ -1,5 +1,7 @@
 # 舰队参谋 / Fleet Advisor
 
+<img src="https://raw.githubusercontent.com/virgosnow/poi-plugin-fleet-advisor/main/docs/images/fleet-advisor-icon.png" alt="舰队参谋图标" width="128">
+
 舰队参谋是 poi 的编成与配装插件。它根据你持有的舰娘和装备推荐常规海域、演习与远征方案，并帮助核对路线、制空、索敌和收益。
 
 作者：[virgosnow](https://github.com/virgosnow)。
