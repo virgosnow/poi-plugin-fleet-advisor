@@ -26,7 +26,53 @@ function enemyFormation(formation,fleet,kind){
   return options.slice().sort((a,b)=>strength(b)-strength(a))[0];
 }
 function unknown(reason,threats){return {status:'unknown',reasons:[reason],threats};}
+// Keep each node's reference scenarios paired across candidate fleets and
+// routes. A different number of attacks at an earlier node must not silently
+// replace every random draw at the Boss. This does not make a scenario count
+// an observed probability, and combat within a node remains stochastic.
+function nodeScenarioSeed(seed,sample,node){
+  let hash=(0x4b414e43+sample*7919+(Number(seed)||0))>>>0;
+  for(const char of String(node))hash=Math.imul(hash^char.charCodeAt(0),16777619)>>>0;
+  return hash;
+}
 function laterBattleExists(path,pathStep,nodes){return path.slice(pathStep+1).some(id=>nodes.has(id));}
+function spottingAtNode(store,targets,losses,step,context){
+  const power=step?.before&&Number.isFinite(step.before.min)&&Number.isFinite(step.before.max)?(step.before.min+step.before.max)/2:null;
+  const state=power!==null&&step.required?(power>=step.required.supremacy?'supremacy':power>=step.required.superiority?'superiority':null):null;
+  if(!state)return null;
+  return targets.map((target,i)=>{
+    if(![3,4,5,6,8,9,10,21].includes(Number(target.master.api_stype)))return null;
+    const planes=target.after.slots.map((id,slot)=>({item:target.items.find(item=>item.id===id),slot})).filter(row=>[10,11].includes(row.item?.type));
+    if(!planes.some(row=>{
+      const count=losses[i]?.slots?.[row.slot];
+      return Array.isArray(count)?(count[0]+count[1])/2>=1:Number.isFinite(count)?count>=1:Number(target.master.api_maxeq?.[row.slot])>0;
+    }))return null;
+    const reading=require('./day_spotting').read(target,store,i===0,context);
+    const rates=reading.ci?.rates?.[state]?.rows||[];
+    return reading.attacks.map((mode,k)=>({...mode,chance:rates[k]?.chance})).filter(mode=>Number.isFinite(mode.chance));
+  });
+}
+function friendlyNightContact(contact,step,{openingNight=false}={}){
+  if(!contact?.candidates?.length)return null;
+  if(openingNight)return {states:['openingNight'],own:contact,enemy:{candidates:[]}};
+  const min=step?.before?.min,max=step?.before?.max,required=step?.required;
+  if(!Number.isFinite(min)||!Number.isFinite(max)||min<0||max<min||
+    !Number.isFinite(required?.superiority)||!Number.isFinite(required?.supremacy)||required.superiority<=0)return null;
+  let state;
+  if(min>=required.supremacy)state='supremacy';
+  else if(min>=required.superiority)state='superiority';
+  else{
+    // Required supremacy is exactly three times enemy air power (except the
+    // zero-enemy sentinel). Both ends must remain in the disadvantage band:
+    // a range crossing parity or loss cannot establish night-contact eligibility.
+    const high=step.enemyAirPowerRange?.max??(required.supremacy===1?0:required.supremacy/3);
+    const low=step.enemyAirPowerRange?.min??high;
+    if(!Number.isFinite(low)||!Number.isFinite(high)||low<=0||high<low||
+      min*3<=high||max*3>2*low)return null;
+    state='disadvantage';
+  }
+  return {states:[state],own:contact,enemy:{candidates:[]}};
+}
 // A reference scenario can use midpoint aircraft counts when attrition is
 // unresolved, just as the opening-air model does. Keep known empty slots at
 // zero and never invent a capacity. This does not assert a loss probability.
@@ -82,12 +128,48 @@ function refineThreats(fleet,evidence,store,scheme,base,{now,start}){
   };
   return {...base,target:select(true,base.target),enroute:select(false,base.enroute)};
 }
-function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>performance.now(),seed=0}={}){
+// A weighted assessment combines complete per-path scenario populations. The
+// displayed node table and integer scenario counts remain an explicitly named
+// conservative branch; weighted fractions are never presented as sample counts.
+function combineBranches(readings){
+  if(!readings.length||readings.some(row=>!Number.isFinite(row.probability)||row.probability<=0||
+    row.result?.status!=='estimated'||!Number.isFinite(row.result.balance?.ratio)))return null;
+  const total=readings.reduce((sum,row)=>sum+row.probability,0);
+  if(total<=0||total>1+1e-8)return null;
+  const weighted=readings.map(row=>({...row,weight:row.probability/total}));
+  // Undo fromRatio's regularization before combining objective progress.
+  const progress=weighted.reduce((sum,{weight,result})=>sum+weight*
+    Math.max(0,Math.min(1,(1.05*result.balance.ratio-.05)/(1+result.balance.ratio))),0);
+  const balance=fromRatio((progress+.05)/(1-progress+.05));
+  const conservative=weighted.slice().sort((a,b)=>a.result.balance.ratio-b.result.balance.ratio)[0].result;
+  const uncertain=weighted.some(row=>row.result.uncertain);
+  const summary=weighted.map(({weight,probability,result})=>({path:result.path,weight,probability,
+    balance:result.balance,journeys:result.diagnostics.journeys,target:result.diagnostics.target}));
+  return {...conservative,balance,uncertain,reasons:[...new Set([...weighted.flatMap(row=>row.result.reasons||[]),
+    '总评价在所选分支内按参考概率加权；逐点明细为综合较不利分支的参考场景'])],
+    diagnostics:{...conservative.diagnostics,representativePath:conservative.path,branches:summary}};
+}
+function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>performance.now(),seed=0,samples=LIMITS.samples,_singleBranch=false}={}){
   if(!scheme?.ships?.length||scheme.ships.length>6)return unknown('舰队资料不足');
   if(!profile||profile.referenceOnly||!profile.selectedPathsVerified)return unknown('所选路线尚未核对');
+  if(!Number.isInteger(samples)||samples<LIMITS.samples||samples>64||samples%2)return unknown('参考场景数量无效');
+  if(!_singleBranch&&route&&profile.routePaths?.length>1&&profile.routePaths.length<=LIMITS.paths){
+    const plans=require('../routes/route_plans');
+    const chances=profile.routePaths.map(path=>plans.planningPath(route,path.nodes,{allowTentative:false,includeLosRequirements:false}).chance?.probability);
+    if(chances.every(value=>Number.isFinite(value)&&value>0)&&chances.reduce((a,b)=>a+b,0)<=1+1e-8){
+      const rows=[];
+      for(let i=0;i<profile.routePaths.length;i++){
+        const result=evaluateRoute(store,scheme,{...profile,routePaths:[profile.routePaths[i]]},
+          {route,airPower,landBases,now,seed,samples,_singleBranch:true});
+        if(result.status!=='estimated')return result;
+        rows.push({probability:chances[i],result});
+      }
+      const combined=combineBranches(rows);if(combined)return combined;
+    }
+  }
   const encounterStage=profile.encounterStage&&profile.encounterStage!=='unknown'?profile.encounterStage:
     require('./encounter_stage').encounterStage(store,profile.area,route?.phase);
-  const start=now(),timeMs=landBases?.some(base=>base.targets?.some(Boolean))?200:LIMITS.timeMs,
+  const start=now(),timeMs=(landBases?.some(base=>base.targets?.some(Boolean))?200:LIMITS.timeMs)*samples/LIMITS.samples,
     evidence=routeEncounters({...profile,encounterStage});
   if(evidence.status==='unknown')return unknown(evidence.reasons?.join('；')||'路线敌情待确认');
   const fleet=scheme.ships.map(entry=>projectedHull(store,entry));
@@ -119,6 +201,12 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
   const map=require(`../../../data/sortie/encounters/${profile.area}.json`);
   const special=battle.deriveFleetSpecial(store,scheme.ships);
   const specialReady=special.status!=='unknown'&&special.available===true;
+  const nightContact=require('./practice_night_contact').friendly(store,scheme);
+  const projected=scheme.ships.map(entry=>require('../fleet/fleet_metrics').projectShip(store,entry.id,{slots:entry.slots,ex:entry.ex}));
+  const observation=require('./carrier_cutin').createContext(store,projected,profile,{airReference:reference,airEstimate});
+  // Rate terms are shared; actual air state is selected independently at each
+  // node below. Avoid a second route-wide UI classification inside each read.
+  observation.route=()=>null;
   const enemyAirCache=new Map(),nodeInputs=new Map(),preparations=new Map(),preflightAssumptions=new Set();
   let landEnemyIndex=null;
   // The same enemy aircraft data occurs in many formations and branches.
@@ -148,9 +236,11 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
       const includeNight=node.kind==='battle'&&Array.isArray(map.bossNodes)&&map.bossNodes.includes(node.id);
       const ownNight=includeNight||node.kind==='nightBattle'?scheme.ships.map((entry,i)=>battle.deriveOwnNight(store,entry,
         {flagship:i===0,slotRemaining:losses[i].status==='estimated'?losses[i].slots:undefined})):undefined;
-      inputs={losses,ownAir,ownAirSecond,includeNight,ownNight,groundCache:new Map()};nodeInputs.set(key,inputs);
+      const step=airEstimate?.paths?.[pathIndex]?.steps?.find(row=>row.node===node.id&&row.round===1);
+      const ownSpotting=spottingAtNode(store,projected,losses,step,observation);
+      inputs={losses,ownAir,ownAirSecond,includeNight,ownNight,ownSpotting,groundCache:new Map()};nodeInputs.set(key,inputs);
     }
-    const {losses,ownAir,ownAirSecond,includeNight,ownNight,groundCache}=inputs;
+    const {losses,ownAir,ownAirSecond,includeNight,ownNight,ownSpotting,groundCache}=inputs;
     if(ownAir.some(reading=>reading.status==='unknown')||ownAirSecond?.some(reading=>reading.status==='unknown'))return fail('己方航空装备资料不足');
     if(ownNight?.some(reading=>reading.status==='unknown'))return fail('夜战攻击资料不足');
     const allEnemies=formation.ships.concat(formation.escort),enemyAir=allEnemies.map(enemy=>enemyAirFor(node,enemy));
@@ -172,8 +262,15 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
       });
     }):undefined;
     const prep=battle.prepareBattle(fleet,formation.ships,{kind:node.kind,
-      escort:formation.escort,enemyFormation:enemyFormation(formation,fleet,node.kind),ownAir,ownAirSecond,enemyAir,ownNight,includeNight,ground,
+      escort:formation.escort,enemyFormation:enemyFormation(formation,fleet,node.kind),ownAir,ownAirSecond,enemyAir,ownNight,ownSpotting,hitModel:'route',includeNight,ground,
       ...(specialReady&&['battle','nightBattle'].includes(node.kind)?{special,ownFormation:special.formation}:{})});
+    if(includeNight||node.kind==='nightBattle'){
+      const step=airEstimate?.paths?.[pathIndex]?.steps?.find(row=>row.node===node.id&&row.round===1);
+      const contact=friendlyNightContact(nightContact,step,{openingNight:node.kind==='nightBattle'});
+      if(contact){prep.practiceNightContact=contact;preflightAssumptions.add(`${node.id} 点：我方夜间接触按固定条件参考，命中加成未计`);}
+      else if(nightContact.candidates.length||nightContact.incomplete)
+        preflightAssumptions.add(`${node.id} 点：夜间接触条件或制空状态待确认，未计入`);
+    }
     if(prep.status==='unknown')return fail('战斗资料不足');
     const enemyReference=reference.nodes.find(row=>row.id===node.id);
     const base=landBase.prepare(store,landBases,{area:profile.area,nodeId:node.id,nodeKind:node.kind,
@@ -184,7 +281,10 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
       if(!landEnemyIndex)landEnemyIndex=enemy.equipmentIndex(store);
       const enemySlots=enemy.formationSlots({enemyShips:formation.ships,escortFleet:{enemyShips:formation.escort}},landEnemyIndex);
       if(!enemySlots)return fail('基地航空战敌机逐槽资料待确认');
-      prep.landBase={...base,enemySlots};
+      const antiAir=require('../routes/route_air').antiAirEnvelope([{enemyShips:formation.ships,
+        escortFleet:{enemyShips:formation.escort},formation:formation.formation}]);
+      prep.landBase={...base,enemySlots,antiAir};
+      if(antiAir.status!=='known')preflightAssumptions.add(`${node.id} 点：${antiAir.reason||'敌方防空资料不足'}，陆航防空损耗待确认`);
     }
     for(const reason of base.reasons)preflightAssumptions.add(`${node.id} 点：${reason}`);
     if(prep.reasons.some(reason=>/敌方对潜攻击力|舰娘对潜能力待确认|陆上目标的装备特效或攻击资格待确认|夜战混编的对潜|空母夜战/.test(reason)))
@@ -203,12 +303,14 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
       ()=>now()-start>timeMs);
     if(checked.status!=='known')return unknown(checked.reason,threats);
   }
-  const omittedBase=`未计支援、基地航空队${specialReady?'':'、特殊炮击'}、弹着观测及燃料回避修正`;
+  const omittedBase=`未计支援、基地航空队${specialReady?'':'、特殊炮击'}；敌方命中资料不足时按参考值估算`;
   const supplyTracker=createSupplyTracker(store,scheme);
   let remainingAmmo=1,supply=supplyTracker.snapshot();const prepared=[],warnings=new Set(['按当前舰队及可达分支的较高威胁编成估计',
     '模型使用参考命中条件，不是实际通过率或大破率',
     '航空损耗范围按中间架数参考，不代表实际损耗概率',
-    omittedBase]);
+    '敌方航空、昼炮和夜战命中按我方回避、士气及燃料参考；敌方昼炮／夜战命中项按100／80估算，其他未确认部分沿用固定参考',
+    '昼战弹着按节点制空和飞机存活范围中间值参考；装备回避蓝字及部分命中补正未计',omittedBase]);
+  if(!_singleBranch&&candidates.length>1)warnings.add('分支参考概率不完整，暂按较危险分支估计');
   for(const reason of preflightAssumptions)warnings.add(reason);
   for(const node of evidence.nodes)for(const warning of node.sourceWarnings||[])warnings.add(`${node.id} 点：${warning}`);
   if(specialReady)warnings.add('按特殊炮击发动阵形参考，实际须选择该阵形');
@@ -240,7 +342,7 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
   }
   if(!prepared.length)return unknown('所选路线没有可比较的战斗',threats);
   if(prepared.some(step=>step.prep.landBase?.waves?.length)){
-    warnings.delete(omittedBase);warnings.add(`未计支援${specialReady?'':'、特殊炮击'}、弹着观测及燃料回避修正`);
+    warnings.delete(omittedBase);warnings.add(`未计支援${specialReady?'':'、特殊炮击'}；敌方命中资料不足时按参考值估算`);
   }
   // An air-raid node offers no opportunity to damage the enemy fleet. It
   // affects subsequent HP and retreat but is not a failed friendly attack.
@@ -248,15 +350,16 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
   if(!attackableSteps)return unknown('所选路线只有空袭，缺少可比较的交战节点',threats);
   const destination=chosen.path.nodes.at(-1);
   const targetBattle=prepared.find(step=>step.target&&step.id===destination);
-  const targetResults=targetBattle?{id:destination,visits:0,sVictories:0,severe:0,includeNight:targetBattle.prep.includeNight||targetBattle.prep.kind==='nightBattle'}:null;
+  const targetResults=targetBattle?{id:destination,visits:0,sVictories:0,severe:0,flagshipDamage:0,fleetDamage:0,includeNight:targetBattle.prep.includeNight||targetBattle.prep.kind==='nightBattle'}:null;
   let objectiveProgress=0,ran=0,completed=0,stoppedBeforeTarget=0;
   const batches=[{progress:0,count:0},{progress:0,count:0}];
-  for(let sample=0;sample<LIMITS.samples;sample++){
-    const rng=battle.random(0x4b414e43+sample*7919+seed),initial=fleet.map(s=>s.initialHp);
+  for(let sample=0;sample<samples;sample++){
+    const initial=fleet.map(s=>s.initialHp);
     let hp=initial.slice(),stopped=false,specialUsed=false,reachedTarget=false,targetProgress=0,landBaseState={counts:{}};
     for(const step of prepared){
       const before=hp;
-      const result=battle.runScenario(step.prep,rng,{initialHp:hp,ammo:Math.min(1,step.ammo*2),specialUsed,landBaseState});
+      const rng=battle.random(nodeScenarioSeed(seed,sample,step.id));
+      const result=battle.runScenario(step.prep,rng,{initialHp:hp,ammo:Math.min(1,step.ammo*2),fuel:step.supplyBefore.fuel,specialUsed,landBaseState});
       if(result.status==='unknown')return unknown(`${step.id} 点战斗状态待确认`,threats);
       if(result.status==='partial')return unknown(`${step.id} 点部分攻击能力待确认`,threats);
       hp=result.ownHp;specialUsed=result.specialUsed;
@@ -275,9 +378,10 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
         // cannot conceal an untouched boss; near-clears still differ from a
         // fleet that cannot hurt the target. Exact S results are kept apart
         // rather than converting finite samples into a guarantee of victory.
-        targetProgress=hp.every(value=>value>0)?Math.max(0,Math.min(1,result.enemyLost,
-          1-result.enemyHp[0]/step.prep.foes[0].hp)):0;
+        const flagship=1-result.enemyHp[0]/step.prep.foes[0].hp;
+        targetProgress=hp.every(value=>value>0)?Math.max(0,Math.min(1,.7*flagship+.3*result.enemyLost)):0;
         targetResults.visits++;targetResults.sVictories+=Number(targetCleared);targetResults.severe+=Number(result.severe);
+        targetResults.flagshipDamage+=flagship;targetResults.fleetDamage+=result.enemyLost;
       }
       step.observed.visits++;
       step.observed.loss+=fleet.reduce((sum,ship,i)=>sum+Math.max(0,(before[i]-hp[i])/ship.hp),0)/fleet.length;
@@ -309,6 +413,10 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
   // target uses safe arrival. S victories and repair costs stay explicit in
   // diagnostics instead of being confused with en-route retreat.
   const ownImpact=objectiveProgress/ran,enemyImpact=1-ownImpact;
+  if(targetResults){
+    targetResults.flagshipDamage=targetResults.visits?targetResults.flagshipDamage/targetResults.visits:null;
+    targetResults.fleetDamage=targetResults.visits?targetResults.fleetDamage/targetResults.visits:null;
+  }
   const balance=fromRatio((ownImpact+.05)/(enemyImpact+.05));
   if(!balance)return unknown('战力资料不足',threats);
   const batchRanks=batches.map(batch=>fromRatio((batch.progress/batch.count+.05)/
@@ -337,7 +445,9 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
   }
   // These are the existing bounded scenario observations, not actual damage
   // forecasts or event probabilities. Unvisited nodes have no average.
-  const diagnostics={journeys:{samples:ran,completed,stoppedBeforeTarget},target:targetResults,supplyEstimates:supplyTracker.estimates,nodes:prepared.map(step=>({id:step.id,kind:step.prep.kind,supplyBefore:step.supplyBefore,
+  const diagnostics={journeys:{samples:ran,completed,stoppedBeforeTarget},target:targetResults,
+    ...(!_singleBranch&&candidates.length>1?{branchUncertain:true,representativePath:chosen.path.nodes}:{}),
+    supplyEstimates:supplyTracker.estimates,nodes:prepared.map(step=>({id:step.id,kind:step.prep.kind,supplyBefore:step.supplyBefore,
     visits:step.observed.visits,severe:step.observed.severe,
     ownHpLoss:step.observed.visits?step.observed.loss/step.observed.visits:null,
     enemyHpLoss:step.prep.kind==='aerialRaid'||!step.observed.visits?null:
@@ -345,4 +455,4 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
   return {status:'estimated',balance,threats,reasons:[...warnings],samples:ran,uncertain,diagnostics,
     path:chosen.path.nodes,elapsedMs:now()-start};
 }
-module.exports={LIMITS,enemyFormation,groundReferenceSlots,laterBattleExists,preflightAlternatives,advanceSupply,evaluateRoute};
+module.exports={LIMITS,enemyFormation,groundReferenceSlots,laterBattleExists,preflightAlternatives,advanceSupply,spottingAtNode,friendlyNightContact,combineBranches,evaluateRoute};

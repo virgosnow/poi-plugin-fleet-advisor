@@ -507,6 +507,17 @@ function estimateRouteAirMinimum(air,reference){
 // A failed inequality needs only one failing battle, not a full report. This
 // never substitutes a partial value for a margin or changes ranking numbers.
 // null means unknown, so callers retain their existing unknown-data policy.
+function routeGoalThreshold(reference,goal){
+  if(!reference?.landBase||reference.status!=='known')return reference?.[goal]??null;
+  const visited=new Set((reference.paths||[]).flat());
+  const values=(reference.nodes||[]).filter(node=>visited.has(node.id)&&!node.noAirBattle).map(node=>
+    valid(node.enemyAirPowerRange?.max)?node.enemyAirPowerRange.max:
+      valid(node.enemyAirPower)?node.enemyAirPower:node.upperBound);
+  if(!values.length)return 0;
+  if(values.some(value=>!valid(value)))return null;
+  const enemy=Math.max(...values);
+  return goal==='supremacy'?enemy*3:Math.ceil(enemy*1.5);
+}
 function routeAirMeets(air,reference,goal,minimum=0){
   const timing=perf.detailBegin('air.query');
   try{
@@ -573,4 +584,4 @@ function airContributionKey(air){
   if(air?.status!=='range'||!Array.isArray(air.slots)||air.slots.some(s=>s.unknown||!s.planes||!s.effectiveAntiAir||!s.proficiencyBonus))return null;
   return air.min+':'+air.max+':'+air.slots.map(s=>aircraftKey(s,false)).sort().join(',');
 }
-module.exports={routeAirReference,withLandBases,estimateRouteAir,estimateRouteAirMargins,estimateRouteAirMinimum,routeAirMeets,simulateAirPath,stageOneLoss,airContributionKey};
+module.exports={routeAirReference,withLandBases,estimateRouteAir,estimateRouteAirMargins,estimateRouteAirMinimum,routeGoalThreshold,routeAirMeets,simulateAirPath,stageOneLoss,airContributionKey,antiAirEnvelope};

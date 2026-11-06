@@ -97,6 +97,10 @@ test('base-air references simulate enemy slots without assuming sunken carriers'
   assert.notStrictEqual(adjusted,original);assert.equal(adjusted.landBase,true);
   const enemy=adjusted.nodes[0].enemyAirPowerRange;
   assert(enemy.min>0&&enemy.min<enemy.max&&enemy.max<106);assert.equal(adjusted.landBaseRangeKind,'p05-p95');
+  const {routeGoalThreshold}=require('../../../src/domain/routes/route_air');
+  assert.equal(routeGoalThreshold(adjusted,'superiority'),Math.ceil(Math.max(enemy.max,100)*1.5));
+  assert.equal(routeGoalThreshold(adjusted,'supremacy'),Math.max(enemy.max,100)*3);
+  assert.equal(routeGoalThreshold(original,'superiority'),original.superiority??null);
   assert.equal(adjusted.nodes[1].enemyAirPowerRange,undefined);assert.equal(original.nodes[0].enemyAirPowerRange,undefined);
   const fleet=aircraft(25,20),before=estimateRouteAir(fleet,original),after=estimateRouteAir(fleet,adjusted);
   assert.equal(after.status,'estimated');assert.match(after.basis,/参考分位/);

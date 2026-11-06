@@ -48,6 +48,7 @@ function statesForContact(states,ownAir,enemyAir){
 // treated as parity. Sources disagree on whether own parity can activate;
 // the dedicated night-scout analysis and cited verification say enemy only.
 function canContact(side,state){
+ if(state==='openingNight')return true;
  if(side==='own')return ['supremacy','superiority','disadvantage'].includes(state);
  return ['superiority','parity','disadvantage','loss','noAirBattle'].includes(state);
 }

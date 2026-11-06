@@ -55,10 +55,12 @@ test('recommendation and equipment hover use the same loadout-dependent fit incr
  const e=entry(-1,-1),candidates=[100,102].map(id=>({id,master:s.const.$equips[s.info.equips[id].api_slotitem_id]}));
  assert.equal(value.rankGuns(s,e,candidates,0,0)[0].id,100,'fit offsets the stronger but overweight gun');
  assert.equal(value.rankGuns(s,e,candidates,0,0,false)[0].id,102,'daytime fit is not applied to a night-only route');
+ s.const.$equips[202].api_houg=30;
  require('../../../src/domain/fleet/equipment_planner').withEquipmentIndexCache(s,()=>{
    assert.equal(value.rankGuns(s,entry(-1,-1),candidates,1,0)[0].id,100);
-   assert.equal(value.rankGuns(s,entry(101,-1),candidates,1,0)[0].id,102,'ranking cache must account for already fitted guns');
+   assert.equal(value.rankGuns(s,entry(102,-1),candidates,1,0)[0].id,102,'ranking cache must account for already fitted guns');
  });
+ s.const.$equips[202].api_houg=26;
  const fitted=V.withGunFit(s,entry(100,101),V.equipmentItem(s,101,1));
  assert.equal(fitted.gunFit.known,true);assert.deepEqual(fitted.stats.filter(([name])=>name==='命中'),[['命中','+2.9（+2.9）']]);
  assert(!fitted.stats.some(([name])=>name==='适重'));
@@ -70,6 +72,26 @@ test('recommendation and equipment hover use the same loadout-dependent fit incr
  assert.equal(require('../../../src/ui/components/equipment_picker').statValue(picker,'accuracy',s),picker.gunFit.delta);
  const unknown=V.withGunFit(s,entry(100,101),V.equipmentItem(s,102,1));
  assert.equal(unknown.gunFit.known,true);assert(unknown.stats.some(([name,v])=>name==='命中'&&v==='-10（-10）'));
+});
+
+test('route evaluation values equipment accuracy and the complete daytime fit',()=>{
+ const s=setup(),{context}=require('../../../src/recommendation/context'),{scoreRoute}=require('../../../src/recommendation/scoring');
+ const {evaluateNormalRoute}=require('../../../src/domain/routes/normal_routes'),{profileForRoute}=require('../../../src/domain/routes/sortie_profile');
+ s.const.$shipTypes[8]={api_equip_type:{3:1}};
+ s.const.$equips[200].api_houg=15;s.const.$equips[200].api_houm=2;
+ s.const.$equips[202].api_houg=20;s.const.$equips[202].api_houm=0;
+ const light={fleet:1,ships:[entry(100,100)]},heavy={fleet:1,ships:[entry(102,102)]};
+ // Unique inventory instances are used in real schemes.
+ s.info.equips[110]={...s.info.equips[100],api_id:110};s.info.equips[112]={...s.info.equips[102],api_id:112};
+ light.ships[0].slots[1]=110;heavy.ships[0].slots[1]=112;
+ const row=context(s,{fleet:1},1).byId.get(1);
+ const score=scheme=>{const route=evaluateNormalRoute(s,{area:'1-1',fleet:1,scheme}),profile=profileForRoute('1-1',route);
+   return scoreRoute(route,profile,[row],'ignore','1-1',s,scheme).strengthProxy;};
+ assert(score(light)>score(heavy),'a moderate firepower increase must not erase a severe fit penalty');
+ const value=require('../../../src/recommendation/loadout/combat_value');
+ assert.equal(value.plannedStats(s,light.ships[0]).accuracy,4);
+ assert(value.accuracyScore(4,10)>value.accuracyScore(4,-10));
+ assert(value.accuracyScore(4,-25)<value.accuracyScore(4,-15),'negative fit is not cut off at -12');
 });
 
 test('class identity includes renamed ships and sisters, with uncertain coefficients identified',()=>{

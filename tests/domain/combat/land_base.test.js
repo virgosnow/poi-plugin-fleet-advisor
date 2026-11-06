@@ -91,6 +91,23 @@ test('waves damage enemies before fleet battle and concentrate using the same st
   assert(state.counts['1:2:102']<18,'wave losses persist for later nodes');
   assert(traces.every(row=>row.stage==='landBase'&&row.slot===2));
 });
+test('enemy fleet AA reduces base attack aircraft but not fighters or reconnaissance',()=>{
+  const bomber={itemId:101,slotId:1,count:18,type:47,aa:0,proficiency:[0,0],torpedo:10,fire:0,asw:0,stars:0};
+  const fighter={...bomber,itemId:102,slotId:2,type:48};
+  const scout={...bomber,itemId:103,slotId:3,type:49};
+  const wave={rid:1,slots:[bomber,fighter,scout],reconMultiplier:1};
+  const enemy={hp:10000,armor:0,submarine:false,installation:false},state={counts:{}},powers=[];
+  const antiAir={status:'known',profiles:[{weighted:400,defense:0,combinedFactor:1}]};
+  land.simulateWaves([wave],0,[enemy],[10000],()=>0,{antiAir,state,
+    hitDamage:power=>(powers.push(power),power),applyDamage:(_target,hp,damage)=>hp-damage});
+  assert.equal(state.counts['1:1:101'],0);
+  assert.equal(state.counts['1:2:102'],18);assert.equal(state.counts['1:3:103'],18);
+  assert.deepEqual(powers,[],'an intercepted attack slot must not deal damage');
+  const unknown={counts:{}};
+  land.simulateWaves([wave],0,[enemy],[10000],()=>0,{antiAir:{status:'unknown'},state:unknown,
+    hitDamage:power=>power,applyDamage:(_target,hp,damage)=>hp-damage});
+  assert.equal(unknown.counts['1:1:101'],18,'unknown AA must not invent a numeric loss');
+});
 test('concentrated waves restore first-wave losses while dispersed nodes carry them forward',()=>{
   const slot={itemId:101,slotId:1,count:18,type:47,aa:0,proficiency:[0,0],torpedo:10,fire:0,asw:0,stars:0};
   const wave={rid:1,slots:[slot],reconMultiplier:1},foes=[{hp:10000,armor:0,submarine:false,installation:false}];
@@ -99,10 +116,10 @@ test('concentrated waves restore first-wave losses while dispersed nodes carry t
   const concentrated={counts:{}},concentratedPower=[];
   run([wave,wave],concentrated,concentratedPower);
   assert.equal(concentratedPower.length,2);assert.equal(concentratedPower[0],concentratedPower[1]);
-  assert.equal(concentrated.counts['1:1:101'],11,'only the second wave loss persists');
+  assert.equal(concentrated.counts['1:1:101'],14,'only the second wave loss persists');
   const dispersed={counts:{}},dispersedPower=[];
+  run([wave],dispersed,dispersedPower);assert.equal(dispersed.counts['1:1:101'],14);
   run([wave],dispersed,dispersedPower);assert.equal(dispersed.counts['1:1:101'],11);
-  run([wave],dispersed,dispersedPower);assert.equal(dispersed.counts['1:1:101'],7);
   assert(dispersedPower[1]<dispersedPower[0],'the later node receives the remaining aircraft');
 });
 test('ASW-capable planes can attack submarines and absent ASW capability cannot',()=>{

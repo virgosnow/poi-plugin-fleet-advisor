@@ -79,10 +79,15 @@ function basePower(wave,counts){
   return Math.floor(total*wave.reconMultiplier);
 }
 function percentile(values,fraction){const copy=values.slice().sort((a,b)=>a-b);return copy[Math.floor((copy.length-1)*fraction)];}
-function simulatePath(nodes,wavesByNode,alternativesByNode,{samples=256}={}){
+function simulatePath(nodes,wavesByNode,alternativesByNode,{samples=1024}={}){
   const outputs=new Map(nodes.filter(node=>wavesByNode.get(node.id)?.length).map(node=>[node.id,new Map()]));
   const random=rng(0x4c424153);
-  for(let sample=0;sample<samples;sample++){
+  // Each possible strongest formation needs its own sample population. A
+  // fixed total would leave the 95th percentile based on only a handful of
+  // trials when a node has several variants.
+  const variants=Math.max(1,...nodes.filter(node=>wavesByNode.get(node.id)?.length)
+    .map(node=>alternativesByNode.get(node.id)?.length||0));
+  for(let sample=0;sample<samples*variants;sample++){
     const counts=new Map();
     for(const node of nodes){
       const waves=wavesByNode.get(node.id);if(!waves?.length)continue;

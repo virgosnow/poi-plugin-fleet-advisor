@@ -9,6 +9,38 @@ const enemy=id=>enemyRecord({apiId:id,apiIdStatus:'verified'});
 const ship={status:'known',stype:2,hp:30,initialHp:30,armor:10,fire:40,torpedo:35,
   intrinsicTorpedo:30,openingTorpedo:false,range:1,condition:49,submarine:false,hasAircraft:false,
   asw:{status:'known',normal:true,opening:true,power:90,penetration:0}};
+test('day spotting adds its documented two-hit attack without changing other battle modes',()=>{
+  const target={...enemy(1501),hp:{min:1000,max:1000},armor:{min:0,max:0}};
+  const gun={...ship,fire:100,torpedo:0,intrinsicTorpedo:0,asw:{...ship.asw,opening:false}};
+  const base=prepareBattle([gun],[target]);
+  const spot=prepareBattle([gun],[target],{ownSpotting:[[{chance:1,multiplier:1.2,hits:2}]]});
+  const a=runScenario(base,()=>.1),b=runScenario(spot,()=>.1);
+  assert(b.enemyHp[0]<a.enemyHp[0],'confirmed observation increases actual battle damage');
+  const night=prepareBattle([gun],[target],{kind:'nightBattle',ownSpotting:[[{chance:1,multiplier:1.2,hits:2}]]});
+  const noNight=prepareBattle([gun],[target],{kind:'nightBattle'});
+  assert.equal(runScenario(night,()=>.1).enemyHp[0],runScenario(noNight,()=>.1).enemyHp[0]);
+});
+test('day spotting remains available against surface ships in a mixed installation fleet',()=>{
+  const store=fixture(),s=store.info.ships[1];
+  store.const.$equips[500]={api_id:500,api_name:'测试主炮',api_type:[0,0,2,2],api_houg:0,api_raig:0,api_baku:0};
+  store.info.equips[101]={api_id:101,api_slotitem_id:500,api_level:0};
+  Object.assign(s,{api_slot:[101],api_slot_ex:0,api_karyoku:[20,40],api_raisou:[20,40],api_kyouka:[0,0,0,0,0]});
+  const land={...enemy(1665),hp:{min:1000,max:1000},armor:{min:0,max:0}};
+  const surface={...enemy(1501),hp:{min:1000,max:1000},armor:{min:0,max:0}};
+  const gun={...ship,hp:1000,initialHp:1000,armor:1000,fire:100,torpedo:0,intrinsicTorpedo:0,asw:{...ship.asw,opening:false}};
+  const reading=buildGroundAttack(store,{id:1,slots:[101],ex:0},land),spotting=[[{chance:1,multiplier:1.2,hits:2}]];
+  const compare=(enemies,ground)=>{
+    const options={ground:[ground],enemyFormation:'lineAhead'},trace=[];
+    const normal=runScenario(prepareBattle([gun],enemies,options),()=>.1,{trace});
+    const spot=runScenario(prepareBattle([gun],enemies,{...options,ownSpotting:spotting}),()=>.1);
+    assert(trace.some(row=>row.side==='own'&&row.phase==='shelling'&&row.target===0));
+    return [normal,spot];
+  };
+  const [surfaceNormal,surfaceSpot]=compare([surface,land],[null,reading]);
+  assert(surfaceSpot.enemyHp[0]<surfaceNormal.enemyHp[0],'surface target receives the spotting attack');
+  const [landNormal,landSpot]=compare([land,surface],[reading,null]);
+  assert.equal(landSpot.enemyHp[0],landNormal.enemyHp[0],'land damage retains its existing ground calculation');
+});
 test('seeded battle reference is reproducible and limited to at most 32 scenarios',()=>{
   const a=evaluateBattle([ship,ship],[enemy(1501)],{samples:16,seed:42});
   const b=evaluateBattle([ship,ship],[enemy(1501)],{samples:16,seed:42});

@@ -158,6 +158,6 @@ function estimate(store,scheme,enemy,{samples=256,ownFormation:requestedFormatio
   }
   return {status:'estimated',rows:percentages(counts,samples),samples,xpScenarios,
     enemyFormation,ownFormation,assumedEquipment,air:aviation,...jet.status==='estimated'?{jet}: {},
-    assumptions:`模拟昼战与夜战；对手按本体满改和可开发装备常见搭配假设，并非真实配装；对手${formationName[enemyFormation]}，计入已知婚舰耐久，等级未知按未婚，未计耐久改修、装备蓝字与改修。夜战按本体初始运估算，资料不足时按参考发动率。${hasAir?'计入假设敌机开幕航空，敌机未计我方拦截。':'对手航空资料不足，未计敌方开幕航空。'}${hasLoss?'己机按残机范围中间值参考。':'普通飞机损耗未确认，按满载参考。'}${jet.status==='estimated'?jet.assumptions:''}${contactAvailable&&contactStates?'夜间接触按装备、等级及可能制空状态参考；多种制空状态等权近似，并非真实概率，夜侦按存活参考，分散多舰判定规则待验证，命中加成未计。':contactAvailable?'制空资料不足，夜间接触未计。':''}${contactOwn.incomplete||contactEnemy.incomplete?'部分夜侦资料不足，未计其触接。':''}己方采用${formationName[ownFormation]}，双方命中按固定参考值。暂未计弹着；演习不能发动特殊炮击。结果仅供比较。`};
+    assumptions:`模拟昼战与夜战；对手按本体满改和可开发装备常见搭配假设，并非真实配装；对手${formationName[enemyFormation]}，计入已知婚舰耐久，等级未知按未婚，未计耐久改修、装备蓝字与改修。夜战按本体初始运估算，资料不足时按参考发动率。${hasAir?'计入假设敌机开幕航空，敌机未计我方拦截。':'对手航空资料不足，未计敌方开幕航空。'}${hasLoss?'己机按残机范围中间值参考。':'普通飞机损耗未确认，按满载参考。'}${jet.status==='estimated'?jet.assumptions:''}${contactAvailable&&contactStates?'夜间接触按装备、等级及可能制空状态参考；多种制空状态等权近似，并非真实概率，夜侦按存活参考，分散多舰判定规则待验证，命中加成未计。':contactAvailable?'制空资料不足，夜间接触未计。':''}${contactOwn.incomplete||contactEnemy.incomplete?'部分夜侦资料不足，未计其触接。':''}己方采用${formationName[ownFormation]}，双方命中按固定参考值。同射程攻击顺序按等概率随机参考，实际可能存在偏差。暂未计弹着；演习不能发动特殊炮击。结果仅供比较。`};
 }
 module.exports={estimate,rank,percentages,opponentActor,opponentFormation,playerFormation,recommendFormation,referenceHp};

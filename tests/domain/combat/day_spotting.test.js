@@ -16,6 +16,17 @@ function setup(types=[3,3,10]){
  return {store,targets,read};
 }
 const close=(a,b)=>assert(Math.abs(a-b)<1e-12,`${a} != ${b}`);
+test('route battle only schedules spotting with sufficient air control and a surviving scout',()=>{
+ const f=setup(),targets=f.targets(),context=observation.createContext(f.store,targets);
+ context.route=()=>null;
+ const {spottingAtNode}=require('../../../src/domain/combat/route_estimate');
+ const step={before:{min:120,max:120},required:{superiority:100,supremacy:200}};
+ const ready=spottingAtNode(f.store,targets,[{slots:{2:[1,4]}}],step,context);
+ assert.equal(ready[0][0].label,'昼战连击');close(ready[0][0].chance,46/130);
+ assert.equal(spottingAtNode(f.store,targets,[{slots:{2:[0,0]}}],step,context)[0],null);
+ assert.equal(spottingAtNode(f.store,targets,[],{...step,before:{min:90,max:90}},context),null);
+ assert.equal(spottingAtNode(f.store,targets,[],undefined,context),null);
+});
 test('spotting shares fleet observation terms but uses the correct DA coefficient and three tooltip sections',()=>{
  const f=setup(),before=JSON.stringify(f.store),b=f.read();
  close(b.ci.rates.superiority.total,46/130);close(b.ci.rates.supremacy.total,57/130);

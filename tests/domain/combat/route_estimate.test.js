@@ -263,16 +263,16 @@ test('heavy damage after the final target battle differs from retreating before 
   }finally{battle.runScenario=original;}
 });
 
-test('safe journeys with final S victories keep their grade despite heavy boss repair costs',()=>{
+test('safe journeys reward flagship kills and final S victories without treating escort damage as success',()=>{
   const battle=require('../../../src/domain/combat/combat_battle'),original=battle.runScenario;
-  const f=fixture({hp:40}),p=profile('1-1','雷巡流');let bossHeavy=false,bossCleared=true,escortOnly=false,nightBattles=0;
+  const f=fixture({hp:40}),p=profile('1-1','雷巡流');let bossHeavy=false,bossCleared=true,escortOnly=false,bossOnly=false,nightBattles=0;
   battle.runScenario=(prepared,rng,{initialHp,specialUsed}={})=>{
     if(!initialHp)return original(prepared,rng);
     const target=prepared.includeNight;
     if(target)nightBattles++;
     return {status:'estimated',ownHp:initialHp.map(n=>target&&bossHeavy?10:Math.max(11,n-1)),
-      enemyHp:prepared.foes.map((s,i)=>target&&escortOnly?(i===0?s.hp:0):target&&!bossCleared?s.hp*.9:0),
-      enemyLost:target&&escortOnly?(prepared.foes.length-1)/prepared.foes.length:target&&!bossCleared?.1:1,
+      enemyHp:prepared.foes.map((s,i)=>target&&escortOnly?(i===0?s.hp:0):target&&bossOnly?(i===0?0:s.hp):target&&!bossCleared?s.hp*.9:0),
+      enemyLost:target&&escortOnly?(prepared.foes.length-1)/prepared.foes.length:target&&bossOnly?1/prepared.foes.length:target&&!bossCleared?.1:1,
       severe:!!target&&bossHeavy,specialUsed:!!specialUsed,damageByEnemy:prepared.foes.map(()=>0)};
   };
   try{
@@ -281,16 +281,117 @@ test('safe journeys with final S victories keep their grade despite heavy boss r
     assert.equal(light.status,'estimated');assert.equal(heavy.status,'estimated');
     assert.equal(light.balance.label,'压倒性优势');assert.deepEqual(heavy.balance,light.balance);
     assert.deepEqual(heavy.diagnostics.journeys,{samples:32,completed:32,stoppedBeforeTarget:0});
-    assert.deepEqual(heavy.diagnostics.target,{id:'C',visits:32,sVictories:32,severe:32,includeNight:true});
+    assert.deepEqual(heavy.diagnostics.target,{id:'C',visits:32,sVictories:32,severe:32,flagshipDamage:1,fleetDamage:1,includeNight:true});
     assert.equal(light.diagnostics.target.severe,0);assert(nightBattles>=64);
     bossHeavy=false;bossCleared=false;
     const failed=assess(f,p);
     assert.equal(failed.diagnostics.target.sVictories,0);
+    assert(Math.abs(failed.diagnostics.target.flagshipDamage-.1)<1e-9);
     assert(failed.balance.rank<2,'easy en-route victories cannot conceal a failed boss attack');
     escortOnly=true;
     const escorts=assess(f,p);
     assert.equal(escorts.balance.label,'压倒性劣势','destroying escorts alone cannot conceal an untouched boss');
+    escortOnly=false;bossOnly=true;
+    const flagship=assess(f,p);
+    assert(flagship.balance.rank>=2,'sinking the target flagship is progress even when escorts survive');
+    assert.equal(flagship.diagnostics.target.sVictories,0,'a flagship kill is not an S victory');
   }finally{battle.runScenario=original;}
+});
+test('candidate comparisons keep target random draws paired when earlier battles consume different draws',()=>{
+  const battle=require('../../../src/domain/combat/combat_battle'),original=battle.runScenario;
+  const f=fixture({hp:40}),p=profile('1-1','雷巡流');let precedingDraws=1,draws=[];
+  battle.runScenario=(prepared,rng,{initialHp,specialUsed}={})=>{
+    if(!initialHp)return original(prepared,rng);
+    if(prepared.includeNight)draws.push(rng());
+    else for(let i=0;i<precedingDraws;i++)rng();
+    return {status:'estimated',ownHp:initialHp.slice(),enemyHp:prepared.foes.map(()=>0),enemyLost:1,
+      severe:false,specialUsed:!!specialUsed,damageByEnemy:prepared.foes.map(()=>0)};
+  };
+  try{
+    assert.equal(assess(f,p).status,'estimated');const first=draws.slice();
+    draws=[];precedingDraws=20;
+    assert.equal(assess(f,p).status,'estimated');
+    assert.equal(first.length,32);assert.deepEqual(draws,first);
+  }finally{battle.runScenario=original;}
+});
+test('an explicitly refined evaluation runs more paired reference scenarios',()=>{
+  const f=fixture({count:2}),p=profile('1-1','雷巡流');
+  const result=assess(f,p,{samples:64});
+  assert.equal(result.status,'estimated',result.reasons?.join('；'));
+  assert.equal(result.diagnostics.journeys.samples,64);
+  assert.equal(assess(f,p,{samples:100000}).status,'unknown');
+});
+test('sortie night contact recognizes confirmed air disadvantage and opening-night battles',()=>{
+  const {friendlyNightContact}=require('../../../src/domain/combat/route_estimate');
+  const own={candidates:[{shipIndex:0,rate:.6,bonus:5}]};
+  assert.equal(friendlyNightContact(own,null),null);
+  assert.equal(friendlyNightContact(own,{before:{min:29,max:60},required:{superiority:30,supremacy:60}}),null);
+  assert.deepEqual(friendlyNightContact(own,{before:{min:30,max:60},required:{superiority:30,supremacy:60}}).states,['superiority']);
+  assert.deepEqual(friendlyNightContact(own,{before:{min:60,max:60},required:{superiority:30,supremacy:60}}).states,['supremacy']);
+  const step=(min,max,range)=>({before:{min,max},required:{superiority:30,supremacy:60},...(range?{enemyAirPowerRange:range}:{})});
+  assert.deepEqual(friendlyNightContact(own,step(7,13)).states,['disadvantage']);
+  assert.equal(friendlyNightContact(own,step(6,6)),null,'one third is loss');
+  assert.equal(friendlyNightContact(own,step(14,14)),null,'parity cannot trigger our contact');
+  assert.equal(friendlyNightContact(own,step(13,14)),null,'a range crossing parity is uncertain');
+  assert.deepEqual(friendlyNightContact(own,step(7,12,{min:18,max:20})).states,['disadvantage']);
+  assert.equal(friendlyNightContact(own,step(7,13,{min:18,max:20})),null);
+  assert.deepEqual(friendlyNightContact(own,null,{openingNight:true}).states,['openingNight']);
+});
+test('an opening-night route passes night contact into the actual battle simulation',()=>{
+  const map=require('../../../data/sortie/encounters/1-1.json'),oldKind=map.nodes.A.kind;
+  const battle=require('../../../src/domain/combat/combat_battle'),original=battle.runScenario;
+  const f=fixture({count:1,fire:70,torpedo:50,armor:35,hp:60}),p=profile('1-1','雷巡流');
+  f.store.const.$ships[1].api_maxeq=[1,0];f.store.info.ships[1].api_lv=99;
+  f.store.const.$equips[99001]={api_id:99001,api_name:'夜偵',api_type:[0,0,10,50],api_saku:3,api_houm:1};
+  f.store.info.equips[99001]={api_id:99001,api_slotitem_id:99001,api_level:0,api_alv:0};
+  f.scheme.ships[0].slots=[99001,-1];map.nodes.A.kind='nightBattle';let observed=false;
+  battle.runScenario=(prepared,rng,options)=>{
+    if(options?.initialHp&&prepared.kind==='nightBattle'){
+      assert.deepEqual(prepared.practiceNightContact?.states,['openingNight']);observed=true;
+    }
+    if(options?.initialHp)return {status:'estimated',ownHp:options.initialHp.slice(),enemyHp:prepared.foes.map(()=>0),
+      enemyLost:1,severe:false,specialUsed:!!options.specialUsed,damageByEnemy:prepared.foes.map(()=>0)};
+    return original(prepared,rng,options);
+  };
+  try{const result=assess(f,p);assert.equal(result.status,'estimated',result.reasons?.join('；'));assert(observed);}
+  finally{map.nodes.A.kind=oldKind;battle.runScenario=original;}
+});
+test('known route weights combine objective progress while retaining honest per-branch scenario counts',()=>{
+  const {combineBranches}=require('../../../src/domain/combat/route_estimate');
+  const {fromRatio}=require('../../../src/domain/combat/combat_balance');
+  const reading=(path,progress,completed)=>({status:'estimated',path:[path,'C'],
+    balance:fromRatio((progress+.05)/(1-progress+.05)),reasons:[],
+    diagnostics:{journeys:{samples:32,completed,stoppedBeforeTarget:32-completed},
+      target:{id:'C',visits:completed,sVictories:completed},nodes:[]}});
+  const safe=reading('A',.8,30),risky=reading('B',.2,8);
+  const combined=combineBranches([{probability:.9,result:safe},{probability:.1,result:risky}]);
+  const expected=fromRatio((.74+.05)/(1-.74+.05));
+  assert(Math.abs(combined.balance.ratio-expected.ratio)<1e-9);
+  assert.deepEqual(combined.diagnostics.representativePath,['B','C']);
+  assert.equal(combined.diagnostics.journeys.completed,8);
+  assert.deepEqual(combined.diagnostics.branches.map(row=>row.weight),[.9,.1]);
+  assert.match(combined.reasons.at(-1),/逐点明细为综合较不利分支/);
+  assert.equal(combineBranches([{probability:1,result:safe},{probability:.5,result:risky}]),null);
+});
+test('route evaluation actually simulates both weighted paths with their own histories',()=>{
+  const old=plans.planningPath;
+  const f=fixture({count:4,fire:70,torpedo:50,armor:35,hp:60}),base=profile('1-1','雷巡流');
+  const p={...base,routePaths:[{nodes:['A','C']},{nodes:['B','C']}],
+    mapPreview:{...base.mapPreview,nodes:[...base.mapPreview.nodes,{id:'B'}]}};
+  plans.planningPath=(_route,nodes)=>({chance:{probability:nodes[0]==='A'?.8:.2}});
+  try{
+    const result=assess(f,p);
+    assert.equal(result.status,'estimated',result.reasons?.join('；'));
+    assert.equal(result.diagnostics.branches.length,2);
+    assert.deepEqual(result.diagnostics.branches.map(row=>row.weight),[.8,.2]);
+    assert.deepEqual(result.diagnostics.branches.map(row=>row.path),[['A','C'],['B','C']]);
+    assert(result.diagnostics.branches.every(row=>row.journeys.samples===32));
+    plans.planningPath=()=>({chance:{probability:null}});
+    const unknown=assess(f,p);
+    assert.equal(unknown.status,'estimated');assert.equal(unknown.diagnostics.branches,undefined);
+    assert(unknown.reasons.some(reason=>reason.includes('分支参考概率不完整')));
+    assert.equal(unknown.diagnostics.branchUncertain,true);
+  }finally{plans.planningPath=old;}
 });
 test('land aviation uses an explicit zero-damage reference but missing land capability remains unknown',()=>{
   const map=require('../../../data/sortie/encounters/1-1.json'),original=map.nodes.A.phases.base.patterns;

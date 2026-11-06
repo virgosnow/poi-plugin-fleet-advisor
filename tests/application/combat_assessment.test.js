@@ -26,6 +26,11 @@ test('cache is scoped to inspection, route and immutable store references',()=>{
   f.assess({...args,store:{...f.store,info:{}}});assert.equal(f.calls(),3);
   f.assess({...args,report:{...f.report}});assert.equal(f.calls(),4);
 });
+test('the refined scenario population does not reuse the first-pass cache',()=>{
+  const f=fixture(),args={store:f.store,report:f.report,option:f.option};
+  f.assess(args);f.assess({...args,samples:64});f.assess({...args,samples:64});
+  assert.equal(f.calls(),2);
+});
 test('base aircraft and wave targets invalidate the battle reference without changing the fleet',t=>{
   const planner=require('../../src/recommendation/land_base');
   const check=t.mock.method(planner,'validatePlan',()=>({valid:true,issues:[]}));

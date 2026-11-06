@@ -10,6 +10,8 @@ test('practice night contact distinguishes our and opposing air parity',()=>{
  assert.equal(contact.canContact('enemy','supremacy'),false);
  assert.equal(contact.canContact('own','noAirBattle'),false);
  assert.equal(contact.canContact('enemy','noAirBattle'),true);
+ assert.equal(contact.canContact('own','openingNight'),true);
+ assert.equal(contact.canContact('enemy','openingNight'),true);
 });
 test('zero air power only becomes own air supremacy when ordinary aviation attacks launch',()=>{
  const noAttack=[{attacks:[]}],launched=[{attacks:[{planesMax:3,referencePlanes:2}]}],empty=[{attacks:[{planesMax:0,referencePlanes:0}]}];
@@ -51,4 +53,7 @@ test('night contact is sampled once per night and affects battle outcome',()=>{
  assert.ok(enhanced.enemyHp[0]<base.enemyHp[0]);assert.equal(enhanced.ownHp[0],base.ownHp[0]);
  const parity=runScenario({...prepared,practiceNightContact:{states:['parity'],own:{candidates:[{rate:1,bonus:5}]},enemy:{candidates:[{rate:1,bonus:5}]}}},()=>.1);
  assert.equal(parity.enemyHp[0],base.enemyHp[0]);assert.ok(parity.ownHp[0]<base.ownHp[0]);
+ const disadvantage=runScenario({...prepared,practiceNightContact:{states:['disadvantage'],own:{candidates:[{rate:1,bonus:5}]},enemy:{candidates:[]}}},()=>.1);
+ const opening=runScenario({...prepared,practiceNightContact:{states:['openingNight'],own:{candidates:[{rate:1,bonus:5}]},enemy:{candidates:[]}}},()=>.1);
+ assert.equal(disadvantage.enemyHp[0],enhanced.enemyHp[0]);assert.equal(opening.enemyHp[0],enhanced.enemyHp[0]);
 });

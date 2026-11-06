@@ -4,7 +4,7 @@
 // immutable inspection and the same store references, never across snapshots.
 function createCombatAssessment({plans,profileForRoute,evaluate}){
   const inspections=new WeakMap();
-  return function assess({store,report,option,dirty=false,landBases,cacheVersion,bypassCache=false}){
+  return function assess({store,report,option,dirty=false,landBases,cacheVersion,bypassCache=false,samples}){
     if(!option)return {status:'unselected',reasons:['请选择路线']};
     if(!report?.scheme?.ships?.length)return {status:'empty',reasons:['请选择舰娘']};
     if(dirty||!report.valid||!report.route?.area||
@@ -12,7 +12,7 @@ function createCombatAssessment({plans,profileForRoute,evaluate}){
       return {status:'pending',reasons:['正在核对当前编成与路线']};
     let cache=inspections.get(report);
     if(!cache){cache=new Map();inspections.set(report,cache);}
-    const key=JSON.stringify([option.key||null,option.phase||null,plans.optionPaths(option),landBases||null,cacheVersion||null]);
+    const key=JSON.stringify([option.key||null,option.phase||null,plans.optionPaths(option),landBases||null,cacheVersion||null,samples||null]);
     const prior=bypassCache?null:cache.get(key);
     if(prior&&prior.info===store.info&&prior.master===store.const)return prior.value;
     let value;
@@ -33,7 +33,7 @@ function createCombatAssessment({plans,profileForRoute,evaluate}){
           const baseCheck=landBases?.some(base=>base.targets?.some(Boolean))?
             require('../recommendation/land_base').validatePlan(store,{area:report.route.area,bases:landBases,scheme:report.scheme}):null;
           value=baseCheck&&!baseCheck.valid?{status:'unknown',reasons:baseCheck.issues}:
-            evaluate(store,report.scheme,selected,{route:report.route,airPower:report.metrics?.airPower,landBases});
+            evaluate(store,report.scheme,selected,{route:report.route,airPower:report.metrics?.airPower,landBases,...(samples?{samples}:{})});
         }
       }
     }catch(error){value={status:'unknown',reasons:['战力资料暂无法计算']};}

@@ -127,7 +127,7 @@ function prepare(store,bases,{area,nodeId,nodeKind,enemyAirPower}={}){
     reasons.push(...view.reasons);
   }
   if(waves.length&&nodeKind==='aerialRaid')reasons.push('空袭点的基地攻击对敌舰伤害尚未完整建模，预测主要反映敌机削减');
-  if(waves.length)reasons.push('基地航空为参考估算：敌对空炮火、触接与对地特效未完整计入；基地飞机损耗取参考中值',
+  if(waves.length)reasons.push('基地航空为参考估算：敌方特殊对空迎击、触接与对地特效未完整计入；飞机损耗按参考场景抽样',
     '敌机逐槽按制空战抽样；本队制空参考区间为 5%–95% 分位，并非极限或保证');
   return {status:waves.length?'partial':'unknown',waves,reasons:unique(reasons),enemyAirPower};
 }
@@ -137,7 +137,7 @@ function stateFor(own,enemy){
   return !enemy||own>=3*enemy?'supremacy':own>=1.5*enemy?'superiority':
     own>2*enemy/3?'parity':own>enemy/3?'disadvantage':'loss';
 }
-function simulateWaves(waves,enemyPower,foes,hp,rng,{hitDamage,applyDamage,trace,state,enemySlots}={}){
+function simulateWaves(waves,enemyPower,foes,hp,rng,{hitDamage,applyDamage,trace,state,enemySlots,antiAir}={}){
   if(!waves?.length||!finite(enemyPower))return {enemyPower,remainingRatio:1};
   const counts=state?.counts||(state?(state.counts={}):{}),initial=new Map(),losses=new Map();
   const baseKey=(wave,slot)=>`${wave.rid}:${slot.slotId}:${slot.itemId}`;
@@ -171,13 +171,27 @@ function simulateWaves(waves,enemyPower,foes,hp,rng,{hitDamage,applyDamage,trace
       const fraction=(11-z)/20;enemyPower=Math.floor(enemyPower*Math.sqrt(Math.max(0,1-fraction)));
     }
     for(const slot of wave.slots){
-      const key=baseKey(wave,slot),count=initial.get(key),loss=airCombat.has(slot.type)?Math.floor(count*z*5/120):0;
+      const key=baseKey(wave,slot),count=initial.get(key),stageOne=airCombat.has(slot.type)&&z?
+        Math.floor(count*z*(3+4*rng())/120):0;
+      let aircraft=Math.max(0,count-stageOne);
+      // Ordinary enemy fleet AA applies to attack aircraft, not fighters or
+      // reconnaissance. Use one defender per slot, as in enemy_land_air;
+      // unknown special interception remains an explicit unsupported case.
+      if(surfaceAttack.has(slot.type)&&aircraft>0&&antiAir?.status==='known'&&antiAir.profiles?.length){
+        const defender=antiAir.profiles[Math.min(antiAir.profiles.length-1,Math.floor(rng()*antiAir.profiles.length))];
+        const factor=defender.combinedFactor;
+        let down=0;
+        if(rng()<.5)down+=Math.floor(aircraft*defender.weighted*factor/400);
+        if(rng()<.5)down+=Math.floor((defender.weighted+defender.defense)*factor*.09375);
+        aircraft=Math.max(0,aircraft-down);
+      }
+      const loss=count-aircraft;
       // Concentrated waves at this node both depart with the aircraft count
       // from before the first wave. Only the last wave's losses persist after
       // the node; first-wave losses are restored between the two attacks.
       // Dispersed waves run at different nodes and carry counts via state.
       losses.set(key,loss);
-      const aircraft=Math.max(0,count-loss);if(!aircraft)continue;
+      if(!aircraft)continue;
       const canAsw=aswAttack.has(slot.type)&&finite(slot.asw)&&slot.asw>=7;
       const submarines=canAsw?foes.map((foe,i)=>({foe,i})).filter(x=>x.foe.submarine&&before[x.i]>0):[];
       const targets=submarines.length?submarines:surfaceAttack.has(slot.type)?

@@ -32,6 +32,16 @@ function projectedHull(store,entry){
   const beforeArmor=armorItems(target.before),afterArmor=armorItems(target.after);
   if([...beforeArmor,...afterArmor].some(n=>!Number.isFinite(n)))return {status:'unknown',reason:'计划配装的装甲资料不足'};
   const armor=Math.max(0,stat(ship.api_soukou)-beforeArmor.reduce((a,b)=>a+b,0)+afterArmor.reduce((a,b)=>a+b,0));
+  // The observed evasion panel includes currently equipped raw evasion. Undo
+  // that contribution before adding the candidate's equipment; a missing
+  // panel or equipment value remains unknown, not zero evasion.
+  const evasionItems=state=>(state.slots||[]).concat(state.ex).filter(id=>id>0).map(id=>{
+    const item=store.info.equips[id],gear=store.const.$equips[item?.api_slotitem_id];
+    return gear?Number(gear.api_houk||0):NaN;
+  });
+  const oldEvasion=evasionItems(target.before),newEvasion=evasionItems(target.after),panelEvasion=stat(ship.api_kaihi);
+  const evasion=finite(panelEvasion)&&[...oldEvasion,...newEvasion].every(Number.isFinite)?
+    Math.max(0,panelEvasion-oldEvasion.reduce((a,b)=>a+b,0)+newEvasion.reduce((a,b)=>a+b,0)):null;
   const fire=attack.fireBase(target,store),torpedo=attack.torpedoPanel(target,store),stype=Number(master.api_stype);
   const asw=aswAttack(store,target),items=target.items||[];
   // All aircraft are reported separately even when they cannot attack. A
@@ -60,7 +70,7 @@ function projectedHull(store,entry){
   const midget=items.some(e=>type(e.master)===22&&/甲標的/.test(e.master?.api_name||''));
   const level=stat(ship.api_lv),openingTorpedo=midget?true:submarine?(finite(level)?level>=10:null):false;
   const actualHp=stat(ship.api_nowhp),hpEstimated=!finite(actualHp)||actualHp>stat(ship.api_maxhp);
-  return {status:'known',id:entry.id,stype,hp:stat(ship.api_maxhp),armor,hpEstimated,
+  return {status:'known',id:entry.id,stype,hp:stat(ship.api_maxhp),armor,evasion,luck:stat(ship.api_lucky),level,hpEstimated,
     fire:fire.value,torpedo:torpedo.value,torpedoPower:torpedoReading.power,torpedoRaw,
     nightBase:nightBase.basePower,nightModes,nightFixed:night.fixedTerm(target,false),
     range:rangeValues.length?Math.max(...rangeValues):null,

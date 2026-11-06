@@ -13,6 +13,7 @@ const practiceNightContact=require('./practice_night_contact');
 const landBase=require('./land_base');
 const {fleetSpecialAttacks}=require('./special_attacks');
 const {groundAttackPower}=require('./combat_ground');
+const {rangeOrder}=require('./range_order');
 const catalog=new Map(require('../../../data/sortie/enemy_catalog.json').enemies.map(e=>[e.apiId,e]));
 const CARRIERS=new Set([7,11,18]),BATTLESHIPS=new Set([8,9,10,12]);
 const FINITE=n=>Number.isFinite(n)&&n>=0;
@@ -158,7 +159,7 @@ function deriveFleetSpecial(store,entries){
 function airByShip(readings,index){
   const value=readings?.[index];return value?.attacks||[];
 }
-function prepareBattle(friendly,enemies,{kind='battle',ownFormation,enemyFormation,ownAir,ownAirSecond,enemyAir,ownNight,includeNight=false,escort=[],special,ground}={}){
+function prepareBattle(friendly,enemies,{kind='battle',ownFormation,enemyFormation,ownAir,ownAirSecond,enemyAir,ownNight,ownSpotting,hitModel,includeNight=false,escort=[],special,ground}={}){
   if(!Array.isArray(friendly)||!Array.isArray(enemies)||!Array.isArray(escort)||!friendly.length||!enemies.length||friendly.length>6||enemies.length>6||escort.length>6)
     return {status:'unknown',reasons:['舰队或敌编成资料不完整']};
   if(!['battle','asw','nightBattle','aerialRaid','aerialCombat'].includes(kind))
@@ -221,7 +222,7 @@ function prepareBattle(friendly,enemies,{kind='battle',ownFormation,enemyFormati
       reasons.add('对地夜战特殊攻击发动按参考估算');
   }
   if(combined){
-    reasons.add(includeNight?'敌联合舰队夜战去向为参考规则，基地航空和特殊攻击尚未计入':'敌联合舰队夜战、基地航空和特殊攻击尚未计入');
+    reasons.add(includeNight?'敌联合舰队夜战去向为参考规则':'敌联合舰队夜战未启用');
     if(allies.some(s=>s.hasAircraft))reasons.add('敌联合舰队航空修正按参考值估算');
   }
   if(allies.some(s=>s.submarine)){
@@ -270,10 +271,11 @@ function prepareBattle(friendly,enemies,{kind='battle',ownFormation,enemyFormati
   }
   return {status:reasons.size?'partial':'estimated',kind,allies,foes,combined,mainCount,includeNight:!!includeNight,
     enemyMain:foes.slice(0,mainCount),enemyEscort:foes.slice(mainCount),ownFormation:own,enemyFormation:enemy,special:specialEnabled?special:null,
-    ownAir,ownAirSecond,enemyAir,reasons:[...reasons],assumptions:['按出击前补给及当前耐久',
+    ownAir,ownAirSecond,enemyAir,ownSpotting,hitModel,reasons:[...reasons],assumptions:['按出击前补给及当前耐久',
       ...(!ownFormation?[`己方阵形尚未选择，按${own==='lineAbreast'?'单横':'单纵'}阵参考`]:[]),
       `未计支援、基地航空队与弹着观测${specialEnabled?'':'、特殊炮击'}`,
       '固定参考命中与交战条件；仅作相对比较，不是实际胜率或撤退率','航空损耗区间取中间架数参考，不代表实际损耗概率',
+      '同射程攻击顺序按等概率随机参考，实际可能存在偏差',
       '敌舰夜战发动与未确认机制为参考假设']};
 }
 function pick(list,rng){return list[Math.min(list.length-1,Math.floor(rng()*list.length))];}
@@ -399,7 +401,7 @@ function combinedNightTarget(main,escort,mainHp,escortHp){
 }
 // Run a single scenario. `initialHp` allows the caller to propagate damage
 // between route nodes. Enemies always start at full HP on every new node.
-function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=false,landBaseState}={}){
+function runScenario(prepared,rng=random(1),{initialHp,ammo=1,fuel=1,trace,specialUsed=false,landBaseState}={}){
   if(!prepared||prepared.status==='unknown')return {status:'unknown'};
   const own=prepared.allies,enemy=prepared.foes;
   if(initialHp&&(!Array.isArray(initialHp)||initialHp.length!==own.length||initialHp.some((v,i)=>!FINITE(v)||v>own[i].hp)))return {status:'unknown'};
@@ -413,9 +415,12 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
   const startNightContact=()=>{
     const contact=prepared.practiceNightContact;if(!contact?.states?.length)return;
     const state=contact.states.length===1?contact.states[0]:contact.states[Math.floor(rng()*contact.states.length)];
-    nightBonuses={own:practiceNightContact.activate(contact.own,state,'own',rng),enemy:practiceNightContact.activate(contact.enemy,state,'enemy',rng)};
+    const surviving=(reading,hp)=>reading&&({...reading,candidates:(reading.candidates||[]).filter(row=>
+      !Number.isInteger(row.shipIndex)||hp[row.shipIndex]>0)});
+    nightBonuses={own:practiceNightContact.activate(surviving(contact.own,ohp),state,'own',rng),
+      enemy:practiceNightContact.activate(surviving(contact.enemy,ehp),state,'enemy',rng)};
   };
-  const fire=(attacker,attackerHp,defenders,defenderHp,phase,formation,power,record,selectionHp=defenderHp)=>{
+  const fire=(attacker,attackerHp,defenders,defenderHp,phase,formation,power,record,selectionHp=defenderHp,spotting)=>{
     const targets=targetPool(attacker,defenders,selectionHp,phase);
     if(!targets.length||!canAct(attacker,attackerHp,phase))return;
     const target=pick(targets,rng);
@@ -438,11 +443,21 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
         special=rng()<rate;
       }
       const damage=isSevere(attacker,attackerHp)?.4:medium(attacker,attackerHp)?.7:1;
-      const result=groundAttackPower(reading,{night,formation:night?1:FORMATION[formation],damage,special});
+      const result=groundAttackPower(reading,{night,formation:night?1:FORMATION[formation],damage,special,
+        nightContact:night?nightBonuses[attacker.side]||0:0});
       if(result.status==='blocked')return;
       if(result.status!=='known'){partial=true;return;}
       p={power:result.power,hits:result.hits};
-    }else p=power??scenarioPower(attacker,attackerHp,phase,formation,rng,adjust,phase==='night'?nightBonuses[attacker.side]||0:0);
+    }else{
+      if(phase==='shelling'&&!target.s.submarine&&spotting?.length){
+        for(const mode of spotting)if(FINITE(mode.chance)&&rng()<mode.chance){
+          const base=scenarioPower(attacker,attackerHp,phase,formation,rng,adjust);
+          if(FINITE(base))power={power:Math.floor(base*mode.multiplier),hits:mode.hits};
+          break;
+        }
+      }
+      p=power??scenarioPower(attacker,attackerHp,phase,formation,rng,adjust,phase==='night'?nightBonuses[attacker.side]||0:0);
+    }
     // Combined-fleet aviation has different power terms against main/escort.
     // The per-slot input is already capped, so the correction is approximate.
     if(prepared.combined&&phase==='air'&&attacker.side==='own'&&FINITE(p))p=Math.max(0,p-(target.i<prepared.mainCount?10:20));
@@ -454,8 +469,11 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
     const spec=typeof p==='object'?p:{power:p,hits:1};
     if(!FINITE(spec.power)){partial=true;return;}
     for(let hit=0;hit<(spec.hits||1)&&defenderHp[target.i]>0;hit++){
-      // Fixed reference hit chance, deliberately not a predicted actual rate.
-      if(rng()>=.75)continue;
+      // Only route estimation opts into the incomplete enemy hit reference;
+      // other callers retain their own existing assumptions.
+      const hit=prepared.hitModel==='route'?require('./combat_hit').referenceHit(attacker,target.s,
+        {phase,defenderFormation:prepared.ownFormation,fuel,combined:prepared.combined}):null;
+      if(rng()>=(hit??.75))continue;
       const isAsw=phase==='asw'||phase==='openingAsw'||phase==='nightAsw';
       const before=defenderHp[target.i],value=hitDamage(spec.power,target.s,rng,attacker.side==='own'?ammo:1,isAsw,isAsw?(attacker.asw?.penetration||0):0,before);
       defenderHp[target.i]=applyDamage(target.s,before,value,rng);
@@ -483,7 +501,8 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
       }
       partial=true;
     }
-    fire(own[i],ohp[i],enemy,ehp,phase,prepared.ownFormation,undefined,undefined,selection());
+    const spotting=phase==='shelling'&&!isSevere(own[i],ohp[i])?prepared.ownSpotting?.[i]:null;
+    fire(own[i],ohp[i],enemy,ehp,phase,prepared.ownFormation,undefined,undefined,selection(),spotting);
   };
   const air=(ownAir=prepared.ownAir,enemyAir=prepared.enemyAir)=>{
     // Aircraft stages are simultaneous: build and resolve the launch list
@@ -519,7 +538,7 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
   }else{
     if(prepared.landBase?.waves?.length){
       const result=landBase.simulateWaves(prepared.landBase.waves,prepared.landBase.enemyAirPower,enemy,ehp,rng,
-        {hitDamage,applyDamage,trace,state:landBaseState,enemySlots:prepared.landBase.enemySlots});
+        {hitDamage,applyDamage,trace,state:landBaseState,enemySlots:prepared.landBase.enemySlots,antiAir:prepared.landBase.antiAir});
       enemyAircraftRatio=result.remainingRatio;
     }
     if(prepared.ownJet){stage='jet';air(prepared.ownJet,[]);}
@@ -529,7 +548,7 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
       const escortOnly=hp=>hp.map((v,i)=>i>=prepared.mainCount?v:0);
       const mainOnly=hp=>hp.map((v,i)=>i<prepared.mainCount?v:0);
       // Opening ASW attacks occur in range order, not fleet slot order.
-      const openingOrder=own.map((s,i)=>({i,range:s.range??0})).sort((a,b)=>b.range-a.range||a.i-b.i);
+      const openingOrder=rangeOrder(own,rng);
       for(const {i} of openingOrder){
         if(prepared.combined)fire(own[i],ohp[i],enemy,ehp,'openingAsw',prepared.ownFormation,undefined,undefined,escortOnly(ehp));
         else ownAttack(i,'openingAsw');
@@ -541,7 +560,7 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,trace,specialUsed=
       for(let i=0;i<own.length;i++)fire(own[i],ownBefore[i],enemy,enemyAfter,'openingTorpedo',prepared.ownFormation,undefined,undefined,enemyBefore);
       for(let i=0;i<enemy.length;i++)fire(enemy[i],enemyBefore[i],own,ownAfter,'openingTorpedo',prepared.enemyFormation,undefined,i,ownBefore);
       ohp.splice(0,ohp.length,...ownAfter);ehp.splice(0,ehp.length,...enemyAfter);
-      const ordered=(actors,start=0)=>actors.map((s,i)=>({i:i+start,range:s.range??0})).sort((a,b)=>b.range-a.range||a.i-b.i);
+      const ordered=(actors,start=0)=>rangeOrder(actors,rng,start);
       if(prepared.combined){
         const a=ordered(own),escortOrder=ordered(prepared.enemyEscort,prepared.mainCount),mainOrder=ordered(prepared.enemyMain);
         const shell=(order,select,label)=>{
