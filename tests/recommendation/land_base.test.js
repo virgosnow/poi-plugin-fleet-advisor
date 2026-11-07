@@ -83,6 +83,51 @@ test('a scout fit evaluates its own damage multiplier and does not stack two sco
  assert(selected.includes(5));assert(!selected.includes(4));
  assert.equal(selected.filter(id=>id>=1&&id<=3).length,3);
 });
+test('en-route and boss teams both retain three- and four-land-attacker alternatives',()=>{
+ const s=setup();s.info.ships={};s.info.equips={};s.const.$equips={};s.airbaseSync={complete:true,relocationsComplete:true};
+ const types=[47,47,48,48,47,47,48,48,47,47,47,47,49,49];
+ types.forEach((type,index)=>{const id=index+1,masterId=type===49?312:1000+id;
+   s.info.equips[id]={api_id:id,api_slotitem_id:masterId,api_level:0,api_alv:7};
+   s.const.$equips[masterId]={api_name:type===49?'二式陸上偵察機(熟練)':`飞机${id}`,
+     api_type:[0,0,type],api_distance:8,api_tyku:type===48?10:type===47?2:0,api_houk:0,
+     api_raig:type===47?12:0,api_baku:type===47?10:0,api_tais:0,api_saku:9};
+ });
+ const slots=ids=>ids.map((id,i)=>({api_squadron_id:i+1,api_slotid:id,api_count:18,api_max_count:18,api_state:1}));
+ s.info.airbase=[{api_area_id:6,api_rid:1,api_action_kind:1,api_distance:8,api_plane_info:slots([1,2,3,4])},
+   {api_area_id:6,api_rid:2,api_action_kind:1,api_distance:8,api_plane_info:slots([5,6,7,8])}];
+ const draft=base.sourceBases(s,'6-5');draft[0].targets=['M','M'];draft[1].targets=['I','I'];
+ const before=JSON.stringify({s,draft}),options={area:'6-5',routeNodes:['B','F','I','M'],bases:draft,scheme:{ships:[]}};
+ const plans=base.aircraftAlternatives(s,options);
+ const changed=plans.map(plan=>plan.find((b,i)=>JSON.stringify(b.slots)!==JSON.stringify(draft[i].slots)));
+ assert.equal(changed[0].rid,2,'en-route team is considered first');
+ const swap=plans.find(plan=>plan.every((b,i)=>JSON.stringify(b.slots.map(s=>s.itemId))!==JSON.stringify(draft[i].slots.map(s=>s.itemId))));
+ assert(swap,'same-world squadron exchanges are considered alongside warehouse fits');
+ const oldIds=draft.flatMap(b=>b.slots.map(slot=>slot.itemId)).sort((a,b)=>a-b);
+ assert.deepEqual(swap.flatMap(b=>b.slots.map(slot=>slot.itemId)).sort((a,b)=>a-b),oldIds,'exchange keeps both aircraft');
+ assert(swap.flatMap(b=>b.slots).some(slot=>slot.withinBase));
+ const broken=structuredClone(swap),replaced=broken[1].slots.find(slot=>slot.planned);replaced.itemId=9;
+ assert(!base.validatePlan(s,{...options,bases:broken}).valid,'one-sided borrowing cannot masquerade as an exchange');
+ for(const rid of [1,2]){
+   const shapes=changed.filter(b=>b?.rid===rid).map(b=>b.slots.map(slot=>s.const.$equips[s.info.equips[slot.itemId]?.api_slotitem_id]?.api_type[2]));
+   assert(shapes.some(types=>types.filter(t=>t===47).length===3&&types.includes(48)),`team ${rid}: three attackers and fighter`);
+   assert(shapes.some(types=>types.filter(t=>t===47).length===3&&types.includes(49)),`team ${rid}: three attackers and scout`);
+   assert(shapes.some(types=>types.filter(t=>t===47).length===4),`team ${rid}: four attackers`);
+ }
+ for(const plan of plans){
+   assert(base.validatePlan(s,{...options,bases:plan}).valid);assert.deepEqual(plan.map(b=>b.targets),[['M','M'],['I','I']]);
+   for(const squadron of plan){const ranks=squadron.slots.map(slot=>({47:0,48:1,49:2})[s.const.$equips[s.info.equips[slot.itemId].api_slotitem_id].api_type[2]]);
+     assert.deepEqual(ranks,ranks.slice().sort((a,b)=>a-b),'even cross-team candidates follow the requested order');}
+ }
+ assert.equal(JSON.stringify({s,draft}),before);
+ draft[1].slots[2].locked=true;
+ for(const plan of base.aircraftAlternatives(s,{...options,bases:draft}))
+   assert.equal(plan[1].slots[2].itemId,7,'manually locked aircraft is retained');
+ draft[1].slots[2].locked=false;draft[1].targets=['B','I'];s.const.$equips[1005].api_tais=9;
+ const split=base.aircraftAlternatives(s,{...options,bases:draft}).filter(plan=>
+   JSON.stringify(plan[1].slots)!==JSON.stringify(draft[1].slots));
+ assert(split.length>0,'mixed ASW and surface waves can still consider refits');
+ for(const plan of split){assert.deepEqual(plan[1].targets,['B','I']);assert(plan[1].slots.some(slot=>slot.itemId===5));}
+});
 test('inventory excludes fleet and other base donors and nonready owned slots',()=>{
  const s=setup(),rows=base.inventory(s,{area:'6-5',baseRid:1}),ids=rows.map(r=>r.itemId);
  assert(ids.includes(1));assert(ids.includes(6));for(const id of [2,3,4,5])assert(!ids.includes(id));
@@ -189,7 +234,7 @@ test('plan validation rejects duplicates, foreign ownership and missing aircraft
  let check=base.validatePlan(s,{area:'6-5',bases:draft,scheme});
  assert.equal(check.valid,false);assert(check.issues.some(x=>x.includes('重复')));
  draft[0].slots[1]={slotId:2,itemId:2,count:18,maxCount:18,planned:true};
- check=base.validatePlan(s,{area:'6-5',bases:draft,scheme});assert(check.issues.some(x=>x.includes('其他基地占用')));
+ check=base.validatePlan(s,{area:'6-5',bases:draft,scheme});assert(check.issues.some(x=>x.includes('跨队换装须')));
  draft[0].slots[1]={slotId:2,itemId:4,count:18,maxCount:18,planned:true};
  check=base.validatePlan(s,{area:'6-5',bases:draft,scheme});assert(check.issues.some(x=>x.includes('舰队占用')));
  draft[0].slots[1]={slotId:2,itemId:999999,count:18,maxCount:18,planned:true};

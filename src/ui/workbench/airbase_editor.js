@@ -18,6 +18,20 @@ function observedDraft(store,area){
       })
     }));
 }
+// A new completion starts from the current game slots, not an earlier
+// automatically generated proposal. Explicitly held slots and targets stay
+// untouched so stale manual choices are reported rather than overwritten.
+function rebaseDraft(store,area,bases){
+  if(!Array.isArray(bases))return bases;
+  const observed=observedDraft(store,area);if(!observed)return bases;
+  return bases.map(base=>{
+    const live=observed.find(row=>row.rid===base.rid&&row.areaId===base.areaId);
+    if(!live||!Array.isArray(base.slots))return base;
+    const slots=base.slots.map(slot=>slot.locked?slot:live.slots.find(row=>row.slotId===slot.slotId)||slot);
+    return {...base,mode:base.modePlanned?base.mode:live.mode,
+      range:slots.some(slot=>slot.locked&&slot.planned)?null:live.range,slots};
+  });
+}
 function routeTargets(option,profile,route){
   if(!option)return [];
   const plans=require('../../domain/routes/route_plans'),ids=plans.orderedPathNodes(route?plans.fleetPaths(route,option):plans.optionPaths(option));
@@ -46,8 +60,22 @@ function equipmentOptions(store,area,bases,scheme,rid,slotId,search=''){
   const used=new Set((bases||[]).flatMap(row=>(row.slots||[]).filter(slot=>row.rid!==rid||slot.slotId!==slotId).map(slot=>slot.itemId)).filter(id=>id>0));
   const term=normalizeName(search).toLowerCase(),groups=new Map();
   const available=planner.inventory(store,{area,bases,scheme,baseRid:rid});
+  const target=base?.slots?.find(slot=>slot.slotId===slotId),actualTarget=store.info?.airbase
+    ?.find(row=>Number(row.api_area_id)===Number(base?.areaId)&&Number(row.api_rid)===rid)
+    ?.api_plane_info?.find(row=>Number(row.api_squadron_id)===slotId);
+  if(target?.itemId>0&&actualTarget?.api_slotid===target.itemId&&Number(actualTarget.api_state)===1){
+    for(const other of bases||[]){
+      if(other.rid===rid||other.areaId!==base.areaId)continue;
+      const rows=planner.inventory(store,{area,bases,scheme,baseRid:other.rid});
+      for(const row of rows){
+        if(row.source!=='base')continue;
+        const source=other.slots?.find(slot=>slot.slotId===row.slotId&&slot.itemId===row.itemId);
+        if(source&&!source.locked)available.push({...row,source:'base-swap'});
+      }
+    }
+  }
   for(const entry of available){
-    if(used.has(entry.itemId))continue;
+    if(used.has(entry.itemId)&&entry.source!=='base-swap')continue;
     const item=V.equipmentItem(store,entry.itemId,slotId-1);if(!item)continue;
     const type=Number(entry.master.api_type?.[2]),[categoryId,label]=category(type);
     const row={...item,categoryId,category:label,masterId:entry.masterId,stars:Number(entry.item.api_level||0),
@@ -62,6 +90,21 @@ function equipmentOptions(store,area,bases,scheme,rid,slotId,search=''){
 }
 function replaceSlot(store,bases,rid,slotId,itemId){
   const planner=require('../../recommendation/land_base');
+  const destination=(bases||[]).find(base=>base.rid===rid),target=destination?.slots?.find(slot=>slot.slotId===slotId);
+  const source=(bases||[]).flatMap(base=>(base.slots||[]).map(slot=>({base,slot})))
+    .find(row=>row.base.rid!==rid&&row.slot.itemId===itemId&&itemId>0);
+  if(source){
+    if(!target?.itemId||source.slot.locked||source.base.areaId!==destination.areaId)throw Error('跨队交换需要两个未占用锁定的飞机槽');
+    const actual=(base,slot)=>store.info?.airbase?.find(row=>Number(row.api_area_id)===Number(base.areaId)&&Number(row.api_rid)===Number(base.rid))
+      ?.api_plane_info?.find(row=>Number(row.api_squadron_id)===Number(slot.slotId));
+    const before=actual(destination,target),donor=actual(source.base,source.slot);
+    if(before?.api_slotid!==target.itemId||donor?.api_slotid!==source.slot.itemId||Number(before.api_state)!==1||Number(donor.api_state)!==1)
+      throw Error('跨队飞机状态已变化，请重新选择');
+    const exchanged=(slot,plane)=>({...slot,itemId:plane.itemId,count:plane.count,maxCount:plane.maxCount,state:plane.state,
+      planned:true,withinBase:true,locked:true});
+    return bases.map(base=>base===destination?{...base,range:null,slots:base.slots.map(slot=>slot===target?exchanged(slot,source.slot):slot)}:
+      base===source.base?{...base,range:null,slots:base.slots.map(slot=>slot===source.slot?exchanged(slot,target):slot)}:base);
+  }
   return (bases||[]).map(base=>base.rid!==rid?base:{...base,slots:base.slots.map(slot=>{
     if(slot.slotId!==slotId)return slot;
     if(itemId===slot.itemId)return slot;
@@ -79,4 +122,4 @@ function replaceSlot(store,bases,rid,slotId,itemId){
 function changeTarget(bases,rid,wave,value){
   return (bases||[]).map(base=>base.rid!==rid?base:{...base,targets:Array.from({length:2},(_,i)=>i===wave?value:(base.targets?.[i]||''))});
 }
-module.exports={observedDraft,routeTargets,constrainAutoTargets,equipmentOptions,replaceSlot,changeTarget};
+module.exports={observedDraft,rebaseDraft,routeTargets,constrainAutoTargets,equipmentOptions,replaceSlot,changeTarget};

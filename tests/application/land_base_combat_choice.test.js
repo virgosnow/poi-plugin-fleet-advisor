@@ -27,7 +27,10 @@ test('budget exhaustion leaves original plan instead of picking from incomplete 
  let clock=0,calls=0;const selector=createLandBaseCombatSelector({paths,budgetMs:20,now:()=>clock,
    prioritize:()=>({changed:true,bases:bases(['I','F']),alternatives:[bases(['I','I'])]}),
    assess:()=>{calls++;if(calls===2)clock=25;return calls===1?result(5):result(15);}});
- assert.deepEqual(selector(args()).proposal.bases[1].targets,['B','B']);assert.equal(calls,2);
+ const input=args(),first=selector(input);
+ assert.deepEqual(first.proposal.bases[1].targets,['B','B']);assert.equal(calls,2);
+ assert(first.proposal.warnings.some(text=>text.includes('超时')));
+ clock=0;selector(input);assert(calls>2,'an incomplete comparison must not be cached');
 });
 test('equal arrival and boss S may prefer a lower worst en-route risk with a clear caveat',()=>{
  const original=result(5),candidate=result(5);original.diagnostics.nodes=[{id:'I',severe:16,visits:24}];
@@ -126,6 +129,28 @@ test('when safe arrivals tie, Boss S victory after night combat breaks the tie',
   assess:()=>++calls===1?result(8,2):result(8,4)});
  const choice=selector(args());assert.deepEqual(choice.proposal.bases[1].targets,['F','I']);
  assert.equal(choice.assessment.diagnostics.target.sVictories,4);
+});
+test('aircraft fits are compared for both en-route and boss without changing target waves',()=>{
+ const initial=bases(['I','I']),forward=bases(['I','I']),boss=bases(['I','I']);
+ initial[0].slots=['boss original'];initial[1].slots=['forward original'];
+ forward[0].slots=['boss original'];forward[1].slots=['three attackers'];
+ boss[0].slots=['four attackers'];boss[1].slots=['forward original'];
+ const seen=[];const selector=createLandBaseCombatSelector({paths,now:()=>0,prioritize:()=>({changed:false}),
+  aircraft:(_store,input)=>input.bases===initial?[forward,boss]:[],
+  assess:({landBases})=>{seen.push(landBases);return landBases===forward?result(10,1):landBases===boss?result(8,6):result(7,2);}});
+ const input=args();input.proposal.bases=initial;const chosen=selector(input);
+ assert.equal(seen.length,3);assert.strictEqual(chosen.proposal.bases,forward);
+ assert.deepEqual(chosen.proposal.bases.map(b=>b.targets),[['M','M'],['I','I']]);
+ assert(chosen.proposal.warnings.some(t=>t.includes('有限战况场景')));
+});
+test('a second comparison can improve both squadrons without reusing one plane',()=>{
+ const initial=bases(['I','I']),forward=bases(['I','I']),both=bases(['I','I']);
+ initial[0].slots=[1];initial[1].slots=[2];forward[0].slots=[1];forward[1].slots=[3];both[0].slots=[4];both[1].slots=[3];
+ const selector=createLandBaseCombatSelector({paths,now:()=>0,prioritize:()=>({changed:false}),
+  aircraft:(_s,{bases:current})=>current===initial?[forward]:current===forward?[both]:[],
+  assess:({landBases})=>landBases===both?result(12,3):landBases===forward?result(10,2):result(7,1)});
+ const input=args();input.proposal.bases=initial;const chosen=selector(input);
+ assert.strictEqual(chosen.proposal.bases,both);assert.equal(chosen.assessment.diagnostics.journeys.completed,12);
 });
 test('overwhelming disadvantage accepts one forward wave from the only sortie squadron',()=>{
  const initial=result(1,0);initial.balance={rank:0};const next=result(3,0);let calls=0;

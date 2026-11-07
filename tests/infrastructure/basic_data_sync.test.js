@@ -55,6 +55,29 @@ test('hot reload preserves only same-account recent data and session state',asyn
   assert.equal(g.sync.view(g.store).info.maps[11].api_cleared,1);assert.equal((await g.sync.tick()).kind,'presets');
   const other=setup();other.store.info.basic.api_member_id=3;other.sync.restore(snapshot,other.store);assert.equal(other.sync.view(other.store).info.maps[11].api_cleared,0);
 });
+test('relocation-only handoff checks account, session, freshness and complete data',async()=>{
+  const f=setup();await f.sync.tick();
+  f.sync.observe({path:'/kcsapi/api_port/port',body:{api_plane_info:{api_base_convert_slot:[777]}}},f.store);
+  const snapshot=f.sync.snapshot(),g=setup();await g.sync.tick();
+  assert.equal(g.sync.restoreRelocations(snapshot,g.store,'a'),true);
+  assert.deepEqual(g.sync.view(g.store).info.airbaseRelocations,[{itemId:777,startedAt:null}]);
+  const other=setup();await other.sync.tick();other.store.info.basic.api_member_id=2;
+  assert.equal(other.sync.restoreRelocations(snapshot,other.store,'a'),false);
+  const stale=setup();await stale.sync.tick();stale.advance(30001);
+  assert.equal(stale.sync.restoreRelocations(snapshot,stale.store,'a'),false);
+  const wrong=setup();await wrong.sync.tick();
+  assert.equal(wrong.sync.restoreRelocations(snapshot,wrong.store,'b'),false);
+  assert.equal(wrong.sync.restoreRelocations({...snapshot,relocations:[{itemId:-1}]},wrong.store,'a'),false);
+  wrong.sync.observe({path:'/kcsapi/api_port/port',body:{}},wrong.store);
+  assert.equal(wrong.sync.restoreRelocations(snapshot,wrong.store,'a'),false,'new port data wins');
+});
+test('an unfinished or unobserved aircraft replacement cannot transfer a complete relocation list',async()=>{
+  const f=setup();await f.sync.tick();f.sync.observe({path:'/kcsapi/api_port/port',body:{}},f.store);
+  f.sync.observeRequest({path:'/kcsapi/api_req_air_corps/set_plane',body:{}},f.store);
+  assert.equal(f.sync.snapshot().relocationsComplete,false);
+  f.sync.observe({path:'/kcsapi/api_req_air_corps/set_plane',body:{api_plane_info:[]}},f.store);
+  assert.equal(f.sync.view(f.store).airbaseSync.relocationsComplete,false);
+});
 test('monthly expedition rollover requests missions again but leaves maps and presets alone',async()=>{
   const store={info:{basic:{api_member_id:1}}},calls=[];let time=Date.UTC(2026,0,14,2,0);
   const reader={context:async()=>({ready:true,idle:true,compatible:true,sessionKey:'same'}),read:async({kind})=>{
@@ -112,6 +135,23 @@ test('replacement reserves the removed instance; an in-base swap does not',()=>{
   f.sync.observeRequest({...request,body:{...request.body,api_item_id:'999'}},f.store);
   f.sync.observe({path:request.path,body:{api_plane_info:[{api_squadron_id:1,api_state:1,api_slotid:999}]}},f.store);
   assert.deepEqual(f.sync.view(f.store).info.airbaseRelocations,[{itemId:777,startedAt:10000}]);
+});
+
+test('same-world cross-squadron exchange does not falsely mark the replaced plane as relocating',()=>{
+  const f=setup();f.store.info.airbase=[{api_area_id:6,api_rid:1,api_plane_info:[{api_squadron_id:1,api_slotid:777,api_state:1}]},
+    {api_area_id:6,api_rid:2,api_plane_info:[{api_squadron_id:1,api_slotid:888,api_state:1}]}];
+  const request={path:'/kcsapi/api_req_air_corps/set_plane',body:{api_area_id:'6',api_base_id:'1',api_squadron_id:'1',api_item_id:'888'}};
+  f.sync.observeRequest(request,f.store);
+  f.sync.observe({path:request.path,body:{api_plane_info:[{api_squadron_id:1,api_state:1,api_slotid:888}]}},f.store);
+  assert.equal(f.sync.view(f.store).info.airbaseRelocations,undefined);
+  // An unready donor or a donor in another world is not proof of a swap.
+  for(const [area,state] of [[6,2],[7,1]]){
+    const other=setup();other.store.info.airbase=structuredClone(f.store.info.airbase);
+    other.store.info.airbase[1].api_area_id=area;other.store.info.airbase[1].api_plane_info[0].api_state=state;
+    other.sync.observeRequest(request,other.store);
+    other.sync.observe({path:request.path,body:{api_plane_info:[{api_squadron_id:1,api_state:1,api_slotid:888}]}},other.store);
+    assert.deepEqual(other.sync.view(other.store).info.airbaseRelocations,[{itemId:777,startedAt:10000}]);
+  }
 });
 
 test('failed datasets back off without starving other datasets and eventually recover',async()=>{

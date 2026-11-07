@@ -52,9 +52,9 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
   const useMapLoading=require('../maps/map_loading')(React,{getStore});
   const CalculationProgress=createProgressComponent(React);
   const summaryMetric=(reading,kind)=>{
-    const good=kind==='air'?/^全程空/.test(reading.state):['索敌达标','无需索敌'].includes(reading.state);
+    const good=kind==='air'?/^(?:预计)?全程空(?:优|确)$/.test(reading.state):['索敌达标','无需索敌'].includes(reading.state);
     const warning=reading.bad||reading.uncertain||reading.state==='估算达标';
-    const tone=warning?'warning':good?reading.state==='全程空确'?'green':kind==='air'?'blue':'green':'neutral';
+    const tone=warning?'warning':good?/^(?:预计)?全程空确$/.test(reading.state)?'green':kind==='air'?'blue':'green':'neutral';
     const icon=h('svg',{viewBox:'0 0 16 16','aria-hidden':true},warning?
       h('path',{d:'M8 2 15 14H1ZM8 6v4m0 2v.1'}):
       [h('circle',{key:'circle',cx:8,cy:8,r:6}),h('path',{key:'mark',d:good?'m5 8 2 2 4-4':'M5 8h6'})]);
@@ -415,7 +415,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const clear=()=>{if(routeRequests.current.get(signature)===entry)routeRequests.current.delete(signature);};
       promise.then(clear,clear);return promise;
     };
-    const startRouteCombat=(found,requestedPhase,initialStore,baseStore,baseSignature,sourceFingerprint,signature,proposeLandBases,selectLandBaseCombat,timings)=>{
+    const startRouteCombat=(found,requestedPhase,initialStore,baseStore,baseSignature,sourceFingerprint,signature,proposeLandBases,selectLandBaseCombat,timings,planningBases)=>{
       const generation=++routeCombatGeneration.current,context=routeCombatContext.current,service=getController();
       const initialInfo=initialStore.info,initialMaster=initialStore.const;
       const prepared=new Map();preparedRoutes.current.clear();
@@ -438,10 +438,10 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       return runRouteCombatBatch({firstPhase:current,firstResult:found,isCancelled:cancelled,
         evaluate:(requested,result)=>assessRouteChoices({store:baseStore,service,slots,fleet,
           settings:{...settings,phase:requested},options:choicesFor(result),isCancelled:cancelled,
-          landBases:landBases?.length?(option,merged,checked)=>proposeLandBases(baseStore,
+          landBases:planningBases?.length?(option,merged,checked)=>proposeLandBases(baseStore,
             {area,routeNodes:require('../../domain/routes/route_plans').orderedPathNodes(require('../../domain/routes/route_plans').fleetPaths(checked.route,option)),
-              scheme:W.scheme(merged,fleet),bases:landBases}):undefined,
-          refineLandBaseEquipment:landBases?.length&&typeof service?.recommendNormalEquipment==='function'?async({option,slots:merged,proposal})=>{
+              scheme:W.scheme(merged,fleet),bases:planningBases}):undefined,
+          refineLandBaseEquipment:planningBases?.length&&typeof service?.recommendNormalEquipment==='function'?async({option,slots:merged,proposal})=>{
             const {snapshotId}=service.createSnapshot();
             const result=await service.recommendNormalEquipment({snapshotId,scheme:W.scheme(merged,fleet),area,target,
               phase:option.phase||requested||undefined,routeKey:option.fallback?undefined:option.key,
@@ -482,6 +482,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const token=++operation.current,key=JSON.stringify([kind,area,target,phase,'clear',requestedStyle,missionId,requestedGoal,filterKey,...(selectedQuests.length?[selectedQuests]:[])]);
       const progress=createCalculationProgress();let progressActive=true,completed=false;
       const origin=conditionKey,initialStore=getStore(),requestedPhase=phaseForRoute(requestedRoute,initialStore);
+      const planningBases=kind==='normal'?airbaseEditor.rebaseDraft(initialStore,area,landBases):null;
+      const planningItems=[...new Set((planningBases||[]).flatMap(base=>base.slots||[]).map(slot=>slot.itemId).filter(id=>id>0))];
       const initialInfo=initialStore.info,initialMaster=initialStore.const;
       let baseSignature=null,baseStore=initialStore,sourceFingerprint=null;
       try{
@@ -528,7 +530,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           const onProgress=value=>{if(progressActive&&alive.current&&token===operation.current)publishCalculation(progress.update(value));};
           const searchStart=timings?performance.now():0;
           if(kind==='normal')found=await requestNormalRoute(service,{...query,area,target,phase:requestedPhase||undefined,...(routeOnly?{routeKey:requestedRoute}:{}),
-            ...(landBaseItems.length?{landBaseEquipmentIds:landBaseItems}:{}),airGoal:'superiority',heldSlots:W.recommendationHolds(slots,{preservePositions:false})},signature,initialStore,sourceFingerprint,onProgress);
+            ...(planningItems.length?{landBaseEquipmentIds:planningItems}:{}),airGoal:'superiority',heldSlots:W.recommendationHolds(slots,{preservePositions:false})},signature,initialStore,sourceFingerprint,onProgress);
           else {const {snapshotId}=service.createSnapshot();found=await service.recommendExpeditionFleet({...query,snapshotId,limit:3,missionId,goal:requestedGoal,heldSlots:W.recommendationHolds(slots),
               ...(slots[0]&&(slots[0].pin||Object.keys(slots[0].keep).length)?{fixedFlagshipId:slots[0].id}:{})},onProgress);}
           if(timings)timings.push({name:'workbench.search',ms:performance.now()-searchStart});
@@ -557,7 +559,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         if(kind==='normal'&&(!automatic||landBases?.length)){
           setCombatDeferredPhase('');
           const sortStart=timings?performance.now():0;
-          combatRequest=startRouteCombat(found,requestedPhase,initialStore,baseStore,baseSignature,sourceFingerprint,combatSignature,proposeLandBases,selectLandBaseCombat,timings);
+          combatRequest=startRouteCombat(found,requestedPhase,initialStore,baseStore,baseSignature,sourceFingerprint,combatSignature,proposeLandBases,selectLandBaseCombat,timings,planningBases);
           if(timings)combatRequest.then(()=>timings.push({name:'workbench.routeSort',ms:performance.now()-sortStart}),()=>{});
           // With no player-selected route, wait for the same assessments that
           // order the picker before committing a fleet. This avoids first
@@ -621,7 +623,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
               if(!checked.valid)throw Error(checked.error||'编成核对失败，已保留当前草稿');
               const plans=require('../../domain/routes/route_plans');
               const routeNodes=plans.orderedPathNodes(plans.fleetPaths(checked.route,option));
-              proposal=proposeLandBases(baseStore,{area,routeNodes,scheme:W.scheme(merged,fleet),bases:landBases});
+              proposal=proposeLandBases(baseStore,{area,routeNodes,scheme:W.scheme(merged,fleet),bases:planningBases});
               proposal=selectLandBaseCombat({store:baseStore,report:checked,option,proposal}).proposal;}
             if(timings)timings.push({name:'workbench.finalBase',ms:performance.now()-finalStart});
             finalBaseProposal=proposal;}

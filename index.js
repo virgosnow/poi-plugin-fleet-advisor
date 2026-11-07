@@ -69,7 +69,7 @@ async function tickQuests(){
       if(pendingHandoff.sessionKey!==session)pendingHandoff=null;
       else if(rawQuestReader?.verifiedSessionKey===session){
         const value=pendingHandoff,observer=questObserver,generation=sessionGeneration;pendingHandoff=null;
-        await require('./src/infrastructure/sync/session_handoff').restoreHandoff({value,reader,quest:observer,
+        await require('./src/infrastructure/sync/session_handoff').restoreHandoff({value,reader,quest:observer,basic:basicDataSync,
           getStore:()=>readStore(window),isCurrent:()=>questReader===reader&&questObserver===observer&&
             sessionGeneration===generation&&rawQuestReader?.verifiedSessionKey===session}).catch(()=>{});
       }
@@ -134,6 +134,7 @@ exports.pluginDidLoad=()=>{
   practiceSync=new (require('./src/infrastructure/practice/practice_sync').PracticeSync)({reader:questReader,observer:practiceObserver,getStore:()=>readStore(window)});
   basicDataSync=new (require('./src/infrastructure/persistence/basic_data_sync').BasicDataSync)({reader:questReader,getStore:()=>readStore(window),expedition:expeditionProgress});
   progressListener=event=>{
+    if(pendingHandoff&&/\/kcsapi\/(?:api_port\/port|api_req_air_corps\/)/.test(String(event.detail?.path||'')))pendingHandoff.basic=null;
     try{questReader?.observeResponse(event.detail);}catch(error){}
     try{expeditionProgress?.observe(event.detail,readStore(window));}catch(error){}
     try{if(rawQuestReader?.sessionKey&&rawQuestReader.verifiedSessionKey===rawQuestReader.sessionKey)service?.observeQuestProgress(event.detail);}catch(error){}
@@ -142,6 +143,7 @@ exports.pluginDidLoad=()=>{
     try{basicDataSync?.observe(event.detail,readStore(window));}catch(error){}
   };
   requestListener=event=>{
+    if(pendingHandoff&&/\/kcsapi\/(?:api_port\/port|api_req_air_corps\/)/.test(String(event.detail?.path||'')))pendingHandoff.basic=null;
     try{questReader?.observeRequest(event.detail);}catch(error){}
     try{basicDataSync?.observeRequest(event.detail,readStore(window));}catch(error){}
   };
@@ -155,6 +157,7 @@ exports.pluginDidLoad=()=>{
   window.addEventListener('network.error',networkListener);
   window.addEventListener('network.invalid.result',networkListener);
   window.addEventListener('game.start',startListener);
+  pendingHandoff?.finishGap?.();
   expeditionProgress.view(readStore(window));
   controller=new Controller({getStore:currentStore,
     createHost:()=>new PoiHost({window,remote:require('@electron/remote'),getStore:currentStore}),
@@ -180,6 +183,11 @@ exports.pluginDidLoad=()=>{
 };
 exports.pluginWillUnload=()=>{const previous=service,progress=expeditionProgress,computeHost=recommendationHost;
   recommendationHost=null;
+  try{
+    const handoff=require('./src/infrastructure/sync/session_handoff').captureHandoff({reader:rawQuestReader,quest:questObserver,basic:basicDataSync});
+    if(handoff){if(window.__fleetAdvisorUpdateBusy)require('./src/infrastructure/sync/session_handoff').watchGap(window,handoff);window[syncHandoff]=handoff;}
+    else delete window[syncHandoff];
+  }catch(error){delete window[syncHandoff];}
   require('./src/ui/shell/plugin_brand').unregister(window.document);
   if(progressListener)window.removeEventListener('game.response',progressListener);
   if(requestListener)window.removeEventListener('game.request',requestListener);
@@ -189,11 +197,6 @@ exports.pluginWillUnload=()=>{const previous=service,progress=expeditionProgress
   const reader=questReader,rawReader=rawQuestReader;
   sessionGeneration++;observedSession=null;pendingHandoff=null;pendingProgressHandoff=null;reader?.cancel();
   practiceSync?.dispose();basicDataSync?.dispose();questAutoRead?.dispose();
-  try{
-    const handoff=require('./src/infrastructure/sync/session_handoff').captureHandoff({reader:rawReader,quest:questObserver,
-      practice:practiceObserver,basic:basicDataSync,store:readStore(window)});
-    if(handoff)window[syncHandoff]=handoff;else delete window[syncHandoff];
-  }catch(error){delete window[syncHandoff];}
   const readerCleanup=Promise.resolve(reader?.dispose()).then(()=>rawReader?.dispose());
   questAutoRead=null;questReader=null;rawQuestReader=null;practiceSync=null;basicDataSync=null;requestListener=null;networkListener=null;startListener=null;
   if(window.__fleetAdvisorUpdateBusy&&previous?.questProgressObserver&&rawReader?.sessionKey&&rawReader.verifiedSessionKey===rawReader.sessionKey)try{

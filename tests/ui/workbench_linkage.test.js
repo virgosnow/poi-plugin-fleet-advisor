@@ -303,6 +303,21 @@ test('base changes during completion discard the result and preserve the fleet d
   await pending;assert.equal(JSON.stringify(h.get('slots')),before);assert.match(h.get('error'),/基地航空队资料已变化/);
 });
 
+test('completion uses current base aircraft instead of an unlocked stale proposal',async()=>{
+  const h=harness();h.set('area','6-5');h.store.airbaseSync={complete:true,relocationsComplete:true};
+  const planes=Array.from({length:4},(_,i)=>({api_squadron_id:i+1,api_slotid:i?0:1001,
+    api_count:i?0:18,api_max_count:18,api_state:i?0:1}));
+  h.store.info.airbase=[{api_area_id:6,api_rid:1,api_action_kind:1,api_distance:8,api_plane_info:planes}];
+  for(const id of [1001,1002]){h.store.info.equips[id]={api_id:id,api_slotitem_id:id,api_level:0,api_alv:0};
+    h.store.const.$equips[id]={api_id:id,api_name:`飞机${id}`,api_type:[0,0,47],api_distance:8,api_tyku:1};}
+  const draft=require('../../src/ui/workbench/airbase_editor').observedDraft(h.store,'6-5');
+  h.set('landBaseDrafts',{'6-5':{bases:draft,warnings:[]}});planes[0].api_slotid=1002;
+  let request;h.service.recommendNormalFleet=async input=>{request=input;throw Error('test stop');};
+  await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+  assert(request);assert(request.landBaseEquipmentIds.includes(1002));assert(!request.landBaseEquipmentIds.includes(1001));
+  assert.equal(h.get('landBaseDrafts')['6-5'].bases[0].slots[0].itemId,1001,'a failed completion does not overwrite the saved draft');
+});
+
 test('in-place ship changes during completion discard the result and preserve the draft',async()=>{
   const h=harness();h.set('area','6-5');h.set('mapRoute','guide:6-5-02');
   h.set('slots',[W.entry(h.store,1),null,null,null,null,null]);const before=JSON.stringify(h.get('slots'));
@@ -486,7 +501,7 @@ test('battle comparison result appears beside its heading without hover details'
   // This is a rendering check, not a test of the simulation's wall-clock budget.
   t.mock.method(performance,'now',()=>0);
   const h=harness(),ship=h.store.info.ships[1],master=h.store.const.$ships[1];
-  Object.assign(ship,{api_nowhp:30,api_maxhp:30,api_soukou:[12,12],api_karyoku:[35,35],api_raisou:[30,30],api_kyouka:[0,0,0,0],api_lucky:[20,20]});
+  Object.assign(ship,{api_nowhp:30,api_maxhp:30,api_soukou:[12,12],api_karyoku:[35,35],api_raisou:[30,30],api_kyouka:[0,0,0,0],api_lucky:[20,20],api_kaihi:[60,60]});
   Object.assign(master,{api_houg:[35,35],api_raig:[30,30],api_leng:2});
   const slots=[W.entry(h.store,1)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
   h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);
@@ -2484,6 +2499,19 @@ test('fleet air thresholds follow the selected map path while fleet power keeps 
   assert.match(metric.props['data-tooltip'],/保守估算|不是实战保证/);
   h.set('mapRoute','');const cleared=h.find(h.render(),n=>n.props.className==='paa-wb-metric air');
   assert(h.find(cleared,n=>n.type==='small').children[0].includes('请选择路线'));
+});
+
+test('estimated air superiority and supremacy use the corresponding result colors',t=>{
+  const original=W.fleetSummary;let state='预计全程空优';
+  t.mock.method(W,'fleetSummary',(...args)=>{const summary=original(...args);return {...summary,air:{...summary.air,state,bad:false}};});
+  for(const [value,tone] of [['预计全程空优','blue'],['预计全程空确','green'],['全程空优','blue'],['全程空确','green'],['损耗待确认','neutral']]){
+    state=value;const h=harness(),slots=[W.entry(h.store,2)];h.set('slots',slots);h.set('mapRoute','guide:3-5-01');
+    h.set('report',{valid:true,scheme:W.scheme(slots,1),
+      settingsKey:JSON.stringify({kind:'normal',fleet:1,area:'3-5',target:'boss',phase:'',missionId:1,revision:0}),
+      route:{verdict:'guaranteed'},metrics:{airPower:{status:'range',min:500,max:501}}});
+    const metric=h.find(h.render(),n=>n.props.className==='paa-wb-metric air');
+    assert.equal(metric.props['data-tone'],tone,value);
+  }
 });
 
 test('unavailable routes cannot be selected until clear, which also clears the route selection',async()=>{

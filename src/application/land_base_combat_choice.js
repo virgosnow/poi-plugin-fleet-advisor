@@ -1,5 +1,6 @@
 'use strict';
 const {outcomes}=require('./joint_fitting_comparison');
+const {sortBases}=require('../recommendation/land_base_order');
 // Keep the forecast used for route ordering and the aircraft/targets ultimately
 // shown to the player together. Comparisons are bounded reference scenarios,
 // never an assertion about a real win or retreat probability.
@@ -24,10 +25,11 @@ function hasForwardSupport(bases,target){
 }
 function createLandBaseCombatSelector({assess=require('./combat_assessment').assessCombat,
   prioritize=(...args)=>require('../recommendation/land_base').prioritizeTargets(...args),
-  paths=require('../domain/routes/route_plans'),now=()=>performance.now(),budgetMs=1200}={}){
+  aircraft=(...args)=>require('../recommendation/land_base').aircraftAlternatives(...args),
+  paths=require('../domain/routes/route_plans'),now=()=>performance.now(),budgetMs=5000}={}){
   const cache=new Map();
   return function select({store,report,option,proposal}){
-    const bases=Array.isArray(proposal)?proposal:proposal?.bases;
+    const bases=sortBases(store,Array.isArray(proposal)?proposal:proposal?.bases);
     const warnings=Array.isArray(proposal?.warnings)?proposal.warnings:[];
     if(!Array.isArray(bases)||!bases.some(base=>base.targets?.some(Boolean))){
       return {assessment:assess({store,report,option,dirty:false,landBases:bases}),proposal:{bases,warnings}};
@@ -41,21 +43,28 @@ function createLandBaseCombatSelector({assess=require('./combat_assessment').ass
       key=JSON.stringify([cacheVersion,option.key,report.scheme,report.route,bases,warnings]);}catch(_){/* incomplete snapshot: do not cache */}
     if(key&&cache.has(key))return cache.get(key);
     const started=now(),original=assess({store,report,option,dirty:false,landBases:bases,cacheVersion,bypassCache:!key});
-    let best={assessment:original,proposal:{bases,warnings}};
+    let best={assessment:original,proposal:{bases,warnings}},incomplete=false;
     if(valid(original)&&now()-started<budgetMs){
       const nodes=paths.orderedPathNodes(paths.fleetPaths(report.route,option));
       const emergency=original.balance?.rank===0&&!hasForwardSupport(bases,original.diagnostics.target.id);
       const tuned=prioritize(store,{area:report.route?.area,routeNodes:nodes,bases,scheme:report.scheme,diagnostics:original.diagnostics});
-      const alternatives=tuned?.changed?[tuned.bases,...(tuned.alternatives||[])]:[];
+      const targetPlans=tuned?.changed?[tuned.bases,...(tuned.alternatives||[])].map(candidate=>sortBases(store,candidate)):[];
+      const options={area:report.route?.area,routeNodes:nodes,scheme:report.scheme};
+      const tunedAircraft=tuned?.changed?aircraft(store,{...options,bases:tuned.bases}):[];
+      const originalAircraft=aircraft(store,{...options,bases});
+      const alternatives=[...targetPlans.slice(0,3).map(candidate=>({candidate,warnings:tuned.warnings||[]})),
+        ...tunedAircraft.slice(0,14).map(candidate=>({candidate,warnings:[...tuned.warnings||[],
+          '基地飞机组合按有限战况场景比较']})),
+        ...originalAircraft.slice(0,14).map(candidate=>({candidate,warnings:['基地飞机组合按有限战况场景比较']}))];
       const seen=new Set([JSON.stringify(bases)]),all=[];let fallback=null;
       let exhausted=now()-started>=budgetMs;
-      for(const candidate of alternatives.slice(0,3)){
+      for(const {candidate,warnings:candidateWarnings} of alternatives){
         if(exhausted&&(!emergency||fallback))break;
         if(emergency&&!hasForwardSupport(candidate,original.diagnostics.target.id))continue;
         const candidateKey=JSON.stringify(candidate);if(seen.has(candidateKey))continue;seen.add(candidateKey);
         const reading=assess({store,report,option,dirty:false,landBases:candidate,cacheVersion,bypassCache:!key});
         if(now()-started>=budgetMs)exhausted=true;
-        if(emergency&&!fallback)fallback={assessment:reading,proposal:{bases:candidate,warnings:[...new Set([...warnings,...tuned.warnings||[],
+        if(emergency&&!fallback)fallback={assessment:reading,proposal:{bases:candidate,warnings:[...new Set([...warnings,...candidateWarnings,
           '战况压倒性劣势，优先尝试基地航空队支援道中；战况仅为有限场景参考'])]}};
         if(exhausted&&!emergency)break;
         if(!valid(reading))continue;
@@ -72,7 +81,7 @@ function createLandBaseCombatSelector({assess=require('./combat_assessment').ass
         const improves=after.arrivals>before.arrivals+1e-9||
           Math.abs(after.arrivals-before.arrivals)<1e-9&&after.sVictory>before.sVictory+1e-9||improvesWorst;
         if(!emergency&&!improves)continue;
-        all.push({assessment:reading,proposal:{bases:candidate,warnings:[...new Set([...warnings,...tuned.warnings||[],
+        all.push({assessment:reading,proposal:{bases:candidate,warnings:[...new Set([...warnings,...candidateWarnings,
           ...(emergency?['战况压倒性劣势，优先尝试基地航空队支援道中；战况仅为有限场景参考']:
             improvesWorst?['两种方案的通关参考接近，按道中风险场景择优；样本有限，不保证实战改善']:[])])]}});
       }
@@ -82,9 +91,38 @@ function createLandBaseCombatSelector({assess=require('./combat_assessment').ass
         (worstEnroute(a.assessment)??Infinity)-(worstEnroute(b.assessment)??Infinity));best=all[0];}
       else if(emergency&&fallback)best=fallback;
       else if(emergency)best.proposal.warnings=[...new Set([...warnings,'战况压倒性劣势，但未找到可确认的道中支援方案，请检查飞机航程和手动锁定'])];
+      // Refit once more against the chosen plan so both the forward and Boss
+      // teams can improve. Rebuild inventory each time; the second fit must
+      // not borrow a plane already selected by the first one.
+      if(!exhausted&&best.proposal.bases!==bases&&valid(best.assessment)){
+        const baseline=best,reference=outcomes(baseline.assessment),improved=[];
+        const second=aircraft(store,{...options,bases:baseline.proposal.bases});
+        for(const candidate of second.slice(0,14)){
+          if(now()-started>=budgetMs){exhausted=true;break;}
+          if(emergency&&!hasForwardSupport(candidate,original.diagnostics.target.id))continue;
+          const candidateKey=JSON.stringify(candidate);if(seen.has(candidateKey))continue;seen.add(candidateKey);
+          const reading=assess({store,report,option,dirty:false,landBases:candidate,cacheVersion,bypassCache:!key});
+          if(now()-started>=budgetMs){exhausted=true;break;}
+          if(!valid(reading)||reading.diagnostics.journeys.samples!==baseline.assessment.diagnostics.journeys.samples||
+            reading.diagnostics.target.id!==baseline.assessment.diagnostics.target.id)continue;
+          const after=outcomes(reading);if(!reference||!after||reference.key!==after.key)continue;
+          const beforeWorst=worstEnroute(baseline.assessment),afterWorst=worstEnroute(reading);
+          const equal=after.arrivals===reference.arrivals&&after.sVictory===reference.sVictory;
+          if(after.arrivals>reference.arrivals||after.arrivals===reference.arrivals&&after.sVictory>reference.sVictory||
+            equal&&beforeWorst!==null&&afterWorst!==null&&afterWorst<beforeWorst)
+            improved.push({assessment:reading,proposal:{bases:candidate,warnings:[...new Set([...baseline.proposal.warnings,
+              '基地飞机组合按有限战况场景比较'])]}});
+        }
+        if(!exhausted&&improved.length){improved.sort((a,b)=>outcomes(b.assessment).arrivals-outcomes(a.assessment).arrivals||
+          outcomes(b.assessment).sVictory-outcomes(a.assessment).sVictory||
+          (worstEnroute(a.assessment)??Infinity)-(worstEnroute(b.assessment)??Infinity));best=improved[0];}
+      }
+      if(exhausted){incomplete=true;best.proposal.warnings=[...new Set([...best.proposal.warnings,'基地飞机组合比较超时，已保留此前方案，请重试'])];}
+    }else if(valid(original)){
+      incomplete=true;best.proposal.warnings=[...new Set([...best.proposal.warnings,'基地飞机组合比较超时，已保留此前方案，请重试'])];
     }
     const timedOut=best.assessment?.status==='unknown'&&best.assessment.reasons?.some(reason=>reason.includes('超过时间预算'));
-    if(key&&!timedOut){if(cache.size>=8)cache.delete(cache.keys().next().value);cache.set(key,best);}
+    if(key&&!timedOut&&!incomplete){if(cache.size>=8)cache.delete(cache.keys().next().value);cache.set(key,best);}
     return best;
   };
 }

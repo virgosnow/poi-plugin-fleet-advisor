@@ -3,6 +3,7 @@
 // Radius and combat calculations are delegated to the shared base evaluator.
 const {maps}=require('../../data/sortie/land_base/maps.json');
 const land=require('../domain/combat/land_base');
+const {sortBases,createBaseSorter}=require('./land_base_order');
 const {eligiblePlane}=require('../domain/fleet/airbase_relocation');
 const RECON_TYPES=new Set([9,10,41,49,59,94]);
 const SURFACE_TYPES=new Set([7,8,11,47,53,57,58,91]);
@@ -182,7 +183,8 @@ function shortlist(rows,target,oldIds,score=itemScore){
   const result=[...picked.values()];
   return result;
 }
-function candidateFor(store,base,target,available,lockedSlots,requiredTargets=[]){
+function candidateFor(store,base,target,available,lockedSlots,requiredTargets=[],shape=null,evaluationCache=null){
+  const sortCandidate=createBaseSorter(store,lockedSlots);
   const locked=new Set((lockedSlots||[]).filter(s=>Number(s.rid)===Number(base.rid)).map(s=>Number(s.slotId)));
   const input=Array.isArray(base.slots)?base.slots:[];if(input.length!==4||input.some(slot=>slot?.itemId==null))return null;
   const fixed=input.map((s,i)=>!!s?.locked||locked.has(Number(s?.slotId??i+1)));
@@ -198,22 +200,33 @@ function candidateFor(store,base,target,available,lockedSlots,requiredTargets=[]
   const categories=new Map();
   for(const id of new Set([...oldIds,...pool.map(row=>row.itemId)])){
     const item=store?.info?.equips?.[id],master=store?.const?.$equips?.[item?.api_slotitem_id],type=typeOf(master);
-    categories.set(id,{fighter:[6,45,48,56].includes(type),recon:RECON_TYPES.has(type),asw:ASW_TYPES.has(type)&&Number(master?.api_tais)>=7,attack:SURFACE_TYPES.has(type),distance:Number(master?.api_distance)});
+    const attack=!!master&&attackScore({master,item},target)>0;
+    categories.set(id,{fighter:[6,45,48,56].includes(type),recon:RECON_TYPES.has(type),asw:ASW_TYPES.has(type)&&Number(master?.api_tais)>=7,
+      attack,landAttack:attack&&[47,53].includes(type),distance:Number(master?.api_distance)});
   }
+  const fitsShape=(slots,remaining)=>{
+    if(!shape)return true;
+    const counts={fighter:0,recon:0,attack:0,landAttack:0};
+    for(const slot of slots){const c=categories.get(Number(slot.itemId));if(c)for(const key of Object.keys(counts))if(c[key])counts[key]++;}
+    return Object.entries(shape).every(([key,wanted])=>counts[key]<=wanted&&counts[key]+remaining>=wanted);
+  };
   let beams=[{slots:[],used:initiallyUsed,rough:0}];
   for(let i=0;i<4;i++){
     const old=input[i];if(fixed[i]){beams=beams.map(b=>({...b,slots:b.slots.concat({...old,locked:true})}));continue;}
-    const next=[];for(const beam of beams){
+    let next=[];for(const beam of beams){
       next.push({slots:beam.slots.concat(emptySlot(old,i)),used:beam.used,rough:beam.rough});
       for(const row of pool){if(beam.used.has(row.itemId))continue;
         const used=new Set(beam.used);used.add(row.itemId);
         next.push({slots:beam.slots.concat(draftSlot(row,old,i)),used,rough:beam.rough+bestScore.get(row.itemId)});
       }
     }
+    // Discard shapes that cannot possibly meet this role before sorting the
+    // beam. Most permutations are irrelevant to a constrained comparison.
+    if(shape)next=next.filter(beam=>fitsShape(beam.slots,4-beam.slots.length));
     next.sort((a,b)=>b.rough-a.rough);
     // Preserve materially different fighter/recon/ASW structures; retaining
     // only the highest attack totals would prune every useful escort fighter.
-    const groups=new Map(),direct=[],extended=[],needed=Math.max(...targets.map(node=>node.radius));
+    const direct=new Map(),extended=new Map(),needed=Math.max(...targets.map(node=>node.radius));
     for(const beam of next){
       let fighters=0,recon=0,asw=0,attack=0,directRange=true;
       for(const slot of beam.slots){const category=categories.get(Number(slot.itemId));
@@ -222,10 +235,19 @@ function candidateFor(store,base,target,available,lockedSlots,requiredTargets=[]
       // Reserve half the beam for aircraft that can reach without extension.
       // Otherwise dozens of stronger short-range interceptors crowd out every
       // feasible Boss combination before range is checked.
-      const lane=directRange?direct:extended,key=`${directRange}:${fighters}:${recon}:${asw}:${attack}`,count=groups.get(key)||0;
-      if(count>=4||lane.length>=30)continue;groups.set(key,count+1);lane.push(beam);
+      const lane=directRange?direct:extended,key=`${fighters}:${recon}:${asw}:${attack}`;
+      let group=lane.get(key);if(!group){group={rows:[],seen:new Set()};lane.set(key,group);}
+      // Slot permutations of the same aircraft should not occupy all four
+      // places for a composition before scouts or other aircraft can compete.
+      const signature=beam.slots.map(slot=>Number(slot.itemId)||0).sort((a,b)=>a-b).join(',');
+      if(group.rows.length>=4||group.seen.has(signature))continue;
+      group.seen.add(signature);group.rows.push(beam);
     }
-    beams=direct.concat(extended);
+    // Admit each distinct composition before spending the remaining bounded
+    // beam on close alternatives. Raw attack scores alone underprice scouts.
+    const take=groups=>{const rows=[];for(let rank=0;rank<4&&rows.length<30;rank++)
+      for(const group of groups.values())if(group.rows[rank]&&rows.length<30)rows.push(group.rows[rank]);return rows;};
+    beams=take(direct).concat(take(extended));
   }
   let best=null;const mixed=[];
   // Also compare the exact original outfit: missing range data can still be
@@ -233,13 +255,20 @@ function candidateFor(store,base,target,available,lockedSlots,requiredTargets=[]
   const original={...base,slots:input.map(slot=>({...slot}))};
   const allowed=new Set(available.map(row=>row.itemId));
   for(const slots of [original.slots,...beams.map(b=>b.slots)]){
+    if(!fitsShape(slots,0))continue;
     if(new Set(slots.filter(s=>validId(s.itemId)).map(s=>Number(s.itemId))).size!==slots.filter(s=>validId(s.itemId)).length)continue;
     if(slots.some(s=>validId(s.itemId)&&!allowed.has(Number(s.itemId))))continue;
     const changed=slots.some((slot,i)=>Number(slot.itemId)!==Number(input[i].itemId));
-    const candidate={...base,slots,...(changed?{range:null,api_distance:null}:{})};
-    const evaluated=scoreSquadron(store,candidate,target);if(!evaluated)continue;
-    if(requiredTargets.some(node=>!scoreSquadron(store,candidate,node)))continue;
-    const adjustments=slots.filter((s,i)=>Number(s.itemId)!==Number(input[i].itemId)).length;
+    const candidate=sortCandidate([{...base,slots,...(changed?{range:null,api_distance:null}:{})}])[0];
+    const cacheKey=evaluationCache?JSON.stringify(candidate):null;
+    let evaluated=evaluationCache?.get(cacheKey);
+    if(evaluated===undefined){
+      evaluated=scoreSquadron(store,candidate,target);
+      if(evaluated&&requiredTargets.some(node=>!scoreSquadron(store,candidate,node)))evaluated=null;
+      evaluationCache?.set(cacheKey,evaluated);
+    }
+    if(!evaluated)continue;
+    const adjustments=candidate.slots.filter((s,i)=>Number(s.itemId)!==Number(input[i].itemId)).length;
     const score=evaluated.score-adjustments*0.01;
     const entry={base:candidate,score,reading:evaluated.reading};
     if(!best||score>best.score)best=entry;
@@ -287,7 +316,7 @@ function defenseCandidate(store,base,available,lockedSlots){
     if(!row){slots.push(emptySlot(old,index));continue;}
     used.add(row.itemId);slots.push(draftSlot(row,old,index));total+=score(row);ready++;
   }
-  return ready?{base:{...base,slots,mode:2,modePlanned:true,targets:[]},score:total,ready}:null;
+  return ready?{base:sortBases(store,[{...base,slots,mode:2,modePlanned:true,targets:[]}],lockedSlots)[0],score:total,ready}:null;
 }
 // Validate a hypothetical plan against the latest live snapshot.  In
 // particular, planned equipment is not assumed to have been deployed yet;
@@ -311,6 +340,18 @@ function validatePlan(store,{area,bases,scheme}={}){
       const id=Number(s.api_slotid),sources=observedItems.get(id)||[];
       sources.push({areaId,rid,slotId:Number(s.api_squadron_id),slot:s});observedItems.set(id,sources);
     }
+  }
+  const crossCounts=new Map();
+  for(const base of bases)for(const slot of Array.isArray(base?.slots)?base.slots:[]){
+    const source=(observedItems.get(Number(slot?.itemId))||[])[0];
+    if(source&&source.areaId===Number(base.areaId)&&source.rid!==Number(base.rid)){
+      const key=`${source.areaId}:${source.rid}:${Number(base.rid)}`;
+      crossCounts.set(key,(crossCounts.get(key)||0)+1);
+    }
+  }
+  for(const [key,count] of crossCounts){
+    const [areaId,from,to]=key.split(':');
+    if((crossCounts.get(`${areaId}:${to}:${from}`)||0)!==count){issues.push('跨队换装须与同海域已就绪飞机直接交换');break;}
   }
   const claims=new Map();
   for(const b of bases)for(const slot of Array.isArray(b?.slots)?b.slots:[])if(validId(slot?.itemId)){
@@ -358,7 +399,17 @@ function validatePlan(store,{area,bases,scheme}={}){
       if(occupiedShips.has(instanceId))issues.push(`${prefix}装备被舰队占用`);
       if(!sources.length&&store?.airbaseSync?.complete!==true)issues.push(`${prefix}装备归属尚未完整同步`);
       if(sources.length>1)issues.push(`${prefix}当前基地装备归属存在冲突`);
-      if(sources.some(source=>source.areaId!==areaId||source.rid!==rid))issues.push(`${prefix}装备由其他基地占用`);
+      if(sources.some(source=>source.areaId!==areaId))issues.push(`${prefix}装备由其他海域基地占用`);
+      if(source&&source.areaId===areaId&&source.rid!==rid){
+        const other=bases.find(row=>Number(row.areaId)===areaId&&Number(row.rid)===source.rid);
+        const returned=other?.slots?.find(row=>(observedItems.get(Number(row.itemId))||[])
+          .some(origin=>origin.areaId===areaId&&origin.rid===rid&&Number(origin.slot.api_state)===1));
+        // Within one airbase group the game permits an occupied-slot swap.
+        // The exchange can precede subsequent reordering within either team;
+        // the balanced cross-team counts above still require a return plane.
+        if(Number(source.slot.api_state)!==1||!returned)
+          issues.push(`${prefix}跨队换装须与同海域已就绪飞机直接交换`);
+      }
       if(slot.planned&&source&&(Number(source.slot.api_state)!==1||!positive(source.slot.api_count)||source.slot.api_count<=0))
         issues.push(`${prefix}来源飞机尚未就绪`);
       if(targetNodes.length&&(!Number.isInteger(slot.count)||slot.count<=0||!Number.isInteger(slot.maxCount)||slot.maxCount<=0||slot.count>slot.maxCount))
@@ -469,7 +520,7 @@ function recommendLandBases(store,{area,routeNodes,scheme,bases,lockedSlots=[]}=
     const {base,lockedTargets,best}=proposals[0];remaining.splice(remaining.indexOf(base),1);chosen.add(base);
     Object.assign(base,best.base,{mode:1,modePlanned:true,targets:lockedTargets||[best.target.id,best.target.id]});
     for(const slot of base.slots)if(validId(slot.itemId))used.add(Number(slot.itemId));
-    if(base.slots.some(slot=>slot.planned))warnings.push(`第 ${base.rid} 航空队换装后需完成转场和补给`);
+    if(base.slots.some(slot=>slot.planned&&!slot.withinBase))warnings.push(`第 ${base.rid} 航空队换装后需完成转场和补给`);
     if(best.target.enemyAir===null)warnings.push(`${best.target.id} 点敌方制空资料待确认`);
     warnings.push(...best.reading.reasons);
   }
@@ -489,16 +540,103 @@ function recommendLandBases(store,{area,routeNodes,scheme,bases,lockedSlots=[]}=
       const {original,planned}=defenders[0];Object.assign(original,planned.base);
       if(raidNotStarted||cleared)warnings.push('当前血条阶段没有基地空袭，防空方案可供后续攻略使用');
       if(planned.ready<4)warnings.push(`防空航空队仅有 ${planned.ready} 槽可用战斗机`);
-      if(planned.base.slots.some(slot=>slot.planned))warnings.push(`第 ${planned.base.rid} 航空队防空换装后需完成转场和补给`);
+      if(planned.base.slots.some(slot=>slot.planned&&!slot.withinBase))warnings.push(`第 ${planned.base.rid} 航空队防空换装后需完成转场和补给`);
     }else if(defenseAvailable&&remaining.some(base=>Number(base.rid)===defenseRid&&!base.targetsLocked&&!base.modeLocked))
       warnings.push('未找到可确认就绪的防空战斗机');
   }
-  return {status:chosen.size&&!warnings.length?'ready':warnings.length?'partial':'unknown',bases:result,warnings:unique(warnings)};
+  return {status:chosen.size&&!warnings.length?'ready':warnings.length?'partial':'unknown',bases:sortBases(store,result,lockedSlots),warnings:unique(warnings)};
 }
 // Assign already-fitted aircraft from a bounded, fleet-specific reference.
 // This does not run a new aircraft search or treat scenario counts as actual
 // probabilities. The recorded route is one conservative reachable branch;
 // nodes with missing or zero visits cannot be asserted safe or dangerous.
+function aircraftAlternatives(store,{area,routeNodes,bases,scheme}={}){
+  const map=mapFor(area);
+  if(!map||!Array.isArray(bases)||!Array.isArray(routeNodes))return [];
+  const nodes=withBaseAirTargets(store,area,nodesFor(area,routeNodes)),byId=new Map(nodes.map(node=>[node.id,node]));
+  // Compare en-route squadrons first, then Boss squadrons. Keep each base's
+  // exact target waves, manual slot locks, and the other teams' equipment.
+  const active=bases.filter(base=>base.targets?.some(Boolean)).slice().sort((a,b)=>
+    Number(!a.targets.some(id=>id&&!map.bossNodes.includes(id)))-Number(!b.targets.some(id=>id&&!map.bossNodes.includes(id)))||a.rid-b.rid);
+  const perBase=[];
+  for(const base of active){
+    if(!Array.isArray(base.slots)||base.slots.length!==4)continue;
+    const targets=unique(base.targets.filter(Boolean)).map(id=>byId.get(id));
+    if(!targets.length||targets.some(node=>!node)||targets.some(node=>node.kind==='aerialRaid'))continue;
+    // A split sortie can cover an ASW node and a surface node. Optimize its
+    // surface attack while still requiring an eligible ASW aircraft for the
+    // other wave; a purely ASW team uses its existing specialized planner.
+    targets.sort((a,b)=>Number(a.kind==='asw')-Number(b.kind==='asw'));
+    if(targets[0].kind==='asw')continue;
+    const available=inventory(store,{area,bases,scheme,baseRid:base.rid});
+    const evaluationCache=new Map();
+    const fits=[null,{landAttack:3,attack:3,fighter:1,recon:0},{landAttack:3,attack:3,fighter:0,recon:1},
+      {landAttack:4,attack:4,fighter:0,recon:0},{landAttack:2,attack:2,fighter:1,recon:1}]
+      .map(shape=>candidateFor(store,base,targets[0],available,[],targets.slice(1),shape,evaluationCache)).filter(Boolean);
+    const current=JSON.stringify(base.slots.map(slot=>slot.itemId)),seen=new Set([current]),rows=[];
+    for(const entry of fits){
+      const signature=JSON.stringify(entry.base.slots.map(slot=>slot.itemId));if(seen.has(signature))continue;seen.add(signature);
+      const candidate=sortBases(store,bases.map(row=>row===base?{...entry.base,targets:base.targets.slice()}:row));
+      if(validatePlan(store,{area,bases:candidate,scheme}).valid)rows.push(candidate);
+    }
+    if(rows.length)perBase.push(rows);
+  }
+  const result=[];
+  for(let i=0;i<5;i++)for(const rows of perBase)if(rows[i])result.push(rows[i]);
+  // Compare a bounded number of reciprocal occupied-slot swaps across the
+  // same world's squadrons. Preserve held slots and never infer a move to an
+  // empty slot. The actual game state must still match both instances.
+  const observed=store?.info?.airbase||[],swaps=[];
+  const liveSlot=(base,slot)=>observed.find(row=>Number(row.api_area_id)===Number(base.areaId)&&Number(row.api_rid)===Number(base.rid))
+    ?.api_plane_info?.find(row=>Number(row.api_squadron_id)===Number(slot.slotId));
+  for(const team of active){
+    if(!Array.isArray(team.slots))continue;
+    const target=byId.get(team.targets.find(Boolean));if(!target||target.kind==='asw'||target.kind==='aerialRaid')continue;
+    const before=scoreSquadron(store,team,target);if(!before)continue;
+    const choices=[],pairs=[];
+    for(const other of bases){
+      if(other===team||Number(other.areaId)!==Number(team.areaId)||!Array.isArray(other.slots))continue;
+      for(const left of team.slots)for(const right of other.slots){
+        if(left.locked||right.locked||!validId(left.itemId)||!validId(right.itemId))continue;
+        const actualLeft=liveSlot(team,left),actualRight=liveSlot(other,right);
+        if(Number(actualLeft?.api_slotid)!==Number(left.itemId)||Number(actualRight?.api_slotid)!==Number(right.itemId)||
+          Number(actualLeft.api_state)!==1||Number(actualRight.api_state)!==1||
+          Number(actualLeft.api_count)!==Number(left.count)||Number(actualRight.api_count)!==Number(right.count))continue;
+        const row=slot=>{const item=store.info.equips[slot.itemId];return {item,master:store.const.$equips[item?.api_slotitem_id],source:'base'};};
+        const old=row(left),incoming=row(right);if(!old.master||!incoming.master)continue;
+        pairs.push({other,left,right,rough:itemScore(incoming,target)-itemScore(old,target)});
+      }
+    }
+    pairs.sort((a,b)=>b.rough-a.rough);
+    for(const {other,left,right} of pairs.slice(0,12)){
+      const exchanged=(slot,plane)=>({...slot,itemId:plane.itemId,count:plane.count,maxCount:plane.maxCount,
+        state:plane.state,planned:true,withinBase:true});
+      const candidate=sortBases(store,bases.map(base=>base===team?{...base,range:null,slots:base.slots.map(slot=>slot===left?exchanged(slot,right):slot)}:
+        base===other?{...base,range:null,slots:base.slots.map(slot=>slot===right?exchanged(slot,left):slot)}:base));
+      const updated=candidate.find(base=>base.rid===team.rid),scored=scoreSquadron(store,updated,target);
+      if(!scored||!validatePlan(store,{area,bases:candidate,scheme}).valid)continue;
+      // A swap must not silently make the other team's ASW or surface wave
+      // unusable, including when it has two different locked destinations.
+      const losesCapability=[team,other].some(previous=>{
+        const next=candidate.find(base=>base.rid===previous.rid);
+        return (previous.targets||[]).filter(Boolean).some(id=>{
+          const node=byId.get(id);return node&&scoreSquadron(store,previous,node)&&!scoreSquadron(store,next,node);
+        });
+      });
+      if(losesCapability)continue;
+      // Base-raid defense is outside the route simulation.
+      if(!other.targets?.some(Boolean)&&Number(other.mode)===2){
+        const defense=require('../domain/combat/land_base_defense');
+        const old=defense.defenseAirPower(store,other).airPower,newValue=defense.defenseAirPower(store,candidate.find(base=>base.rid===other.rid)).airPower;
+        if(!old||!newValue||newValue.min<old.min)continue;
+      }
+      choices.push({candidate,score:scored.score-before.score});
+    }
+    choices.sort((a,b)=>b.score-a.score);swaps.push(...choices.slice(0,2).map(row=>row.candidate));
+  }
+  result.push(...swaps);
+  return result;
+}
 function prioritizeTargets(store,{area,routeNodes,bases,scheme,diagnostics}={}){
   const map=mapFor(area),samples=diagnostics?.journeys?.samples;
   if(!map||!Array.isArray(bases)||!Array.isArray(diagnostics?.nodes)||!Number.isInteger(samples)||samples<=0)
@@ -531,7 +669,7 @@ function prioritizeTargets(store,{area,routeNodes,bases,scheme,diagnostics}={}){
         const available=inventory(store,{area,bases,scheme,baseRid:bossTeam.rid});
         const fit=candidateFor(store,bossTeam,boss,available,[],[node]);
         if(fit){selected=fit.base;reading=fit.reading;
-          if(selected.slots.some(slot=>slot.planned))warnings.push(`第 ${bossTeam.rid} 航空队换装后需完成转场和补给`);}
+          if(selected.slots.some(slot=>slot.planned&&!slot.withinBase))warnings.push(`第 ${bossTeam.rid} 航空队换装后需完成转场和补给`);}
       }
       if(!scoreReading(store,reading,node)||!scoreReading(store,reading,boss))continue;
       const targets=order([node.id,bossId]);
@@ -559,7 +697,7 @@ function prioritizeTargets(store,{area,routeNodes,bases,scheme,diagnostics}={}){
       const fit=candidateFor(store,base,risks[0].node,available,[],preserve)||
         (preserve.length?candidateFor(store,base,risks[0].node,available,[],[]):null);
       if(fit){selected=fit.base;reading=fit.reading;
-        if(selected.slots.some(slot=>slot.planned))warnings.push(`第 ${base.rid} 航空队换装后需完成转场和补给`);}
+        if(selected.slots.some(slot=>slot.planned&&!slot.withinBase))warnings.push(`第 ${base.rid} 航空队换装后需完成转场和补给`);}
     }
     const eligible=risks.filter(({node})=>scoreReading(store,reading,node));
     if(!eligible.length)return base;
@@ -575,4 +713,4 @@ function prioritizeTargets(store,{area,routeNodes,bases,scheme,diagnostics}={}){
   return {bases:changed?next:bases,changed,warnings,alternatives};
 }
 module.exports={eligiblePlane,planeCapacity,inventory,sourceBases,nodesFor,nodeRadius:land.nodeRadius,
-  inspectSquadron:land.inspectSquadron,validatePlan,recommendLandBases,prioritizeTargets};
+  inspectSquadron:land.inspectSquadron,validatePlan,recommendLandBases,aircraftAlternatives,prioritizeTargets};

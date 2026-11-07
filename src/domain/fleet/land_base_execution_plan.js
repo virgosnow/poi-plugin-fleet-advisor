@@ -42,7 +42,9 @@ function planLandBases(store,{area,bases}={}){
         const plane=items[wanted],master=masters[plane?.api_slotitem_id],source=owner.get(wanted);
         if(!plane||!eligiblePlane(master))throw Error('飞机实例资料不足或不可配备');
         if(busy.has(wanted)||fleetItems.has(wanted))throw Error('飞机正在转场或由舰娘占用');
-        if(source&&(source.areaId!==map.baseAreaId||source.rid!==target.rid||source.state!==1))throw Error('飞机由其他基地占用或尚未就绪');
+        if(source&&source.areaId===map.baseAreaId&&source.rid!==target.rid)
+          throw Error('同海域跨队飞机交换暂不支持自动应用，请先在游戏中直接交换');
+        if(source&&(source.areaId!==map.baseAreaId||source.state!==1))throw Error('飞机由其他基地占用或尚未就绪');
       }
       return wanted;
     });

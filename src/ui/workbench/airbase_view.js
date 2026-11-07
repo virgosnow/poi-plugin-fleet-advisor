@@ -79,7 +79,7 @@ function model(store,area,draft){
         const relocation=(store.info?.airbaseRelocations||[]).find(row=>row.itemId===id);
         return {number:i+1,item,unknown:id===null,name:id===null?'资料待同步':id===0?'空槽':item?.tooltip.replace(/^.*? · /,'')||'飞机资料待同步',
           count:id>0?`${count===null?'?':count}/${max===null?'?':max}`:null,
-          state:Number(slot?.api_state)===2?'转场中':edit?.planned?'转场补给后参考':id>0&&slot?.api_state!==1?'状态待确认':null,
+          state:Number(slot?.api_state)===2?'转场中':edit?.planned?(edit.withinBase?'交换后参考':'转场补给后参考'):id>0&&slot?.api_state!==1?'状态待确认':null,
           relocationStartedAt:Number.isFinite(relocation?.startedAt)?relocation.startedAt:null};
       })};
   })};
@@ -89,12 +89,25 @@ function render(h,EquipmentIcon,store,area,editor){
   if(!view)return null;
   const warnings=visibleWarnings(editor?.warnings);
   if(store.airbaseSync?.relocationsComplete===false)warnings.push('飞机转场状态待同步，请返回母港');
+  const crossSwap=editor?.bases?.some(base=>(base.slots||[]).some(slot=>slot.planned&&slot.withinBase&&
+    (store.info?.airbase||[]).some(row=>Number(row.api_area_id)===Number(base.areaId)&&Number(row.api_rid)!==Number(base.rid)&&
+      (row.api_plane_info||[]).some(plane=>Number(plane.api_slotid)===Number(slot.itemId)))));
+  if(crossSwap)warnings.push('同海域跨队交换请在游戏中直接完成，暂不支持自动应用');
   const modeBadge=base=>{
     const planned=base.mode.endsWith('方案'),mode=planned?base.mode.slice(0,-2):base.mode;
     return h('span',{className:'paa-airbase-mode','data-mode':mode,'aria-label':`${base.name}：${mode}`},mode);
   };
-  const airMetric=base=>h('span',{className:'paa-airbase-air','data-tooltip':base.air.tooltip,
-    'aria-label':`${base.air.label} ${base.air.value}`,tabIndex:0},h('span',null,'制空'),h('span',null,base.air.value));
+  const airMetric=(base,compact=false)=>h('span',{className:'paa-airbase-air',
+    'data-tooltip':compact&&Number.isFinite(base.air.power?.min)&&base.air.power.min!==base.air.power.max?`${base.air.tooltip}\n摘要显示下限`:base.air.tooltip,
+    'aria-label':`${base.air.label} ${base.air.value}`,tabIndex:0},h('span',null,'制空'),
+    h('span',null,compact&&Number.isFinite(base.air.power?.min)?base.air.power.min:base.air.value));
+  const targetMetric=base=>{
+    const targets=base.targets.slice(0,2),hasTarget=targets.some(Boolean);
+    const value=hasTarget?[0,1].map(index=>targets[index]||'—').join('/'):'—';
+    const detail=hasTarget?[0,1].map(index=>`第 ${index+1} 波：${targets[index]?`${targets[index]} 点`:'未指定'}`).join('；'):'攻击目标未指定';
+    return h('span',{className:'paa-airbase-summary-target','data-tooltip':detail,'aria-label':detail,tabIndex:0},
+      h('span',null,'目标'),h('span',null,value));
+  };
   const rangeMetric=base=>{
     const value=base.distance===null?'待确认':base.distance;
     return h('span',{className:'paa-airbase-range','data-tooltip':`航程 ${value}`,'aria-label':`航程 ${value}`,tabIndex:0},
@@ -115,7 +128,7 @@ function render(h,EquipmentIcon,store,area,editor){
         h('div',{className:'paa-airbase-summary-collapse'},
           h('div',{className:'paa-airbase-summary'},...view.bases.map(base=>
             h('span',{className:'paa-airbase-summary-unit',key:base.id,title:base.name},
-              h('strong',null,`${base.id} 队`),modeBadge(base),airMetric(base),rangeMetric(base))))),
+              h('strong',null,`${base.id} 队`),modeBadge(base),airMetric(base,true),targetMetric(base))))),
         h('svg',{className:'paa-airbase-chevron',viewBox:'0 0 16 16',width:14,height:14,fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
           h('path',{d:'m4 6 4 4 4-4'}))),
       h('div',{className:'paa-airbase-list'},...view.bases.map(base=>{

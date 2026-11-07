@@ -38,7 +38,8 @@ test('only supported maps show their own area bases with aircraft and observed s
   assert(details);assert.equal(details.props.open,undefined,'the details are folded by default');
   const summary=find(details,node=>node.type==='summary');
   assert.match(text(summary),/1 队.*防空/,'the folded summary retains the squadron status');
-  assert(find(summary,node=>node.props['aria-label']==='航程 6'));
+  assert(!find(summary,node=>node.props['aria-label']==='航程 6'),'range remains in expanded details');
+  assert(find(summary,node=>node.props['aria-label']==='攻击目标未指定'));
   assert(!text(summary).includes('测试陆攻'),'aircraft details appear only inside the collapsed content');
   assert(find(details,node=>node.props.className==='paa-airbase-list'));
   assert.equal(find(tree,node=>node.type==='button'),undefined);
@@ -114,6 +115,29 @@ test('base squadron air values follow sortie or defense plans and update with ai
   assert.equal(JSON.stringify(store),before);
 });
 
+test('folded three-base summary shows one air value and the two planned target waves',()=>{
+  const store=fixture();
+  store.const.$equips[501]={api_name:'测试陆攻',api_type:[0,0,47],api_tyku:3,api_raig:10,api_distance:8};
+  store.info.equips[1001]={api_slotitem_id:501,api_level:0,api_alv:7};
+  const planes=Array.from({length:4},(_,i)=>({api_squadron_id:i+1,api_slotid:i?0:1001,api_count:i?0:18,api_max_count:18,api_state:i?0:1}));
+  store.info.airbase=[1,2,3].map(id=>({api_area_id:6,api_rid:id,api_action_kind:id===3?2:1,api_distance:8,api_plane_info:planes}));
+  const slots=planes.map(row=>({slotId:row.api_squadron_id,itemId:row.api_slotid,count:row.api_count,maxCount:row.api_max_count,state:row.api_state}));
+  const bases=[{rid:1,areaId:6,slots,targets:['M','M']},{rid:2,areaId:6,slots,targets:['C','']},{rid:3,areaId:6,slots,targets:[]}];
+  const model=view.model(store,'6-5',bases),tree=view.render(h,()=>null,store,'6-5',{bases,targets:[]});
+  const summary=find(tree,node=>node.type==='summary'),unit=find(summary,node=>node.props.className==='paa-airbase-summary-unit');
+  const air=find(unit,node=>node.props.className==='paa-airbase-air');
+  assert(model.bases[0].air.power.min<model.bases[0].air.power.max);
+  assert.equal(text(air),`制空${model.bases[0].air.power.min}`);
+  assert.match(air.props['data-tooltip'],/摘要显示下限/);
+  assert.match(air.props['data-tooltip'],new RegExp(model.bases[0].air.value));
+  assert.match(text(summary),/1 队.*出击.*目标M\/M.*2 队.*出击.*目标C\/—.*3 队.*防空.*目标—/);
+  assert(find(summary,node=>node.props['aria-label']==='第 1 波：C 点；第 2 波：未指定'));
+  assert.doesNotMatch(text(summary),/航程/);
+  const expanded=find(tree,node=>node.props.className==='paa-airbase-list');
+  assert.match(text(expanded),new RegExp(model.bases[0].air.value));
+  assert.match(text(expanded),/航程/);
+});
+
 test('compact controls keep their labels and omit repeated transfer and resupply explanations',()=>{
   const store=fixture();store.info.equips[1001]={api_slotitem_id:501,api_level:0,api_alv:7};
   store.const.$equips[501]={api_name:'测试陆攻',api_type:[0,0,47],api_tyku:3,api_raig:10,api_distance:8};
@@ -124,6 +148,9 @@ test('compact controls keep their labels and omit repeated transfer and resupply
   let changed;const warnings=['第 1 航空队换装后需完成转场和补给','C 点资料待确认'];
   const tree=view.render(h,()=>null,store,'6-4',{bases:[draft],targets:[{id:'C',label:'C 点'},{id:'N',label:'N 点 · Boss'}],warnings,
     onTarget:(...args)=>{changed=args;},onEditSlot(){}});
+  const summary=find(tree,node=>node.type==='summary');
+  assert(find(summary,node=>node.props['aria-label']==='第 1 波：C 点；第 2 波：N 点'));
+  assert.match(text(summary),/目标C\/N/);
   assert.doesNotMatch(text(tree),/转场|补给后|需在游戏中配置/);
   assert.match(text(tree),/C 点资料待确认/,'real unknowns remain visible');
   assert(find(tree,node=>node.props['aria-label']?.startsWith('出击制空 ')));
