@@ -209,6 +209,7 @@ function deriveFriendlyAir(store,entry,{slotRemaining,nodeKind}={}){
     attacks.push({slot:s.slot,itemId:s.equipment.id,planesMin:s.range[0],planesMax:s.range[1],
       powerMin:min,powerMax:max,targetKinds:['surface'],installationTarget:'unknown',
       referencePlanes:mid.get(s.slot).planes,referencePowers:refs.length?refs:[0],
+      proficiencyRank:Number.isInteger(s.equipment.instance?.api_alv)?s.equipment.instance.api_alv:null,
       kind:s.equipment.type===8?'torpedo':'bomb'});
   }
   const status=reasons.length?'partial':'known';
@@ -258,7 +259,7 @@ function deriveEnemyAir(store,enemy,{slotRemaining,nodeKind}={}){
     if([57,58].includes(item.type)&&range[1]>0)reasons.push('敌方喷式强袭阶段未计入');
     attacks.push({slot,masterId:item.id,planesMin:range[0],planesMax:range[1],
       powerMin:Math.min(...low),powerMax:Math.max(...high),targetKinds:['surface'],
-      referencePlanes,referencePowers,
+      referencePlanes,referencePowers,aircraftType:item.type,aircraftStat:item.type===8?item.torpedo:item.bomb,
       submarineTarget:nodeKind==='aerialRaid'?'unknown':false,kind:item.type===8?'torpedo':'bomb'});
   }
   return {status:reasons.length?'partial':'known',attacks,reasons:[...new Set(reasons)],unresolvedAttack};
@@ -373,4 +374,4 @@ function aircraftAfterNode(reference,estimate,{pathIndex=0,nodeId,round=1,shipId
   }
   return {status:'estimated',slots,reason:'沿途制空及迎击损耗范围，非概率'};
 }
-module.exports={deriveFriendlyAir,deriveEnemyAir,aircraftAfterNode,enemyOpeningTorpedo,enemyAswPower};
+module.exports={deriveFriendlyAir,deriveEnemyAir,enemyPlanePower,aircraftAfterNode,enemyOpeningTorpedo,enemyAswPower};

@@ -63,3 +63,15 @@ test('unknown or invalid observed HP is explicitly flagged when full HP is used'
   store.info.ships[1].api_nowhp=31;reading=projectedHull(store,entry);
   assert.equal(reading.hpEstimated,true);assert.equal(reading.initialHp,30);
 });
+test('draft sonar and improved boiler contribute their post-cap torpedo evasion',()=>{
+  const store=require('../../helpers/workbench_fixture')(),ship=store.info.ships[1];
+  Object.assign(ship,{api_maxhp:30,api_nowhp:30,api_kaihi:[60,60],api_lucky:[20,20]});
+  store.const.$equips[100]={api_id:100,api_name:'四式水中聴音機',api_type:[0,0,14,14],api_houk:0};
+  store.const.$equips[101]={api_id:101,api_name:'新型高温高圧缶',api_type:[0,0,17,17],api_houk:3};
+  store.info.equips[201]={api_slotitem_id:100,api_level:4};
+  store.info.equips[202]={api_slotitem_id:101,api_level:9};
+  const entry={id:1,slots:[201,202],ex:0},reading=projectedHull(store,entry);
+  assert.equal(reading.evasion,63);assert.equal(reading.torpedoEvasionBonus,7.5);
+  const without=projectedHull(store,{...entry,slots:[-1,-1]});
+  assert.equal(without.evasion,60);assert.equal(without.torpedoEvasionBonus,0);
+});

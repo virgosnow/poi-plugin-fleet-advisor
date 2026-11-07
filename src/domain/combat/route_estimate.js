@@ -264,6 +264,12 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
     const prep=battle.prepareBattle(fleet,formation.ships,{kind:node.kind,
       escort:formation.escort,enemyFormation:enemyFormation(formation,fleet,node.kind),ownAir,ownAirSecond,enemyAir,ownNight,ownSpotting,hitModel:'route',includeNight,ground,
       ...(specialReady&&['battle','nightBattle'].includes(node.kind)?{special,ownFormation:special.formation}:{})});
+    if(prep.status!=='unknown'&&node.kind!=='nightBattle'&&launchingEnemyAir.some(r=>r.attacks?.length)){
+      const steps=[1,...(node.kind==='aerialCombat'?[2]:[])].map(round=>
+        airEstimate?.paths?.[pathIndex]?.steps?.find(row=>row.node===node.id&&row.round===round));
+      prep.fleetAirDefense=require('./fleet_air_defense').prepare(store,projected,prep.ownFormation,steps);
+      for(const reason of prep.fleetAirDefense.reasons)preflightAssumptions.add(`${node.id} 点：${reason}`);
+    }
     if(includeNight||node.kind==='nightBattle'){
       const step=airEstimate?.paths?.[pathIndex]?.steps?.find(row=>row.node===node.id&&row.round===1);
       const contact=friendlyNightContact(nightContact,step,{openingNight:node.kind==='nightBattle'});
@@ -284,6 +290,13 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
       const antiAir=require('../routes/route_air').antiAirEnvelope([{enemyShips:formation.ships,
         escortFleet:{enemyShips:formation.escort},formation:formation.formation}]);
       prep.landBase={...base,enemySlots,antiAir};
+      const modifiers=require('./land_base_target_modifiers');
+      const special=allEnemies.map(enemy=>modifiers.forTarget(enemy.apiId,enemy.kind==='installation')).filter(Boolean);
+      if(special.length&&base.waves.some(wave=>wave.slots.some(slot=>landBase.surfaceAttack.has(slot.type)))){
+        preflightAssumptions.add(`${node.id} 点：基地航空敌舰特效按英文 Wiki 两档倍率抽样；未确认的概率按等概率参考`);
+        if(special.some(rule=>rule.provisional))preflightAssumptions.add(`${node.id} 点：部分敌舰基地航空倍率仍待验证`);
+        if(allEnemies.some(enemy=>enemy.apiId===1586))preflightAssumptions.add(`${node.id} 点：空母栖姬基地航空倍率与日文资料有差异`);
+      }
       if(antiAir.status!=='known')preflightAssumptions.add(`${node.id} 点：${antiAir.reason||'敌方防空资料不足'}，陆航防空损耗待确认`);
     }
     for(const reason of base.reasons)preflightAssumptions.add(`${node.id} 点：${reason}`);
@@ -307,8 +320,11 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
   const supplyTracker=createSupplyTracker(store,scheme);
   let remainingAmmo=1,supply=supplyTracker.snapshot();const prepared=[],warnings=new Set(['按当前舰队及可达分支的较高威胁编成估计',
     '模型使用参考命中条件，不是实际通过率或大破率',
-    '航空损耗范围按中间架数参考，不代表实际损耗概率',
-    '敌方航空、昼炮和夜战命中按我方回避、士气及燃料参考；敌方昼炮／夜战命中项按100／80估算，其他未确认部分沿用固定参考',
+    '我方航空损耗和节点制空范围按中间值参考；敌机按制空与舰队防空逐槽估算，不代表实际事故率',
+    '敌方航空、昼炮、雷击和夜战命中按我方回避、士气及燃料参考；雷击计入双方阵形、威力及已知敌舰命中修正',
+    '敌舰等级、运和装备命中优先使用中文 Wiki 的参考资料（部分等级有争议）；未收录时基础命中项按100参考，未收录的固有雷击命中修正按0参考',
+    '暴击按参考命中和可确认熟练度估算；空母低熟练度暴击率、航空触接及部分修正未完整计入',
+    '索敌、交战形态及烟幕等仍未完整计入；敌舰固有雷击命中修正来自推测资料，实际命中可能不同',
     '昼战弹着按节点制空和飞机存活范围中间值参考；装备回避蓝字及部分命中补正未计',omittedBase]);
   if(!_singleBranch&&candidates.length>1)warnings.add('分支参考概率不完整，暂按较危险分支估计');
   for(const reason of preflightAssumptions)warnings.add(reason);

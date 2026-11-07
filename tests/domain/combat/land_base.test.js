@@ -29,6 +29,92 @@ test('land-based attack power and recon bonuses are separate from air power',()=
   assert(land.surfacePower(bomber,18,1.125)>land.surfacePower(bomber,18));
   assert.equal(land.surfacePower({type:53,torpedo:16,fire:0,stars:0},9),73,'heavy land aircraft is not an ordinary land bomber');
 });
+test('combined fleet, verified boss reference and land-plane critical modify actual attack power',()=>{
+  const bomber={type:47,torpedo:14,fire:14,stars:0,rank:7};
+  const normal=land.surfacePower(bomber,18);
+  assert.equal(normal,149);
+  assert.equal(land.surfacePower(bomber,18,1,false,{combined:true}),164);
+  const low=land.surfacePower(bomber,18,1,false,{combined:true,bossMultiplier:1.7});
+  const high=land.surfacePower(bomber,18,1,false,{combined:true,bossMultiplier:3});
+  const crit=land.surfacePower(bomber,18,1,false,{combined:true,bossMultiplier:3,criticalHit:true});
+  assert(low>normal);assert(high>low);assert(crit>high);
+  const weaker=land.surfacePower({...bomber,rank:0},18,1,false,{criticalHit:true});
+  assert(land.surfacePower(bomber,18,1,false,{criticalHit:true})>weaker);
+});
+test('6-5 boss special is applied in the actual wave, ordinary enemies do not inherit it',()=>{
+  const slot={itemId:1,slotId:1,count:18,type:47,aa:0,proficiency:[0,0],torpedo:14,fire:0,asw:0,stars:0,rank:7};
+  const wave={rid:1,slots:[slot],reconMultiplier:1},powers=[];
+  const run=(id,combined,referenceCritical,rng)=>{
+    powers.length=0;land.simulateWaves([wave],0,[{id,hp:1000,armor:0}], [1000],rng,
+      {combined,referenceCritical,hitDamage:p=>(powers.push(p),p),applyDamage:(_t,h,d)=>h-d});return powers[0];
+  };
+  const ordinary=run(1501,false,false,()=>.1),boss=run(1586,true,false,()=>.1);
+  assert.equal(ordinary,149);assert.equal(boss,279);
+  const critical=run(1586,true,true,()=>0);
+  assert(critical>boss);
+});
+test('enemy target modifiers use the documented IDs, rates and installation scope',()=>{
+  const modifiers=require('../../../src/domain/combat/land_base_target_modifiers');
+  const cases=[
+    [[1637,1638,1639,1640,2192,2193,2194],false,.4,.7,.6],
+    [[1557],false,1.7,3,.65],[[1696,1697,1698],false,1.5,1.8,.5],
+    [[1586],false,1.7,3,.5],[[1751],false,1.3,1.7,.5],
+    [[1665,1666,1667],true,1.6,2.5,.5],[[2178,2179,2196,2197],true,1.5,2.2,.5],
+    [[2180,2181],true,1.3,1.6,.5],[[2188,2189,2190,2191],true,1.4,1.8,.5],
+    [[1653,1654,1655,1656,1657,1658],true,1.7,3.5,.5],
+    [[1699,1700,1701,1702,1703,1704,2023,2024,2025,2026,2027,2028,2243,2244,2245],true,1.2,1.5,.5],
+    [[1671,1672],true,1.5,2,.5],
+  ];
+  for(const [ids,installation,low,high,probability] of cases)for(const id of ids){
+    assert.equal(modifiers.sample(id,installation,()=>probability-0.0001),low,`${id} low`);
+    assert.equal(modifiers.sample(id,installation,()=>probability),high,`${id} high`);
+    assert.equal(modifiers.sample(id,!installation,()=>0),1,`${id} wrong target kind`);
+  }
+  for(const id of [1501,1652,1659,1670,1673,1755,1760,2105,2108])
+    assert.equal(modifiers.sample(id,false,()=>{throw new Error('unknown or neutral enemy must not consume a random roll');}),1);
+  assert(modifiers.forTarget(1751,false).provisional);
+  assert(modifiers.forTarget(1671,true).assumedChance);
+});
+test('actual waves apply different enemy specials to aircraft types and keep ASW separate',()=>{
+  const slot={itemId:1,slotId:1,count:18,type:47,aa:0,proficiency:[0,0],torpedo:10,fire:10,asw:9,stars:0,rank:0};
+  function attack(id,installation,type=47,roll=.1,submarine=false){
+    const wave={rid:1,slots:[{...slot,type}],reconMultiplier:1},powers=[];
+    const draws=[0,.1,roll];
+    land.simulateWaves([wave],0,[{id,installation,submarine,armor:0}], [10000],()=>draws.shift()??0,
+      {hitDamage:p=>(powers.push(p),p),applyDamage:(_t,h,d)=>h-d});
+    return powers[0];
+  }
+  assert.equal(attack(1637,false),Math.floor(65*1.8*.4));
+  assert.equal(attack(1557,false,47,.64),Math.floor(65*1.8*1.7));
+  assert.equal(attack(1557,false,47,.65),Math.floor(65*1.8*3));
+  assert.equal(attack(1665,true),Math.floor(65*1.8*1.6));
+  assert.equal(attack(1665,true,47,.5),Math.floor(65*1.8*2.5));
+  assert.equal(attack(1586,false,7),Math.floor(81*1.7),'carrier bombers also receive the target modifier');
+  assert.equal(attack(1665,true,47,.1,true),attack(1501,true,47,.1,true),'ASW does not use surface-target specials');
+});
+test('real 6-4 enemy records retain the target identity and installation modifiers in battle',()=>{
+  const {enemyRecord}=require('../../../src/domain/combat/combat_encounters');
+  const {prepareBattle}=require('../../../src/domain/combat/combat_battle');
+  const modifiers=require('../../../src/domain/combat/land_base_target_modifiers');
+  const ship={status:'known',stype:2,hp:30,initialHp:30,armor:10,fire:40,torpedo:35,
+    intrinsicTorpedo:30,openingTorpedo:false,range:1,condition:49,submarine:false,hasAircraft:false,
+    asw:{status:'known',normal:true,opening:true,power:90,penetration:0}};
+  for(const [id,low,high] of [[1671,1.5,2],[1665,1.6,2.5],[1653,1.7,3.5]]){
+    const record=enemyRecord({apiId:id,apiIdStatus:'verified(test)'});
+    assert.equal(record.kind,'installation');
+    const prepared=prepareBattle([ship], [record]);
+    assert.equal(prepared.foes[0].id,id);
+    assert.equal(prepared.foes[0].installation,true);
+    assert.equal(modifiers.sample(prepared.foes[0].id,prepared.foes[0].installation,()=>0),low);
+    assert.equal(modifiers.sample(prepared.foes[0].id,prepared.foes[0].installation,()=>.9),high);
+  }
+});
+test('critical multiplier is applied after target and other post-cap modifiers',()=>{
+  const slot={type:47,torpedo:10,fire:10,stars:0,rank:0};
+  const proficiency=require('../../../src/domain/combat/critical_reference').plane(0).damageBonus;
+  assert.equal(land.surfacePower(slot,18,1,false,{combined:true,bossMultiplier:1.7,criticalHit:true}),
+    Math.floor(65*1.8*1.1*1.7*1.5*(1+proficiency)));
+});
 test('waves use the specific scout attack bonus even when air bonuses match',()=>{
   const bomber={itemId:101,slotId:1,count:18,type:47,aa:0,proficiency:[0,0],torpedo:10,fire:0,asw:0,stars:0};
   const recon={itemId:102,slotId:2,count:4,type:49,masterId:480,aa:0,proficiency:[0,0],stars:0};

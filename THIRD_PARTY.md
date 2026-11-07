@@ -54,6 +54,7 @@ MCP 服务采用 Node.js 内置 HTTP 实现，不捆绑协议 SDK 或客户端�
 | `data/normal_route_guides.json` | 根据带路与敌情独立编成分析、对照[日文 Wiki](https://wikiwiki.jp/kancolle/)修订的推荐预设；逐海域保留日文 Wiki 与[舰娘百科](https://zh.kcwiki.cn/)带路来源链接；游戏规则仍以 NGA 带路数据为准 |
 | `data/sortie/encounters/*.json` | [日文 Wiki](https://wikiwiki.jp/kancolle/)敌编成及血条，保留中文 Wiki 交叉核对 |
 | `data/sortie/enemy_catalog.json` | 敌舰身份、装备与属性资料 |
+| `data/sortie/enemy_accuracy.json` | [舰娘百科深海栖舰列表](https://zh.kcwiki.cn/wiki/深海栖舰列表)的等级、运和装备命中参考，按敌舰编号及日文名称与已有资料核对；保留来源差异 |
 | `data/sortie/adjudications.json` | 来源冲突、依据和裁定状态 |
 | `data/expedition_requirements.json` | 日文 Wiki 远征条件与解锁关系 |
 

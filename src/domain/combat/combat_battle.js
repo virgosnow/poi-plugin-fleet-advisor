@@ -5,7 +5,9 @@
 // https://wikiwiki.jp/kancolle/戦闘について
 const {cap}=require('./attack_power');
 const {fromRatio}=require('./combat_balance');
-const {enemyOpeningTorpedo,enemyAswPower}=require('./combat_air_asw');
+const {enemyOpeningTorpedo,enemyAswPower,enemyPlanePower}=require('./combat_air_asw');
+const fleetDefense=require('./fleet_air_defense');
+const critModel=require('./critical_reference');
 const {projectShip}=require('../fleet/fleet_metrics');
 const {nightAviation,carrierNightCutIn}=require('./ship_mechanisms');
 const nightCombat=require('./night_cutin');
@@ -14,7 +16,9 @@ const landBase=require('./land_base');
 const {fleetSpecialAttacks}=require('./special_attacks');
 const {groundAttackPower}=require('./combat_ground');
 const {rangeOrder}=require('./range_order');
+const {referenceHit,enemyTorpedoBonus}=require('./combat_hit');
 const catalog=new Map(require('../../../data/sortie/enemy_catalog.json').enemies.map(e=>[e.apiId,e]));
+const enemyAccuracy=require('../../../data/sortie/enemy_accuracy.json').enemies;
 const CARRIERS=new Set([7,11,18]),BATTLESHIPS=new Set([8,9,10,12]);
 const FINITE=n=>Number.isFinite(n)&&n>=0;
 const upper=value=>typeof value==='number'?value:FINITE(value?.max)?value.max:null;
@@ -64,6 +68,7 @@ function enemyActor(record,index,nodeKind,airReading,combined=false){
   const nightMode=torpedoes>=2?{multiplier:1.5,hits:2,rate:.4}:
     guns+secondaries>=2?{multiplier:1.2,hits:2,rate:.7}:null;
   return {side:'enemy',index,id:record.apiId,name:record.name||name,hp,armor,fire,torpedo,
+    torpedoAccuracyBonus:enemyTorpedoBonus(name),torpedoReferenceStats:enemyAccuracy[record.apiId]||null,
     range:RANGE[master?.stats?.射程]??null,submarine:type.submarine,carrier:type.carrier,
     battleship:type.battleship,installation:record.kind==='installation'||type.installation,aswCapable:possibleAsw,
     enemyAsw:asw,nightAsw,nightAswCapable,nightCarrier,nightBase:nightCarrier&&FINITE(nativeFire)?nativeFire+torpedo:null,
@@ -412,6 +417,7 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,fuel=1,trace,speci
     ...(prepared.combined?{enemyMainHp:ehp.slice(0,prepared.mainCount),enemyEscortHp:ehp.slice(prepared.mainCount)}:{}),severe:true,stopped:true,
     specialUsed:!!specialUsed,damageByEnemy,damageByOwn,enemyLost:0,ownLost:own.reduce((n,s,i)=>n+(s.hp-ohp[i])/s.hp,0)/own.length};
   let partial=false,stage='',nightTarget=null,nightBonuses={own:0,enemy:0},enemyAircraftRatio=1;
+  const enemyPlaneSlots=new Map();
   const startNightContact=()=>{
     const contact=prepared.practiceNightContact;if(!contact?.states?.length)return;
     const state=contact.states.length===1?contact.states[0]:contact.states[Math.floor(rng()*contact.states.length)];
@@ -471,11 +477,31 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,fuel=1,trace,speci
     for(let hit=0;hit<(spec.hits||1)&&defenderHp[target.i]>0;hit++){
       // Only route estimation opts into the incomplete enemy hit reference;
       // other callers retain their own existing assumptions.
-      const hit=prepared.hitModel==='route'?require('./combat_hit').referenceHit(attacker,target.s,
-        {phase,defenderFormation:prepared.ownFormation,fuel,combined:prepared.combined}):null;
-      if(rng()>=(hit??.75))continue;
+      const hit=prepared.hitModel==='route'?referenceHit(attacker,target.s,
+        {phase,defenderFormation:prepared.ownFormation,attackerFormation:formation,fuel,combined:prepared.combined,attackPower:spec.power}):null;
+      const enemyTorpedo=prepared.hitModel==='route'&&attacker.side==='enemy'&&['openingTorpedo','torpedo'].includes(phase);
+      if(enemyTorpedo&&hit===null){partial=true;return;}
+      const roll=rng();if(roll>=(hit??.75))continue;
+      // Hit and critical share one roll. Torpedo critical rate is based on
+      // the capped hit term and is an unconditional fraction of attacks.
+      let proficiency={rateBonus:0,damageBonus:0};
+      if(prepared.hitModel==='route'&&attacker.side==='own'){
+        if(phase==='air'&&spec.proficiency)proficiency=spec.proficiency;
+        else if(phase==='shelling'&&attacker.carrier){
+          // Only confirmed max-rank carrier-shelling rate bonuses are used;
+          // lower-rank damage bonuses use the midpoint of the visible range.
+          for(const plane of airByShip(prepared.ownAir,attacker.index).filter(row=>row.referencePlanes>0)){
+            const factor=plane.slot===0?1:.5,bonus=critModel.plane(plane.proficiencyRank,factor);
+            proficiency.damageBonus+=bonus.damageBonus;
+            if(plane.proficiencyRank===7)proficiency.rateBonus+=plane.slot===0?8:6;
+          }
+        }
+      }
+      const critical=prepared.hitModel==='route'?
+        roll<critModel.chance(phase,hit??.75,proficiency.rateBonus):
+        enemyTorpedo&&roll<(Math.floor(1.5*Math.sqrt(Math.max(0,hit*100-1)))+1)/100;
       const isAsw=phase==='asw'||phase==='openingAsw'||phase==='nightAsw';
-      const before=defenderHp[target.i],value=hitDamage(spec.power,target.s,rng,attacker.side==='own'?ammo:1,isAsw,isAsw?(attacker.asw?.penetration||0):0,before);
+      const before=defenderHp[target.i],value=hitDamage(critical?Math.floor(spec.power*1.5*(1+proficiency.damageBonus)):spec.power,target.s,rng,attacker.side==='own'?ammo:1,isAsw,isAsw?(attacker.asw?.penetration||0):0,before);
       defenderHp[target.i]=applyDamage(target.s,before,value,rng);
       if(record!==undefined)damageByEnemy[record]+=before-defenderHp[target.i];
       if(attacker.side==='own')damageByOwn[attacker.index]+=before-defenderHp[target.i];
@@ -512,17 +538,39 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,fuel=1,trace,speci
     const enemyLaunchers=prepared.combined?prepared.mainCount:enemy.length;
     for(let i=0;i<enemyLaunchers;i++)for(const p of airByShip(enemyAir,i))launches.push({side:'enemy',i,p});
     const ownBefore=ohp.slice(),enemyBefore=ehp.slice(),ownAfter=ohp.slice(),enemyAfter=ehp.slice();
+    const defense=prepared.fleetAirDefense,defenders=ownBefore.map((hp,i)=>hp>0?i:-1).filter(i=>i>=0);
+    const cutin=defense&&defenders.length&&launches.some(l=>l.side==='enemy')?fleetDefense.selectCutin(defense.cutins,ownBefore,rng):null;
     for(const launch of launches){
       const p=launch.p,lo=p.powerMin,hi=p.powerMax;if(!FINITE(lo)||!FINITE(hi)){partial=true;continue;}
       // Aircraft loss intervals are bounds, not a two-point distribution.
       // Friendly and enemy aircraft both use the midpoint-count reference;
       // a carrier torpedo may still have its two distinct attack-power modes.
       const ref=p.referencePowers;
-      let attack=Array.isArray(ref)&&ref.length&&ref.every(FINITE)?pick(ref,rng):rng()<.5?lo:hi;
+      let attack;
+      if(launch.side==='enemy'&&defense&&defenders.length&&Number.isInteger(p.slot)&&
+        Number.isInteger(p.planesMax)&&FINITE(p.aircraftStat)&&Number.isInteger(p.aircraftType)){
+        const key=`${launch.i}:${p.slot}`;
+        const before=enemyPlaneSlots.has(key)?enemyPlaneSlots.get(key):Math.floor(p.planesMax*enemyAircraftRatio);
+        const defender=pick(defenders,rng),state=defense.states[stage==='air2'?1:0]||defense.states[0];
+        const remaining=fleetDefense.intercept(before,state,defense.weights[defender],defense.defense,cutin,rng,prepared.combined?.8:1);
+        enemyPlaneSlots.set(key,remaining);
+        const powers=enemyPlanePower(p.aircraftType,{torpedo:p.aircraftStat,bomb:p.aircraftStat},remaining);
+        if(!powers){partial=true;continue;}
+        attack=pick(powers,rng);
+        if(Array.isArray(trace))trace.push({stage,phase:'airDefense',side:'own',attacker:defender,enemy:launch.i,slot:p.slot,before,remaining,cutin:cutin?.id??null});
+      }else{
+        attack=Array.isArray(ref)&&ref.length&&ref.every(FINITE)?pick(ref,rng):rng()<.5?lo:hi;
       // Land-base attrition is an explicitly labelled scalar reference until
       // per-slot enemy fighter/recon data can be resolved without guessing.
-      if(launch.side==='enemy'&&enemyAircraftRatio<1)attack=Math.floor(attack*Math.sqrt(enemyAircraftRatio));
-      if(launch.side==='own')fire(own[launch.i],ownBefore[launch.i],enemy,enemyAfter,'air',prepared.ownFormation,attack,undefined,enemyBefore);
+        if(launch.side==='enemy'&&enemyAircraftRatio<1)attack=Math.floor(attack*Math.sqrt(enemyAircraftRatio));
+      }
+      if(launch.side==='own'){
+        if(attack===0)continue;
+        const bonus=critModel.plane(p.proficiencyRank,p.slot===0?1:.5);
+        bonus.rateBonus=critModel.plane(p.proficiencyRank,p.slot===0?.8:.6).rateBonus;
+        fire(own[launch.i],ownBefore[launch.i],enemy,enemyAfter,'air',prepared.ownFormation,
+          {power:attack,hits:1,proficiency:bonus},undefined,enemyBefore);
+      }
       else fire(enemy[launch.i],enemyBefore[launch.i],own,ownAfter,'air',prepared.enemyFormation,attack,launch.i,ownBefore);
     }
     ohp.splice(0,ohp.length,...ownAfter);ehp.splice(0,ehp.length,...enemyAfter);
@@ -538,8 +586,11 @@ function runScenario(prepared,rng=random(1),{initialHp,ammo=1,fuel=1,trace,speci
   }else{
     if(prepared.landBase?.waves?.length){
       const result=landBase.simulateWaves(prepared.landBase.waves,prepared.landBase.enemyAirPower,enemy,ehp,rng,
-        {hitDamage,applyDamage,trace,state:landBaseState,enemySlots:prepared.landBase.enemySlots,antiAir:prepared.landBase.antiAir});
+        {hitDamage,applyDamage,trace,state:landBaseState,enemySlots:prepared.landBase.enemySlots,antiAir:prepared.landBase.antiAir,
+          referenceCritical:prepared.hitModel==='route',combined:prepared.combined});
       enemyAircraftRatio=result.remainingRatio;
+      for(const slot of result.enemySlots||[])if(Number.isInteger(slot.shipIndex)&&Number.isInteger(slot.slotIndex))
+        enemyPlaneSlots.set(`${slot.shipIndex}:${slot.slotIndex}`,slot.count);
     }
     if(prepared.ownJet){stage='jet';air(prepared.ownJet,[]);}
     stage='air';air();if(prepared.kind==='aerialCombat'){stage='air2';air(prepared.ownAirSecond||prepared.ownAir);}

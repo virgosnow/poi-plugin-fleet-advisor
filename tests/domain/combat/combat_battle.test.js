@@ -96,6 +96,18 @@ test('opening ASW before the enemy torpedo reduces risk on a pure submarine node
   const b=evaluateBattle([without],[enemy(1532)],{kind:'asw',samples:32,seed:3});
   assert(a.enemyImpact<b.enemyImpact);assert(a.ownImpact>b.ownImpact);
 });
+test('route torpedoes use enemy formation and friendly evasion in complete scenarios',()=>{
+  const hull={...ship,hp:80,initialHp:80,armor:40,evasion:60,luck:0,torpedoEvasionBonus:0,
+    fire:0,torpedo:0,intrinsicTorpedo:0,asw:{status:'known',normal:false,opening:false,power:0}};
+  const result=(enemyFormation,ownFormation)=>{
+    const p=prepareBattle([hull],[enemy(1572)],{kind:'asw',enemyFormation,ownFormation,hitModel:'route'});
+    return Array.from({length:256},(_,i)=>runScenario(p,random(i*997+1))).reduce((n,v)=>n+80-v.ownHp[0],0);
+  };
+  assert(result('echelon','lineAbreast')>result('lineAbreast','lineAbreast'));
+  assert(result('echelon','lineAhead')>result('echelon','lineAbreast'));
+  const missing=prepareBattle([{...hull,evasion:null}],[enemy(1572)],{kind:'asw',hitModel:'route'});
+  assert.equal(runScenario(missing,random(997)).status,'partial');
+});
 test('opening ASW follows range and can suppress an enemy before its torpedo attack',()=>{
   const slow={...ship,range:1},fast={...ship,range:3};
   const tough={...enemy(1532),hp:{min:1000,max:1000},armor:{min:5,max:5}};
@@ -240,6 +252,14 @@ test('armor-blocked hits use remaining-HP scratch damage, ignore ammo and cannot
   assert.equal(hitDamage(1,heavy,()=>0,1,false,0,50),3);
   assert.equal(hitDamage(1,heavy,()=>.999,0,false,0,50),6);
   assert.equal(hitDamage(1,heavy,()=>.999,0,false,0,1),0);
+});
+test('route battle includes friendly critical damage without changing legacy battle callers',()=>{
+  const foe={...enemy(1501),hp:{min:1000,max:1000},armor:{min:0,max:0}};
+  const own={...ship,hp:1000,initialHp:1000,armor:1000,fire:100,torpedo:0,intrinsicTorpedo:0,
+    asw:{...ship.asw,opening:false}};
+  const legacy=runScenario(prepareBattle([own],[foe],{kind:'battle'}),()=>.1);
+  const route=runScenario(prepareBattle([own],[foe],{kind:'battle',hitModel:'route'}),()=>.1);
+  assert(route.enemyHp[0]<legacy.enemyHp[0]);
 });
 test('enemy combined fleets use escort, torpedo, main, then second shelling with correct target groups',()=>{
   const tough=id=>({...enemy(id),hp:{min:1000,max:1000},armor:{min:1000,max:1000}});

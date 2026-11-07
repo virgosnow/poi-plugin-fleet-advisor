@@ -12,7 +12,7 @@ function fixture({fire=35,torpedo=30,armor=15,hp=35,type=2,count=1}={}){
   for(let id=1;id<=count;id++){
     const ship=store.info.ships[id],master=store.const.$ships[id];
     Object.assign(ship,{api_maxhp:hp,api_nowhp:hp,api_soukou:[armor,armor],api_karyoku:[fire,fire],
-      api_raisou:[torpedo,torpedo],api_kyouka:[0,0,0,0],api_lucky:[20,20]});
+      api_raisou:[torpedo,torpedo],api_kyouka:[0,0,0,0],api_lucky:[20,20],api_kaihi:[60,60]});
     Object.assign(master,{api_stype:type,api_houg:[fire,fire],api_raig:[torpedo,torpedo],api_leng:2});
     ships.push({id,slots:ship.api_slot.slice(),ex:-1});
   }
@@ -185,6 +185,34 @@ test('air raids do not count as a missed friendly attack and enemy air damage st
     assert.equal(dangerous.status,'estimated',dangerous.reasons?.join('；'));
     assert(dangerous.balance.ratio<quiet.balance.ratio,'enemy aircraft damage worsens the comparison');
   }finally{map.nodes.A.kind=oldKind;map.nodes.A.phases.base.patterns=oldPatterns;}
+});
+test('route air raid connects the projected fleet cut-in to enemy interception',()=>{
+  const map=require('../../../data/sortie/encounters/1-1.json'),oldKind=map.nodes.A.kind,oldPatterns=map.nodes.A.phases.base.patterns;
+  const battle=require('../../../src/domain/combat/combat_battle'),original=battle.runScenario,seen=[];
+  const f=fixture({count:1,hp:100,armor:50});
+  Object.assign(f.store.const.$ships[1],{api_name:'秋月改',api_ctype:54,api_tyku:[116,116],api_slot_num:3,api_maxeq:[0,0,0]});
+  Object.assign(f.store.info.ships[1],{api_slot:[101,102,103],api_kyouka:[0,0,0,0,0]});
+  f.scheme.ships[0].slots=[101,102,103];
+  for(const [id,type,icon,aa] of [[101,1,16,10],[102,1,16,10],[103,12,11,4]]){
+    f.store.const.$equips[id]={api_id:id,api_name:id===103?'13号対空電探改':'10cm連装高角砲＋高射装置',api_type:[0,0,type,icon],api_tyku:aa};
+    f.store.info.equips[id]={api_id:id,api_slotitem_id:id,api_level:0};
+  }
+  f.store.const.$equips[1594]={api_id:1594,api_name:'深海空要塞(偵察型)',api_type:[3,5,7,7],api_baku:3,api_raig:0};
+  f.store.const.$equips[1562]={api_id:1562,api_name:'深海解放陸爆Ace',api_type:[3,5,7,7],api_baku:16,api_raig:0};
+  battle.runScenario=(prepared,rng,options)=>{
+    const trace=[],out=original(prepared,rng,{...options,trace});
+    if(prepared.kind==='aerialRaid')seen.push({prepared,trace});
+    return out;
+  };
+  try{
+    map.nodes.A.kind='aerialRaid';map.nodes.A.phases.base.patterns=[{pattern:1,enemyShips:[{apiId:1889,apiIdStatus:'verified(test)'}],formation:['輪形']}];
+    const base=profile('1-1','雷巡流'),p={...base,routePaths:[{nodes:['A','C']}],targetNodes:['C']};
+    const result=assess(f,p);
+    assert.equal(result.status,'estimated',result.reasons?.join('；'));
+    assert(seen.some(entry=>entry.prepared.fleetAirDefense?.cutins.some(row=>row.id===1)));
+    assert(seen.some(entry=>entry.trace.some(row=>row.phase==='airDefense'&&row.cutin===1)));
+    assert(result.reasons.some(reason=>reason.includes('制空资料不足')));
+  }finally{battle.runScenario=original;map.nodes.A.kind=oldKind;map.nodes.A.phases.base.patterns=oldPatterns;}
 });
 test('unvisited battles do not double-penalize a retreat, while severe damage remains a risk',()=>{
   const battle=require('../../../src/domain/combat/combat_battle'),original=battle.runScenario;

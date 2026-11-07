@@ -9,6 +9,8 @@ const fighters=new Set([6,45,48,56]),airCombat=new Set([6,7,8,11,45,47,48,53,56,
 const scouts=new Set([9,10,41,49,59,94]),surfaceAttack=new Set([7,8,11,47,53,91]);
 const aswAttack=new Set([8,10,11,25,26,47,53,91]);
 const finite=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
+const critical=require('./critical_reference');
+const targetModifiers=require('./land_base_target_modifiers');
 // The attack bonus is aircraft-specific, not the sortie air-power bonus:
 // Mosquito PR has the same air bonus as the skilled Type 2, but less damage.
 function reconAttackMultiplier(slots){
@@ -21,14 +23,16 @@ function reconAttackMultiplier(slots){
   }
   return multiplier;
 }
-function surfacePower(slot,count,recon=1,installation=false){
+function surfacePower(slot,count,recon=1,installation=false,{combined=false,bossMultiplier=1,criticalHit=false}={}){
   const type=slot.type,land=type===47,heavy=type===53;
   const stat=installation?(type===8?0:slot.fire):[8,47,53].includes(type)?slot.torpedo:slot.fire;
   if(!finite(stat)||!finite(count)||!count)return 0;
   const improvement=land||heavy?.7*Math.sqrt(slot.stars||0):.2*(slot.stars||0);
   const raw=(land?.8:1)*((stat+improvement)*Math.sqrt((heavy?1:1.8)*count)+25)*recon;
   const capped=raw>220?220+Math.sqrt(raw-220):raw;
-  return Math.floor(Math.floor(capped)*(land?1.8:1));
+  const proficiency=critical.plane(slot.rank).damageBonus;
+  const base=Math.floor(capped)*(land?1.8:1)*(combined?1.1:1)*bossMultiplier;
+  return Math.floor(base*(criticalHit?1.5*(1+proficiency):1));
 }
 const slotId=s=>s?.itemId==null&&s?.api_slotid==null?NaN:Number(s.itemId??s.api_slotid);
 const unique=list=>[...new Set(list)];
@@ -56,7 +60,7 @@ function inspectSquadron(store,base){
     const observed=actual?.api_plane_info?.find(p=>Number(p.api_squadron_id)===position&&Number(p.api_slotid)===id);
     const state=s?.state??s?.api_state??observed?.api_state;
     if(!s.planned&&Number(state)!==1){reasons.push('基地飞机尚未就绪或状态待确认');rangeUnknown=airUnknown=true;continue;}
-    if(s.planned)reasons.push('计划中的飞机需完成转场并补给后才能出击');
+    if(s.planned&&!s.withinBase)reasons.push('计划中的飞机需完成转场并补给后才能出击');
     if(!Number.isFinite(distance)||distance<=0)rangeUnknown=true;
     if(!Number.isInteger(rank)||rank<0||rank>7||!finite(stars)){airUnknown=true;reasons.push('基地飞机熟练度或改修资料不足');continue;}
     if([57,58,91].includes(type)){airUnknown=true;reasons.push('基地喷气或特殊大型飞机规则待确认');continue;}
@@ -71,7 +75,7 @@ function inspectSquadron(store,base){
     slots.push({itemId:id,slotId:position,count,maxCount:max==null?null:Number(max),
       type,masterId:item.api_slotitem_id,name:master.api_name||'',distance:finite(distance)&&distance>0?distance:null,
       aa:coeff,proficiency:[bonus+Math.sqrt(ranges[rank][0]/10),bonus+Math.sqrt(ranges[rank][1]/10)],
-      fire:Number(master.api_baku??0),torpedo:Number(master.api_raig??0),asw:Number(master.api_tais??0),stars,
+      fire:Number(master.api_baku??0),torpedo:Number(master.api_raig??0),asw:Number(master.api_tais??0),stars,rank,
       planned:!!s.planned});
   }
   const known=slots.filter(s=>s.distance!==null),baseMin=known.length?Math.min(...known.map(s=>s.distance)):null;
@@ -128,6 +132,7 @@ function prepare(store,bases,{area,nodeId,nodeKind,enemyAirPower}={}){
   }
   if(waves.length&&nodeKind==='aerialRaid')reasons.push('空袭点的基地攻击对敌舰伤害尚未完整建模，预测主要反映敌机削减');
   if(waves.length)reasons.push('基地航空为参考估算：敌方特殊对空迎击、触接与对地特效未完整计入；飞机损耗按参考场景抽样',
+    '基地航空暴击按参考命中及熟练度估算，实际命中与暴击概率待确认',
     '敌机逐槽按制空战抽样；本队制空参考区间为 5%–95% 分位，并非极限或保证');
   return {status:waves.length?'partial':'unknown',waves,reasons:unique(reasons),enemyAirPower};
 }
@@ -137,7 +142,7 @@ function stateFor(own,enemy){
   return !enemy||own>=3*enemy?'supremacy':own>=1.5*enemy?'superiority':
     own>2*enemy/3?'parity':own>enemy/3?'disadvantage':'loss';
 }
-function simulateWaves(waves,enemyPower,foes,hp,rng,{hitDamage,applyDamage,trace,state,enemySlots,antiAir}={}){
+function simulateWaves(waves,enemyPower,foes,hp,rng,{hitDamage,applyDamage,trace,state,enemySlots,antiAir,referenceCritical=false,combined=foes.length>6}={}){
   if(!waves?.length||!finite(enemyPower))return {enemyPower,remainingRatio:1};
   const counts=state?.counts||(state?(state.counts={}):{}),initial=new Map(),losses=new Map();
   const baseKey=(wave,slot)=>`${wave.rid}:${slot.slotId}:${slot.itemId}`;
@@ -198,22 +203,27 @@ function simulateWaves(waves,enemyPower,foes,hp,rng,{hitDamage,applyDamage,trace
         foes.map((foe,i)=>({foe,i})).filter(x=>!x.foe.submarine&&before[x.i]>0&&finite(x.foe.armor)):[];
       if(!targets.length)continue;
       const target=targets[Math.min(targets.length-1,Math.floor(rng()*targets.length))],isAsw=target.foe.submarine;
+      const hitRoll=rng();
+      const criticalHit=referenceCritical&&hitRoll<critical.chance('air',.75,critical.plane(slot.rank,.8).rateBonus);
       let power;
       if(isAsw){
         const factor=slot.asw>=10?.85:.575,recon=wave.reconAttackMultiplier??reconAttackMultiplier(wave.slots);
         power=Math.floor(Math.min(170,((slot.asw+.66*Math.sqrt(slot.stars))*Math.sqrt(1.8*aircraft)+25)*factor)*recon*(slot.type===47?1.8:1));
+        if(criticalHit)power=Math.floor(power*1.5*(1+critical.plane(slot.rank).damageBonus));
       }else{
-        power=surfacePower(slot,aircraft,wave.reconAttackMultiplier??reconAttackMultiplier(wave.slots),target.foe.installation);
+        const bossMultiplier=targetModifiers.sample(target.foe.id,target.foe.installation,rng);
+        power=surfacePower(slot,aircraft,wave.reconAttackMultiplier??reconAttackMultiplier(wave.slots),target.foe.installation,
+          {combined,bossMultiplier,criticalHit});
       }
       if(Array.isArray(trace))trace.push({stage:'landBase',phase:isAsw?'asw':'air',side:'own',base:wave.rid,slot:slot.slotId,target:target.i});
-      if(rng()>=.75||!finite(power))continue;
+      if(hitRoll>=.75||!finite(power))continue;
       const damage=hitDamage(power,target.foe,rng,1,isAsw,0,hp[target.i]);
       hp[target.i]=applyDamage(target.foe,hp[target.i],damage,rng);
     }
   }
   for(const [key,loss] of losses)counts[key]=Math.max(0,initial.get(key)-loss);
   const afterAttack=enemy?.filter(slot=>[7,8,11].includes(slot.type)).reduce((sum,slot)=>sum+slot.count,0);
-  return {enemyPower,remainingRatio:enemy&&originalAttack>0?afterAttack/originalAttack:
+  return {enemyPower,enemySlots:enemy,remainingRatio:enemy&&originalAttack>0?afterAttack/originalAttack:
     original>0?Math.max(0,Math.min(1,(enemyPower/original)**2)):1};
 }
 module.exports={inspectSquadron,prepare,nodeRadius,stateFor,simulateWaves,reconAttackMultiplier,surfacePower,airCombat,surfaceAttack,aswAttack};

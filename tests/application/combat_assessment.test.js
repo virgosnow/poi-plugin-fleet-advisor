@@ -95,7 +95,7 @@ test('inspected 1-1 draft reaches the real comparison renderer and stale edits d
   const assessCombat=createCombatAssessment({plans,profileForRoute:require('../../src/domain/routes/sortie_profile').profileForRoute,
     evaluate:(store,scheme,profile,options)=>evaluateRoute(store,scheme,profile,{...options,now:()=>0})});
   const store=fixture(),ship=store.info.ships[1],master=store.const.$ships[1];
-  Object.assign(ship,{api_nowhp:30,api_maxhp:30,api_soukou:[12,12],api_karyoku:[35,35],api_raisou:[30,30],api_kyouka:[0,0,0,0],api_lucky:[20,20]});
+  Object.assign(ship,{api_nowhp:30,api_maxhp:30,api_soukou:[12,12],api_karyoku:[35,35],api_raisou:[30,30],api_kyouka:[0,0,0,0],api_lucky:[20,20],api_kaihi:[60,60]});
   Object.assign(master,{api_houg:[35,35],api_raig:[30,30],api_leng:2});
   const slots=[W.entry(store,1)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
   const report=W.inspect(new Controller({getStore:()=>store}),store,slots,settings),option=plans.recommendedOptions('1-1')[0];

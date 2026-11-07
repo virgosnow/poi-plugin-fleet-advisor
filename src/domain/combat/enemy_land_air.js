@@ -32,12 +32,12 @@ function formationSlots(formation,index){
   const refs=[...(formation.enemyShips||[]),...(formation.escortFleet?.enemyShips||[])];
   if(!refs.length)return null;
   const slots=[];
-  for(const ref of refs){
+  for(const [shipIndex,ref] of refs.entries()){
     const enemy=catalog.get(ref.apiId);if(!enemy||!Array.isArray(enemy.equipment))return null;
     // Verified zero total aircraft capacity makes every slot non-flying even
     // when the source omits individual slot capacities or equipment names.
     if(enemy.stats?.['搭載']===0)continue;
-    for(const item of enemy.equipment){
+    for(const [slotIndex,item] of enemy.equipment.entries()){
       if(item.notEquippable||/砲|魚雷|電探|レーダ|ソナー|爆雷|探照灯|機銃|徹甲弾|高射装置|FCS|CIC/i.test(item.name||''))continue;
       if(!valid(item.slotCapacity))return null;
       if(!item.slotCapacity)continue;
@@ -45,7 +45,7 @@ function formationSlots(formation,index){
       // Non-air equipment may have a positive ship slot capacity. Unknown
       // aircraft cannot be treated as harmless or assigned invented AA.
       if(!entry)return null;
-      if(TYPES.has(entry.type)||RECON.has(entry.type))slots.push({count:item.slotCapacity,aa:entry.aa,type:entry.type,recon:RECON.has(entry.type)});
+      if(TYPES.has(entry.type)||RECON.has(entry.type))slots.push({shipIndex,slotIndex,count:item.slotCapacity,aa:entry.aa,type:entry.type,recon:RECON.has(entry.type)});
       else if([57,58,91].includes(entry.type))return null;
     }
   }

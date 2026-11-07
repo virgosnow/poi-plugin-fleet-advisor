@@ -95,7 +95,7 @@ test('real route profile and combat model evaluate the recommended fleet',async(
   const {createCombatAssessment}=require('../../src/application/combat_assessment');
   const {evaluateRoute}=require('../../src/domain/combat/route_estimate');
   Object.assign(store.info.ships[1],{api_nowhp:30,api_maxhp:30,api_soukou:[12,12],api_karyoku:[35,35],
-    api_raisou:[30,30],api_kyouka:[0,0,0,0],api_lucky:[20,20]});
+    api_raisou:[30,30],api_kyouka:[0,0,0,0],api_lucky:[20,20],api_kaihi:[60,60]});
   Object.assign(store.const.$ships[1],{api_houg:[35,35],api_raig:[30,30],api_leng:2});
   const option={...plans.recommendedOptions('1-1')[0],row:{scheme:{fleet:1,ships:[{id:1,slots:[-1,-1],ex:-1}]}}};
   const assess=createCombatAssessment({plans,profileForRoute:require('../../src/domain/routes/sortie_profile').profileForRoute,

@@ -142,6 +142,28 @@ function weightedAntiAir(store,target){
   }
   const step=target.items.length?2:1;return step*Math.floor(weighted/step);
 }
+// Wiki: fleet bonuses are rounded per ship before the formation multiplier.
+function fleetDefense(store,targets,formation='lineAhead'){
+  const factor={lineAhead:1,doubleLine:1.2,diamond:1.6,echelon:1,lineAbreast:1}[formation];
+  if(factor===undefined)return null;
+  let total=0;
+  for(const target of targets){
+    const blue=require('./equipment_bonuses').combatBonuses(store,target);
+    if(!blue.known)return null;
+    let bonus=.5*blue.antiAir;
+    for(const e of target.items){
+      const aa=number(e.master?.api_tyku),star=number(e.instance?.api_level);
+      if(aa===null||aa<0||star===null||star<0)return null;
+      const high=Number(e.master.api_type?.[3])===16,radar=[12,13,93].includes(e.type);
+      const multiplier=e.type===18?.6:radar?.4:high||e.type===36?.35:
+        e.master.api_name==='46cm三連装砲'?.25:.2;
+      const improvement=high?(aa>=8?3:2):e.type===36?2:radar?1.5:0;
+      bonus+=multiplier*aa+improvement*Math.sqrt(star);
+    }
+    total+=Math.floor(bonus);
+  }
+  return Math.floor(total*factor)*2/1.3;
+}
 function rocketBarrage(target,store){
   if(![6,7,10,11,16,18].includes(Number(target.master.api_stype)))return null;
   const count=target.items.filter(e=>compact(e.master?.api_name)==='12cm30連装噴進砲改二').length;
@@ -154,4 +176,4 @@ function rocketBarrage(target,store){
   return {key:'barrage',label:'对空喷进弹幕',state:'ready',rate,weightedAntiAir:weighted,
     detail:require('../../shared/mechanism_text')(`参考发动率：${rate===null?'待确认':pct(rate)}`,'免疫本舰航空攻击，不保护其他舰。')};
 }
-module.exports={antiAirBadge,antiAirCutins,fleetAntiAir,rocketBarrage,weightedAntiAir};
+module.exports={antiAirBadge,antiAirCutins,fleetAntiAir,fleetDefense,rocketBarrage,weightedAntiAir};

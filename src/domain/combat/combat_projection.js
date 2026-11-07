@@ -42,6 +42,12 @@ function projectedHull(store,entry){
   const oldEvasion=evasionItems(target.before),newEvasion=evasionItems(target.after),panelEvasion=stat(ship.api_kaihi);
   const evasion=finite(panelEvasion)&&[...oldEvasion,...newEvasion].every(Number.isFinite)?
     Math.max(0,panelEvasion-oldEvasion.reduce((a,b)=>a+b,0)+newEvasion.reduce((a,b)=>a+b,0)):null;
+  // Improved sonar and boilers add post-cap torpedo evasion. Count the
+  // candidate's actual equipment, including its expansion slot.
+  const evasionGear=(target.items||[]).filter(e=>[14,40].includes(type(e.master))||
+    type(e.master)===17&&/缶/.test(e.master?.api_name||''));
+  const stars=evasionGear.map(e=>stat(e.instance?.api_level));
+  const torpedoEvasionBonus=stars.every(finite)?stars.reduce((sum,star)=>sum+1.5*Math.sqrt(star),0):null;
   const fire=attack.fireBase(target,store),torpedo=attack.torpedoPanel(target,store),stype=Number(master.api_stype);
   const asw=aswAttack(store,target),items=target.items||[];
   // All aircraft are reported separately even when they cannot attack. A
@@ -70,7 +76,7 @@ function projectedHull(store,entry){
   const midget=items.some(e=>type(e.master)===22&&/甲標的/.test(e.master?.api_name||''));
   const level=stat(ship.api_lv),openingTorpedo=midget?true:submarine?(finite(level)?level>=10:null):false;
   const actualHp=stat(ship.api_nowhp),hpEstimated=!finite(actualHp)||actualHp>stat(ship.api_maxhp);
-  return {status:'known',id:entry.id,stype,hp:stat(ship.api_maxhp),armor,evasion,luck:stat(ship.api_lucky),level,hpEstimated,
+  return {status:'known',id:entry.id,stype,hp:stat(ship.api_maxhp),armor,evasion,torpedoEvasionBonus,luck:stat(ship.api_lucky),level,hpEstimated,
     fire:fire.value,torpedo:torpedo.value,torpedoPower:torpedoReading.power,torpedoRaw,
     nightBase:nightBase.basePower,nightModes,nightFixed:night.fixedTerm(target,false),
     range:rangeValues.length?Math.max(...rangeValues):null,
