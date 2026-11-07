@@ -49,7 +49,7 @@ test('execution timeout diagnostics survive the service job record without chang
   }finally{await service.dispose();clean(dir);}
 });
 
-test('local equipment step diagnostics are retained in the job log without emitting UI updates',async()=>{
+test('local equipment step diagnostics are saved in the shared log and cleared without removing job state',async()=>{
   const dir=temp(),failure=Error('store confirmation failed');let service;
   const controller={preview(){return {pinned:{org:{ships:[{id:1}]}}};},run:async()=>{
     service.recordDiagnostic({phase:'equipment',stage:'planned',slot:1,requestPath:'api_req_kaisou/slotset'});
@@ -62,9 +62,34 @@ test('local equipment step diagnostics are retained in the job log without emitt
     service.subscribe(event=>notifications.push(event));
     await assert.rejects(service.run('fleet',{fleet:1,ships:[1]}),e=>e===failure);
     const job=[...service.jobs.values()].at(-1),saved=JSON.parse(fs.readFileSync(path.join(dir,'mcp-state.json'),'utf8')).jobs.at(-1);
-    assert.equal(saved.state,'failed');assert.deepEqual(saved.diagnostics.map(e=>e.stage),['planned','confirmation']);
-    assert.equal(saved.diagnostics[0].requestPath,'api_req_kaisou/slotset');assert.equal(saved.diagnostics[1].target.matched,false);
-    assert.deepEqual(service.getJob({jobId:job.jobId}).diagnostics,saved.diagnostics);assert.deepEqual(notifications,[]);
+    assert.equal(saved.state,'failed');assert.equal(saved.diagnostics,undefined);
+    const log=JSON.parse(fs.readFileSync(path.join(service.diagnosticLogs.directory,saved.diagnosticLog),'utf8'));
+    assert.deepEqual(log.records.map(e=>e.stage),['planned','confirmation']);
+    assert.equal(log.records[0].requestPath,'api_req_kaisou/slotset');assert.equal(log.records[1].target.matched,false);
+    assert.deepEqual(service.getJob({jobId:job.jobId}).diagnostics,log.records);assert.deepEqual(notifications,[]);
+    await service.clearRecommendationCache('logs');
+    const cleared=JSON.parse(fs.readFileSync(path.join(dir,'mcp-state.json'),'utf8')).jobs.at(-1);
+    assert.equal(cleared.state,'failed');assert.equal(cleared.diagnosticLog,undefined);
+    assert.equal(service.getJob({jobId:job.jobId}).diagnostics,undefined);
+    assert(!fs.existsSync(path.join(service.diagnosticLogs.directory,saved.diagnosticLog)));
+  }finally{await service.dispose();clean(dir);}
+});
+
+test('legacy job diagnostics migrate to shared logs, survive restart, and stay cleared',async()=>{
+  const dir=temp(),createdAt=new Date().toISOString(),jobId='legacy-job';
+  fs.writeFileSync(path.join(dir,'mcp-state.json'),JSON.stringify({jobs:[{jobId,state:'failed',createdAt,
+    diagnostics:[{stage:'old-step'}],error:{code:'FAILED',diagnostics:{stage:'old-timeout'}}}]}));
+  let service=new FleetAdvisorService({controller:{dispose(){}},getStore:state,storageDir:dir});
+  try{
+    let saved=JSON.parse(fs.readFileSync(path.join(dir,'mcp-state.json'),'utf8')).jobs[0];
+    assert(saved.diagnosticLog);assert.equal(saved.diagnostics,undefined);assert.equal(saved.error.diagnostics,undefined);
+    assert.equal(service.getJob({jobId}).diagnostics[0].stage,'old-step');
+    await service.dispose();service=new FleetAdvisorService({controller:{dispose(){}},getStore:state,storageDir:dir});
+    assert.equal(service.getJob({jobId}).error.diagnostics.stage,'old-timeout');
+    await service.clearRecommendationCache('logs');await service.dispose();
+    service=new FleetAdvisorService({controller:{dispose(){}},getStore:state,storageDir:dir});
+    saved=service.getJob({jobId});assert.equal(saved.state,'failed');assert.equal(saved.diagnostics,undefined);
+    assert.equal(saved.error.diagnostics,undefined);assert.equal((await service.getComputationStatus()).cache.logs.files,0);
   }finally{await service.dispose();clean(dir);}
 });
 

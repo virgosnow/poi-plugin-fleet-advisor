@@ -17,6 +17,7 @@ const computationSettings=require('../config/computation_settings');
 const experimentalSettings=require('../config/experimental_settings');
 const performanceTrace=require('../shared/performance_trace');
 const {PerformanceLogs}=require('../infrastructure/cache/performance_logs');
+const {DiagnosticLogs}=require('../infrastructure/cache/diagnostic_logs');
 const {inspectCache,maintainCache}=require('../infrastructure/cache/recommendation_cache');
 
 const JOB_RETENTION_MS=24*60*60*1000;
@@ -45,6 +46,8 @@ class FleetAdvisorService {
     this.readQuests=readQuests;
     this.snapshots=new Snapshots(getStore,now);
     this.computationSettings=computationSettings.normalizePreferences();
+    this.diagnosticLogs=new DiagnosticLogs(path.join(storageDir,'recommendation-cache'),
+      {getLimitBytes:()=>this.computationSettings.cacheLimitMiB*1024**2,now});
     this.questProgress=new QuestProgress(storageDir,{now,getCacheLimit:()=>this.computationSettings.cacheLimitMiB*1024**2});
     this.questProgressObserver=new QuestProgressObserver({progress:this.questProgress,now,onChange:()=>this.emit({type:'questProgress'})});
     this.performanceLogs=new PerformanceLogs(path.join(storageDir,'recommendation-cache'),
@@ -82,6 +85,11 @@ class FleetAdvisorService {
           job.error={code:'INTERRUPTED',message:'插件重载或进程退出，先核对当前账号状态'};
           job.updatedAt=nowIso();
         }
+        if(job.diagnosticLog){
+          const log=this.diagnosticLogs.readJob(job.diagnosticLog);
+          if(log?.records)job.diagnostics=log.records;
+          if(log?.errorDiagnostics&&job.error)job.error.diagnostics=log.errorDiagnostics;
+        }else if(job.diagnostics||job.error?.diagnostics)this.saveJobDiagnostics(job);
         this.jobs.set(job.jobId,job);
       }
       this.persist();
@@ -98,7 +106,12 @@ class FleetAdvisorService {
       }
     }
     const record={mcpEnabled:this.mcpEnabled,httpPort:this.httpPort,recommendationFilters:this.recommendationFilters,
-      computationSettings:this.computationSettings,experimentalSettings:this.experimentalSettings,jobs:[...this.jobs.values()]};
+      computationSettings:this.computationSettings,experimentalSettings:this.experimentalSettings,jobs:[...this.jobs.values()].map(job=>{
+        if(!job.diagnosticLog)return job;
+        const {diagnostics,...rest}=job;
+        if(rest.error?.diagnostics){const {diagnostics:ignored,...error}=rest.error;rest.error=error;}
+        return rest;
+      })};
     const temp=this.stateFile+'.tmp';fs.writeFileSync(temp,JSON.stringify(record,null,2),{mode:0o600});fs.renameSync(temp,this.stateFile);
   }
   saveJobState(job){
@@ -108,6 +121,12 @@ class FleetAdvisorService {
       job.persistenceError=e.message;
       return false;
     }
+  }
+  saveJobDiagnostics(job){
+    if(!job.diagnostics?.length&&!job.error?.diagnostics)return;
+    const name=this.diagnosticLogs.write('job',{version:1,records:job.diagnostics||[],
+      ...(job.error?.diagnostics?{errorDiagnostics:job.error.diagnostics}:{})});
+    if(name)job.diagnosticLog=name;
   }
   subscribe(listener){this.listeners.add(listener);return()=>this.listeners.delete(listener);}
   setRecommendationPageActive(kind,active){
@@ -216,7 +235,14 @@ class FleetAdvisorService {
       for(const operation of operations)try{
         const next=await operation();result.removed+=next.removed;result.failed+=next.failed;
       }catch(e){result.failed++;result.error=e.message;}
-      if((kind==='logs'||kind==='all')&&!result.failed)this.performanceLogs.lastError=null;
+      if((kind==='logs'||kind==='all')&&!result.failed){
+        this.performanceLogs.lastError=null;
+        for(const job of this.jobs.values()){
+          delete job.diagnosticLog;delete job.diagnostics;
+          if(job.error)delete job.error.diagnostics;
+        }
+        try{this.persist();}catch(e){result.failed++;result.error=e.message;}
+      }
       if(kind==='gameData'||kind==='all')this.emit({type:'questProgress'});
       return result;
     });
@@ -465,7 +491,7 @@ class FleetAdvisorService {
       throw e;
     }finally{
       job.observedState=observedState(this.getStore(),job.affectedShipIds);
-      job.updatedAt=nowIso();this.activeJobId=null;this.saveJobState(job);
+      job.updatedAt=nowIso();this.activeJobId=null;this.saveJobDiagnostics(job);this.saveJobState(job);
     }
   }
   async run(kind,scheme,options={}){

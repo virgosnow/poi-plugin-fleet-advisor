@@ -3,7 +3,7 @@ const fs=require('fs'),path=require('path');
 const {DEFAULTS}=require('../../config/computation_settings');
 const GAME_DATA_FILE=/^quest-(?:progress|observations)\.json(?:\.[a-f0-9-]{36}\.tmp)?$/;
 const COMPUTATION_FILE=/^[a-f0-9]{64}(?:\.bin|\.[a-f0-9-]{36}\.tmp)$/;
-const LOG_FILE=/^performance-\d{13}-[a-f0-9-]{36}\.json(?:\.[a-f0-9-]{36}\.tmp)?$/;
+const LOG_FILE=/^(?:(?:performance|run|job)-\d{13}-[a-f0-9-]{36}\.json(?:\.[a-f0-9-]{36}\.tmp)?|sync-\d{13}-[a-f0-9-]{36}\.jsonl)$/;
 const KINDS=['results','calculations','gameData','logs'];
 const TTL=7*24*60*60*1000;
 

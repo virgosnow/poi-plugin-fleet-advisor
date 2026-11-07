@@ -1,6 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
 const PORT='/kcsapi/api_port/port';
+const START_DATA='/kcsapi/api_start2/getData';
 const QUIET_MS=2000;
 
 // This function runs in the game frame. It observes input without replacing
@@ -33,6 +34,15 @@ async function frameOperation(key,action,args={}){
     for(const name of ['pointerdown','pointerup','wheel','keydown'])
       document.addEventListener(name,watch.listen,{capture:true,passive:true});
     Object.defineProperty(root,key,{value:watch,configurable:true});
+  }
+  // A host may temporarily wrap fetch while the plugin is starting. Retry
+  // discovery only when no native function was captured in this document.
+  if(action==='install'&&watch&&!watch.nativeFetch&&!watch.read){
+    const describe=Function.prototype.toString;
+    try{
+      if(nativeSource.test(describe.call(describe))&&typeof root.fetch==='function'&&
+        nativeSource.test(describe.call(root.fetch))){watch.describe=describe;watch.nativeFetch=root.fetch;}
+    }catch(error){/* Keep waiting for the original native functions. */}
   }
   if(!watch)return {deferred:true};
   if(action==='dispose'){
@@ -158,7 +168,7 @@ async function frameOperation(key,action,args={}){
 
 function apiPath(detail){
   const path=detail?.path;
-  return typeof path==='string'&&/^\/kcsapi\/[a-z0-9_]+\/[a-z0-9_]+$/.test(path)?path:null;
+  return typeof path==='string'&&(path===START_DATA||/^\/kcsapi\/[a-z0-9_]+\/[a-z0-9_]+$/.test(path))?path:null;
 }
 async function bounded(operation,timeout){
   let timer;
@@ -168,13 +178,14 @@ async function bounded(operation,timeout){
 }
 
 class QuestReader{
-  constructor({window,getRemote,getStore,now=()=>Date.now(),isBusy=()=>false}={}){
+  constructor({window,getRemote,getStore,now=()=>Date.now(),isBusy=()=>false,onDiagnostic=()=>{}}={}){
     this.window=window;this.getRemote=getRemote;this.getStore=getStore;this.now=now;this.isBusy=isBusy;
+    this.onDiagnostic=onDiagnostic;
     this.key='__fleetAdvisorQuestRead_'+crypto.randomBytes(12).toString('hex');
     this.portAt=null;this.lastApiAt=Number(now());this.epoch=0;
     this.failed=false;this.closed=false;this.sessionKey=null;this.verifiedSessionKey=null;this.frame=null;this.wc=null;
     this.identitySession=null;this.identityFailures=0;this.identityRetryAt=0;
-    this.frames=new Set();this.documentId=null;this.loginBarrier=null;this.ticket=null;this.reading=false;
+    this.frames=new Set();this.documentId=null;this.loginBarrier=null;this.startDataSeen=false;this.loginReady=false;this.ticket=null;this.reading=false;
     // Attach the passive input observer as soon as the game frame exists.
     // If discovery is too early, later context probes retry it.
     this.installation=this.installEarly();
@@ -211,9 +222,11 @@ class QuestReader{
     if(this.closed)return;
     const path=apiPath(detail);if(!path)return this.observeFailure();
     this.lastApiAt=Number(this.now());this.invalidate();
+    if(path===START_DATA&&(detail?.body?.api_result==null||Number(detail.body.api_result)===1))this.startDataSeen=true;
     if(path===PORT&&detail?.body&&typeof detail.body==='object'&&
       (detail.body.api_result==null||Number(detail.body.api_result)===1)){
       this.failed=false;this.portAt=this.lastApiAt;
+      if(this.startDataSeen)this.loginReady=true;
     }else if(path===PORT){
       this.observeFailure();
     }else if(detail?.body?.api_result!=null&&Number(detail.body.api_result)!==1){this.observeFailure();}
@@ -222,15 +235,17 @@ class QuestReader{
     if(this.closed)return;
     // A recent error invalidates identity and restarts the quiet interval.
     // Recovery never depends on the user manufacturing another port event.
-    this.failed=true;this.verifiedSessionKey=null;this.portAt=null;this.lastApiAt=Number(this.now());this.invalidate();
+    this.failed=true;this.verifiedSessionKey=null;this.portAt=null;this.startDataSeen=false;this.loginReady=false;this.lastApiAt=Number(this.now());this.invalidate();
   }
   observeError(){this.observeFailure();}
   observeStart(){
-    // Until navigation or a newly observed port response, the previous game
-    // frame and Redux account can both still be visible during re-login.
+    // poi emits game.start for both main.js and start2, including twice in
+    // the same document. Keep the previous frame blocked until navigation or
+    // a complete start2 -> port sequence, followed by account validation.
     // If login starts before the previous document was observed, its identity
     // is unknown. A new successful login port must settle that ambiguity.
     this.loginBarrier=this.documentId||'unobserved';
+    this.startDataSeen=false;this.loginReady=false;
     this.resetIdentity(null);
     this.observeFailure();this.sessionKey=null;this.documentId=null;
     this.installation=this.installEarly();
@@ -244,28 +259,30 @@ class QuestReader{
     this.identitySession=sessionKey;this.identityFailures=0;this.identityRetryAt=0;this.verifiedSessionKey=null;
   }
   deferIdentity(sessionKey,reason){
+    this.diagnostic(reason);
     if(this.identitySession!==sessionKey)this.resetIdentity(sessionKey);
     this.identityFailures=Math.min(this.identityFailures+1,16);
     this.identityRetryAt=Number(this.now())+Math.min(300000,2000*2**(this.identityFailures-1));
     return {deferred:true,attempted:true,reason,retryAt:this.identityRetryAt};
   }
+  diagnostic(code){try{this.onDiagnostic(code);}catch(error){/* Diagnostics must never block synchronization. */}}
   async context({cached=false}={}){
     const result={ready:false,idle:false,compatible:false,sessionKey:null};
     if(this.closed)return result;
     this.ticket=null;
     try{
       const target=this.discover(),state=this.getStore?.();
-      if(!target)return result;
+      if(!target){this.diagnostic('frame_unavailable');return result;}
       const member=state?.info?.basic?.api_member_id;
-      if(member==null||String(member)==='')return result;
+      if(member==null||String(member)===''){this.diagnostic('account_unavailable');return result;}
       await this.installation;
       if(this.closed)return {...result,ready:false};
       this.frames.add(target.frame);
       const before=await this.execute(target.frame,'install');
       result.compatible=before.nativeFetch===true;
-      if(!before.documentId||!before.current||!before.attached)return result;
+      if(!before.documentId||!before.current||!before.attached){this.diagnostic('document_unready');return result;}
       if(this.loginBarrier&&(
-        this.loginBarrier==='unobserved'?this.portAt===null:before.documentId===this.loginBarrier))return result;
+        this.loginBarrier==='unobserved'?this.portAt===null:before.documentId===this.loginBarrier&&!this.loginReady)){this.diagnostic('session_transition');return result;}
       this.loginBarrier=null;
       const frameIdentity=[target.wc.id??'',target.frame.processId??'',target.frame.routingId??'',before.documentId];
       // Never persist or return the URL, token, member ID or raw document key.
@@ -274,10 +291,13 @@ class QuestReader{
       if(changed){this.observeFailure();this.documentId=null;this.resetIdentity(sessionKey);}
       this.sessionKey=sessionKey;result.sessionKey=sessionKey;result.ready=true;
       result.identityVerified=this.verifiedSessionKey===sessionKey;
+      if(!result.compatible)this.diagnostic('transport_unavailable');
       this.documentId=before.documentId;this.frame=target.frame;this.wc=target.wc;
       if(cached)return result;
       if(!result.compatible||!this.safeTimeline()||this.reading||
-        Number(this.now())-Math.max(before.installedAt,before.lastInputAt)<QUIET_MS)return result;
+        Number(this.now())-Math.max(before.installedAt,before.lastInputAt)<QUIET_MS){
+        if(result.compatible)this.diagnostic('waiting_idle');return result;
+      }
       const epoch=this.epoch;
       const after=await this.execute(target.frame,'probe');
       result.compatible=after.nativeFetch===true;
@@ -288,7 +308,7 @@ class QuestReader{
       if(latestMember==null||crypto.createHash('sha256').update(JSON.stringify([String(latestMember),latest.frame.url,frameIdentity])).digest('hex')!==sessionKey)return result;
       this.ticket={...target,epoch,documentId:after.documentId,inputCount:after.inputCount,member:String(member),sessionKey};
       result.idle=true;return result;
-    }catch(error){return result;}
+    }catch(error){this.diagnostic('context_failed');return result;}
   }
   async read({signal,sessionKey,page,kind='quest',enemyId}={}){
     if(this.closed||this.reading||signal?.aborted)return {deferred:true};
@@ -315,6 +335,7 @@ class QuestReader{
         if(fresh.sessionKey!==sessionKey||this.epoch!==ticket.epoch||!this.safeTimeline())
           return this.deferIdentity(sessionKey,'identity_interrupted');
         this.resetIdentity(sessionKey);this.verifiedSessionKey=sessionKey;
+        this.diagnostic('identity_verified');
       }
       if(kind==='identity')return {identityVerified:true};
       const result=await this.execute(ticket.frame,'read',{documentId:ticket.documentId,
@@ -322,7 +343,7 @@ class QuestReader{
       if(this.epoch!==ticket.epoch||!this.safeTimeline()||signal?.aborted||this.closed)return {deferred:true};
       const latest=await this.context({cached:true});
       return latest.sessionKey===sessionKey?result:{deferred:true};
-    }catch(error){throw new Error('Quest list unavailable');}
+    }catch(error){this.diagnostic('read_failed');throw new Error('Quest list unavailable');}
     finally{signal?.removeEventListener('abort',abort);this.reading=false;this.ticket=null;}
   }
   // Explicit and automatic reads collect every page independently, rechecking the

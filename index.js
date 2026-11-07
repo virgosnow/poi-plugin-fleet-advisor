@@ -2,21 +2,11 @@
 // Build marker for diagnostics; verify file hashes AND the mounted component
 // alongside this value when updating without restarting poi.
 exports.HOT_PROBE='unified-borrow-2026-09-22-name-variants';
-const fs=require('fs'),path=require('path'),os=require('os');
+const path=require('path'),os=require('os');
 const React=require('react');
 const {Controller}=require('./src/application/controller');
 const {FleetAdvisorService}=require('./src/application/fleet_advisor_service');
-const LOG_DIR=path.join(__dirname,'logs');
-// One JSON per run, newest 30 kept. Logging must never break the panel.
-function appendLog(entry){
-  try{
-    fs.mkdirSync(LOG_DIR,{recursive:true});
-    const stamp=new Date().toISOString().replace(/[:.]/g,'-');
-    fs.writeFileSync(path.join(LOG_DIR,`run-${stamp}.json`),JSON.stringify(entry,null,2));
-    const files=fs.readdirSync(LOG_DIR).filter(f=>f.startsWith('run-')).sort();
-    while(files.length>30)fs.unlinkSync(path.join(LOG_DIR,files.shift()));
-  }catch(e){}
-}
+function appendLog(entry){try{service?.diagnosticLogs?.write('run',entry);}catch(e){}}
 const {PoiHost}=require('./src/host/poi_host');
 const {readStore}=require('./src/host/store');
 const {WorkerObserver}=require('./src/vision/worker_observer');
@@ -35,6 +25,9 @@ function getRecommendationHost(){
 let questAutoRead=null,questReader=null,rawQuestReader=null,practiceSync=null,basicDataSync=null,questTimer=null,requestListener=null,networkListener=null,startListener=null;
 let observedSession=null,sessionGeneration=0,pendingHandoff=null,pendingProgressHandoff=null;
 let backgroundTicking=false;
+const syncDiagnostics=new (require('./src/infrastructure/sync/sync_diagnostics').SyncDiagnostics)({
+  write:(message,code)=>{try{console.info(message);}catch(error){}service?.diagnosticLogs?.sync(code,message);}
+});
 let lastQuestView=null,lastQuestComplete=false,publicQuestView=null;
 const unknownQuests=Object.freeze({known:false,complete:false,tasks:Object.freeze([])});
 const unknownPractice=Object.freeze({known:false,opponents:Object.freeze([]),history:Object.freeze([]),localHistory:Object.freeze([]),revision:0});
@@ -81,9 +74,15 @@ async function tickQuests(){
             sessionGeneration===generation&&rawQuestReader?.verifiedSessionKey===session}).catch(()=>{});
       }
     }
-    const quests=questAutoRead;if(quests)await quests.tick().catch(()=>{});
-    const practice=practiceSync;if(practice&&questPages.has('practice'))await practice.tick().catch(()=>{});
-  }finally{backgroundTicking=false;}
+    const quests=questAutoRead;if(quests){
+      const outcome=await quests.tick().catch(()=>{syncDiagnostics.report('quest_failed');});
+      syncDiagnostics.report('quest_'+outcome?.status);
+    }
+    const practice=practiceSync;if(practice&&questPages.has('practice')){
+      const outcome=await practice.tick().catch(()=>{syncDiagnostics.report('practice_failed');});
+      syncDiagnostics.report('practice_'+outcome?.status);
+    }
+  }catch(error){syncDiagnostics.report('tick_failed');}finally{backgroundTicking=false;}
 }
 function setQuestPageActive(owner,active){
   if(!['login','manual','normal','practice','expedition'].includes(owner)||!questAutoRead)return;
@@ -111,6 +110,7 @@ exports.pluginDidLoad=()=>{
   pendingProgressHandoff=window[questProgressHandoff]||null;delete window[questProgressHandoff];
   rawQuestReader=new (require('./src/host/quest_reader').QuestReader)({window,
     getRemote:()=>require('@electron/remote'),getStore:()=>readStore(window),
+    onDiagnostic:code=>syncDiagnostics.report(code),
     isBusy:()=>!!(controller?.running||service?.activeJobId||window.__fleetAdvisorUpdateBusy)});
   questReader=new (require('./src/infrastructure/sync/read_scheduler').ReadScheduler)({reader:rawQuestReader});
   const scheduledReader=questReader,readContext=scheduledReader.context.bind(scheduledReader);
@@ -171,6 +171,8 @@ exports.pluginDidLoad=()=>{
     prepareRecommendationWorker:()=>getRecommendationHost().prewarm(),
     releaseRecommendationWorker:()=>recommendationHost?.release(),
     storageDir:path.join(os.homedir(),'.poi-plugin-fleet-advisor')});
+  service.diagnosticLogs?.migrateRuns(path.join(__dirname,'logs'));
+  syncDiagnostics.report('started');
   if(service.persistenceReady&&service.mcpEnabled){
     void service.startMcpServer().catch(error=>{if(service)service.bridgeError=error.message;});
   }

@@ -61,6 +61,23 @@ test('late plugin startup verifies the current account without requiring a port 
   await f.reader.read({sessionKey:context.sessionKey});assert.equal(f.identityRequests.length,1);
 });
 
+test('native fetch is rediscovered after a temporary startup wrapper is removed',async t=>{
+  const f=fixture({wrappedFetch:true});t.after(()=>f.reader.dispose());await f.reader.installation;f.time+=2100;
+  const wrapped=await f.reader.context();assert.equal(wrapped.compatible,false);assert.equal(wrapped.idle,false);
+  assert.equal(f.identityRequests.length,0);assert.equal(f.requests.length,0);
+  f.context.fetch=f.nativeFetch;
+  const recovered=await f.reader.context();assert.equal(recovered.compatible,true);assert.equal(recovered.idle,true);
+  assert.ok((await f.reader.read({sessionKey:recovered.sessionKey})).list);
+  assert.equal(f.identityRequests.length,1);assert.equal(f.requests.length,1);
+});
+
+test('a captured native fetch is never replaced by a different function',async t=>{
+  const f=fixture();t.after(()=>f.reader.dispose());await f.reader.installation;f.time+=2100;
+  f.context.fetch=new Proxy(f.nativeFetch,{});
+  const context=await f.reader.context();assert.equal(context.compatible,false);assert.equal(context.idle,false);
+  assert.equal(f.identityRequests.length,0);assert.equal(f.requests.length,0);
+});
+
 test('a failed basic identity response cannot send a business request or expose credentials',async t=>{
   const f=fixture();t.after(()=>f.reader.dispose());await f.reader.installation;f.time+=2100;
   f.identityFetch=async()=>({ok:true,text:async()=> 'svdata='+JSON.stringify({api_result:1,api_data:{secret:'private-test-token'}})});
@@ -142,6 +159,32 @@ test('a game start will not reuse the old frame during account re-login',async t
   const changed=await f.reader.context({cached:true});assert.equal(changed.ready,true);
   assert.notEqual(changed.sessionKey,original.sessionKey);
   f.time+=2100;assert.ok((await f.reader.read({sessionKey:changed.sessionKey})).list);
+});
+
+test('poi repeated game.start in the same document recovers after start2 and port',async t=>{
+  const f=fixture();t.after(()=>f.reader.dispose());await f.reader.installation;f.time+=2100;
+  const original=await f.reader.context();assert.equal(original.idle,true);
+  // poi emits game.start immediately before it publishes start2/getData.
+  f.reader.observeStart();f.time+=2100;
+  f.reader.observeResponse({path:'/kcsapi/api_start2/getData',body:{}});f.time+=2100;
+  assert.equal((await f.reader.context()).ready,false,'start data alone is insufficient');
+  f.reader.observeResponse({path:PORT,body:{api_ship:[]}});f.time+=2100;
+  const context=await f.reader.context();assert.equal(context.ready,true);assert.equal(context.idle,true);
+  f.identityMember=456;
+  assert.equal((await f.reader.read({sessionKey:context.sessionKey})).reason,'identity_mismatch');
+  assert.equal(f.requests.length,0,'account identity is still verified before accessing tasks');
+  f.time+=2000;f.identityMember=123;
+  assert.ok((await f.reader.read({sessionKey:context.sessionKey})).list);
+});
+
+test('a failed startup or port observed before start data cannot clear the login barrier',async t=>{
+  const f=fixture();t.after(()=>f.reader.dispose());await f.reader.installation;f.time+=2100;
+  await f.reader.context();f.reader.observeStart();
+  f.reader.observeResponse({path:PORT,body:{api_ship:[]}});
+  f.reader.observeResponse({path:'/kcsapi/api_start2/getData',body:{}});f.time+=2100;
+  assert.equal((await f.reader.context()).ready,false);
+  f.reader.observeFailure();f.reader.observeResponse({path:PORT,body:{api_ship:[]}});f.time+=2100;
+  assert.equal((await f.reader.context()).ready,false);
 });
 
 test('login before the old document was probed never treats it as the new session',async t=>{
