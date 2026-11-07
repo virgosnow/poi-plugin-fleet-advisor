@@ -45,7 +45,9 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
     React.useEffect(()=>()=>clearInterval(progressTimer.current),[]);
     const shipPickerCache=React.useRef(null);if(!shipPickerCache.current)shipPickerCache.current=createShipPickerCache();
     const trainingPicker=usePickerToggle(React,{enabled:!hidden&&!busy&&!working,open:trainingOpen,anchor:trainingAnchor,
-      onOpen:()=>setTrainingOpen(true),onClose:()=>{editingTrainingSearch.current=false;setTrainingOpen(false);},
+      // The remounted scroll element starts at the top; reset its virtual window too.
+      onOpen:()=>{setTrainingScroll(0);trainingPendingFocus.current=null;setTrainingOpen(true);},
+      onClose:()=>{editingTrainingSearch.current=false;setTrainingOpen(false);},
       shouldHoldOpen:()=>editingTrainingSearch.current&&trainingAnchor.current?.ownerDocument?.activeElement===trainingDialog.current?.querySelector('input[type=search]')});
     const closeTraining=()=>{editingTrainingSearch.current=false;trainingPicker.dismiss();setTrainingOpen(false);trainingTrigger.current?.focus();};
     React.useEffect(()=>{setQuestPageActive?.('practice',!hidden&&!busy&&!working);return()=>setQuestPageActive?.('practice',false);},[hidden,busy,working]);

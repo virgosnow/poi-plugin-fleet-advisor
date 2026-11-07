@@ -338,7 +338,8 @@ test('training picker shares hover guard and filters and sorts the full roster w
  assert(walk(tree).some(n=>n.props.className==='paa-practice-training-panel'),'removing a portrait does not toggle the picker');
 });
 
-test('training picker renders a bounded window while scrolling the full roster',()=>{
+test('training picker renders a bounded window and resets it when reopened by click or hover',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});
  const store=fixture(),states=[];let i=0;store.practiceState={known:true,opponents:[],revision:1};store.questState={known:true,tasks:[]};
  const template=store.info.ships[1];store.info.ships={};for(let id=1;id<=100;id++)store.info.ships[id]={...template,api_id:id,api_lv:id,api_locked:id%2};
  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
@@ -352,6 +353,17 @@ test('training picker renders a bounded window while scrolling the full roster',
  assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-training-window').props.style.height,5300);
  list.props.onScroll({currentTarget:{scrollTop:53*90}});tree=render();
  assert(options().length<=16);assert(options().some(n=>n.props['data-index']===90));
+ walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props.onClick();tree=render();
+ assert(!walk(tree).some(n=>n.props.className==='paa-practice-training-list'));
+ walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props.onClick();tree=render();
+ assert.equal(options()[0].props['data-index'],0,'a remounted list starts at scrollTop 0 and must render its first rows');
+ list=walk(tree).find(n=>n.props.className==='paa-practice-training-list');
+ list.props.onScroll({currentTarget:{scrollTop:53*70}});tree=render();
+ walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props.onClick();tree=render();
+ walk(tree).find(n=>n.props.className==='paa-practice-training').props.onPointerEnter({pointerType:'mouse'});
+ t.mock.timers.tick(500);tree=render();
+ assert.equal(options()[0].props['data-index'],0,'hover opening also resets the virtual window before rendering');
+ assert.equal(options().length,16);
  list=walk(tree).find(n=>n.props.className==='paa-practice-training-list');list.props.onScroll({currentTarget:{scrollTop:0}});tree=render();
  const filter=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');walk(filter).find(n=>n.children?.includes('未锁定')).props.onClick();tree=render();
  assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-training-window').props.style.height,2650);
