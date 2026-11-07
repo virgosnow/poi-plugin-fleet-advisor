@@ -92,8 +92,18 @@ module.exports=function createAreaPicker(React){
       if(!picker.isHover())(expedition?panel.querySelector('input[type=search]'):selected)?.focus({preventScroll:true});
       const list=panel.querySelector('.paa-area-regions');
       if(selected&&list)list.scrollTop+=selected.getBoundingClientRect().top-list.getBoundingClientRect().top-30;
+      const tabs=panel.querySelector('.paa-mission-area-tabs');
+      const wheel=e=>{
+        if(e.defaultPrevented||e.ctrlKey||e.shiftKey||e.deltaX||!e.deltaY||tabs.scrollWidth<=tabs.clientWidth)return;
+        const step=e.deltaMode===1?16:e.deltaMode===2?tabs.clientWidth:1;
+        const left=Math.max(0,Math.min(tabs.scrollWidth-tabs.clientWidth,tabs.scrollLeft+e.deltaY*step));
+        if(left===tabs.scrollLeft)return;
+        e.preventDefault();tabs.scrollLeft=left;
+      };
+      // A native non-passive listener lets the strip consume vertical wheel input.
+      tabs?.addEventListener('wheel',wheel,{passive:false});
       doc.addEventListener('pointerdown',pointerDown,true);doc.addEventListener('pointerup',pointerEnd,true);doc.addEventListener('pointercancel',pointerEnd,true);doc.addEventListener('focusin',outside,true);doc.addEventListener('keydown',escape);win.addEventListener('resize',place);doc.addEventListener('scroll',place,true);
-      return ()=>{pointerInside.current=false;doc.removeEventListener('pointerdown',pointerDown,true);doc.removeEventListener('pointerup',pointerEnd,true);doc.removeEventListener('pointercancel',pointerEnd,true);doc.removeEventListener('focusin',outside,true);doc.removeEventListener('keydown',escape);win.removeEventListener('resize',place);doc.removeEventListener('scroll',place,true);};
+      return ()=>{tabs?.removeEventListener('wheel',wheel);pointerInside.current=false;doc.removeEventListener('pointerdown',pointerDown,true);doc.removeEventListener('pointerup',pointerEnd,true);doc.removeEventListener('pointercancel',pointerEnd,true);doc.removeEventListener('focusin',outside,true);doc.removeEventListener('keydown',escape);win.removeEventListener('resize',place);doc.removeEventListener('scroll',place,true);};
     },[open,disabled,hidden]);
     React.useEffect(()=>{const list=dialog.current?.querySelector('.paa-area-regions');if(list)list.scrollTop=0;},[query,order,region]);
     const keys=e=>{

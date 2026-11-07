@@ -1,6 +1,27 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fixture=require('../helpers/workbench_fixture'),W=require('../../src/ui/workbench/workbench_model');
+test('practice completes an empty fleet without specifying training ships',async()=>{
+ const store=fixture(),states=[],requests=[];let i=0;
+ store.practiceState={known:true,opponents:[{id:10,index:1,name:'对手',ships:[{masterId:1,level:50}]}],revision:1};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
+  useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const service={preview:()=>({}),createSnapshot:()=>({snapshotId:'test'}),recommendPracticeFleet:async args=>{
+  requests.push(args);return require('../../src/recommendation/practice').recommendPractice(store,args);
+ }};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>service});
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[],render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
+ let tree=render();
+ assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-training-empty-hint').children[0],'无特别指定');
+ assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props['aria-label'],'优先培养舰娘：无特别指定');
+ walk(tree).find(n=>n.props.className==='paa-practice-opponent-select').props.onClick();tree=render();
+ const complete=walk(tree).find(n=>n.props.className==='paa-wb-complete');assert.equal(complete.props.disabled,false);
+ await complete.props.onClick();tree=render();
+ assert.equal(requests.length,1);assert.deepEqual(requests[0].trainingShipIds,[]);assert(requests[0].slots.every(slot=>slot===null));
+ assert.equal(states[0].filter(Boolean).length,6);assert.equal(new Set(states[0].map(slot=>slot.id)).size,6);
+ assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-training-empty-hint').children[0],'无特别指定');
+ assert(!walk(tree).some(n=>n.props.className==='paa-fleet-warning'));
+});
 test('practice hides special attack badges while retaining ordinary combat mechanisms',()=>{
  const mechanism=require('../../src/domain/combat/ship_mechanisms');
  const cases=[['special-shelling',[['大和改二重',10],['武蔵改二',9]]],
@@ -253,7 +274,7 @@ test('practice training targets can be searched and selected without altering th
    clear.props.onClick();tree=render();assert(searchFocused,'清除前将焦点留在面板内');
    assert(walk(tree).some(n=>n.props.className==='paa-practice-training-panel'),'清除后面板保持打开');
    assert.equal(walk(tree).find(n=>n.props['aria-label']==='清除培养舰娘').props.disabled,true);
-   assert.match(trigger(tree).props['aria-label'],/请添加要培养的舰娘/);assert.equal(states[0][0].id,ship.id);
+   assert.match(trigger(tree).props['aria-label'],/无特别指定/);assert.equal(states[0][0].id,ship.id);
    for(const id of [2,3,4,5]){walk(option(tree,id)).find(n=>n.type==='input').props.onChange();tree=render();}
    for(const id of [3,4,5]){walk(option(tree,id)).find(n=>n.type==='input').props.onChange();tree=render();}
    states[0][1]=null;tree=render();
@@ -310,10 +331,10 @@ test('training picker shares hover guard and filters and sorts the full roster w
  walk(tree).find(n=>n.props['aria-label']==='搜索舰娘').props.onChange({target:{value:'翔鹤'}});tree=render();
  assert.deepEqual(options().map(n=>n.props.key),[2],'search accepts simplified and original names');
  assert(options().every(n=>walk(n).some(x=>x.type==='input'&&x.props.type==='checkbox')));
- assert.match(walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props['aria-label'],/请添加要培养的舰娘/);
+ assert.match(walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props['aria-label'],/无特别指定/);
  walk(options()[0]).find(n=>n.type==='input').props.onChange();tree=render();
  let stopped=false;walk(tree).find(n=>n.props['aria-label']==='移除翔鶴').props.onClick({stopPropagation(){stopped=true;}});tree=render();
- assert(stopped);assert.match(walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props['aria-label'],/请添加要培养的舰娘/);
+ assert(stopped);assert.match(walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props['aria-label'],/无特别指定/);
  assert(walk(tree).some(n=>n.props.className==='paa-practice-training-panel'),'removing a portrait does not toggle the picker');
 });
 

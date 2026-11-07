@@ -105,7 +105,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
       .sort((a,b)=>trainingSort==='level-asc'?a.level-b.level||a.id-b.id:trainingSort==='morale-desc'?b.cond-a.cond||b.level-a.level||a.id-b.id:
         trainingSort==='name'?a.name.localeCompare(b.name,'ja')||b.level-a.level||a.id-b.id:b.level-a.level||a.id-b.id);
     const selectedNames=trainingShipIds.map(id=>trainingRows.find(row=>row.id===id)?.name||'舰娘资料待同步');
-    const trainingLabel=selectedNames.length?selectedNames.join('、'):'请添加要培养的舰娘';
+    const trainingLabel=selectedNames.length?selectedNames.join('、'):'无特别指定';
     const trainingStart=Math.min(Math.max(0,Math.floor(trainingScroll/TRAINING_ROW_STEP)-TRAINING_OVERSCAN),Math.max(0,trainingMatches.length-1));
     const trainingEnd=Math.min(trainingMatches.length,trainingStart+TRAINING_VISIBLE+TRAINING_OVERSCAN*2);
     const trainingGraphs=trainingOpen&&Array.isArray(store.const?.$shipgraph)?new Map(store.const.$shipgraph.map(graph=>[Number(graph.api_id),graph])):null;
@@ -336,7 +336,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
                 h('button',{type:'button',className:'paa-practice-training-remove',disabled,'aria-label':`移除${selectedNames[index]}`,
                   onClick:event=>{event.stopPropagation();setTrainingShipIds(previous=>previous.filter(shipId=>shipId!==id));}},'×'));}),
               ...[0,1,2,3,4,5].map(limit=>trainingShipIds.length>limit?h('span',{className:`paa-practice-training-more paa-practice-training-more-${limit}`,key:`more-${limit}`,'aria-hidden':true},`+${trainingShipIds.length-limit}`):null)):
-              h('span',{className:'paa-practice-training-empty-hint'},'请添加要培养的舰娘')),
+              h('span',{className:'paa-practice-training-empty-hint'},trainingLabel)),
           trainingOpen&&!disabled?h('section',{ref:trainingDialog,className:'paa-practice-training-panel',role:'dialog','aria-label':'选择要培养的舰娘',
             onKeyDownCapture:trainingPicker.engageKeyboard,onPointerDownCapture:event=>{trainingPointerInside.current=true;trainingPicker.engageSelect(event);}},
             h('div',{className:'paa-area-panel-head'},h('span',null,'选择培养舰娘'),h('span',{className:'paa-mission-count'},`已选择 ${trainingShipIds.length} / 6 艘 · ${trainingMatches.length} 项`),
