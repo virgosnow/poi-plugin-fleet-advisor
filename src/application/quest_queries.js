@@ -1,7 +1,7 @@
 'use strict';
 const {findDefinition}=require('../domain/quests/quest_requirements');
 const periods={'日常':'daily','周常':'weekly','月常':'monthly','季常':'quarterly','年常':'yearly','单次':'once',
-  '限时单次':'limited','限时周常':'limited','限时日常':'limited'};
+  '限时单次':'limited','限时周常':'limited','限时日常':'limited',daily:'daily',weekly:'weekly',monthly:'monthly',quarterly:'quarterly',yearly:'yearly',once:'once',limited:'limited'};
 const categories={2:'sortie',3:'practice',4:'expedition',8:'sortie',9:'sortie'};
 const states={1:'available',2:'active',3:'complete'};
 const labelPeriods={1:'once',2:'daily',3:'weekly',6:'monthly',7:'quarterly'};

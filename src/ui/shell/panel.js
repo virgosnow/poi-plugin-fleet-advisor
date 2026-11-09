@@ -115,7 +115,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
     };
     const fail=error=>{setStatus({state:'error',title:'未能完成',text:error.message});setDetail(error.stack||error.message);};
     const navigateQuest=destination=>{
-      if(running||active.current||!destination?.code||!['normal','expedition'].includes(destination.kind))return;
+      if(running||active.current||!destination?.code||!['normal','expedition','practice'].includes(destination.kind))return;
       setQuestNavigation({...destination,id:++questNavigationId.current});setMode(destination.kind);reset();
     };
     const copyDetail=async text=>{

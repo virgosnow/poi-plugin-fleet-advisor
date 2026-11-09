@@ -234,8 +234,9 @@ test('other duplicate numeric IDs are disambiguated by title',()=>{
 });
 
 test('imported scope and provenance are complete without raw page content',()=>{
-  assert.equal(DATA.quests.length,316);
+  assert.equal(DATA.quests.length,378);
   assert.equal(DATA.quests.filter(q=>q.category==='B').length,273);
+  assert.equal(DATA.quests.filter(q=>q.category==='C').length,62);
   assert.equal(DATA.quests.filter(q=>q.category==='D').length,43);
   assert.ok(DATA.source.sources.every(source=>source.url&&source.sha256));
   assert.ok(DATA.quests.every(q=>q.source.url&&q.fleet&&q.goals.length));

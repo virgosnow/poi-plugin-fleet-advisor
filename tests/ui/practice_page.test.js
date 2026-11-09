@@ -1,6 +1,20 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fixture=require('../helpers/workbench_fixture'),W=require('../../src/ui/workbench/workbench_model');
+test('overview navigation selects an active practice quest without clearing the existing draft',()=>{
+ const store=fixture(),states=[],refs=[],effects=[];let i=0,j=0;
+ store.questState={known:true,complete:true,tasks:[{api_no:371,api_category:3,api_state:2,api_title:'春です！「春雨」、演習しますっ！'}]};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:fn=>effects.push(fn),
+  useRef(initial){const at=j++;return refs[at]||(refs[at]={current:initial});},
+  useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({})});
+ const intent={id:1,kind:'practice',code:'P371'},walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
+ const render=()=>{i=0;j=0;effects.length=0;return Page({navigationIntent:intent});};
+ render();states[0]=[W.entry(store,1),null,null,null,null,null];render();
+ effects.find(fn=>String(fn).includes('handledNavigation.current===intent.id'))();
+ const tree=render(),section=walk(tree).find(n=>n.type?.name==='QuestSection');
+ assert.deepEqual(section.props.selectedQuests,['P371']);assert.equal(section.props.open,true);assert.equal(states[0][0].id,1);
+});
 test('practice completes an empty fleet without specifying training ships',async()=>{
  const store=fixture(),states=[],requests=[];let i=0;
  store.practiceState={known:true,opponents:[{id:10,index:1,name:'对手',ships:[{masterId:1,level:50}]}],revision:1};

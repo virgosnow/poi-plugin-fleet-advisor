@@ -20,6 +20,13 @@ test('Dy1 contains the five required expeditions, not the source link typo',()=>
   const result=queryQuests({status:'ready',pages:1,tasks:[{api_no:434,api_category:4,api_state:1}]},{},now);
   assert.deepEqual(result.items[0].goals.map(goal=>goal.missionId),['3','5','A1','A2','9']);
 });
+test('MCP uses the same practice catalogue and English period for observed tasks',()=>{
+  const result=queryQuests({status:'ready',pages:1,tasks:[{api_no:371,api_category:3,api_state:2,
+    api_title:'春です！「春雨」、演習しますっ！'}]},{category:'practice',period:'yearly'},now);
+  assert.equal(result.total,1);assert.equal(result.items[0].code,'P371');
+  assert.equal(result.items[0].goals[0].kind,'practice');assert.equal(result.items[0].goals[0].rankMin,'A');
+  assert.match(result.items[0].source,/wikiwiki/);
+});
 
 test('MCP dispatch exposes and validates quest filters',async()=>{
   const {handleMcpPost}=require('../../src/bridge/mcp_http');

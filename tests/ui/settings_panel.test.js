@@ -22,6 +22,10 @@ test('current fleet task targets open the appropriate workbench with a fresh nav
   const expedition=workbenches(tree).find(node=>node.props.kind==='expedition');assert(!expedition.props.hidden);
   assert.equal(expedition.props.navigationIntent.missionId,38);assert(expedition.props.navigationIntent.id>id);
   normal=workbenches(tree).find(node=>node.props.kind==='normal');assert.equal(normal.props.navigationIntent,null);
+  manual().props.onNavigateQuest({kind:'practice',code:'P371'});tree=render();
+  const descendants=node=>!node||typeof node!=='object'?[]:[node,...(node.children||[]).flatMap(descendants)];
+  const practice=descendants(tree).find(node=>node.type?.name==='PracticePage');
+  assert(!practice.props.hidden);assert.equal(practice.props.navigationIntent.code,'P371');
 });
 
 test('experimental automation is opt-in, autosaves near its switch and preserves workbench instances',()=>{

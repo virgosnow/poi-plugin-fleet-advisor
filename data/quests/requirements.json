@@ -3,7 +3,7 @@
   "auditedAt": "2026-10-22",
   "source": {
     "auditSha256": "da6c3baf9ce59cc3e4f38df1886b46ed55122fc0f2d81fa5e844069890a4f7b1",
-    "scope": "Permanent sortie and expedition quests; only server-listed available/active quests are displayed.",
+    "scope": "Reviewed sortie, practice and expedition quests; only server-listed available/active quests are displayed.",
     "rights": "Original wiki wording and game names retain their original rights; structured rules are independently implemented. Raw pages are not distributed.",
     "sources": [
       {
@@ -35,7 +35,7 @@
     "boundaries": [
       "Rules are reviewed sufficient-action definitions, not proof of every minimal game requirement.",
       "Goal counts are requirements, never inferred remaining counts or server progress.",
-      "No prerequisite inference, task acceptance, completion tracking or limited-time quests.",
+      "No prerequisite inference or task acceptance; seasonal tasks require a matching live title.",
       "Ordinary same-name remodels are accepted; renamed or type-converted forms require explicit permission or remain unknown."
     ]
   },
@@ -21690,6 +21690,3159 @@
       "requireTitleMatch": true
     },
     {
+      "code": "P301",
+      "category": "C",
+      "period": "once",
+      "title": "はじめての「演習」!",
+      "ids": [
+        301
+      ],
+      "wikiCode": "C1",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 1,
+          "rankMin": "any",
+          "withinDay": false
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C1",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P307",
+      "category": "C",
+      "period": "once",
+      "title": "艦隊の練度向上に努めよ!",
+      "ids": [
+        307
+      ],
+      "wikiCode": "C5",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C5",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P308",
+      "category": "C",
+      "period": "once",
+      "title": "演習を強化、艦隊の練度向上に努めよ!",
+      "ids": [
+        308
+      ],
+      "wikiCode": "C6",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C6",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P309",
+      "category": "C",
+      "period": "once",
+      "title": "北方再突入に備え、練度向上に努めよ!",
+      "ids": [
+        309
+      ],
+      "wikiCode": "C7",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C7",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P312",
+      "category": "C",
+      "period": "once",
+      "title": "上陸部隊演習",
+      "ids": [
+        312
+      ],
+      "wikiCode": "C9",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C9",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P316",
+      "category": "C",
+      "period": "once",
+      "title": "輸送部隊の練度向上に努めよ!",
+      "ids": [
+        316
+      ],
+      "wikiCode": "C13",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C13",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P317",
+      "category": "C",
+      "period": "once",
+      "title": "甲型駆逐艦の戦力整備計画",
+      "ids": [
+        317
+      ],
+      "wikiCode": "C15",
+      "fleet": {
+        "distinctCompositionGroups": true,
+        "fleetIndex": 1,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "shipClass",
+                  "name": "夕雲型",
+                  "ctypeIds": [
+                    38
+                  ]
+                },
+                {
+                  "allOf": [
+                    {
+                      "kind": "shipClass",
+                      "name": "陽炎型",
+                      "ctypeIds": [
+                        30
+                      ]
+                    },
+                    {
+                      "kind": "shipType",
+                      "name": "駆逐",
+                      "stypeIds": [
+                        2
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "min": 2
+          },
+          {
+            "kind": "freeSlots",
+            "required": false
+          }
+        ],
+        "uniqueShipFamilies": true
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "S",
+          "withinDay": false,
+          "stage": 1
+        },
+        {
+          "kind": "bossWin",
+          "map": "2-2",
+          "count": 1,
+          "rankMin": "A",
+          "stage": 2
+        },
+        {
+          "kind": "bossWin",
+          "map": "2-3",
+          "count": 1,
+          "rankMin": "A",
+          "stage": 2
+        },
+        {
+          "kind": "bossWin",
+          "map": "2-4",
+          "count": 1,
+          "rankMin": "A",
+          "stage": 2
+        },
+        {
+          "kind": "bossWin",
+          "map": "2-5",
+          "count": 1,
+          "rankMin": "A",
+          "stage": 2
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C15",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P319",
+      "category": "C",
+      "period": "once",
+      "title": "精鋭「第二一駆」、猛特訓!",
+      "ids": [
+        319
+      ],
+      "wikiCode": "C17",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "若葉改"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "初春改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "初霜改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C17",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P320",
+      "category": "C",
+      "period": "once",
+      "title": "駆逐隊、特訓始め!",
+      "ids": [
+        320
+      ],
+      "wikiCode": "C18",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C18",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务",
+        "reviews": [
+          {
+            "kind": "sourceReview",
+            "decision": "中文明确四驱逐、同一日四次B胜以上，和日文数值相同，采用此要求；演习次数不能跨游戏日累计。"
+          }
+        ],
+        "evidence": [
+          {
+            "url": "https://wikiwiki.jp/kancolle/任務/演習任務",
+            "sha256": "4fd0eb44a4244d3ee5e16c16e78b6413f56ba9681656467bf2c617f7ecbcfc82"
+          },
+          {
+            "url": "https://zh.kcwiki.cn/wiki/任务",
+            "sha256": "29c9d9e6a1cb6edaef0b03ef3d1eaf5ddb1a5c0e94d8fbe00513aa2cbdcfbf5d"
+          }
+        ]
+      }
+    },
+    {
+      "code": "P322",
+      "category": "C",
+      "period": "once",
+      "title": "海防艦、演習始め!",
+      "ids": [
+        322
+      ],
+      "wikiCode": "C20",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                1
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 2,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C20",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P323",
+      "category": "C",
+      "period": "once",
+      "title": "最精鋭甲型駆逐艦、特訓始め!",
+      "ids": [
+        323
+      ],
+      "wikiCode": "C21",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "allOf": [
+                {
+                  "kind": "shipClass",
+                  "name": "阳炎型／夕云型",
+                  "ctypeIds": [
+                    30,
+                    38
+                  ]
+                },
+                {
+                  "kind": "level",
+                  "min": 70
+                }
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C21",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P324",
+      "category": "C",
+      "period": "once",
+      "title": "戦闘航空母艦一番艦、演習始め!",
+      "ids": [
+        324
+      ],
+      "wikiCode": "C22",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "伊勢改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C22",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P325",
+      "category": "C",
+      "period": "once",
+      "title": "改夕雲型、演習始め!",
+      "ids": [
+        325
+      ],
+      "wikiCode": "C23",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "夕雲改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "長波改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C23",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P327",
+      "category": "C",
+      "period": "once",
+      "title": "朝潮型集合!特訓始め!",
+      "ids": [
+        327
+      ],
+      "wikiCode": "C25",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipClass",
+              "name": "朝潮型",
+              "ctypeIds": [
+                18
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C25",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P328",
+      "category": "C",
+      "period": "once",
+      "title": "精強「十七駆」、猛特訓!",
+      "ids": [
+        328
+      ],
+      "wikiCode": "C27",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "磯風乙改"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "浜風乙改"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "浦風丁改"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "谷風丁改"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C27",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P331",
+      "category": "C",
+      "period": "once",
+      "title": "艦載機演習",
+      "ids": [
+        331
+      ],
+      "wikiCode": "C31",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                11,
+                18
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                11,
+                18
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C31",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P332",
+      "category": "C",
+      "period": "once",
+      "title": "六周年記念演習",
+      "ids": [
+        332
+      ],
+      "wikiCode": "C32",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                3,
+                4,
+                21
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                1,
+                2
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ],
+        "sizeExact": 6
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C32",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P333",
+      "category": "C",
+      "period": "once",
+      "title": "航空戦隊演習(その壱)",
+      "ids": [
+        333
+      ],
+      "wikiCode": "C33",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                7,
+                11,
+                18
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C33",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P334",
+      "category": "C",
+      "period": "once",
+      "title": "航空戦隊演習(その弐)",
+      "ids": [
+        334
+      ],
+      "wikiCode": "C34",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                7,
+                11,
+                18
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 6,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C34",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P335",
+      "category": "C",
+      "period": "once",
+      "title": "新しき盾",
+      "ids": [
+        335
+      ],
+      "wikiCode": "C35",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "摩耶"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "羽黒"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C35",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P336",
+      "category": "C",
+      "period": "once",
+      "title": "輸送船団演習",
+      "ids": [
+        336
+      ],
+      "wikiCode": "C37",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                1,
+                17,
+                22
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C37",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P338",
+      "category": "C",
+      "period": "once",
+      "title": "睦月型集合!演習始め!",
+      "ids": [
+        338
+      ],
+      "wikiCode": "C39",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipClass",
+              "name": "睦月型",
+              "ctypeIds": [
+                28
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C39",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P343",
+      "category": "C",
+      "period": "once",
+      "title": "航空母艦演習",
+      "ids": [
+        343
+      ],
+      "wikiCode": "C46",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                11,
+                18
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                11,
+                18
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C46",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P344",
+      "category": "C",
+      "period": "once",
+      "title": "「第十方面艦隊」演習!",
+      "ids": [
+        344
+      ],
+      "wikiCode": "C48",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "羽黒"
+                },
+                {
+                  "kind": "ship",
+                  "name": "足柄"
+                },
+                {
+                  "kind": "ship",
+                  "name": "神風"
+                }
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C48",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P347",
+      "category": "C",
+      "period": "once",
+      "title": "奇跡の駆逐艦",
+      "ids": [
+        347
+      ],
+      "wikiCode": "C51",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "雪風"
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C51",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P351",
+      "category": "C",
+      "period": "once",
+      "title": "改装航空巡洋艦「最上」、進発せよ!",
+      "ids": [
+        351
+      ],
+      "wikiCode": "C56",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "最上改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C56",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P352",
+      "category": "C",
+      "period": "once",
+      "title": "改装「矢矧」、精鋭水雷戦隊旗艦演習!",
+      "ids": [
+        352
+      ],
+      "wikiCode": "C57",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "矢矧改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C57",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P358",
+      "category": "C",
+      "period": "once",
+      "title": "「Taffy III」 This is a drill!",
+      "ids": [
+        358
+      ],
+      "wikiCode": "C68",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "Samuel B.Roberts",
+              "masterIds": [
+                561,
+                681,
+                920
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "Johnston"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "Gambier Bay",
+              "masterIds": [
+                544,
+                396,
+                707
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C68",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P360",
+      "category": "C",
+      "period": "once",
+      "title": "第一線航空母艦「鳳翔改二」、演習開始!",
+      "ids": [
+        360
+      ],
+      "wikiCode": "C70",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "鳳翔改二",
+                  "masterIds": [
+                    894
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "鳳翔改二戦",
+                  "masterIds": [
+                    899
+                  ]
+                }
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 5,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C70",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P364",
+      "category": "C",
+      "period": "once",
+      "title": "精鋭第三戦隊、演習開始!",
+      "ids": [
+        364
+      ],
+      "wikiCode": "C73",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "榛名改二乙"
+                },
+                {
+                  "kind": "ship",
+                  "name": "榛名改二丙"
+                }
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "金剛改二丙"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C73",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P365",
+      "category": "C",
+      "period": "once",
+      "title": "「佐世保の時雨」練度向上を図れ!",
+      "ids": [
+        365
+      ],
+      "wikiCode": "C75",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "時雨"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "白露"
+                },
+                {
+                  "kind": "ship",
+                  "name": "有明"
+                },
+                {
+                  "kind": "ship",
+                  "name": "夕暮"
+                }
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 5,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C75",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P366",
+      "category": "C",
+      "period": "once",
+      "title": "最精鋭!改装「時雨」演習開始!",
+      "ids": [
+        366
+      ],
+      "wikiCode": "C76",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "時雨改三"
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C76",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P376",
+      "category": "C",
+      "period": "once",
+      "title": "「第三戦隊」精鋭第二小隊、特別演習!",
+      "ids": [
+        376
+      ],
+      "wikiCode": "C77",
+      "fleet": {
+        "distinctCompositionGroups": true,
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "kind": "count",
+                "selector": {
+                  "anyOf": [
+                    {
+                      "kind": "ship",
+                      "name": "比叡改二",
+                      "masterIds": [
+                        150
+                      ],
+                      "formPolicy": "literal-wiki-reference"
+                    },
+                    {
+                      "kind": "ship",
+                      "name": "比叡改二丙",
+                      "masterIds": [
+                        592
+                      ],
+                      "formPolicy": "literal-wiki-reference"
+                    }
+                  ]
+                },
+                "min": 1
+              },
+              {
+                "kind": "count",
+                "selector": {
+                  "anyOf": [
+                    {
+                      "kind": "ship",
+                      "name": "霧島改二",
+                      "masterIds": [
+                        152
+                      ],
+                      "formPolicy": "literal-wiki-reference"
+                    },
+                    {
+                      "kind": "ship",
+                      "name": "霧島改二丙",
+                      "masterIds": [
+                        694
+                      ],
+                      "formPolicy": "literal-wiki-reference"
+                    }
+                  ]
+                },
+                "min": 1
+              },
+              {
+                "kind": "count",
+                "selector": {
+                  "kind": "shipType",
+                  "name": "軽巡",
+                  "stypeIds": [
+                    3
+                  ]
+                },
+                "min": 1
+              },
+              {
+                "kind": "count",
+                "selector": {
+                  "kind": "shipType",
+                  "name": "駆逐艦",
+                  "stypeIds": [
+                    2
+                  ]
+                },
+                "min": 2
+              }
+            ]
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 5,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-C77",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P303",
+      "category": "C",
+      "period": "daily",
+      "title": "「演習」で練度向上!",
+      "ids": [
+        303
+      ],
+      "wikiCode": "Cd1",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "any",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cd1",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P304",
+      "category": "C",
+      "period": "daily",
+      "title": "「演習」で他提督を圧倒せよ!",
+      "ids": [
+        304
+      ],
+      "wikiCode": "Cd2",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 5,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cd2",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P302",
+      "category": "C",
+      "period": "weekly",
+      "title": "大規模演習",
+      "ids": [
+        302
+      ],
+      "wikiCode": "Cw1",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 20,
+          "rankMin": "win",
+          "withinDay": false
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cw1",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P311",
+      "category": "C",
+      "period": "monthly",
+      "title": "精鋭艦隊演習",
+      "ids": [
+        311
+      ],
+      "wikiCode": "Cm1",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 7,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cm1",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P318",
+      "category": "C",
+      "period": "monthly",
+      "title": "給糧艦「伊良湖」の支援",
+      "ids": [
+        318
+      ],
+      "wikiCode": "Cm2",
+      "fleet": {
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "name": "軽巡",
+              "stypeIds": [
+                3
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ],
+        "fleetIndex": 1,
+        "uniqueShipFamilies": true
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "B",
+          "withinDay": true,
+          "latchUntilMonthlyReset": true,
+          "fleetRequiredAtEvent": {
+            "allOf": [
+              {
+                "kind": "count",
+                "selector": {
+                  "kind": "shipType",
+                  "name": "軽巡",
+                  "stypeIds": [
+                    3
+                  ]
+                },
+                "min": 2,
+                "scope": "fleetTotal"
+              }
+            ],
+            "fleetIndex": 1,
+            "uniqueShipFamilies": true
+          }
+        },
+        {
+          "kind": "equippedItems",
+          "masterIds": [
+            145
+          ],
+          "count": 2,
+          "ownerScope": "anyShip",
+          "unlockedAtClaim": true,
+          "distinctInstances": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cm2",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务",
+        "reviews": [
+          {
+            "kind": "sourceReview",
+            "decision": "日文详细验证注记用于实际装备范围与时机；中日正文一致的第一舰队两轻巡演习、3次B胜以上与两个普通饭团消耗分别建模。中文补充未上锁要求作为领取限制。"
+          },
+          {
+            "kind": "englishWikiReview",
+            "decision": "英文支持第一舰队至少2轻巡、演习3次B胜、秘书舰装备2饭团并领取消耗。英文的先后及秘书舰写法较简略，不能推翻日文详细验证中的月内任意时间／任意舰；保留已有状态模型，秘书舰同舰两饭团仍是三语兼容推荐。"
+          }
+        ],
+        "evidence": [
+          {
+            "url": "https://wikiwiki.jp/kancolle/任務/演習任務",
+            "sha256": "5ba39cac27a3562ab95efea43a5e595a43c90a1405e35639b27b0ada8c43146c"
+          },
+          {
+            "url": "https://zh.kcwiki.cn/wiki/任务",
+            "sha256": "29c9d9e6a1cb6edaef0b03ef3d1eaf5ddb1a5c0e94d8fbe00513aa2cbdcfbf5d"
+          },
+          {
+            "url": "https://wikiwiki.jp/kancolle/%E4%BB%BB%E5%8B%99/%E3%82%B3%E3%83%A1%E3%83%B3%E3%83%8830",
+            "sha256": "2b7ec58f9c122f7235c140b8033a351806f48b1ba619ab711a126b7e9472a7cf"
+          },
+          {
+            "url": "https://en.kancollewiki.net/w/index.php?mobileaction=toggle_view_desktop&title=Quests",
+            "sha256": "7b2148e1a3dee2f11c78b62eb33c572b42be23be27e9af0c19afe893fc8e5872",
+            "retrieval": "web search indexed page extract"
+          }
+        ]
+      }
+    },
+    {
+      "code": "P330",
+      "category": "C",
+      "period": "quarterly",
+      "title": "空母機動部隊、演習始め!",
+      "ids": [
+        330
+      ],
+      "wikiCode": "Cq1",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                7,
+                11,
+                18
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                7,
+                11,
+                18
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cq1",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P337",
+      "category": "C",
+      "period": "quarterly",
+      "title": "「十八駆」演習!",
+      "ids": [
+        337
+      ],
+      "wikiCode": "Cq2",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "霞"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "霰"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "陽炎"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "不知火"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cq2",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P339",
+      "category": "C",
+      "period": "quarterly",
+      "title": "「十九駆」演習!",
+      "ids": [
+        339
+      ],
+      "wikiCode": "Cq3",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "磯波"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "浦波"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "綾波"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "敷波"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cq3",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P342",
+      "category": "C",
+      "period": "quarterly",
+      "title": "小艦艇群演習強化任務",
+      "ids": [
+        342
+      ],
+      "wikiCode": "Cq4",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                1,
+                2
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                1,
+                2,
+                3,
+                4,
+                21
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cq4",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P348",
+      "category": "C",
+      "period": "yearly",
+      "title": "「精鋭軽巡」演習!",
+      "ids": [
+        348
+      ],
+      "wikiCode": "Cy3",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                3,
+                21
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                3,
+                4,
+                21
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy3",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P350",
+      "category": "C",
+      "period": "yearly",
+      "title": "精鋭「第七駆逐隊」演習開始!",
+      "ids": [
+        350
+      ],
+      "wikiCode": "Cy4",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "朧"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "曙"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "漣"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "潮"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy4",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P362",
+      "category": "C",
+      "period": "yearly",
+      "title": "特型初代「第十一駆逐隊」演習スペシャル!",
+      "ids": [
+        362
+      ],
+      "wikiCode": "Cy10",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "吹雪"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "白雪"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "初雪"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "深雪"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy10",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P371",
+      "category": "C",
+      "period": "yearly",
+      "title": "春です!「春雨」、演習しますっ!",
+      "ids": [
+        371
+      ],
+      "wikiCode": "Cy12",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "春雨"
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "村雨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "夕立"
+                },
+                {
+                  "kind": "ship",
+                  "name": "五月雨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "白露"
+                },
+                {
+                  "kind": "ship",
+                  "name": "時雨"
+                }
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy12",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P356",
+      "category": "C",
+      "period": "yearly",
+      "title": "精鋭「第十九駆逐隊」演習!",
+      "ids": [
+        356
+      ],
+      "wikiCode": "Cy8",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "磯波改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "浦波改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "綾波改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "敷波改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy8",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P353",
+      "category": "C",
+      "period": "yearly",
+      "title": "「巡洋艦戦隊」演習!",
+      "ids": [
+        353
+      ],
+      "wikiCode": "Cy5",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                5,
+                6
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                5,
+                6
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ],
+        "sizeExact": 6
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 5,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy5",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务",
+        "reviews": [
+          {
+            "kind": "sourceReview",
+            "decision": "中日均为重巡/航巡旗舰、总四重巡级加二驱逐、同日五次演习胜利。胜利按B以上，明确保留六舰和旗舰条件。"
+          }
+        ],
+        "evidence": [
+          {
+            "url": "https://wikiwiki.jp/kancolle/任務/演習任務",
+            "sha256": "4fd0eb44a4244d3ee5e16c16e78b6413f56ba9681656467bf2c617f7ecbcfc82"
+          },
+          {
+            "url": "https://zh.kcwiki.cn/wiki/任务",
+            "sha256": "29c9d9e6a1cb6edaef0b03ef3d1eaf5ddb1a5c0e94d8fbe00513aa2cbdcfbf5d"
+          }
+        ]
+      }
+    },
+    {
+      "code": "P357",
+      "category": "C",
+      "period": "yearly",
+      "title": "「大和型戦艦」第一戦隊演習、始め!",
+      "ids": [
+        357
+      ],
+      "wikiCode": "Cy9",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "大和"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "武蔵"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                3
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy9",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P372",
+      "category": "C",
+      "period": "yearly",
+      "title": "水上艦「艦隊防空演習」を実施せよ!",
+      "ids": [
+        372
+      ],
+      "wikiCode": "Cy13",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipClass",
+              "name": "秋月型",
+              "ctypeIds": [
+                54
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                10
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy13",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P354",
+      "category": "C",
+      "period": "yearly",
+      "title": "「改装特務空母」任務部隊演習!",
+      "ids": [
+        354
+      ],
+      "wikiCode": "Cy6",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "Gambier Bay Mk.II",
+              "masterIds": [
+                707
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipClass",
+              "name": "Fletcher级／John C.Butler级",
+              "ctypeIds": [
+                91,
+                87
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy6",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P368",
+      "category": "C",
+      "period": "yearly",
+      "title": "「十六駆」演習!",
+      "ids": [
+        368
+      ],
+      "wikiCode": "Cy11",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "天津風"
+                },
+                {
+                  "kind": "ship",
+                  "name": "雪風"
+                },
+                {
+                  "kind": "ship",
+                  "name": "時津風"
+                },
+                {
+                  "kind": "ship",
+                  "name": "初風"
+                }
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 3,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy11",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P373",
+      "category": "C",
+      "period": "yearly",
+      "title": "「フランス艦隊」演習!",
+      "ids": [
+        373
+      ],
+      "wikiCode": "Cy14",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipClass",
+              "name": "法国舰",
+              "ctypeIds": [
+                70,
+                79,
+                128,
+                129
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipClass",
+              "name": "法国舰",
+              "ctypeIds": [
+                70,
+                79,
+                128,
+                129
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy14",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P375",
+      "category": "C",
+      "period": "yearly",
+      "title": "「第三戦隊」第二小隊、演習開始!",
+      "ids": [
+        375
+      ],
+      "wikiCode": "Cy15",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "比叡"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "霧島"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                3
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "shipType",
+              "stypeIds": [
+                2
+              ]
+            },
+            "min": 2,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy15",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P345",
+      "category": "C",
+      "period": "yearly",
+      "title": "演習ティータイム!",
+      "ids": [
+        345
+      ],
+      "wikiCode": "Cy1",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "Warspite"
+                },
+                {
+                  "kind": "ship",
+                  "name": "金剛"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Ark Royal"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Nelson"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Jervis"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Janus"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Javelin"
+                }
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "A",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy1",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P346",
+      "category": "C",
+      "period": "yearly",
+      "title": "最精鋭!主力オブ主力、演習開始!",
+      "ids": [
+        346
+      ],
+      "wikiCode": "Cy2",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "夕雲改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "巻雲改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "風雲改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "kind": "ship",
+              "name": "秋雲改二"
+            },
+            "min": 1,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy2",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P355",
+      "category": "C",
+      "period": "yearly",
+      "title": "精鋭「第十五駆逐隊」第一小隊演習!",
+      "ids": [
+        355
+      ],
+      "wikiCode": "Cy7",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "黒潮改二"
+                },
+                {
+                  "kind": "ship",
+                  "name": "親潮改二"
+                }
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "黒潮改二"
+                },
+                {
+                  "kind": "ship",
+                  "name": "親潮改二"
+                }
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              2
+            ]
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy7",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P377",
+      "category": "C",
+      "period": "yearly",
+      "title": "「第二駆逐隊(後期編成)」、練度向上!",
+      "ids": [
+        377
+      ],
+      "wikiCode": "Cy16",
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "早霜"
+                },
+                {
+                  "kind": "ship",
+                  "name": "秋霜"
+                },
+                {
+                  "kind": "ship",
+                  "name": "清霜"
+                }
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "早霜"
+                },
+                {
+                  "kind": "ship",
+                  "name": "秋霜"
+                },
+                {
+                  "kind": "ship",
+                  "name": "清霜"
+                },
+                {
+                  "kind": "ship",
+                  "name": "朝霜"
+                }
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 4,
+          "rankMin": "S",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務#id-Cy16",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
       "code": "D1",
       "category": "D",
       "period": "单次",
@@ -23336,6 +26489,106 @@
       "source": {
         "url": "https://wikiwiki.jp/kancolle/任務/新着任務#id-B218",
         "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务"
+      }
+    },
+    {
+      "code": "P313",
+      "category": "C",
+      "period": "limited",
+      "title": "秋季大演習",
+      "ids": [
+        313
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 8,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務"
+      }
+    },
+    {
+      "code": "P314",
+      "category": "C",
+      "period": "limited",
+      "title": "冬季大演習",
+      "ids": [
+        314
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 8,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務"
+      }
+    },
+    {
+      "code": "P315",
+      "category": "C",
+      "period": "limited",
+      "title": "春季大演習",
+      "ids": [
+        315
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 8,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務"
+      }
+    },
+    {
+      "code": "P326",
+      "category": "C",
+      "period": "limited",
+      "title": "夏季大演習",
+      "ids": [
+        326
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "practice",
+          "count": 8,
+          "rankMin": "win",
+          "withinDay": true
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/演習任務"
       }
     }
   ]

@@ -1,7 +1,7 @@
 'use strict';
 const {listOverviewQuests}=require('../../domain/quests/quest_overview');
 const collapse=require('../components/collapse');
-const PERIODS={once:'单次',single:'单次',oneTime:'单次','one-time':'单次',daily:'日常',weekly:'周常',monthly:'月常',quarterly:'季常',yearly:'年常',annual:'年常'};
+const PERIODS={once:'单次',single:'单次',oneTime:'单次','one-time':'单次',daily:'日常',weekly:'周常',monthly:'月常',quarterly:'季常',yearly:'年常',annual:'年常',limited:'限时'};
 module.exports=function createOverviewQuests(React,{getController=()=>null,subscribe=()=>()=>{}}={}){
   const h=React.createElement,resourceIcon=require('../components/resource_icon'),ResourceIcon=resourceIcon(React),equipmentIconUrl=require('../models/presentation_model').equipmentIconUrl;
   function OverviewQuests({state,questState,onNavigate,disabled=false}){
@@ -48,14 +48,14 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
         const area=String(label).match(/^(\d+-\d+)(.*)$/);
         return h('button',{key,type:'button',disabled:disabled||incomplete||!task.code,
         className:'paa-overview-quest-target',onClick:()=>onNavigate?.({...destination,code:task.code}),
-        'aria-label':`${label}：前往${destination.kind==='normal'?'海域':'远征'}并预选${task.title}${showStatus&&goal.key?`，${progressDescription}`:''}`},
+        'aria-label':`${label}：前往${destination.kind==='normal'?'海域':destination.kind==='practice'?'演习':'远征'}并预选${task.title}${showStatus&&goal.key?`，${progressDescription}`:''}`},
         h('span',{className:'paa-overview-target-label'},area?h(React.Fragment||'span',null,h('strong',null,area[1]),area[2]):label),
         showStatus?status:null,h('span',{className:'paa-overview-target-arrow','aria-hidden':true},'›'));
       };
       const content=choices.length===1?button(choices[0],choices[0].suggested?`${goal.label}（${choices[0].label}）`:goal.label,index,true):
         choices.length>1?h(React.Fragment||'span',null,h('span',{className:'paa-overview-goal-label'},goal.label),
           h('div',{className:'paa-overview-quest-choices'},...choices.map((destination,i)=>button(destination,destination.label,i)))):
-          h(React.Fragment||'span',null,h('span',{className:'paa-overview-goal-label'},goal.label),h('small',null,'目标待确认'));
+          h(React.Fragment||'span',null,h('span',{className:'paa-overview-goal-label'},goal.label),goal.known?null:h('small',null,'目标待确认'));
       return h('li',{key:index,className:'paa-overview-goal','data-complete':complete},
         h('div',{className:'paa-overview-goal-content'},content),choices.length!==1?status:null);
     };
@@ -82,17 +82,17 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
         shipBonus&&!fixed.length?h('span',{className:'paa-overview-rewards-unknown'},'舰娘报酬详情以游戏为准'):null,
         !reference&&!choices.length&&!shipBonus?h('span',{className:'paa-overview-rewards-unknown'},'其他报酬以游戏为准'):null)):null);
     };
-    return h('section',{className:'paa-overview-quests','aria-label':'出击与远征任务',ref:root},
+    return h('section',{className:'paa-overview-quests','aria-label':'出击、远征与演习任务',ref:root},
       h('div',{className:'paa-overview-quests-heading','data-open':expanded},h('h3',null,
         h('button',{type:'button',className:'paa-overview-quests-toggle',disabled,'aria-expanded':expanded,'aria-controls':'paa-overview-tasks-content',
           onClick:()=>setOpenByLayout(previous=>({...previous,[layout]:!expanded}))},h('span',null,'进行中的任务'),
           !expanded&&result.status==='ready'?h('small',null,`${tasks.length} 项`):null,
           h('svg',{className:'paa-fleet-chevron','data-open':expanded,viewBox:'0 0 16 16',width:12,height:12,fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'m6 3 5 5-5 5'})))),
         expanded&&result.status==='ready'?h('div',{className:'paa-overview-quest-tabs','aria-label':'任务类型'},
-        ...[['B','出击'],['D','远征']].map(([key,label])=>h('button',{key,type:'button',disabled,'aria-pressed':category===key,onClick:()=>setCategory(key)},label,h('span',null,tasks.filter(task=>task.category===key).length)))):null),
+        ...[['B','出击'],['D','远征'],['C','演习']].map(([key,label])=>h('button',{key,type:'button',disabled,'aria-pressed':category===key,onClick:()=>setCategory(key)},label,h('span',null,tasks.filter(task=>task.category===key).length)))):null),
       collapse(h,{open:expanded,id:'paa-overview-tasks-content'},
       result.status!=='ready'||incomplete&&!tasks.some(task=>task.category===category)?h('p',{className:'paa-overview-quests-empty'},'任务资料正在后台同步'):
-        !tasks.some(task=>task.category===category)?h('p',{className:'paa-overview-quests-empty'},`暂无进行中的${category==='B'?'出击':'远征'}任务`):
+        !tasks.some(task=>task.category===category)?h('p',{className:'paa-overview-quests-empty'},`暂无进行中的${category==='B'?'出击':category==='C'?'演习':'远征'}任务`):
           h(React.Fragment||'div',null,
           incomplete?h('p',{className:'paa-overview-quests-empty'},'已观察到部分任务，正在后台核实完整列表'):null,
           service?.getQuestProgressError?.()?h('p',{className:'paa-overview-quests-error',role:'alert'},service.getQuestProgressError()):null,

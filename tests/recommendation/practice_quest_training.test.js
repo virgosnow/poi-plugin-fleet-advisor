@@ -15,6 +15,19 @@ function scenario(){
  store.const.$ships[100]={api_id:100,api_name:'对手',api_stype:2,api_souk:[10,20]};
  return store;
 }
+test('Harusame practice recommendation puts her in the flagship position and supplies three named companions',()=>{
+ const store=scenario(),forecast=require('../../src/domain/combat/practice_forecast'),resources=require('../../src/domain/combat/practice_resources'),old=[forecast.estimate,resources.estimate];
+ ['春雨改二','村雨改二','夕立改二','五月雨改','白露改二'].forEach((name,i)=>{
+   const id=20+i;store.const.$ships[id]={...store.const.$ships[6],api_id:id,api_name:name,api_yomi:name};
+   store.info.ships[id]={...store.info.ships[6],api_id:id,api_ship_id:id};
+ });
+ try{
+  forecast.estimate=(_s,scheme)=>({status:'estimated',samples:1,rows:[{label:'S',count:1}],xpScenarios:[{rank:'S',ownHp:scheme.ships.map(()=>30),mvpIndex:0}]});
+  resources.estimate=()=>({status:'known',fuel:100,ammoDay:100,ammoNight:100,bauxite:{max:0}});
+  const result=recommendPractice(store,{fleet:1,capacity:6,slots:Array(6).fill(null),questCodes:['P371'],opponent:{level:120,ships:[{masterId:100,level:118}]}});
+  assert.equal(result.scheme.ships[0].id,20);assert(createQuestChecker(store,resolvePracticeCodes(['P371']))(result.scheme));
+ }finally{[forecast.estimate,resources.estimate]=old;}
+});
 test('two practice quests consider a training cruiser and low-level same-family task ships',()=>{
  const store=scenario(),forecast=require('../../src/domain/combat/practice_forecast'),resources=require('../../src/domain/combat/practice_resources'),old=[forecast.estimate,resources.estimate];
  const args={fleet:1,capacity:6,slots:Array(6).fill(null),trainingShipIds:[1],questCodes:['P357','P368'],opponent:{level:120,ships:[{masterId:100,level:118}]}};

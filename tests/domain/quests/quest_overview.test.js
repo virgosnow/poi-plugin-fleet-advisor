@@ -99,8 +99,31 @@ test('combined, generic and unknown objectives retain correct navigation boundar
     {kind:'normal',area:'7-4',target:'O',label:'7-4'});
   const unknown=result.tasks.find(row=>row.id===999999);assert.equal(unknown.code,null);
   assert.equal(unknown.goals[0].label,'出击 目标未知');assert.deepEqual(unknown.goals[0].destinations,[]);
-  assert(!result.tasks.some(row=>row.id===999998));
+  const unknownPractice=result.tasks.find(row=>row.id===999998);
+  assert.equal(unknownPractice.category,'C');assert.equal(unknownPractice.code,null);
+  assert.deepEqual(unknownPractice.goals[0].destinations,[]);
   assert.equal(listOverviewQuests({state:{}}).status,'unknown');
+});
+
+test('active practice tasks appear with a safe practice destination and preserve unknown tasks',()=>{
+  const result=query([{api_no:371,api_category:3,api_state:2,api_title:'春です！「春雨」、演習しますっ！'},
+    {api_no:303,api_category:3,api_state:1,api_title:'未接取'},
+    {api_no:999999,api_category:3,api_state:2,api_title:'未知',api_detail:'演習で勝利'}]);
+  const task=result.tasks.find(row=>row.id===371);
+  assert.equal(task.category,'C');assert.equal(task.code,'P371');assert.equal(task.period,'yearly');
+  assert.match(task.goals[0].label,/A胜以上 4次/);
+  assert.deepEqual(task.goals[0].destinations,[{kind:'practice',label:'演习'}]);
+  assert.equal(task.goals[0].key,undefined,'do not invent individually tracked progress');
+  assert(!result.tasks.some(row=>row.id===303));
+  assert.equal(result.tasks.find(row=>row.id===999999).code,null);
+});
+test('practice multi-stage goals do not misdirect sortie or consumable steps to practice',()=>{
+ const result=query([{api_no:317,api_category:3,api_state:2,api_title:'甲型駆逐艦の戦力整備計画'},
+   {api_no:318,api_category:3,api_state:2,api_title:'給糧艦「伊良湖」の支援'}]);
+ const sortie=result.tasks.find(row=>row.id===317),ration=result.tasks.find(row=>row.id===318);
+ assert.equal(sortie.goals[0].destinations[0].kind,'practice');
+ assert(sortie.goals.slice(1).every(goal=>goal.known&&goal.destinations.length===0));
+ assert.match(ration.goals[1].label,/战斗粮食/);assert.equal(ration.goals[1].destinations.length,0);
 });
 
 test('every structured target maps to a related mission or an actual map path',()=>{

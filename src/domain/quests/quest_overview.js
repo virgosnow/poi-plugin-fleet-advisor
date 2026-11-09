@@ -1,5 +1,6 @@
 'use strict';
 const {taskSnapshot,findDefinition,goalLabel,relation}=require('./quest_requirements');
+const {listPracticeQuests}=require('./practice_quests');
 const crypto=require('node:crypto');
 const data=require('../../../data/quests/requirements.json');
 const missions=require('../../../data/expedition_rewards.json').missions;
@@ -70,6 +71,7 @@ function listOverviewQuests({state,questState,now=Date.now()}={}){
   const snapshot=taskSnapshot(state,questState);
   if(!snapshot.known)return {status:'unknown',tasks:[]};
   const seen=new Set(),tasks=[];let equipmentByName;
+  const practice=new Map(listPracticeQuests({state,questState:snapshot,now}).tasks.map(task=>[task.id,task]));
   // Build once per current store, only when a reward has a literal name. Do
   // not cache across snapshots: poi may update the master table in place.
   const lookup=name=>{
@@ -81,13 +83,14 @@ function listOverviewQuests({state,questState,now=Date.now()}={}){
     const id=Number(live?.api_no),status=Number(live?.api_state);
     if(!Number.isInteger(id)||id<=0||status!==2||seen.has(id))continue;
     const definition=findDefinition(live,now);
-    const category=definition?.category||({2:'B',4:'D'})[Number(live.api_category)];
-    if(!['B','D'].includes(category))continue;
+    const category=definition?.category||({2:'B',3:'C',4:'D'})[Number(live.api_category)];
+    if(!['B','C','D'].includes(category))continue;
     seen.add(id);
-    const goals=definition?(definition.goals||[]).map(goal=>({key:crypto.createHash('sha256').update(JSON.stringify(goal)).digest('hex'),count:Math.max(1,Number(goal.count)||1),label:goalLabel(goal,{}),destinations:destinations(goal,category)})):
+    const practiceTask=category==='C'?practice.get(id):null;
+    const goals=practiceTask?practiceTask.goals.map(goal=>({label:goal.label,known:!!goal.kind,destinations:practiceTask.supported&&['practice','practiceWin'].includes(goal.kind)?[{kind:'practice',label:'演习'}]:[]})):definition?(definition.goals||[]).map(goal=>({key:crypto.createHash('sha256').update(JSON.stringify(goal)).digest('hex'),count:Math.max(1,Number(goal.count)||1),label:goalLabel(goal,{}),destinations:destinations(goal,category)})):
       [{label:String(live.api_detail||'目标资料待收录').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(),destinations:[]}];
-    tasks.push({id,code:definition?.code||null,title:live.api_title||definition?.title||`任务 ${id}`,
-      category,state:status,progressFlag:live.api_progress_flag==null?null:Number(live.api_progress_flag),period:definition?.period||null,goals,rewards:rewards(live,state,definition,lookup)});
+    tasks.push({id,code:practiceTask?.supported?practiceTask.code:definition?.code||null,title:live.api_title||definition?.title||`任务 ${id}`,
+      category,state:status,progressFlag:live.api_progress_flag==null?null:Number(live.api_progress_flag),period:practiceTask?.period||definition?.period||null,goals,rewards:rewards(live,state,definition,lookup)});
   }
   tasks.sort((a,b)=>a.id-b.id);
   return {status:'ready',tasks};

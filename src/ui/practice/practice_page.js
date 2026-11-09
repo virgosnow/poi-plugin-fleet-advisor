@@ -24,7 +24,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
   const h=React.createElement,EquipmentIcon=require('../components/equipment_icon')(React),ResourceIcon=require('../components/resource_icon')(React),badges=require('../components/mechanism_badges')(React),QuestSection=require('../components/quest_section')(React),ShipPicker=shipPicker(React),EquipmentPicker=equipmentPicker(React);
   const CalculationProgress=createProgressComponent(React);
   const ExecutionCard=require('../components/execution_card')(React,{subscribe,getStore});
-  return function PracticePage({kind='practice',hidden=false,busy=false,stopping=false,onStop,stopButtonRef,onApply,operationFeedback,executionPlan,automaticOperations,automaticFilters}){
+  return function PracticePage({kind='practice',hidden=false,busy=false,stopping=false,onStop,stopButtonRef,onApply,operationFeedback,executionPlan,automaticOperations,automaticFilters,navigationIntent}){
     const [slots,setSlots]=React.useState(empty),[fleet,setFleet]=React.useState(1),[opponentId,setOpponentId]=React.useState(null);
     const [attributeDetails,setAttributeDetails]=React.useState({}),[popup,setPopup]=React.useState(null),[search,setSearch]=React.useState('');
     const [revision,setRevision]=React.useState(0),[working,setWorking]=React.useState(false),[message,setMessage]=React.useState(''),[questsOpen,setQuestsOpen]=React.useState(false);
@@ -37,7 +37,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
     const [selectedQuests,setSelectedQuests]=React.useState([]);
     const [trainingLock,setTrainingLock]=React.useState('locked'),[trainingScroll,setTrainingScroll]=React.useState(0);
     const [shipWindow,setShipWindow]=React.useState(0);
-    const observed=React.useRef(null),previewRef=React.useRef(null);
+    const observed=React.useRef(null),previewRef=React.useRef(null),handledNavigation=React.useRef(null);
     if(!busy||!observed.current)observed.current=getStore();
     const grid=React.useRef(null),popupList=React.useRef(null),forecastCache=React.useRef(null),opponentList=React.useRef(null),store=observed.current,practice=store.practiceState||{},quest=store.questState||{};
     const trainingAnchor=React.useRef(null),trainingDialog=React.useRef(null),trainingTrigger=React.useRef(null),trainingPointerInside=React.useRef(false),trainingList=React.useRef(null),trainingPendingFocus=React.useRef(null),editingTrainingSearch=React.useRef(false);
@@ -51,6 +51,17 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
       shouldHoldOpen:()=>editingTrainingSearch.current&&trainingAnchor.current?.ownerDocument?.activeElement===trainingDialog.current?.querySelector('input[type=search]')});
     const closeTraining=()=>{editingTrainingSearch.current=false;trainingPicker.dismiss();setTrainingOpen(false);trainingTrigger.current?.focus();};
     React.useEffect(()=>{setQuestPageActive?.('practice',!hidden&&!busy&&!working);return()=>setQuestPageActive?.('practice',false);},[hidden,busy,working]);
+    React.useEffect(()=>{
+      const intent=navigationIntent;
+      if(hidden||busy||working||intent?.kind!=='practice'||handledNavigation.current===intent.id)return;
+      handledNavigation.current=intent.id;
+      const current=getStore(),related=practiceTasks({state:current,slots,deckId:fleet,questState:current.questState});
+      if(current.questState?.complete===false||related.status!=='ready'||!related.tasks.some(task=>task.code===intent.code&&task.supported&&task.state===2)){
+        setMessage('任务已变化或未同步，请重新选择任务');return;
+      }
+      setSelectedQuests(previous=>previous.includes(intent.code)?previous:[...previous,intent.code].sort());
+      setQuestsOpen(true);setMessage('');
+    },[navigationIntent,hidden,busy,working]);
     React.useEffect(()=>{if(hidden||busy)return;let previous=getStore();const timer=setInterval(()=>{const next=getStore();
       if(next.practiceState?.revision!==previous.practiceState?.revision||next.questState!==previous.questState||
         ['ships','equips','fleets','resources'].some(key=>next.info?.[key]!==previous.info?.[key])){previous=next;setRevision(v=>v+1);}},1000);return()=>clearInterval(timer);},[hidden,busy]);

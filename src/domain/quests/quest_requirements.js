@@ -6,7 +6,7 @@ const MISSIONS=require('../../../data/expedition_rewards.json').missions;
 const {normalizeName}=require('../../shared/name_matching');
 const {evaluateFleetRequirements,createFleetRequirementEvaluator}=require('./fleet_requirements');
 const INDEX=new Map();
-for(const [quests,event] of [[DATA.quests,null],...LIMITED_EVENTS.map(event=>[event.quests.filter(q=>['B','D'].includes(q.category)),event])])
+for(const [quests,event] of [[DATA.quests,null],...LIMITED_EVENTS.map(event=>[event.quests.filter(q=>['B','C','D'].includes(q.category)),event])])
   for(const quest of quests)for(const id of quest.ids){
     if(!INDEX.has(id))INDEX.set(id,[]);INDEX.get(id).push({quest,event});
   }
@@ -28,9 +28,10 @@ function taskSnapshot(state,provided){
 function findDefinition(task,now){
   const candidates=INDEX.get(Number(task.api_no))||[];
   const title=titleKey(task.api_title);
+  const category=({2:'B',3:'C',4:'D',8:'B',9:'B',10:'B'})[Number(task.api_category)];
   const day=new Date(now+9*60*60*1000).toISOString().slice(0,10);
   const allowed=candidates.filter(({quest,event})=>
-    (!event||day>=event.startDate&&(!event.endDate||day<=event.endDate))&&
+    (!category||quest.category===category)&&(!event||day>=event.startDate&&(!event.endDate||day<=event.endDate))&&
     (!(quest.requireTitleMatch||candidates.length>1)||titleKey(quest.title)===title));
   return allowed.length===1?allowed[0].quest:null;
 }
@@ -63,11 +64,16 @@ function relation(goal,{mapId,missionId}){
   if(goal.anyTargets)return goal.anyTargets.some(target=>target.map===String(mapId));
   return goal.map==='any'||goal.map===String(mapId)||!goal.map&&goal.kind==='departSortie';
 }
-function goalLabel(goal,{mapId,missionId}){
+function goalLabel(goal,{mapId,missionId,period}={}){
   const count=Number(goal.count||1),map=goal.map==='any'?'任意海域':goal.map||String(mapId||'');
   const place=goal.node?`${map} ${goal.node}点`:goal.phase?`${map} 第${goal.phase}阶段`:map;
   const rank=goal.rankMin==='win'?'胜利':goal.rankMin==='B'?'B胜以上':goal.rankMin==='A'?'A胜以上':goal.rankMin==='S'?'S胜':goal.rankMin?`${goal.rankMin}胜以上`:'';
   switch(goal.kind){
+    case 'practice':case 'practiceWin':{
+      const when=goal.withinDay||goal.within==='sameDay'?'本日':period==='weekly'?'本周':'';
+      return `${when}演习${goal.rankMin==='any'?'':rank} ${count}次`;
+    }
+    case 'equippedItems':return `装备战斗粮食 ${count}件（领取时消耗）`;
     case 'bossWin':return `${place} Boss ${rank} ${count}次`;
     case 'battleWin':return `${place} ${rank} ${count}次`;
     case 'battle':return `${place}${goal.bossOnly?' Boss':''}交战 ${count}次${goal.defeatAllowed?'（败北也可）':''}`;
@@ -111,7 +117,7 @@ function relatedQuestEntries({state,mapId,missionId,questState,now=Date.now()}={
   for(const live of snapshot.tasks){
     if(!live||![1,2].includes(Number(live.api_state))||seen.has(Number(live.api_no)))continue;
     const definition=findDefinition(live,now);
-    if(!definition)continue;
+    if(!definition||!['B','D'].includes(definition.category))continue;
     const entries=definition.goals.map(goal=>({goal,relation:relation(goal,{mapId,missionId})}));
     const related=entries.filter(entry=>entry.relation!==false);
     if(!related.length)continue;

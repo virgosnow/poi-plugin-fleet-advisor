@@ -29,6 +29,15 @@ test('overview task goals navigate separately without changing game state',()=>{
   assert(walk(disabled,node=>node.type==='button').every(node=>node.props.disabled));
 });
 
+test('practice tab displays accepted tasks and navigates to the matching practice quest',()=>{
+  const state={questState:{known:true,tasks:[{api_no:371,api_category:3,api_state:2,api_title:'春です！「春雨」、演習しますっ！'}]}};
+  const calls=[],ui=harness({state,onNavigate:destination=>calls.push(destination)});
+  ui.find(node=>node.type==='button'&&strings(node).startsWith('演习')).props.onClick();ui.render();
+  assert.match(strings(ui.find(node=>node.type==='article')),/春雨/);
+  ui.find(node=>node.props.className==='paa-overview-quest-target').props.onClick();
+  assert.deepEqual(calls,[{kind:'practice',label:'演习',code:'P371'}]);
+});
+
 test('overview shows active tasks, progress hints and helpful empty states',()=>{
   const Component=create(React),active={...task('B131'),api_progress_flag:1};
   const tree=Component({state:{questState:{known:true,tasks:[active,{...task('Dw2'),api_state:1}]}}});
