@@ -1489,6 +1489,35 @@ test('a selected task that disappears blocks search and can still be cleared',as
   section().props.onClearQuests();assert.deepEqual(h.get('selectedQuests'),[]);assert.equal(h.get('error'),'');
 });
 
+test('a claimed selected quest is removed and cannot block immediate completion',async()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind),quest=kind==='normal'?require('../../data/quests/limited/2026-halloween.json').quests.find(q=>q.code==='2610B1'):
+      require('../../data/quests/requirements.json').quests.find(q=>q.code==='D1');
+    if(kind==='normal')h.set('area','1-3');
+    h.set('selectedQuests',[quest.code]);h.store.questState={known:true,complete:false,tasks:[],claimedTaskIds:[quest.ids[0]]};
+    h.set('questState',h.store.questState);let args;
+    h.service[kind==='normal'?'recommendNormalFleet':'recommendExpeditionFleet']=query=>{args=query;throw Error('测试结束');};
+    await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+    assert(args,kind);assert.equal(args.questCodes,undefined);
+    const effect=h.effects.filter(e=>String(e.fn).includes('withoutClaimed(current,questState)')).at(-1);effect.fn();
+    assert.deepEqual(h.get('selectedQuests'),[]);
+  }
+});
+
+test('a selected achieved quest remains active until its reward is claimed',async()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind),quest=kind==='normal'?require('../../data/quests/limited/2026-halloween.json').quests.find(q=>q.code==='2610B1'):
+      require('../../data/quests/requirements.json').quests.find(q=>q.code==='D1');
+    if(kind==='normal')h.set('area','1-3');
+    h.set('selectedQuests',[quest.code]);h.store.questState={known:true,complete:true,tasks:[{api_no:quest.ids[0],api_title:quest.title,api_state:3}]};
+    h.set('questState',h.store.questState);let args;
+    h.service[kind==='normal'?'recommendNormalFleet':'recommendExpeditionFleet']=query=>{args=query;throw Error('测试结束');};
+    await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();assert.deepEqual(args.questCodes,[quest.code]);
+    const effect=h.effects.filter(e=>String(e.fn).includes('withoutClaimed(current,questState)')).at(-1);effect.fn();
+    assert.deepEqual(h.get('selectedQuests'),[quest.code]);
+  }
+});
+
 test('task observations refresh on resume without running route inspection or changing draft revision',()=>{
   const h=harness(),revision=h.get('revision'),oldInterval=global.setInterval,oldClear=global.clearInterval;
   const callbacks=[];global.setInterval=fn=>{callbacks.push(fn);return 1;};global.clearInterval=()=>{};

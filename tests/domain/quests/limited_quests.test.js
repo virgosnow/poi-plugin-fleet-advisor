@@ -35,7 +35,7 @@ test('only active or available matching event tasks appear on their specified ma
       assert(result,`${code} ${map}`);assert.equal(result.goals[0].count,count);assert.equal(result.goals[0].rankMin,'S');}
     assert(!query(tasks,'6-5').tasks.some(q=>q.code===code));
   }
-  assert.equal(query([observed('2610B1',{api_state:3})]).tasks.length,0);
+  assert.equal(query([observed('2610B1',{api_state:3})]).tasks.length,1);
   assert.equal(query([observed('2610B1',{api_title:'不同任务'})]).tasks.length,0);
   assert.equal(query([observed('2610B1')],'1-3',{now:Date.parse('2026-10-13T23:59:59+09:00')}).tasks.length,0);
   assert.equal(query([observed('2610B1')],'1-3',{now:Date.parse('2026-10-14T00:00:00+09:00')}).tasks.length,1);

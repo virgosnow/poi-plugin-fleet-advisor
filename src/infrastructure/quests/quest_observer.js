@@ -36,7 +36,7 @@ function postId(postBody){
 class QuestObserver {
   constructor({getState=()=>({}),now=()=>Date.now()}={}){
     this.readStore=getState;this.now=now;this.key=null;this.day=null;
-    this.records=new Map();this.known=false;this.complete=false;this.revision=0;this.closed=false;
+    this.records=new Map();this.claimed=new Set();this.known=false;this.complete=false;this.revision=0;this.closed=false;
     this.hostActive=null;this.state=Object.freeze({known:false,tasks:Object.freeze([])});
   }
   sync(store){
@@ -44,7 +44,7 @@ class QuestObserver {
     const active=store?.info?.quests?.activeQuests||null;
     if(key===this.key&&day===this.day){this.hostActive=active;return;}
     const previousActive=this.hostActive,changedAccount=this.key!==key;
-    this.key=key;this.day=day;this.records.clear();this.known=false;this.complete=false;
+    this.key=key;this.day=day;this.records.clear();this.claimed.clear();this.known=false;this.complete=false;
     // poi's info reducer clears quests when require_info changes member ID.
     // Its activeQuests carries a timestamp for each real quest-list row. Only
     // seed same-day rows, and never reuse the previous account's object.
@@ -52,18 +52,21 @@ class QuestObserver {
       for(const entry of Object.values(active||{})){
         const time=Number(entry?.time),task=taskCopy(entry?.detail);
         if(!task||!Number.isFinite(time)||time>this.now()||questDay(time)!==day)continue;
-        if(task.api_state===2)this.records.set(task.api_no,task);
+        if([2,3].includes(task.api_state))this.records.set(task.api_no,task);
       }
       this.known=this.records.size>0;
     }
     this.hostActive=active;this.publish();
   }
   publish(){
-    const tasks=[...this.records.values()].filter(task=>[1,2].includes(task.api_state))
+    const tasks=[...this.records.values()].filter(task=>[1,2,3].includes(task.api_state))
       .sort((a,b)=>b.api_state-a.api_state||a.api_no-b.api_no);
     // Repeated list responses should not cause unnecessary workbench renders.
-    if(this.state.known===this.known&&JSON.stringify(this.state.tasks)===JSON.stringify(tasks))return;
-    this.state=Object.freeze({known:this.known,tasks:Object.freeze(tasks.map(task=>Object.freeze({...task})))});
+    const claimedTaskIds=[...this.claimed].sort((a,b)=>a-b);
+    if(this.state.known===this.known&&JSON.stringify(this.state.tasks)===JSON.stringify(tasks)&&
+      JSON.stringify(this.state.claimedTaskIds||[])===JSON.stringify(claimedTaskIds))return;
+    this.state=Object.freeze({known:this.known,tasks:Object.freeze(tasks.map(task=>Object.freeze({...task}))),
+      ...(claimedTaskIds.length?{claimedTaskIds:Object.freeze(claimedTaskIds)}:{})});
     this.revision++;
   }
   view(store){
@@ -75,7 +78,7 @@ class QuestObserver {
   query(store){return this.view(store);}
   resetSession(){
     if(this.closed)return;
-    this.records.clear();this.known=false;this.complete=false;this.publish();
+    this.records.clear();this.claimed.clear();this.known=false;this.complete=false;this.publish();
   }
   hasComplete(store){this.view(store);return this.complete;}
   // Only a validated complete all-tab read may replace older partial rows.
@@ -85,7 +88,8 @@ class QuestObserver {
     if(!this.key)return false;
     const tasks=rows.map(taskCopy);
     if(tasks.some(task=>!task)||new Set(tasks.map(task=>task.api_no)).size!==tasks.length)return false;
-    this.records=new Map(tasks.filter(task=>task.api_state!==3).map(task=>[task.api_no,task]));
+    this.records=new Map(tasks.map(task=>[task.api_no,task]));
+    for(const task of tasks)if([2,3].includes(task.api_state))this.claimed.delete(task.api_no);
     this.known=true;this.complete=true;this.publish();return true;
   }
   // A direct read can finish before poi broadcasts its natural response. Merge
@@ -97,8 +101,8 @@ class QuestObserver {
     if(!this.key||!Array.isArray(body?.api_list))return false;
     for(const value of body.api_list){
       const task=taskCopy(value);if(!task)continue;
-      if(task.api_state===3)this.records.delete(task.api_no);
-      else this.records.set(task.api_no,task);
+      if([2,3].includes(task.api_state))this.claimed.delete(task.api_no);
+      this.records.set(task.api_no,task);
     }
     this.known=true;this.publish();return true;
   }
@@ -109,7 +113,7 @@ class QuestObserver {
     try{
       this.sync(this.readStore());if(!this.key)return null;
       return {accountKey:this.key,day:this.day,capturedAt:this.now(),known:this.known,complete:this.complete,
-        tasks:this.state.tasks.map(task=>taskCopy(task))};
+        tasks:this.state.tasks.map(task=>taskCopy(task)),claimedTaskIds:[...this.claimed]};
     }catch(error){return null;}
   }
   restore(snapshot,store){
@@ -121,9 +125,11 @@ class QuestObserver {
         !Number.isFinite(capturedAt)||capturedAt>now||now-capturedAt>30000||
         questDay(capturedAt)!==this.day||typeof snapshot.known!=='boolean'||!Array.isArray(snapshot.tasks))return false;
       const tasks=snapshot.tasks.map(taskCopy);
-      if(tasks.some(task=>!task||![1,2].includes(task.api_state))||
+      if(tasks.some(task=>!task||![1,2,3].includes(task.api_state))||
         new Set(tasks.map(task=>task.api_no)).size!==tasks.length||!snapshot.known&&tasks.length)return false;
-      this.records=new Map(tasks.map(task=>[task.api_no,task]));this.known=snapshot.known;
+      const claimed=snapshot.claimedTaskIds??[];
+      if(!Array.isArray(claimed)||claimed.some(id=>!taskId(id)))return false;
+      this.records=new Map(tasks.map(task=>[task.api_no,task]));this.claimed=new Set(claimed.map(Number));this.known=snapshot.known;
       this.complete=snapshot.known&&snapshot.complete===true;this.publish();
       return true;
     }catch(error){return false;}
@@ -145,15 +151,17 @@ class QuestObserver {
         const id=postId(detail.postBody);if(!id)return;
         if(api.endsWith('/clearitemget')){
           this.records.delete(id);
+          this.claimed.add(id);
           // Claiming can unlock tasks absent from the old complete list.
           this.complete=false;
         }
-        else this.records.set(id,{...this.records.get(id),api_no:id,api_state:api.endsWith('/start')?2:1});
+        else {if(api.endsWith('/start'))this.claimed.delete(id);
+          this.records.set(id,{...this.records.get(id),api_no:id,api_state:api.endsWith('/start')?2:1});}
         this.known=true;
       }else return;
       this.publish();
     }catch(error){/* Never throw into poi's game.response dispatcher. */}
   }
-  dispose(){this.closed=true;this.records.clear();this.known=false;this.complete=false;this.hostActive=null;this.key=null;this.publish();}
+  dispose(){this.closed=true;this.records.clear();this.claimed.clear();this.known=false;this.complete=false;this.hostActive=null;this.key=null;this.publish();}
 }
 module.exports={QuestObserver,questDay};

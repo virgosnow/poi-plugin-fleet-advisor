@@ -29,12 +29,12 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
     const counts=tasks.length?service?.getQuestGoalProgressForTasks?.(tasks):null;
     const goalView=(task,goal,index)=>{
       const choices=goal.destinations||[],observed=goal.key?(counts?counts.get(`${task.id}:${goal.key}`):service?.getQuestGoalProgress?.(task,goal)):0;
-      const count=Number.isSafeInteger(observed)?Math.max(0,Math.min(observed,goal.count)):0;
+      const count=task.state===3?goal.count:Number.isSafeInteger(observed)?Math.max(0,Math.min(observed,goal.count)):0;
       // This particular task has exactly one objective and its documented
       // 50% marker means one of the two required expedition returns. Other
       // tasks can have multiple objectives, so their markers cannot identify
       // an individual objective's count.
-      const gameConfirmed=task.id===443&&task.code==='D39'&&task.progressFlag===1&&task.goals.length===1&&
+      const gameConfirmed=task.state===2&&task.id===443&&task.code==='D39'&&task.progressFlag===1&&task.goals.length===1&&
         goal.count===2&&choices.length===1&&choices[0].kind==='expedition'&&choices[0].missionId===30&&count<2;
       const complete=!!goal.key&&count>=goal.count;
       const progressText=gameConfirmed?'1/2':complete?`✓ ${count}/${goal.count}`:
@@ -98,8 +98,8 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
           service?.getQuestProgressError?.()?h('p',{className:'paa-overview-quests-error',role:'alert'},service.getQuestProgressError()):null,
           h('div',{className:'paa-overview-quests-list',role:'region','aria-label':'进行中的任务列表',tabIndex:0},...tasks.filter(task=>task.category===category).map(task=>
             h('article',{key:task.id,className:'paa-overview-quest','data-quest-id':task.id},
-              task.period||task.progressFlag===1||task.progressFlag===2?h('div',{className:'paa-overview-quest-meta'},task.period?h('span',{className:'paa-overview-quest-category'},PERIODS[task.period]||task.period):null,
-                task.progressFlag===1||task.progressFlag===2?h('span',{'data-active':true},`进度 ${task.progressFlag===1?'50':'80'}% 以上`):null):null,
+              task.period||task.state===3||task.progressFlag===1||task.progressFlag===2?h('div',{className:'paa-overview-quest-meta'},task.period?h('span',{className:'paa-overview-quest-category'},PERIODS[task.period]||task.period):null,
+                task.state===3?h('span',{'data-active':true},'已达成'):task.progressFlag===1||task.progressFlag===2?h('span',{'data-active':true},`进度 ${task.progressFlag===1?'50':'80'}% 以上`):null):null,
               h('h4',null,task.title),
               h('ul',null,...task.goals.map((goal,index)=>goalView(task,goal,index))),rewardView(task)))))));
   };

@@ -10,7 +10,7 @@ const query=tasks=>listOverviewQuests({state:{},questState:{known:true,tasks},no
 test('overview includes observed sortie and expedition tasks with real destinations and phases',()=>{
   const result=query([live('B131'),live('Dw2'),live('2610B2'),live('B2',1),live('B2',3)]);
   const task=code=>result.tasks.find(row=>row.code===code);
-  assert.equal(result.status,'ready');assert(task('2610B2'));assert.equal(task('B2'),undefined);
+  assert.equal(result.status,'ready');assert(task('2610B2'));assert.equal(task('B2').state,3);
   assert.deepEqual(task('B131').goals.find(goal=>goal.label.includes('7-2')).destinations[0],
     {kind:'normal',area:'7-2',target:'boss',phase:'gauge2',label:'7-2'});
   assert.deepEqual(task('Dw2').goals[0].destinations.map(item=>item.missionId),[37,38]);
@@ -23,11 +23,11 @@ test('overview only includes active tasks, including unknown ones, and retains o
     {...live('B2',1),api_category:2},{...live('B2',3),api_category:2},
     {api_no:999999,api_category:2,api_title:'未知进行中',api_state:2},
     {api_no:999998,api_category:4,api_title:'未知未受领',api_state:1}]);
-  assert.deepEqual(result.tasks.map(row=>row.code).filter(Boolean).sort(),['B131','Dw2']);
+  assert.deepEqual(result.tasks.map(row=>row.code).filter(Boolean).sort(),['B131','B2','Dw2']);
   assert.equal(result.tasks.find(row=>row.code==='B131').progressFlag,1);
   assert.equal(result.tasks.find(row=>row.code==='Dw2').progressFlag,2);
   assert(result.tasks.some(row=>row.id===999999));assert(!result.tasks.some(row=>row.id===999998));
-  assert.equal(query([live('B2',1),live('B2',3)]).tasks.length,0);
+  assert.equal(query([live('B2',1),live('B2',3)]).tasks.length,1);
 });
 
 test('structured goals have stable identities independent of their position',()=>{

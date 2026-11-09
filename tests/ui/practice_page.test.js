@@ -412,5 +412,32 @@ test('practice quest preselection is passed into completion and unavailable task
  let section=walk(tree).find(n=>n.type?.name==='QuestSection');section.props.onToggleQuest('P368');tree=render();
  section=walk(tree).find(n=>n.type?.name==='QuestSection');assert.deepEqual(section.props.selectedQuests,['P368']);
  await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();assert.deepEqual(requests[0].questCodes,['P368']);
- store.questState={known:true,complete:false,tasks:store.questState.tasks};tree=render();await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();assert.equal(requests.length,1);
+ store.questState={known:true,complete:false,tasks:[],claimedTaskIds:[368]};tree=render();
+ await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();
+ assert.equal(requests.length,2);assert.equal(requests[1].questCodes,undefined);
+ tree=render();assert.deepEqual(walk(tree).find(n=>n.type?.name==='QuestSection').props.selectedQuests,[]);
+ walk(tree).find(n=>n.type?.name==='QuestSection').props.onToggleQuest('P368');
+ store.questState={known:true,complete:false,tasks:store.questState.tasks};tree=render();await walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();assert.equal(requests.length,2);
+});
+
+test('a quest claimed during practice calculation does not apply a stale result or show an error',async()=>{
+ const store=fixture(),states=[],refs=[];let i=0,j=0,finish,started;
+ store.practiceState={known:true,opponents:[{id:10,index:1,name:'对手',ships:[{masterId:1,level:10}]}],revision:1};
+ store.questState={known:true,complete:true,tasks:[{api_no:368,api_category:3,api_state:2,api_title:'「十六駆」演習！'}]};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},
+  useRef(value){const at=j++;return refs[at]||(refs[at]={current:value});},
+  useState(value){const at=i++;if(!(at in states))states[at]=typeof value==='function'?value():value;
+   return [states[at],next=>{states[at]=typeof next==='function'?next(states[at]):next;}];}};
+ const ready=new Promise(resolve=>{started=resolve;}),service={preview:()=>({}),createSnapshot:()=>({snapshotId:'test'}),
+  recommendPracticeFleet:()=>{started();return new Promise(resolve=>{finish=resolve;});}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>service});
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[],render=()=>{i=0;j=0;return Page({kind:'practice'});};
+ let tree=render();walk(tree).find(n=>n.props.className==='paa-practice-opponent-select').props.onClick();tree=render();
+ walk(tree).find(n=>n.type?.name==='QuestSection').props.onToggleQuest('P368');tree=render();
+ const pending=walk(tree).find(n=>n.props.className==='paa-wb-complete').props.onClick();await ready;
+ store.questState={known:true,complete:false,tasks:[],claimedTaskIds:[368]};
+ finish({scheme:{ships:[W.entry(store,1)]},enemyKnown:true});await pending;tree=render();
+ assert.deepEqual(walk(tree).find(n=>n.type?.name==='QuestSection').props.selectedQuests,[]);
+ assert(!walk(tree).some(n=>n.props.className==='paa-fleet-warning'));
+ assert(states[0].every(ship=>ship===null),'do not apply a plan made for the old task');
 });

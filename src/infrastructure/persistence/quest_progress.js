@@ -89,7 +89,7 @@ class QuestProgress {
       let changed=false;
       for(const row of Object.values(tasks)){
         const actual=observed.find(item=>item.id===row.id);if(!actual)continue;
-        if(actual.state===3){for(const [code,entry] of Object.entries(tasks))if(entry===row){delete tasks[code];changed=true;}continue;}
+        if(actual.state===3)continue;
         if(![0,1,2].includes(actual.flag))continue;
         if([0,1,2].includes(row.flag)&&actual.flag<row.flag){row.goals={};changed=true;}
         if(row.flag!==actual.flag){row.flag=actual.flag;changed=true;}

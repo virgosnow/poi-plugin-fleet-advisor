@@ -16,9 +16,9 @@ test('quest days reset at JST 05:00 rather than local midnight',()=>{
 test('only logged-in, actually observed available and ongoing tasks are shown; partial filtered pages merge',()=>{
   const {observer,store}=fixture();assert.deepEqual(observer.view(),{known:false,tasks:[]});
   const original=row(101);observer.observe({path:LIST,postBody:{api_tab_id:3,api_page_no:2},body:{api_list:[original,-1,row(102,2),row(103,3)]}});
-  assert.equal(observer.view().known,true);assert.deepEqual(observer.view().tasks.map(t=>t.api_no),[102,101]);
+  assert.equal(observer.view().known,true);assert.deepEqual(observer.view().tasks.map(t=>t.api_no),[103,102,101]);
   observer.observe({path:LIST,postBody:{api_tab_id:1,api_page_no:1},body:{api_list:[row(104),-1]}});
-  assert.deepEqual(observer.view().tasks.map(t=>t.api_no),[102,101,104]);
+  assert.deepEqual(observer.view().tasks.map(t=>t.api_no),[103,102,101,104]);
   assert.equal(original.api_state,1);original.api_get_material[0]=999;
   assert.equal(observer.view().tasks.find(t=>t.api_no===101).api_get_material[0],1);
   assert.deepEqual(store.info.quests.activeQuests,{});
@@ -30,7 +30,8 @@ test('empty observed pages are known but absence never deletes another page or i
   assert.deepEqual(observer.view(),{known:true,tasks:[]});
   observer.observe({path:LIST,body:{api_list:[row(1)]}});
   const stable=observer.view();observer.observe({path:LIST,body:{api_list:[]}});assert.equal(observer.view(),stable);
-  observer.observe({path:LIST,body:{api_list:[row(1,3)]}});assert.deepEqual(observer.view().tasks,[]);
+  observer.observe({path:LIST,body:{api_list:[row(1,3)]}});assert.equal(observer.view().tasks[0].api_state,3);
+  observer.observe({path:QUEST+'clearitemget',postBody:{api_quest_id:1},body:{}});assert.deepEqual(observer.view().tasks,[]);
 });
 
 test('a direct successful list merges actual rows without dispatching or modifying host state',()=>{
@@ -41,7 +42,7 @@ test('a direct successful list merges actual rows without dispatching or modifyi
   assert.equal(observer.acceptList({api_result:0,api_data:{api_list:[row(3)]}}),false);
   assert.equal(observer.acceptList({api_list:null}),false);assert.equal(observer.view(),stable);
   assert.equal(observer.acceptList({api_list:[row(1,3)]}),true);
-  assert.deepEqual(observer.view().tasks.map(t=>t.api_no),[2]);assert.equal(JSON.stringify(store),before);
+  assert.deepEqual(observer.view().tasks.map(t=>t.api_no),[1,2]);assert.equal(JSON.stringify(store),before);
   observer.dispose();assert.equal(observer.acceptList({api_list:[row(4)]}),false);
 });
 test('successful starts, stops and claims update the exact task, including a task not previously paged',()=>{
@@ -54,6 +55,17 @@ test('successful starts, stops and claims update the exact task, including a tas
   assert.deepEqual(observer.view().tasks.find(t=>t.api_no===3),{api_no:3,api_state:2});
   observer.observe({path:QUEST+'clearitemget',postBody:{api_quest_id:2},body:{}});
   assert(!observer.view().tasks.some(t=>t.api_no===2));
+  assert.deepEqual(observer.view().claimedTaskIds,[2]);
+});
+test('claims are retained through handoff, scoped to the account, and cleared when restarted',()=>{
+  const f=fixture();f.observer.observe({path:LIST,body:{api_list:[row(7,2)]}});
+  f.observer.observe({path:QUEST+'clearitemget',postBody:{api_quest_id:7},body:{}});
+  const restored=new QuestObserver({getState:()=>f.store,now:()=>f.now});
+  assert(restored.restore(f.observer.snapshot()));assert.deepEqual(restored.view().claimedTaskIds,[7]);
+  restored.observe({path:QUEST+'start',postBody:{api_quest_id:7},body:{}});
+  assert.equal(restored.view().claimedTaskIds,undefined);
+  restored.observe({path:QUEST+'clearitemget',postBody:{api_quest_id:7},body:{}});
+  f.store.info.basic.api_member_id='other';assert.equal(restored.view().claimedTaskIds,undefined);
 });
 test('malformed or failed responses do not change status and view identity stays stable',()=>{
   const {observer}=fixture();observer.observe({path:LIST,body:{api_list:[row(1)]}});const stable=observer.view();
@@ -74,9 +86,9 @@ test('startup seeds only same-day timestamped active rows; accepting data is nev
       3:{detail:row(3,3),time:now},4:{detail:row(4,1),time:now},
       5:{detail:row(5,2)},6:{detail:row(6,2),time:now+1}
     }};
-  assert.deepEqual(observer.view().tasks.map(t=>t.api_no),[1]);
+  assert.deepEqual(observer.view().tasks.map(t=>t.api_no),[3,1]);
   observer.observe({path:QUEST+'clearitemget',postBody:{api_quest_id:1},body:{}});
-  assert.deepEqual(observer.view().tasks,[]);assert.deepEqual(observer.view().tasks,[]);
+  assert.deepEqual(observer.view().tasks.map(task=>task.api_no),[3]);assert.deepEqual(observer.view().tasks.map(task=>task.api_no),[3]);
 });
 test('account changes clear observations, never revive same-reference prior account active rows, and do not persist raw account data',()=>{
   const {observer,store,now}=fixture();store.info.quests.activeQuests={1:{detail:row(1,2),time:now}};
@@ -121,7 +133,7 @@ test('hot-reload handoff preserves known empty lists and rejects invalid rows at
   const f=fixture();f.observer.observe({path:LIST,body:{api_list:[]}});
   const snapshot=f.observer.snapshot(),next=new QuestObserver({getState:()=>f.store,now:()=>f.now});
   assert.equal(next.restore(snapshot,f.store),true);assert.deepEqual(next.view(),{known:true,tasks:[]});
-  for(const tasks of [[row(1),row(2,3)],[-1],[row(1,8)],[row(1),row(1)]]){
+  for(const tasks of [[-1],[row(1,8)],[row(1),row(1)]]){
     const stable=next.view();assert.equal(next.restore({...snapshot,tasks}),false);assert.equal(next.view(),stable);
   }
   assert.equal(next.restore({...snapshot,known:false,tasks:[row(1)]}),false);

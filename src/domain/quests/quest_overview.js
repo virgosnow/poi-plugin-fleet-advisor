@@ -81,7 +81,7 @@ function listOverviewQuests({state,questState,now=Date.now()}={}){
   };
   for(const live of snapshot.tasks){
     const id=Number(live?.api_no),status=Number(live?.api_state);
-    if(!Number.isInteger(id)||id<=0||status!==2||seen.has(id))continue;
+    if(!Number.isInteger(id)||id<=0||![2,3].includes(status)||seen.has(id))continue;
     const definition=findDefinition(live,now);
     const category=definition?.category||({2:'B',3:'C',4:'D'})[Number(live.api_category)];
     if(!['B','C','D'].includes(category))continue;

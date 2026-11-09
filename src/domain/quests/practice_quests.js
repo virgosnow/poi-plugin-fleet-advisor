@@ -21,14 +21,14 @@ function resolvePracticeCodes(codes,now=Date.now()){
 function listPracticeQuests({state,slots=[],deckId,questState,now=Date.now()}={}){
  const snapshot=taskSnapshot(state,questState);if(!snapshot.known)return {status:'unknown',tasks:[]};
  const evaluate=createFleetRequirementEvaluator(state),seen=new Set(),tasks=[];
- for(const live of snapshot.tasks){const id=Number(live?.api_no);if(Number(live?.api_category)!==3||![1,2].includes(Number(live?.api_state))||seen.has(id))continue;seen.add(id);
+ for(const live of snapshot.tasks){const id=Number(live?.api_no);if(Number(live?.api_category)!==3||![1,2,3].includes(Number(live?.api_state))||seen.has(id))continue;seen.add(id);
   const match=findDefinition(live,now),definition=match?.category==='C'?match:null;
   const supported=!!(definition?.fleet&&(definition.goals||[]).some(isPracticeGoal));
   const evaluation=supported?evaluate(definition.fleet,slots,deckId):{status:'unknown',checks:[{label:'任务编成资料尚未收录',status:'unknown'}]};
   const label=Number(live.api_label_type),period=definition?.period||(label>=101&&label<=112?'yearly':({1:'once',2:'daily',3:'weekly',6:'monthly',7:'quarterly'})[label]);
   const goals=definition?(definition.goals||[]).map(goal=>({kind:goal.kind,label:`${goal.stage>1?'演习完成后：':''}${goalLabel(goal,{period})}`})):
     [{label:plain(live.api_detail)||'任务目标待确认'}];
-  tasks.push({id,code:definition?.code||`P-unknown-${id}`,title:plain(live.api_title),state:Number(live.api_state),period,
+  tasks.push({id,code:definition?.code||`P-unknown-${id}`,title:plain(live.api_title),state:Number(live.api_state),progressFlag:live.api_progress_flag==null?null:Number(live.api_progress_flag),period,
     status:evaluation.status,checks:evaluation.checks,goals,supported});
  }
  tasks.sort((a,b)=>b.state-a.state||a.id-b.id);return {status:'ready',tasks};
@@ -36,7 +36,7 @@ function listPracticeQuests({state,slots=[],deckId,questState,now=Date.now()}={}
 function countPracticeQuests({state,questState}={}){
  const snapshot=taskSnapshot(state,questState);
  if(!snapshot.known||snapshot.complete===false)return {status:'unknown',count:null};
- const ids=new Set(snapshot.tasks.filter(q=>Number(q?.api_category)===3&&[1,2].includes(Number(q.api_state))&&Number(q.api_no)>0).map(q=>Number(q.api_no)));
+ const ids=new Set(snapshot.tasks.filter(q=>Number(q?.api_category)===3&&[1,2,3].includes(Number(q.api_state))&&Number(q.api_no)>0).map(q=>Number(q.api_no)));
  return {status:'ready',count:ids.size};
 }
 module.exports={listPracticeQuests,countPracticeQuests,resolvePracticeCodes};

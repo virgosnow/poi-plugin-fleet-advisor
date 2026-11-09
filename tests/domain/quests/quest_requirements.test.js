@@ -31,11 +31,11 @@ test('related quest count matches full results without reading fleet or equipmen
 });
 const codeList=answer=>answer.tasks.map(task=>task.code);
 
-test('only observed available and active quests are listed; never infer unlocks',()=>{
+test('observed completed, active and available quests are listed; never infer unlocks',()=>{
   const {state,add}=fixture(),slots=[add(1,100,'舰娘',2)];
   const answer=query(state,slots,[],{questState:{known:true,tasks:[task('B48',1),task('Bd1',2),task('Bd2',3),task('B50',0),{api_no:999999,api_state:2,api_title:'未知任务'}]}});
-  assert.deepEqual(codeList(answer),['Bd1','B48']);
-  assert.deepEqual(answer.tasks.map(q=>q.state),[2,1]);
+  assert.deepEqual(codeList(answer),['Bd2','Bd1','B48']);
+  assert.deepEqual(answer.tasks.map(q=>q.state),[3,2,1]);
 });
 
 test('unknown and empty observed quest snapshots have distinct meanings',()=>{

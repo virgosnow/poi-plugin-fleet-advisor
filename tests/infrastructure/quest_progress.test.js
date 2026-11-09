@@ -49,7 +49,7 @@ test('D39 game 50 percent gives a single exact lower bound without fabricating o
   assert.equal(f.progress.get(f.store,task,goal),1,'a current 50% game flag still proves one after local clearing');
   live.api_progress_flag=0;task=f.task('D39');goal=task.goals[0];
   assert.equal(f.progress.get(f.store,task,goal),0);
-  live.api_state=3;assert.equal(f.task('D39'),undefined,'completed tasks are not presented as active');
+  live.api_state=3;assert.equal(f.task('D39').state,3,'completed tasks stay visible before claiming');
 });
 
 test('expedition return counts tasks active on return even if the plugin starts or the task is accepted mid-voyage',async t=>{
@@ -177,7 +177,7 @@ test('game progress regression and completion invalidate observations without gu
   assert.equal(f.progress.get(f.store,task,goal),0);
   await f.progress.increment(f.store,task,goal);
   await f.progress.reconcile(f.store,[{api_no:task.id,api_state:3,api_progress_flag:0}]);
-  assert.equal(f.progress.get(f.store,task,goal),0);
+  assert.equal(f.progress.get(f.store,task,goal),1);
 });
 test('an older departure cannot overwrite a newer game progress flag',async t=>{
   const f=fixture(t,['Bd7']),task={...f.task('Bd7'),progressFlag:0},goal=task.goals[0];

@@ -14,6 +14,7 @@ const usePickerToggle=require('../components/picker_hover');
 const useOpponentMotion=require('./opponent_motion');
 const {normalizeName}=require('../../shared/name_matching');
 const equipmentPicker=require('../components/equipment_picker');
+const {withoutClaimed}=require('../components/quest_selection');
 const {createShipPickerCache}=require('../workbench/ship_picker_cache');
 const {createCalculationProgress,createProgressComponent}=require('../components/calculation_progress');
 const empty=()=>Array(6).fill(null);
@@ -41,6 +42,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
     const observed=React.useRef(null),previewRef=React.useRef(null),handledNavigation=React.useRef(null);
     if(!busy||!observed.current)observed.current=getStore();
     const grid=React.useRef(null),popupList=React.useRef(null),forecastCache=React.useRef(null),opponentList=React.useRef(null),store=observed.current,practice=store.practiceState||{},quest=store.questState||{};
+    React.useEffect(()=>{if(!hidden&&!busy&&!working)setSelectedQuests(current=>withoutClaimed(current,quest));},[quest,hidden,busy,working]);
     const trainingAnchor=React.useRef(null),trainingDialog=React.useRef(null),trainingTrigger=React.useRef(null),trainingPointerInside=React.useRef(false),trainingList=React.useRef(null),trainingPendingFocus=React.useRef(null),editingTrainingSearch=React.useRef(false);
     const calculationChannel=React.useRef({value:'',listeners:new Set()}),progressTimer=React.useRef(null);
     React.useEffect(()=>()=>clearInterval(progressTimer.current),[]);
@@ -57,7 +59,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
       if(hidden||busy||working||intent?.kind!=='practice'||handledNavigation.current===intent.id)return;
       handledNavigation.current=intent.id;
       const current=getStore(),related=practiceTasks({state:current,slots,deckId:fleet,questState:current.questState});
-      if(current.questState?.complete===false||related.status!=='ready'||!related.tasks.some(task=>task.code===intent.code&&task.supported&&task.state===2)){
+      if(current.questState?.complete===false||related.status!=='ready'||!related.tasks.some(task=>task.code===intent.code&&task.supported&&[2,3].includes(task.state))){
         setMessage('任务已变化或未同步，请重新选择任务');return;
       }
       setSelectedQuests(previous=>previous.includes(intent.code)?previous:[...previous,intent.code].sort());
@@ -276,6 +278,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
       else{const old=next[popup.index],s={...old,slots:old.slots.slice(),keep:{...old.keep,[popup.slot]:true}};if(popup.slot==='ex')s.ex=row.id;else s.slots[popup.slot]=row.id;next[popup.index]=s;}
       setSlots(next);setPopup(null);setMessage('');if(replacing)return refreshEquipment(next);};
     const complete=async()=>{if(disabled||!selected)return;const startSelection={...selectionRef.current};
+      const activeQuestCodes=withoutClaimed(selectedQuests,getStore().questState);
       const progress=createCalculationProgress(),channel=calculationChannel.current;
       const publish=value=>{channel.value=value;for(const listener of channel.listeners)listener(value);};
       publish(progress.update({stage:'prepare'}));
@@ -284,15 +287,16 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
       // Allow React to display the stable calculation overlay before snapshot preparation.
       await new Promise(resolve=>setTimeout(resolve,20));
       try{
-      if(selectedQuests.length){
+      if(activeQuestCodes.length){
         const current=getStore(),related=practiceTasks({state:current,slots,deckId:fleet,questState:current.questState});
-        if(current.questState?.complete===false||related.status!=='ready'||selectedQuests.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化或尚未同步，请重新选择');
-        if(selectedQuests.some(code=>!related.tasks.find(task=>task.code===code)?.supported))throw Error('所选演习任务的编成资料尚未收录，暂无法按任务补全');
+        if(current.questState?.complete===false||related.status!=='ready'||activeQuestCodes.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化或尚未同步，请重新选择');
+        if(activeQuestCodes.some(code=>!related.tasks.find(task=>task.code===code)?.supported))throw Error('所选演习任务的编成资料尚未收录，暂无法按任务补全');
       }
       const service=getController(),{snapshotId}=service.createSnapshot();
-      const result=await service.recommendPracticeFleet({snapshotId,fleet,slots,opponent:selected,capacity:6,trainingShipIds,...selectedQuests.length?{questCodes:selectedQuests}: {}},value=>publish(progress.update(value)));
-      if(selectedQuests.length){const current=getStore(),related=practiceTasks({state:current,slots,deckId:fleet,questState:current.questState});
-        if(current.questState?.complete===false||related.status!=='ready'||selectedQuests.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化，请重新选择');}
+      const result=await service.recommendPracticeFleet({snapshotId,fleet,slots,opponent:selected,capacity:6,trainingShipIds,...activeQuestCodes.length?{questCodes:activeQuestCodes}: {}},value=>publish(progress.update(value)));
+      if(activeQuestCodes.length){const current=getStore(),related=practiceTasks({state:current,slots,deckId:fleet,questState:current.questState});
+        if(withoutClaimed(activeQuestCodes,current.questState)!==activeQuestCodes){setSelectedQuests(previous=>withoutClaimed(previous,current.questState));return;}
+        if(current.questState?.complete===false||related.status!=='ready'||activeQuestCodes.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化，请重新选择');}
       if(selectionRef.current.opponentId!==startSelection.opponentId||selectionRef.current.opponentKey!==startSelection.opponentKey)return;
       const old=new Map(slots.filter(Boolean).map(s=>[s.id,s]));setSlots(result.scheme.ships.map(s=>({...s,pin:!!old.get(s.id)?.pin,keep:old.get(s.id)?.keep||{}})).concat(Array(Math.max(0,6-result.scheme.ships.length)).fill(null)));
       if(selectionRef.current.opponentId===startSelection.opponentId&&selectionRef.current.opponentKey===startSelection.opponentKey){
@@ -301,7 +305,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
       }
       if(result.planningOnly)setMessage('方案包含目前不能编入的舰娘，请等待远征或入渠结束。');
       else if(!result.enemyKnown)setMessage('尚未取得完整对手编成，已按通用演习配装。');
-    }catch(error){setMessage(error.message||'未找到可用编成');}finally{clearInterval(progressTimer.current);progressTimer.current=null;setWorking(false);}};
+    }catch(error){setMessage(error.message||'未找到可用编成');}finally{setSelectedQuests(previous=>withoutClaimed(previous,getStore().questState));clearInterval(progressTimer.current);progressTimer.current=null;setWorking(false);}};
     const card=(slot,index)=>{
       if(!slot)return h('button',{type:'button',className:'paa-wb-empty',key:`empty-${index}`,'data-fleet-slot':index,'data-empty':'true',disabled,onClick:()=>choose(index)},h('span',null,'＋'),`第 ${index+1} 位 · 选择舰娘`);
       const ship=store.info.ships[slot.id],master=store.const.$ships[ship?.api_ship_id],row=rowById.get(slot.id);if(!ship||!master||!row)return h('div',{key:slot.id,className:'paa-wb-empty'},'舰娘资料待同步');

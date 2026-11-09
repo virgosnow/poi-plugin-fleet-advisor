@@ -48,6 +48,13 @@ test('overview shows active tasks, progress hints and helpful empty states',()=>
   assert.match(strings(Component({state:{}})),/任务资料正在后台同步/);
 });
 
+test('overview keeps an achieved task visible until it is claimed',()=>{
+  const state={questState:{known:true,tasks:[{...task('B131'),api_state:3}]}};
+  const Component=create(React),tree=Component({state});
+  assert.equal(walk(tree,node=>node.type==='article').length,1);assert.match(strings(tree),/已达成/);
+  state.questState={known:true,tasks:[]};assert.equal(walk(Component({state}),node=>node.type==='article').length,0);
+});
+
 test('goal progress is read-only and rewards use the game data',()=>{
   const state={questState:{known:true,tasks:[{...task('Bd7'),api_get_material:[300,0,0,200],api_select_rewards:[[{api_kind:12,api_mst_id:35,api_count:2}]]}]},const:{$equips:{35:{api_name:'测试装备'}}}};
   const service={getQuestGoalProgress:()=>1};

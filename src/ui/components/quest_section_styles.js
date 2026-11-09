@@ -23,9 +23,11 @@ module.exports=`
 .paa-quest-heading{display:flex;align-items:flex-start;gap:8px;min-width:0;margin-bottom:4px}
 .paa-quest-heading h4{flex:1}
 .paa .paa-workbench .paa-wb-left .paa-quest-heading h4{min-width:0;margin:0;font-size:14px;font-weight:600;line-height:22px;color:var(--paa-text);overflow-wrap:anywhere}
-.paa-quest-meta{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 8px;margin-bottom:8px;min-width:0}
+.paa-quest-meta{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 8px;margin-bottom:8px;min-width:0}.paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-item[data-progress=true] .paa-quest-meta{padding-right:100px}
+.paa-quest-progress{position:absolute;right:10px;top:10px;color:var(--paa-muted);font-size:11px;line-height:16px;white-space:nowrap}.paa-quest-progress[data-complete=true]{color:var(--paa-good)}
+.paa-workbench[data-kind=expedition] .paa-quest-item[data-progress=true] .paa-quest-heading{padding-right:100px}
 .paa-quest-period,.paa-quest-state{font-size:12px;font-weight:400;line-height:18px;color:var(--paa-muted);white-space:nowrap}
-.paa-quest-state[data-active=true]{color:var(--paa-accent)}
+.paa-quest-state[data-active=true]{color:var(--paa-good)}
 .paa .paa-quest-goals,.paa .paa-quest-requirements{display:grid;grid-template-columns:28px minmax(0,1fr);align-items:start;gap:8px;margin:0;color:var(--paa-text);font-size:13px;line-height:20px;overflow-wrap:anywhere}
 .paa .paa-quest-requirements{margin-top:6px}
 .paa-quest-row-label{color:var(--paa-muted);font-size:12px;line-height:20px;white-space:nowrap}

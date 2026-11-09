@@ -115,7 +115,7 @@ function relatedQuestEntries({state,mapId,missionId,questState,now=Date.now()}={
   if(!snapshot.known)return {status:'unknown',tasks:[]};
   const tasks=[],seen=new Set();
   for(const live of snapshot.tasks){
-    if(!live||![1,2].includes(Number(live.api_state))||seen.has(Number(live.api_no)))continue;
+    if(!live||![1,2,3].includes(Number(live.api_state))||seen.has(Number(live.api_no)))continue;
     const definition=findDefinition(live,now);
     if(!definition||!['B','D'].includes(definition.category))continue;
     const entries=definition.goals.map(goal=>({goal,relation:relation(goal,{mapId,missionId})}));
@@ -147,7 +147,7 @@ function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState,now
     if(completion.some(check=>check.kind==='noRetreatedShips'))goals.push({kind:'noRetreatedShips',label:'到达目标时所需舰娘均未退避'});
     if(completion.some(check=>check.kind==='recheckFleetAtGoal'))goals.push({kind:'recheckFleetAtGoal',label:'到达目标时仍须保持指定编成'});
     tasks.push({id:Number(live.api_no),code:definition.code,title:live.api_title||definition.title,
-      state:Number(live.api_state),period:definition.period,source:definition.source,
+      state:Number(live.api_state),progressFlag:live.api_progress_flag==null?null:Number(live.api_progress_flag),period:definition.period,source:definition.source,
       summary:goals.map(goal=>goal.label).join('；'),checks,status:statusOf(checks),goals});
   }
   tasks.sort((a,b)=>b.state-a.state||a.id-b.id);

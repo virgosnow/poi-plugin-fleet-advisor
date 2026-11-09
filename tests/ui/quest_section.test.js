@@ -10,7 +10,7 @@ function harness(props,result){
     useMemo(compute,deps){const index=cursor++,cached=hooks[index];if(!cached||deps.some((value,i)=>!Object.is(value,cached.deps[i])))hooks[index]={value:compute(),deps};return hooks[index].value;}};
   const Component=create(React,{listRelatedQuests:input=>{calls.push(input);return typeof result==='function'?result(input):result;},
     countRelatedQuests:input=>{countCalls.push(input);return typeof result==='function'||result.status!=='ready'?{status:'unknown',count:null}:
-      {status:'ready',count:result.tasks.filter(task=>[1,2].includes(Number(task.state))).length};}});
+      {status:'ready',count:result.tasks.filter(task=>[1,2,3].includes(Number(task.state))).length};}});
   const walk=(node,match)=>!node||typeof node!=='object'?[]:[...(match(node)?[node]:[]),...node.children.flatMap(child=>walk(child,match))];
   const render=()=>{cursor=0;tree=Component(props);return tree;};
   const find=match=>walk(tree,match)[0];
@@ -161,6 +161,33 @@ test('expedition selected tasks retain their existing folded behavior',()=>{
   assert.deepEqual(selected,[]);assert(!ui.find(n=>n.props.className==='paa-quest-content paa-quest-selected'));
 });
 
+test('all related task lists put ongoing tasks first without moving selected available tasks ahead',()=>{
+  for(const kind of ['normal','expedition','practice']){
+    const rows=[task({id:101,code:'A',state:1}),task({id:102,code:'B',state:'2'}),
+      task({id:103,code:'C',state:1}),task({id:104,code:'D',state:2})];
+    const ui=harness({kind,selectedQuests:['A'],onToggleQuest(){}},{status:'ready',tasks:rows});
+    ui.toggle(true);
+    assert.deepEqual(ui.all(n=>n.type==='article').map(n=>n.props['data-quest-id']),[102,104,101,103],kind);
+    assert.deepEqual(rows.map(row=>row.id),[101,102,103,104],'do not mutate source order');
+    assert.equal(ui.find(n=>n.props['data-quest-id']===101).props['aria-checked'],true);
+    assert.equal(ui.all(n=>n.props.className==='paa-quest-state'&&n.props['data-active']).length,2);
+    ui.toggle(false);assert(ui.text().includes('预选')||ui.find(n=>n.props['data-quest-id']===101));
+  }
+});
+
+test('task cards show the observed progress at the upper right and keep achieved tasks preselected',()=>{
+  for(const kind of ['normal','expedition','practice']){
+    const rows=[task({id:101,code:'A',state:2,progressFlag:0}),task({id:102,code:'B',state:2,progressFlag:1}),
+      task({id:103,code:'C',state:2,progressFlag:2}),task({id:104,code:'D',state:3}),task({id:105,code:'E',state:2})];
+    const ui=harness({kind,selectedQuests:['D'],onToggleQuest(){}},{status:'ready',tasks:rows});ui.toggle(true);
+    const card=id=>ui.find(n=>n.props['data-quest-id']===id);
+    const value=id=>card(id).children.find(n=>n?.props?.className==='paa-quest-progress')?.children[0];
+    assert.equal(value(101),'进度未满 50%');assert.equal(value(102),'进度 50% 以上');
+    assert.equal(value(103),'进度 80% 以上');assert.equal(value(104),'已达成');assert.equal(value(105),'进度未确认');
+    assert.equal(card(104).props['aria-checked'],true);assert.equal(ui.all(n=>n.type==='article')[0].props['data-quest-id'],104);
+  }
+});
+
 test('opened tasks re-evaluate the current ships, equipment, destination and quest state',()=>{
   const props={state:{ships:{}},slots:[{id:1,slots:[10],ex:-1}],deckId:1,mapId:'1-5',questState:{status:'ready'}};
   const ui=harness(props,input=>({status:'ready',tasks:[task({status:input.slots[0].slots[0]===11?'met':'unmet'})]}));
@@ -182,22 +209,22 @@ test('expedition quests receive the mission and target fleet without a separate 
   assert.match(ui.text(),/单次可受领/);assert.match(ui.text(),/远征 30 成功 2 回/);assert.match(ui.text(),/编成条件待确认/);
 });
 
-test('only accepted or available tasks render, and outcome requirements remain visible when fleet checks pass',()=>{
+test('accepted, completed and available tasks render, and fleet checks remain visible',()=>{
   const ui=harness({slots:[]},{status:'ready',tasks:[task(),task({id:1002,state:1,title:'可受领任务'}),
     task({id:1003,state:3,title:'完成待领奖'}),task({id:1004,state:0,title:'未解锁任务'})]});
   ui.toggle(true);
-  assert.equal(ui.all(n=>n.type==='article').length,2);
+  assert.equal(ui.all(n=>n.type==='article').length,3);
   assert.match(ui.text(),/「夕張改二」試してみてもいいかしら？/);
   assert.match(ui.text(),/目标1-5 Boss S胜 1 回/);
-  assert.match(ui.text(),/编成条件满足/);assert.doesNotMatch(ui.text(),/任务可完成|完成待领奖|未解锁任务/);
-  assert.equal(ui.all(n=>n.props['data-status']==='met').length,6);
+  assert.match(ui.text(),/编成条件满足/);assert.match(ui.text(),/完成待领奖/);assert.doesNotMatch(ui.text(),/任务可完成|未解锁任务/);
+  assert.equal(ui.all(n=>n.props['data-status']==='met').length,9);
 });
 
 test('known empty results and unsynchronized quest lists have different neutral messages',()=>{
   const unknown=harness({}, {status:'unknown',tasks:[]});unknown.toggle(true);
   assert.match(unknown.text(),/任务资料正在后台同步/);
   assert.doesNotMatch(unknown.text(),/暂无/);
-  const empty=harness({}, {status:'ready',tasks:[task({state:3})]});empty.toggle(true);
+  const empty=harness({}, {status:'ready',tasks:[task({state:0})]});empty.toggle(true);
   assert.match(empty.text(),/暂无可受领或进行中的相关任务/);
   assert.doesNotMatch(empty.text(),/请在游戏中/);
 });

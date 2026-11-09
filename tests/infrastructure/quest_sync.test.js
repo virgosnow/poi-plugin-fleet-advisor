@@ -19,7 +19,7 @@ test('login sync upgrades a partial active cache and all pages share one full ob
   const f=fixture();f.observer.acceptList({api_list:[row(1,2)]});assert.equal(f.observer.hasComplete(),false);
   f.auto.setActive('login',true);assert.equal((await f.auto.tick()).status,'waiting');f.setTime(2000);
   assert.equal((await f.auto.tick()).status,'read');assert.equal(f.observer.hasComplete(),true);
-  assert.deepEqual(f.observer.view().tasks.map(x=>x.api_no),[1,2]);assert.equal(f.reconciled.length,3);
+  assert.deepEqual(f.observer.view().tasks.map(x=>x.api_no),[3,1,2]);assert.equal(f.reconciled.length,3);
   f.auto.setActive('normal',true);f.auto.setActive('practice',true);f.auto.setActive('expedition',true);
   assert.equal((await f.auto.tick()).status,'cached');assert.equal(f.calls,1);
 });

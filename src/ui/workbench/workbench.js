@@ -18,6 +18,7 @@ const {runRouteCombatBatch}=require('./route_combat_batch');
 const {createShipPickerCache}=require('./ship_picker_cache');
 const {shipGroup,matchesLock}=require('../components/ship_picker');
 const equipmentPicker=require('../components/equipment_picker');
+const {withoutClaimed}=require('../components/quest_selection');
 const blank=()=>Array(6).fill(null),pad=rows=>rows.concat(Array(Math.max(0,6-rows.length)).fill(null));
 const {createCalculationProgress,createProgressComponent}=require('../components/calculation_progress');
 function draftDataKey(store,slots,{area,fleet,missionId}){
@@ -151,6 +152,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     // Persist the completion state with manually selected ships across reloads.
     if(kind==='normal'&&!prepared.current&&slots.some(Boolean)&&slots.every(s=>!s||s.preselectionComplete!==false&&(!s.preselected||s.preselectionComplete)))prepared.current=true;
     const disabled=busy||working,store=observed.current;
+    React.useEffect(()=>{if(!paused&&!working)setSelectedQuests(current=>withoutClaimed(current,questState));},[questState,paused,working]);
     React.useEffect(()=>{
       if(kind!=='normal'||paused||!(store.info?.airbaseRelocations||[]).some(row=>Number.isFinite(row.startedAt)))return;
       setBaseClock(Date.now());const timer=setInterval(()=>{
@@ -483,6 +485,9 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       const token=++operation.current,key=JSON.stringify([kind,area,target,phase,'clear',requestedStyle,missionId,requestedGoal,filterKey,...(selectedQuests.length?[selectedQuests]:[])]);
       const progress=createCalculationProgress();let progressActive=true,completed=false;
       const origin=conditionKey,initialStore=getStore(),requestedPhase=phaseForRoute(requestedRoute,initialStore);
+      const activeQuestCodes=withoutClaimed(selectedQuests,initialStore.questState),questSelectionChanged=activeQuestCodes!==selectedQuests;
+      const resultKey=questSelectionChanged?JSON.stringify([kind,area,target,phase,'clear',requestedStyle,missionId,requestedGoal,filterKey,
+        ...(activeQuestCodes.length?[activeQuestCodes]:[])]):key;
       const planningBases=kind==='normal'?airbaseEditor.rebaseDraft(initialStore,area,landBases):null;
       const planningItems=[...new Set((planningBases||[]).flatMap(base=>base.slots||[]).map(slot=>slot.itemId).filter(id=>id>0))];
       const initialInfo=initialStore.info,initialMaster=initialStore.const;
@@ -498,7 +503,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         }
       }catch(error){setError(error?.message||'基地航空队资料读取失败，请重试');return;}
       const holds=normalHolds(slots);
-      const combatSignature=JSON.stringify([kind,area,target,purpose,missionId,requestedGoal,fleet,excluded,filterKey,holds,selectedQuests]);
+      const combatSignature=JSON.stringify([kind,area,target,purpose,missionId,requestedGoal,fleet,excluded,filterKey,holds,activeQuestCodes]);
       const previousCombat=routeCombatSnapshot.current;
       if(kind==='normal'&&!automatic&&previousCombat&&(previousCombat.info!==initialInfo||previousCombat.master!==initialMaster||previousCombat.signature!==combatSignature))invalidateRouteCombat();
       const routeOnly=kind==='normal'&&automatic&&requestedRoute&&!String(requestedRoute).startsWith('fallback:');
@@ -510,16 +515,16 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       setWorking(true);setActivity(automatic?'route':'complete');setNotice('');setError('');setPopup(null);setNoPlan('');
       await new Promise(resolve=>setTimeout(resolve,20));
       try{
-        if(selectedQuests.length){
+        if(activeQuestCodes.length){
           if(initialStore.questState?.complete===false)throw Error('任务资料正在同步，完成后可继续补全');
           const related=require('../../domain/quests/quest_requirements').listRelatedQuests({state:initialStore,slots,deckId:fleet,
             mapId:kind==='normal'?area:undefined,missionId:kind==='expedition'?missionId:undefined,questState:initialStore.questState});
-          if(related.status!=='ready'||selectedQuests.some(code=>!related.tasks.some(task=>task.code===code)))
+          if(related.status!=='ready'||activeQuestCodes.some(code=>!related.tasks.some(task=>task.code===code)))
             throw Error('所选任务已变化或未同步，请重新选择任务');
         }
         const stamp=kind==='expedition'?require('../../application/snapshots').fingerprint(initialStore):null;
-        const fullCached=routeOnly?routeCache.current?.get(fullSignature):null;
-        const cached=routeCache.current?.get(signature)||((fullCached?.found?.routeResults?.some(row=>row.key===requestedRoute)||
+        const fullCached=routeOnly&&!questSelectionChanged?routeCache.current?.get(fullSignature):null;
+        const cached=(!questSelectionChanged&&routeCache.current?.get(signature))||((fullCached?.found?.routeResults?.some(row=>row.key===requestedRoute)||
           fullCached?.found?.recommendations?.some(row=>row.routeKey===requestedRoute))?fullCached:null);
         let found;
         if((automatic||kind==='expedition')&&cached&&(cached.key===signature||routeOnly&&cached.key===fullSignature)&&
@@ -527,7 +532,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         else{
           const service=getController();
           const query={fleet,fixedShipIds:slots.filter(s=>s&&(s.pin||Object.keys(s.keep).length)).map(s=>s.id),excludedShipIds:excluded,
-            ...(selectedQuests.length?{questCodes:selectedQuests}: {})};
+            ...(activeQuestCodes.length?{questCodes:activeQuestCodes}: {})};
           const onProgress=value=>{if(progressActive&&alive.current&&token===operation.current)publishCalculation(progress.update(value));};
           const searchStart=timings?performance.now():0;
           if(kind==='normal')found=await requestNormalRoute(service,{...query,area,target,phase:requestedPhase||undefined,...(routeOnly?{routeKey:requestedRoute}:{}),
@@ -545,13 +550,14 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         if(kind==='expedition'?require('../../application/snapshots').fingerprint(currentStore)!==stamp:
           currentStore.info!==initialInfo||currentStore.const!==initialMaster)throw Error('舰队资料已变化，请重新补全');
         if(baseSignature!==null&&airbaseView.planningSignature(currentStore)!==baseSignature)throw Error('基地航空队资料已变化，请重新补全');
-        if(selectedQuests.length){
+        if(activeQuestCodes.length){
           const current=getStore(),related=require('../../domain/quests/quest_requirements').listRelatedQuests({state:current,slots,deckId:fleet,
             mapId:kind==='normal'?area:undefined,missionId:kind==='expedition'?missionId:undefined,questState:current.questState});
-          if(current.questState?.complete===false||related.status!=='ready'||selectedQuests.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化，请重新选择任务');
+          if(withoutClaimed(activeQuestCodes,current.questState)!==activeQuestCodes){setSelectedQuests(previous=>withoutClaimed(previous,current.questState));return;}
+          if(current.questState?.complete===false||related.status!=='ready'||activeQuestCodes.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化，请重新选择任务');
         }
         if(!routeCache.current)routeCache.current=new Map();
-        routeCache.current.set(signature,{key:signature,info:initialInfo,master:initialMaster,stamp,fingerprint:sourceFingerprint,found});
+        if(!questSelectionChanged)routeCache.current.set(signature,{key:signature,info:initialInfo,master:initialMaster,stamp,fingerprint:sourceFingerprint,found});
         // Keep recent gauges available when switching back, with the same
         // snapshot, filters and manual constraints. Bound retained full fleets.
         while(routeCache.current.size>8)routeCache.current.delete(routeCache.current.keys().next().value);
@@ -632,7 +638,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         const finalStore=getStore();
         if(baseSignature!==null&&airbaseView.planningSignature(finalStore)!==baseSignature)throw Error('基地航空队资料已变化，请重新补全');
         if(sourceFingerprint!==null&&normalSnapshotKey(finalStore,area)!==sourceFingerprint)throw Error('舰队或装备资料已变化，请重新补全');
-        choosePlan(row,key,requestedRoute);
+        choosePlan(row,resultKey,requestedRoute);
         if(finalBaseProposal)setLandBaseDrafts(previous=>({...previous,[area]:{bases:finalBaseProposal.bases,warnings:finalBaseProposal.warnings||[]}}));
         if(kind==='expedition'&&!found.recommendations?.length)setNoPlan({message:'本轮未找到达标的远征编成。',
           hint:'已显示最接近的参考编成，请检查任务及未满足的出航条件。'});
@@ -644,6 +650,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
         progressActive=false;
         clearInterval(progressTimer);
         if(alive.current&&token===operation.current){
+          if(questSelectionChanged)setSelectedQuests(previous=>withoutClaimed(previous,getStore().questState));
           if(completed){publishCalculation(progress.complete());await new Promise(resolve=>setTimeout(resolve,120));}
           if(alive.current&&token===operation.current){setWorking(false);setActivity('');}
         }
