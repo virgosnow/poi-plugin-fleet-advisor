@@ -1606,8 +1606,8 @@ test('expedition completion works while its selected destination fleet is away',
   assert.equal(h.get('report').valid,true);assert.equal(h.get('report').expedition.fleetBusy,true);
   const view=h.render({automaticOperations:true}),apply=h.find(view,n=>n.props.className==='paa-primary paa-wb-apply');
   assert.equal(apply.props.disabled,true);assert.match(apply.props['data-tooltip'],/目标舰队正在远征/);
-  const destination=h.control(view,'编入'),away=destination.children.find(option=>option.props.value===2);
-  assert.equal(away.props.disabled,false);assert.match(away.children[0],/远征中/);
+  const destination=h.find(view,n=>n.type?.name==='FleetTargetPicker'),away=destination.props.options.find(option=>option.value===2);
+  assert.equal(away.disabled,false);assert.match(away.label,/远征中/);
   assert.equal(JSON.stringify(h.store),before);
 });
 
@@ -2664,7 +2664,7 @@ test('phase changes clear inspection without automatic recommendation while stal
   assert.equal(h.get('report'),fresh);assert(!hasProbability(h.render()),'clearing only the route removes its markers while keeping fleet inspection');
   h.set('mapRoute',W.mapOverview('1-1').options[0].key);assert(hasProbability(h.render()));
   h.set('revision',1);assert(!hasProbability(h.render()),'new observed game state cannot reuse previous percentages');
-  h.set('revision',0);h.control(h.render(),'编入').props.onChange({target:{value:'2'}});
+  h.set('revision',0);h.find(h.render(),n=>n.type?.name==='FleetTargetPicker').props.onChange(2);
   assert.equal(h.get('report').valid,false);assert(!hasProbability(h.render()));
   h.set('fleet',1);h.set('report',fresh);
   h.find(h.render(),n=>n.type==='button'&&n.children.includes('一键清空')).props.onClick();

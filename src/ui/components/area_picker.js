@@ -60,7 +60,7 @@ function groups(maps){
     maps:maps.slice().sort((a,b)=>Number(a.area.split('-')[1])-Number(b.area.split('-')[1]))}));
 }
 module.exports=function createAreaPicker(React){
-  const h=React.createElement,ResourceIcon=require('./resource_icon')(React);
+  const h=React.createElement,placementEffect=React.useLayoutEffect||React.useEffect,ResourceIcon=require('./resource_icon')(React);
   const rewardIcon=name=>h('span',{key:name,className:'paa-mission-reward-icon','data-tooltip':name,'aria-label':name},h(ResourceIcon,{name,size:14}));
   return function AreaPicker({maps=[],missions=[],kind='normal',value,onChange,mapMasters={},missionMasters={},missionProgress={},fleets=[],useItems={},disabled=false,hidden=false}){
     const expedition=kind==='expedition',label=expedition?'远征':'海域';
@@ -73,7 +73,7 @@ module.exports=function createAreaPicker(React){
       shouldHoldOpen:()=>editingSearch.current&&anchor.current?.ownerDocument?.activeElement===dialog.current?.querySelector('input[type=search]')});
     const close=()=>{editingSearch.current=false;picker.dismiss();setOpen(false);trigger.current?.focus();};
     React.useEffect(()=>{if(disabled||hidden){editingSearch.current=false;picker.dismiss();setOpen(false);}},[disabled,hidden]);
-    React.useEffect(()=>{
+    placementEffect(()=>{
       if(!open||disabled||hidden)return;
       const panel=dialog.current,root=anchor.current,doc=root.ownerDocument,win=doc.defaultView;
       // Stay below the trigger, but shift horizontally and scroll inside on small hosts.

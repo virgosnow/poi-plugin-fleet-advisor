@@ -22,7 +22,8 @@ const rankText=rank=>`${rank}${['SS','S','A','B'].includes(rank)?'胜':'败'}`;
 const {listPracticeQuests:practiceTasks,countPracticeQuests}=require('../../domain/quests/practice_quests');
 module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
   const h=React.createElement,EquipmentIcon=require('../components/equipment_icon')(React),ResourceIcon=require('../components/resource_icon')(React),badges=require('../components/mechanism_badges')(React),QuestSection=require('../components/quest_section')(React),ShipPicker=shipPicker(React),EquipmentPicker=equipmentPicker(React);
-  const CalculationProgress=createProgressComponent(React);
+  const CalculationProgress=createProgressComponent(React),placementEffect=React.useLayoutEffect||React.useEffect;
+  const FleetTargetPicker=require('../components/fleet_target_picker')(React);
   const ExecutionCard=require('../components/execution_card')(React,{subscribe,getStore});
   return function PracticePage({kind='practice',hidden=false,busy=false,stopping=false,onStop,stopButtonRef,onApply,operationFeedback,executionPlan,automaticOperations,automaticFilters,navigationIntent}){
     const [slots,setSlots]=React.useState(empty),[fleet,setFleet]=React.useState(1),[opponentId,setOpponentId]=React.useState(null);
@@ -85,7 +86,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
     React.useEffect(()=>{if(trainingList.current)trainingList.current.scrollTop=0;setTrainingScroll(0);},[trainingSearch,trainingType,trainingSort,trainingLock]);
     React.useEffect(()=>{const index=trainingPendingFocus.current;if(index==null)return;
       trainingList.current?.querySelector(`[data-index="${index}"] input`)?.focus();trainingPendingFocus.current=null;},[trainingScroll]);
-    React.useEffect(()=>{if(!trainingOpen||hidden||busy||working)return;const root=trainingAnchor.current,panel=trainingDialog.current;if(!root||!panel)return;
+    placementEffect(()=>{if(!trainingOpen||hidden||busy||working)return;const root=trainingAnchor.current,panel=trainingDialog.current;if(!root||!panel)return;
       const doc=root.ownerDocument,win=doc.defaultView;
       const place=()=>{const r=root.getBoundingClientRect(),width=Math.max(0,Math.min(r.width,doc.documentElement.clientWidth-24));panel.style.width=`${width}px`;
         panel.style.left=`${Math.max(12-r.left,Math.min(0,doc.documentElement.clientWidth-12-r.left-width))}px`;
@@ -423,8 +424,8 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
         h('div',{className:'paa-wb-edit-controls'},h('button',{type:'button',className:'paa-wb-complete',disabled:disabled||!selected,onClick:complete},
           h('svg',{width:15,height:15,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'m4 16 9-9 3 3-9 9zM4 3v4M2 5h4M14 1v3M12.5 2.5h3'})),working?'计算中…':'一键补全'),
           h('button',{type:'button',className:'paa-wb-quiet',disabled,onClick:()=>{setSlots(empty());setMessage('');setShipLock('locked');}},'一键清空')),
-        automaticOperations||busy?h('div',{className:'paa-wb-apply-controls'},h('label',{className:'paa-wb-field'},h('span',null,'编入'),h('select',{'aria-label':'编入舰队',value:fleet,disabled,onChange:e=>setFleet(Number(e.target.value))},
-          ...[1,2,3,4].map(n=>{const f=store.info?.fleets?.[n-1],unavailable=!f||!Array.isArray(f.api_mission),away=f&&!unavailable&&Number(f.api_mission[0])!==0;return h('option',{key:n,value:n,disabled:unavailable||away},`第 ${n} 舰队${unavailable?'（未同步）':away?'（远征中）':''}`);}))),
+        automaticOperations||busy?h('div',{className:'paa-wb-apply-controls'},h(FleetTargetPicker,{value:fleet,disabled,hidden,onChange:setFleet,
+          options:[1,2,3,4].map(n=>{const f=store.info?.fleets?.[n-1],unavailable=!f||!Array.isArray(f.api_mission),away=f&&!unavailable&&Number(f.api_mission[0])!==0;return {value:n,label:`第 ${n} 舰队${unavailable?'（未同步）':away?'（远征中）':''}`,disabled:unavailable||away};})}),
           h('button',{type:'button',className:'paa-primary paa-wb-apply',ref:stopButtonRef,'data-running':!!busy,disabled:busy?stopping:disabled||!preview,'data-tooltip':busy?'停止后续操作，已发送的操作会正常完成':undefined,onClick:e=>{if(busy){if(!stopping)onStop?.(e);}else if(!disabled&&preview)onApply?.(scheme);}},busy?(stopping?'正在停止…':'停止操作'):'应用编成')):null)),
         operationFeedback,message?h('p',{className:'paa-fleet-warning',role:'status'},message):null,
         h('div',{className:'paa-wb-fleet-results','aria-busy':working},

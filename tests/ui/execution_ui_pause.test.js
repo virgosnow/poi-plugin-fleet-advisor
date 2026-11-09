@@ -200,9 +200,9 @@ test('practice application attaches shared progress to matching ships and keeps 
  h.render({stopping:true});assert.equal(progress(1).props.stopping,true);
  find(h.tree,n=>n.props.className==='paa-primary paa-wb-apply').props.onClick({});assert.equal(stopped,1);
  h.render({busy:false,stopping:false});assert.equal(progress(1).props.running,false);
- const select=find(h.tree,n=>n.props['aria-label']==='编入舰队');
- assert.equal(select.children[0].props.disabled,false);assert.equal(select.children[1].props.disabled,true);assert.match(text(select.children[1]),/远征中/);
- assert.equal(select.children[3].props.disabled,true);assert.match(text(select.children[3]),/未同步/);
+ const options=find(h.tree,n=>n.type?.name==='FleetTargetPicker').props.options;
+ assert.equal(options[0].disabled,false);assert.equal(options[1].disabled,true);assert.match(options[1].label,/远征中/);
+ assert.equal(options[3].disabled,true);assert.match(options[3].label,/未同步/);
  h.render({busy:true,executionPlan:{fleet:2,targets:[1,2]}});assert.equal(progress(1).props.running,false);
 });
 
