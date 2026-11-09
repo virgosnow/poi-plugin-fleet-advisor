@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "event": "2026 Fleet Halloween 南瓜祭り",
   "startDate": "2026-10-14",
-  "endDate": null,
+  "endDate": "2026-11-12",
   "timeZone": "Asia/Tokyo",
   "notes": [
-    "结束时间未公布；仅关联游戏实际返回的可受领或进行中任务。",
+    "仅关联游戏实际返回的可受领或进行中任务。",
     "限时任务内部 ID 可复用，必须同时匹配任务名称。",
     "演习及工厂任务只记录数据，不关联海域或远征。"
   ],

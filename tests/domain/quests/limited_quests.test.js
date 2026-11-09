@@ -17,7 +17,7 @@ const query=(tasks,mapId='1-3',options={})=>listRelatedQuests({state:{},slots:[]
   questState:{known:true,tasks},now:Date.parse('2026-10-31T00:00:00+09:00'),...options});
 
 test('festival records separate activity dates, categories, game IDs and sources',()=>{
-  assert.equal(event.startDate,'2026-10-14');assert.equal(event.endDate,null);assert.equal(event.timeZone,'Asia/Tokyo');
+  assert.equal(event.startDate,'2026-10-14');assert.equal(event.endDate,'2026-11-12');assert.equal(event.timeZone,'Asia/Tokyo');
   assert.equal(event.quests.length,11);assert.equal(event.quests.filter(q=>q.category==='B').length,8);
   assert.equal(event.quests.filter(q=>q.category==='C').length,1);assert.equal(event.quests.filter(q=>q.category==='F').length,2);
   assert.equal(new Set(event.quests.flatMap(q=>q.ids)).size,11);
@@ -47,12 +47,14 @@ test('pumpkin escort quest retains all map goals and highlights the current map'
   assert.deepEqual(task.goals.map(goal=>[goal.map,goal.relatedToCurrent]),[['1-2',true],['1-5',false],['2-2',false],['2-3',false]]);
 });
 
-test('a confirmed end date is inclusive in Japan and hides an expired event',()=>{
-  event.endDate='2026-10-31';
-  try{
-    assert.equal(query([observed('2610B1')],'1-3',{now:Date.parse('2026-10-31T23:59:59+09:00')}).tasks.length,1);
-    assert.equal(query([observed('2610B1')],'1-3',{now:Date.parse('2026-11-01T00:00:00+09:00')}).tasks.length,0);
-  }finally{event.endDate=null;}
+test('festival ends after November 12 in Japan for sortie and practice quests',()=>{
+  const {resolvePracticeCodes}=require('../../../src/domain/quests/practice_quests');
+  const lastMoment=Date.parse('2026-11-12T23:59:59+09:00');
+  const expired=Date.parse('2026-11-13T00:00:00+09:00');
+  assert.equal(query([observed('2610B1')],'1-3',{now:lastMoment}).tasks.length,1);
+  assert.equal(query([observed('2610B1')],'1-3',{now:expired}).tasks.length,0);
+  assert.equal(resolvePracticeCodes(['2610C1'],lastMoment)[0].code,'2610C1');
+  assert.throws(()=>resolvePracticeCodes(['2610C1'],expired),/任务/);
 });
 
 test('flagship and companion counts, named remodels and coastal escort class are evaluated',()=>{
