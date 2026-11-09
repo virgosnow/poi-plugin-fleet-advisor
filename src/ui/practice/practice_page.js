@@ -150,7 +150,6 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
     let experience=null;
     if(selected&&filled.length)try{experience=practiceExperience.estimateForecast(store,scheme,selected,forecast);}catch(_){experience={status:'unknown',reason:'经验资料不足'};}
     const colors={S:'#e3bc65',A:'#7bc8a6',B:'#6aa6d8',C:'#d39b69',D:'#d87e80'};
-    const formationNames={lineAhead:'单纵',doubleLine:'复纵',lineAbreast:'单横',echelon:'梯形',diamond:'轮形'};
     const forecastChart=()=>{
       let start=0;const stops=forecast.rows.map(row=>{const end=start+row.count/forecast.samples*100,color=colors[row.label];const segment=`${color} ${start}% ${end}%`;start=end;return segment;});
       return h('div',{className:'paa-practice-forecast'},h('div',{className:'paa-practice-pie',role:'img',
@@ -159,13 +158,6 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
       h('div',{className:'paa-practice-forecast-legend'},...forecast.rows.map(row=>h('div',{key:row.label},
         h('span',{className:'paa-practice-forecast-dot',style:{background:colors[row.label]}}),h('span',null,rankText(row.label)),
         h('strong',null,row.percent?`${row.percent}%`:'<1%')))));
-    };
-    const forecastNote=()=>{
-      const rows=(forecast.assumedEquipment||[]).map(ship=>[ship.name,(ship.slots||[]).map(slot=>`${slot.slot}槽 ${slot.name}`).join('、')||'无参考装备']);
-      const detail=rows.length?metricTooltips.attributes({title:'对手假设配装',sections:[{title:'可开发装备参考',columns:['舰娘','装备'],rows}],
-        notes:[forecast.assumptions]}):{'data-tooltip':forecast.assumptions};
-      return h('p',{className:'paa-practice-forecast-note',tabIndex:0,...detail},
-        `参考模拟 · 我方${formationNames[forecast.ownFormation]||'待确认'} / 对手${formationNames[forecast.enemyFormation]||'待确认'} · 假设对手使用可开发装备`);
     };
     const resourceSummary=()=>{
       if(consumption.status!=='known')return {items:[],detail:consumption.status==='empty'?'添加舰娘后计算':consumption.reason||'补给资料待确认'};
@@ -419,7 +411,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
           h('div',{className:'paa-practice-enemy-content'},!enemy.known?h('p',{className:'paa-muted'},'对手舰队资料待同步。'):
             h('div',{className:'paa-practice-enemy-ships','aria-label':'对手编成'},...enemy.ships.map(enemyShip)))))),
         h('section',{className:'paa-practice-block paa-practice-forecast-section'},h('h3',null,'战况预测'),forecast?.status==='estimated'?
-          h('div',null,forecastChart(),forecastNote()):
+          h('div',null,forecastChart()):
           h('p',{className:'paa-muted'},!selected?'选择对手后查看。':!enemy.known?'对手舰队资料待同步。':!filled.length?'添加己方舰娘后查看。':forecast?.reason||'战斗资料不足。')),
         h(QuestSection,{state:store,slots,deckId:fleet,kind:'practice',questState:quest,paused:hidden||busy,disabled,open:questsOpen,onOpenChange:setQuestsOpen,listTasks:practiceTasks,countTasks:countPracticeQuests,
           selectedQuests,onToggleQuest:code=>{if(!disabled){setSelectedQuests(current=>current.includes(code)?current.filter(item=>item!==code):[...current,code].sort());setMessage('');}},

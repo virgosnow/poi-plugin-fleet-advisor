@@ -111,11 +111,9 @@ test('practice page displays observed opponents, preserves manual drafts and kee
  store.const.$equips[340]={api_id:340,api_name:'测试主炮',api_type:[0,0,2,2],api_houg:8,api_souk:1,api_leng:2};
  Object.assign(store.info.ships[1],{api_nowhp:30,api_maxhp:30,api_kyouka:[0,0,0,0,0],api_lucky:[20,99]});
  tree=render();assert(walk(tree).some(n=>n.props.role==='img'&&/胜|败/.test(n.props['aria-label'])));
- assert.match(text(tree),/参考模拟/);
+ assert(!walk(tree).some(n=>n.props.className==='paa-practice-forecast-note'));
  assert(walk(tree).some(n=>n.props['aria-label']==='燃料 2'));assert(walk(tree).some(n=>n.props['aria-label']==='弹药 2–3'));
  assert(walk(tree).some(n=>n.props['aria-label']==='铝土 0'));assert.match(text(tree),/假设对手配装/);
- const assumed=walk(tree).find(n=>n.props.className==='paa-practice-forecast-note');
- assert.match(assumed.props['data-tooltip-content'],/测试主炮/);
  const xp=walk(tree).find(n=>n.props.className==='paa-wb-metric speed');
  assert.match(text(xp),/旗舰经验/);assert.match(xp.props['aria-label'],/旗舰/);assert.match(xp.props['data-tooltip'],/MVP/);
  assert(!walk(tree).some(n=>n.props.className==='paa-practice-experience'));

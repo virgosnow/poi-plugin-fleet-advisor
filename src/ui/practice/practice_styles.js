@@ -120,7 +120,7 @@ ${trainingOverflowRules}
  .paa-practice-enemy-ship{padding-inline:0}.paa-practice-enemy-head{gap:4px}.paa-practice-enemy-index{flex-basis:9px}.paa-practice-enemy-portrait{width:34px;height:24px}
 }
 .paa-practice-forecast{display:flex;align-items:center;gap:20px}.paa-practice-pie{width:92px;height:92px;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
-.paa-practice-forecast-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;flex:1;min-width:0}.paa-practice-forecast-legend>div{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:7px;font-size:12px}.paa-practice-forecast-legend strong{font-variant-numeric:tabular-nums;font-weight:600}.paa-practice-forecast-dot{width:8px;height:8px;border-radius:50%}.paa-practice-block .paa-practice-forecast-note{margin-top:10px;color:var(--paa-muted);font-size:11px}
+.paa-practice-forecast-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;flex:1;min-width:0}.paa-practice-forecast-legend>div{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:7px;font-size:12px}.paa-practice-forecast-legend strong{font-variant-numeric:tabular-nums;font-weight:600}.paa-practice-forecast-dot{width:8px;height:8px;border-radius:50%}
 .paa-practice-consumption-item{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .paa-practice-resources .paa-practice-resource-items{display:flex;align-items:center;gap:9px;min-width:0;overflow-x:auto;white-space:nowrap;font-variant-numeric:tabular-nums;scrollbar-width:thin}
 .paa-practice-resources .paa-practice-consumption-item{gap:3px;color:var(--paa-text)}
