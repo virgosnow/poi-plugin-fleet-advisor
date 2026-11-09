@@ -16,7 +16,10 @@ test('independent defaults, remodel graph, inclusive level boundary and sortie-s
   assert.deepEqual(normal(1),['未改造']);assert.deepEqual(normal(2),[]);assert.deepEqual(normal(3),[]);
   assert.deepEqual(normal(4),['等级低于 30']);s.info.ships[4].api_lv=30;assert.deepEqual(normal(4),[]);
   assert.deepEqual(normal(5),['士气低于 40']);assert.deepEqual(normal(6),['大破']);assert.deepEqual(normal(7),['未锁定']);
-  assert.deepEqual(exp(1),[]);assert.deepEqual(exp(5),[]);assert.deepEqual(exp(6),[]);
+  assert.deepEqual(exp(1),[]);assert.deepEqual(exp(5),[]);assert.deepEqual(exp(6),['大破']);
+  assert.deepEqual(F.evaluator(s,'expedition',{excludeHeavyDamage:false})(6),[]);
+  assert.equal(F.normalizeGroup('expedition',{minLevel:5}).excludeHeavyDamage,true,'older saved settings adopt the new default');
+  s.info.ships[6].api_nowhp=6;assert.deepEqual(F.evaluator(s,'expedition')(6),[]);s.info.ships[6].api_nowhp=5;
   assert.deepEqual(normal(8),[],'no remodel available is eligible');
   s.info.fleets[0].api_ship=[8];assert.deepEqual(F.evaluator(s,'expedition')(8),['第一舰队成员']);
   assert.deepEqual(F.evaluator(s,'normal')(8),[]);
@@ -43,7 +46,12 @@ test('fleet search filters automatic choices while manual candidates remain visi
   s.info.fleets[0].api_ship=[1,2,3];
   const expedition=R.recommendExpeditionFleet(s,{missionId:1,fleet:2});
   assert(expedition.recommendations.length);
-  assert(expedition.recommendations.every(r=>r.scheme.ships.every(s=>![1,2,3,7].includes(s.id))));
+  assert(expedition.recommendations.every(r=>r.scheme.ships.every(s=>![1,2,3,6,7].includes(s.id))));
+  const fixedExpedition=R.recommendExpeditionFleet(s,{missionId:1,fleet:2,fixedShipIds:[6]});
+  assert(fixedExpedition.recommendations.length);assert(fixedExpedition.recommendations.every(r=>r.scheme.ships.some(ship=>ship.id===6)));
+  const {context}=require('../../src/recommendation/context');
+  assert.equal(context(s,{fleet:2},2).byId.get(6).available,false);
+  assert.equal(context(s,{fleet:2,automaticFilters:{excludeHeavyDamage:false}},2).byId.get(6).available,true);
 });
 test('preferences persist independently, migrate old settings, and roll back on save failure',async()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'paa-filter-')),store=source();
@@ -52,13 +60,13 @@ test('preferences persist independently, migrate old settings, and roll back on 
     fs.writeFileSync(path.join(dir,'mcp-state.json'),JSON.stringify({mcpEnabled:false,httpPort:47615,jobs:[]}));
     const create=()=>new FleetAdvisorService({storageDir:dir,getStore:()=>store,controller:new Controller({getStore:()=>store})});
     service=create();assert.deepEqual(service.getRecommendationFilters(),F.DEFAULTS);
-    service.setRecommendationFilters({normal:{allowEquipmentBorrowing:false,minLevel:60,excludeUnremodeled:false},expedition:{defaultGoal:'success'}});
+    service.setRecommendationFilters({normal:{allowEquipmentBorrowing:false,minLevel:60,excludeUnremodeled:false},expedition:{defaultGoal:'success',excludeHeavyDamage:false}});
     restored=create();assert.equal(restored.getRecommendationFilters().normal.minLevel,60);
     assert.equal(restored.getRecommendationFilters().normal.allowEquipmentBorrowing,false);
     for(const allowEquipmentBorrowing of [0,1,null,'false'])assert.throws(()=>restored.setRecommendationFilters({normal:{allowEquipmentBorrowing}}),/无效/);
     assert.equal(F.normalizeGroup('normal',{maxRoutes:2}).allowEquipmentBorrowing,true);
     assert(!('maxRoutes' in F.normalizeGroup('normal',{maxRoutes:2})));
-    assert.deepEqual(restored.getRecommendationFilters().expedition,{...F.DEFAULTS.expedition,defaultGoal:'success'});
+    assert.deepEqual(restored.getRecommendationFilters().expedition,{...F.DEFAULTS.expedition,defaultGoal:'success',excludeHeavyDamage:false});
     for(const defaultGoal of [null,true,0,'unknown','GREAT'])assert.throws(()=>restored.setRecommendationFilters({expedition:{defaultGoal}}),/无效/);
     assert.equal(F.normalizeGroup('expedition',{defaultGoal:'invalid'}).defaultGoal,'great');
     assert.equal(restored.mcpEnabled,false);
@@ -178,7 +186,9 @@ test('snapshot worker searches only the observed phase while the UI retains the 
   buttons[1].props.onClick();
   assert.equal(changed.expedition.defaultGoal,'success');assert.deepEqual(changed.normal,F.DEFAULTS.normal);
   const helps=nodes(tree).filter(n=>n.props['data-tooltip']);
-  assert.deepEqual(helps.map(n=>n.props['aria-label']),['出击设置说明','演习设置说明','远征设置说明']);
+  assert.deepEqual(helps.map(n=>n.props['aria-label']),['出击设置说明','远征设置说明','演习设置说明']);
+  const damaged=nodes(tree).find(n=>n.props['aria-label']==='远征设置：排除大破舰');
+  assert.equal(damaged.props.checked,true);damaged.props.onChange({target:{checked:false}});assert.equal(changed.expedition.excludeHeavyDamage,false);
   assert(helps.every(n=>n.type==='button'&&n.props.className==='paa-settings-help'));
   assert(nodes(tree).filter(n=>n.props.className==='paa-selection-options').every(n=>!nodes(n).some(c=>c.props.className==='paa-settings-help')),'individual filters have no question marks');
   changed=undefined;

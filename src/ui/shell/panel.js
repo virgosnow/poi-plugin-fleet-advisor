@@ -181,7 +181,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
         const maintenance=result.computation.maintenance;
         setSettingsFeedbacks(previous=>Object.fromEntries(Object.entries(previous).filter(([key])=>key.startsWith('agent'))));
         reportSetting('reset',maintenance?.failed||maintenance?.error?'error':'success',maintenance?.failed||maintenance?.error?
-          '默认设置已恢复，部分缓存未能整理：'+(maintenance.error||`${maintenance.failed} 个文件被占用`):'已恢复出击、演习、远征、计算和缓存默认设置');
+          '默认设置已恢复，部分缓存未能整理：'+(maintenance.error||`${maintenance.failed} 个文件被占用`):'已恢复出击、远征、演习、计算和缓存默认设置');
       }catch(e){if(mounted.current)reportSetting('reset','error',e.message);}
       finally{resetInFlight.current=false;if(mounted.current)setResettingSettings(false);}
     };
@@ -204,7 +204,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
           h('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
             h('path',{d:'M9.5 3h5l.6 2.4 1.5.9 2.4-.7 2.5 4.3-1.8 1.7v1.8l1.8 1.7-2.5 4.3-2.4-.7-1.5.9-.6 2.4h-5l-.6-2.4-1.5-.9-2.4.7-2.5-4.3 1.8-1.7v-1.8L2 9.9l2.5-4.3 2.4.7 1.5-.9z'}),h('circle',{cx:12,cy:12,r:3})),...(mode==='settings'?['设置']:[])),
         ...(mode==='settings'?[h('div',{className:'paa-settings-reset-actions'},
-          h('button',{type:'button',className:'paa-settings-reset','aria-label':'恢复默认设置','data-tooltip':'恢复默认：恢复出击、演习、远征、计算和缓存设置，不改变实验功能开关和 MCP 端口。',disabled:running||resettingSettings||resourceBusy,onClick:resetSettings},
+          h('button',{type:'button',className:'paa-settings-reset','aria-label':'恢复默认设置','data-tooltip':'恢复默认：恢复出击、远征、演习、计算和缓存设置，不改变实验功能开关和 MCP 端口。',disabled:running||resettingSettings||resourceBusy,onClick:resetSettings},
             h('svg',{width:18,height:18,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
               h('path',{d:'M4 7a6 6 0 1 1 0 6M4 3v4h4'})),'恢复默认'),
           settingFeedback(React,settingsFeedbacks.reset))]:[])))),

@@ -5,9 +5,9 @@ module.exports=React=>{
     ['excludeRepairing','排除入渠中的舰']];
   const specific={normal:[['excludeHeavyDamage','排除大破舰'],['excludeFatigued','排除疲劳舰']],
     practice:[['excludeHeavyDamage','排除大破舰'],['excludeFatigued','排除疲劳舰']],
-    expedition:[['excludeFirstFleet','保留第一舰队成员']]};
+    expedition:[['excludeHeavyDamage','排除大破舰'],['excludeFirstFleet','保留第一舰队成员']]};
   return ({value,onChange,disabled,feedbacks={}})=>h('section',{className:'paa-selection-settings','aria-label':'全局推荐排除'},
-    h('div',{className:'paa-selection-grid'},...['normal','practice','expedition'].map(kind=>{
+    h('div',{className:'paa-selection-grid'},...['normal','expedition','practice'].map(kind=>{
       const group=value[kind]||require('../../config/recommendation_filters').normalizeGroup(kind),title=kind==='normal'?'出击设置':kind==='practice'?'演习设置':'远征设置';
       const change=(key,v)=>onChange({...value,[kind]:{...group,[key]:v}},kind+'.'+key);
       const hint=kind!=='expedition'?'选择推荐时能否借用其他舰娘的装备。\n不借用：仅使用仓库和本次编成舰娘身上的装备。\n允许借用包含入渠舰娘的装备；远征中的装备始终不可借用。\n下方设置排除自动选船的范围，不改动已有草稿。':

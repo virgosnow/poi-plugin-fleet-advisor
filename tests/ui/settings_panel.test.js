@@ -145,11 +145,11 @@ test('settings navigation preserves drafts and MCP controls keep their actions a
   assert(find(tools,n=>n.props['aria-label']==='设置').children.includes('设置'));
   assert(reset.children.includes('恢复默认'),'reset uses a visible text label');
   assert(!find(tree,n=>n.props.className==='paa-settings-heading'),'settings body has no standalone action row');
-  assert.match(reset.props['data-tooltip'],/出击、演习、远征、计算和缓存/,'the top action clearly applies to all recommendation settings');
+  assert.match(reset.props['data-tooltip'],/出击、远征、演习、计算和缓存/,'the top action clearly applies to all recommendation settings');
   await reset.props.onClick();tree=render();
   assert.equal(resetCalls,1);assert.equal(changes,2,'global reset never invokes Agent switch or port setters');
   assert.deepEqual(workbenches(tree).map(n=>n.props.key),keys,'reset preferences preserves fleet drafts');
-  assert(find(find(tree,n=>n.props.className==='paa-settings-reset-actions'),n=>n.props['data-tooltip']==='已恢复出击、演习、远征、计算和缓存默认设置'));
+  assert(find(find(tree,n=>n.props.className==='paa-settings-reset-actions'),n=>n.props['data-tooltip']==='已恢复出击、远征、演习、计算和缓存默认设置'));
 });
 
 test('real recommendation work runs off the UI thread and preserves calculation results',async()=>{
