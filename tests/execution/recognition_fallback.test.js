@@ -20,7 +20,7 @@ function harness(options={}){
   for(const item of [501,502])data.info.equips[item]={api_slotitem_id:1,api_level:0,api_alv:0};
   const planner=createEquipmentPlanner(()=>data),events=[],inputs=[],created=[];
   const ui={screen:'home',picker:false,detail:false,borrow:false,ship:1,slot:0,source:'stock',category:0};
-  let host,failed=false,timingOut=false,orgChanges=0,eqChanges=0,imageStarted=false,releaseImage;
+  let host,failed=false,timingOut=false,timeoutReads=0,orgChanges=0,eqChanges=0,imageStarted=false,releaseImage;
   const count=()=>({orgChanges,eqChanges});
   function trip(kind){
     if(failed)return;
@@ -113,7 +113,8 @@ function harness(options={}){
         if(mode==='image'){imageStarted=true;if(options.pauseImage)await new Promise(r=>{releaseImage=r;});}
       },releaseFrame(){},async dispose(){this.closed=true;}};
       if(mode==='controls'){
-        observer.read=async(kind,arg)=>{trip(kind);return timingOut?{valid:false}:view(kind,arg,true);};
+        observer.read=async(kind,arg)=>{trip(kind);if(timingOut&&++timeoutReads>=(options.timeoutRecoverAfter||Infinity))timingOut=false;
+          return timingOut?{valid:false}:view(kind,arg,true);};
         observer.prepareInput=async i=>{
           if(options.ambiguous&&i.mutation)throw Error('Unique enabled control not confirmed before input (two matches)');
           if(options.preflightFailure&&!failed&&i.mutation?.path==='api_req_kaisou/slot_deprive'){
@@ -184,7 +185,14 @@ test('control observation timeout and rejected input preflight resume without an
     const h=harness(options),r=await h.controller.run('fleet',h.scheme);
     assert.equal(r.changed,6);assert.equal(h.inputs.filter(x=>x.mutation).length,6);
     assert.equal(r.metrics.recognitionFallbacks[0].code,options.observationTimeout?'OBSERVATION_TIMEOUT':'CONTROL_RECOGNITION_UNAVAILABLE');
+    assert.equal(r.metrics.controlObservationRetries||0,options.observationTimeout?1:0);
   }
+});
+test('a control timeout that resolves during the second observation stays in control mode',async()=>{
+  const h=harness({failAt:'equipment',observationTimeout:true,timeoutRecoverAfter:65}),r=await h.controller.run('fleet',h.scheme);
+  assert.deepEqual(h.created,['controls']);assert.equal(r.changed,6);assert.equal(r.metrics.controlObservationRetries,1);
+  assert.equal(r.metrics.recognitionFallbacks.length,0);assert.equal(h.inputs.filter(x=>x.mutation).length,6);
+  assert.equal(h.events.filter(x=>x.phase==='recognition-retry').length,1);
 });
 test('standalone equipment recovery keeps the original exact target instances',async()=>{
   const h=harness({failAt:'equipment'});h.data.info.fleets[0].api_ship=[3,4];

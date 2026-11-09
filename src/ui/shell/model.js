@@ -11,6 +11,7 @@ function shipName(state,id){
 }
 function progressText(p,state){
   if(p?.phase==='recognition-fallback')return '控件识别不可用，切换图像识别继续';
+  if(p?.phase==='recognition-retry')return '控件识别超时，正在重新识别';
   if(p.phase==='organization-start')return '正在准备舰队编成';
   if(p.phase==='organized')return `第 ${p.slot} 位 · 已编入 ${shipName(state,p.ship)}`;
   if(p.phase==='organization-ready')return '舰队已编入 · 正在准备换装';

@@ -123,6 +123,26 @@ class Session {
     } catch(error) {throw this.fail(error);} finally {this.busy=false;}
   }
   async until(kind, arg, predicate = r => r.valid, timeoutMs = 6000, {stableFrames=2,captureAllowanceMs=0,reuseLastFrame=false} = {}) {
+    const options={stableFrames,captureAllowanceMs,reuseLastFrame};
+    try{return await this.untilOnce(kind,arg,predicate,timeoutMs,options);}
+    catch(first){
+      if(!this.controlMode||first.code!=='OBSERVATION_TIMEOUT')throw first;
+      // A fresh read is safe even while waiting to confirm a submitted input;
+      // never repeat that input or relax the ordinary host/state guards.
+      this.check();
+      this.metrics.controlObservationRetries=(this.metrics.controlObservationRetries||0)+1;
+      this.onProgress({phase:'recognition-retry',detail:'控件识别超时，正在重新识别'});
+      try{return await this.untilOnce(kind,arg,predicate,timeoutMs,{...options,reuseLastFrame:false});}
+      catch(error){
+        if(error.code==='OBSERVATION_TIMEOUT'&&error.diagnostics){
+          error.diagnostics.controlRetry={attempts:2,first:first.diagnostics};
+          error.stack+='\nControl retry diagnostics: '+JSON.stringify(error.diagnostics.controlRetry);
+        }
+        throw error;
+      }
+    }
+  }
+  async untilOnce(kind, arg, predicate = r => r.valid, timeoutMs = 6000, {stableFrames=2,captureAllowanceMs=0,reuseLastFrame=false} = {}) {
     if(![1,2].includes(stableFrames))throw new Error('Invalid observation stability');
     if(!Number.isFinite(captureAllowanceMs)||captureAllowanceMs<0||captureAllowanceMs>12000)throw new Error('Invalid capture allowance');
     const started=this.now(),deadline = started + timeoutMs;
