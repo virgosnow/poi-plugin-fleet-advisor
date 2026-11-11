@@ -393,23 +393,26 @@ class FleetAdvisorService {
     const input=kind==='expedition'?require('../domain/fleet/expedition_planning_store')(filtered,args.fleet??2):reserveLandBaseEquipment(filtered,args.landBaseEquipmentIds);
     const result=await this.recommendations.run(method,input,{...args,automaticFilters:filters},onProgress);
     pageQueries.verifyConstraints(result,args,false,snapshot.store);
-    const reason=selectionFilters.evaluator(snapshot.store,kind,filters),counts={};
+    const reason=selectionFilters.structuredEvaluator(snapshot.store,kind,filters),counts={},details={};
     let excluded=0;
     for(const id of Object.keys(snapshot.store.info.ships)){
       if(args.fixedShipIds?.includes(Number(id)))continue;
       const reasons=reason(Number(id));if(reasons.length)excluded++;
-      for(const r of reasons)counts[r]=(counts[r]||0)+1;
+      for(const r of reasons){
+        const label=selectionFilters.reasonText(r);counts[label]=(counts[label]||0)+1;
+        const entry=details[r.code]||(details[r.code]={...r,count:0});entry.count++;
+      }
     }
     const summary=Object.entries(counts).map(([r,n])=>`${r} ${n} 艘`).join('、');
-    if(!result.recommendations?.length&&summary)result.reason=(result.reason||'没有找到合适的编成')+'；全局排除：'+summary+'。可到设置调整';
+    if(!result.recommendations?.length&&summary){result.reasonBase=result.reason||'没有找到合适的编成';result.reason=result.reasonBase+'；全局排除：'+summary+'。可到设置调整';}
     if(summary)for(const row of result.routeResults||[])if(row.status!=='available')row.message=(row.message||'没有找到合适的编成')+'；全局排除：'+summary+'。可到设置调整';
     const output={snapshotId:args.snapshotId,...result,
       recommendations:(result.recommendations||[]).map(row=>({...row,planningOnly:input!==snapshot.store})),
       ...(result.closestRecommendation?{closestRecommendation:{...result.closestRecommendation,planningOnly:input!==snapshot.store}}:{}),
-      selectionFilters:{settings:filters,excluded,counts}};
+      selectionFilters:{settings:filters,excluded,counts,details:Object.values(details)}};
     if(result.goals)output.goals=Object.fromEntries(Object.entries(result.goals).map(([goal,value])=>[goal,{
       ...value,snapshotId:args.snapshotId,
-      ...(!value.recommendations?.length&&summary?{reason:(value.reason||'没有找到合适的编成')+'；全局排除：'+summary+'。可到设置调整'}:{}),
+      ...(!value.recommendations?.length&&summary?{reasonBase:value.reason||'没有找到合适的编成',reason:(value.reason||'没有找到合适的编成')+'；全局排除：'+summary+'。可到设置调整'}:{}),
       recommendations:(value.recommendations||[]).map(row=>({...row,planningOnly:input!==snapshot.store})),
       ...(value.closestRecommendation?{closestRecommendation:{...value.closestRecommendation,planningOnly:input!==snapshot.store}}:{}),
       selectionFilters:output.selectionFilters}]));

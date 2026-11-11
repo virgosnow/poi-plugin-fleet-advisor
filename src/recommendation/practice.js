@@ -8,6 +8,7 @@ const {createFleetPlanner}=require('../domain/fleet/fleet_plan');
 const {openingASW}=require('../domain/combat/opening_asw');
 const {openingTorpedo}=require('./scoring');
 const filters=require('../config/recommendation_filters');
+const practiceError=(code,message,details)=>Object.assign(Error(message),{code,details});
 const first=v=>Number(Array.isArray(v)?v[0]:v)||0;
 const isAutomaticLevel99=ship=>Number(ship?.api_lv)===99;
 const isMarried=ship=>Number(ship?.api_lv)>99;
@@ -30,16 +31,16 @@ function opponentMaxArmor(enemy){
   return values.some(value=>value===null)?null:Math.max(...values);
 }
 function recommendPracticeCandidate(store,{fleet=1,slots=[],settings,opponent,capacity=6,trainingShipIds}={},variant='standard'){
-  if(!Number.isInteger(capacity)||capacity<1||capacity>6)throw Error('演习舰队规模应为 1 至 6 艘');
-  if(!Array.isArray(slots))throw Error('舰队草稿格式无效');
+  if(!Number.isInteger(capacity)||capacity<1||capacity>6)throw practiceError('PRACTICE_CAPACITY_INVALID','演习舰队规模应为 1 至 6 艘');
+  if(!Array.isArray(slots))throw practiceError('PRACTICE_DRAFT_INVALID','舰队草稿格式无效');
   if(trainingShipIds!==undefined&&(!Array.isArray(trainingShipIds)||trainingShipIds.some(id=>!Number.isSafeInteger(id)||id<=0)||new Set(trainingShipIds).size!==trainingShipIds.length))
-    throw Error('目标练级舰娘须为不重复的舰娘实例 ID');
+    throw practiceError('PRACTICE_TRAINING_INVALID','目标练级舰娘须为不重复的舰娘实例 ID');
   const explicitTargets=trainingShipIds!==undefined, targets=trainingShipIds||[];
   const options=filters.normalizeGroup('practice',settings),fixed=slots.filter(s=>s&&(!explicitTargets||s.pin||Object.keys(s.keep||{}).length)),ids=fixed.map(s=>s.id);
-  if(fixed.length>capacity)throw Error(`当前已选 ${fixed.length} 艘舰娘，超过设定的 ${capacity} 艘；请调整舰队规模或移除舰娘`);
-  if(slots.slice(capacity).some(s=>s&&fixed.includes(s)))throw Error(`已选舰娘的舰位超过 ${capacity} 艘，请调整舰队`);
+  if(fixed.length>capacity)throw practiceError('PRACTICE_FIXED_OVER_CAPACITY',`当前已选 ${fixed.length} 艘舰娘，超过设定的 ${capacity} 艘；请调整舰队规模或移除舰娘`,{count:fixed.length,capacity});
+  if(slots.slice(capacity).some(s=>s&&fixed.includes(s)))throw practiceError('PRACTICE_POSITION_OVER_CAPACITY',`已选舰娘的舰位超过 ${capacity} 艘，请调整舰队`,{capacity});
   const required=[...ids,...targets.filter(id=>!ids.includes(id))];
-  if(required.length>capacity)throw Error(`手动选择和目标练级舰娘共 ${required.length} 艘，超过 ${capacity} 艘；请移除部分舰娘`);
+  if(required.length>capacity)throw practiceError('PRACTICE_TARGETS_OVER_CAPACITY',`手动选择和目标练级舰娘共 ${required.length} 艘，超过 ${capacity} 艘；请移除部分舰娘`,{count:required.length,capacity});
   const actual=store;store=filters.planningStore(store,options);
   const ctx=context(store,{fleet,fixedShipIds:required,automaticFilters:options},1),enemy=opponentProfile(store,opponent);
   const positions=Array(capacity).fill(null),targetSet=new Set(targets);
@@ -204,8 +205,8 @@ function recommendPracticeCandidate(store,{fleet=1,slots=[],settings,opponent,ca
     });
     const row=candidates[0];families.add(shipFamilyKey(row));const next={id:row.id};chosen.push(next);positions[positions.indexOf(null)]=next;
   }
-  if(!chosen.length)throw Error('没有符合演习设置的可用舰娘');
-  if(positions.some((slot,index)=>slot===null&&positions.slice(index+1).some(Boolean)))throw Error('可用舰娘不足，无法保留已选舰娘的位置');
+  if(!chosen.length)throw practiceError('PRACTICE_NO_SHIPS','没有符合演习设置的可用舰娘');
+  if(positions.some((slot,index)=>slot===null&&positions.slice(index+1).some(Boolean)))throw practiceError('PRACTICE_POSITIONS_UNAVAILABLE','可用舰娘不足，无法保留已选舰娘的位置');
   const ordered=positions.filter(Boolean),raw=schemeOf(fleet,ordered),held=fixed.map(s=>({...s,keep:s.keep||{}}));
   const inventory=equipmentForFleet(inventoryAll,chosen,options);
   // Practice is a single encounter, not a normal-map route. Inventing a
@@ -300,7 +301,7 @@ function recommendPractice(store,args={}){
     const ctx=context(planning,{fleet:args.fleet??1,fixedShipIds:required,automaticFilters:settings},1),holds=Array(capacity).fill(null);
     const questCtx={...ctx,roster:ctx.roster.filter(row=>!isAutomaticLevel99(row.ship)||required.includes(row.id))};
     slots.slice(0,capacity).forEach((slot,index)=>{if(slot&&(fixed.includes(slot)||targets.includes(slot.id)))holds[index]={...slot,pin:true};});
-    for(const id of targets)if(!holds.some(slot=>slot?.id===id)){const index=holds.indexOf(null);if(index<0)throw Error('预选舰娘与任务条件冲突');holds[index]={id,pin:true,keep:{}};}
+    for(const id of targets)if(!holds.some(slot=>slot?.id===id)){const index=holds.indexOf(null);if(index<0)throw practiceError('PRACTICE_QUEST_CONFLICT','预选舰娘与任务条件冲突');holds[index]={id,pin:true,keep:{}};}
     // Training targets are mandatory hulls, but unlike manual pins they may
     // move when a selected task requires a different flagship or position.
     const relaxed=holds.map(slot=>slot&&fixed.some(item=>item.id===slot.id)?slot:null);
@@ -338,7 +339,7 @@ function recommendPractice(store,args={}){
       }catch(_){/* A seed may conflict with equipment availability; try the next. */}}
       if(candidate)break;
     }
-    if(!candidate)throw Error('未找到同时满足所选演习任务和固定舰娘的编成，请检查舰娘、装备与筛选设置');
+    if(!candidate)throw practiceError('PRACTICE_QUEST_NO_FLEET','未找到同时满足所选演习任务和固定舰娘的编成，请检查舰娘、装备与筛选设置');
     base=candidate;
   }
   if(!enemy.known||!enemy.ships.length)return base;

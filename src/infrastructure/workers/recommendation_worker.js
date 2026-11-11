@@ -84,7 +84,7 @@ async function runRecommendation(workerData,started=workerStarted,onProgress){
       ()=>perf.stage('search.sync',()=>require('../../recommendation/index')[workerData.method](workerData.store,workerData.args)),workerData.settings);
     progress?.({stage:'finalize'});
     return {ok:true,result,profile:report('success')};
-  }catch(e){return {ok:false,error:{message:e.message,code:e.code,stack:e.stack},profile:report('error')};}
+  }catch(e){return {ok:false,error:{message:e.message,code:e.code,details:e.details,stack:e.stack},profile:report('error')};}
   };
   return trace?trace.run(execute):execute();
 }

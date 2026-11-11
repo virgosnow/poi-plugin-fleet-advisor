@@ -195,20 +195,25 @@ function harness(kind='normal',automaticFilters,storeView=store=>store){
   return {render,find,control,chooseGoal,get,set,service,calls,store,effects,refs};
 }
 
-test('importing a game fleet evaluates its exact ships and equipment without changing the apply target',()=>{
+test('importing a fleet preserves exact ships and equipment and evaluates the actual route',()=>{
   for(const kind of ['normal','expedition']){
     const h=harness(kind),store=h.store,target=kind==='normal'?1:2;
     store.info.fleets[2].api_ship=[2,3,-1,-1,-1,-1];
     store.const.$shipTypes[2]={api_equip_type:{1:1}};
     store.const.$equips[500]={api_id:500,api_name:'测试炮',api_type:[0,0,1,1]};
     store.info.equips[101]={api_id:101,api_slotitem_id:500};store.info.ships[2].api_slot=[101,-1];
+    if(kind==='normal')h.set('mapRoute',require('../../src/domain/routes/route_plans').recommendedOptions('3-5').find(r=>!r.fallback).key);
     const before=JSON.stringify(store),picker=h.find(h.render(),n=>n.type?.name==='FleetImportPicker');
     assert(picker);picker.props.onImport(3);const tree=h.render(),draft=h.get('slots');
     assert.deepEqual(draft.filter(Boolean).map(s=>s.id),[2,3]);
     assert.deepEqual(draft[0].slots,[101,-1]);assert(draft.filter(Boolean).every(s=>s.pin));
-    assert.equal(h.get('fleet'),target);assert(h.get('report').valid);
-    assert(kind==='normal'?h.get('report').route:h.get('report').expedition);
-    assert.equal(h.get('report').planningOnly,false);
+    assert.equal(h.get('fleet'),target);
+    if(kind==='normal'){
+      assert(h.get('report').valid);assert(h.get('report').route);
+      assert(String(h.get('mapRoute')).startsWith('fallback:'),'import uses actual routes instead of a stale fleet strategy');
+      assert(draft.filter(Boolean).every(s=>s.preselected&&s.preselectionComplete===true));
+      assert.equal(h.find(tree,n=>n.props.className==='paa-wb-ship'&&n.props['data-ship-id']===2).props['data-preselected'],true);
+    }else{assert(h.get('report').valid);assert(h.get('report').expedition);assert.equal(h.get('report').planningOnly,false);}
     assert.equal(JSON.stringify(store),before);assert.deepEqual(h.calls,{fleet:0,equipment:0});
     assert(h.find(tree,n=>n.props.className==='paa-wb-ship'&&n.props['data-ship-id']===2));
   }
@@ -219,11 +224,65 @@ test('an expedition fleet can be imported for analysis but cannot be applied whi
     const h=harness(kind);h.store.info.fleets[2].api_ship=[2,3];h.store.info.fleets[2].api_mission=[1,1];
     const before=JSON.stringify(h.store);
     h.find(h.render(),n=>n.type?.name==='FleetImportPicker').props.onImport(3);
-    const tree=h.render();assert(h.get('report').valid);assert.equal(h.get('report').planningOnly,true);
-    assert(kind==='normal'?h.get('report').route:h.get('report').expedition);
+    const tree=h.render();
+    if(kind==='normal'){assert(h.get('report').valid);assert.equal(h.get('report').planningOnly,true);assert(h.get('report').route);assert(h.get('slots').filter(Boolean).every(s=>s.preselected));}
+    else{assert(h.get('report').valid);assert.equal(h.get('report').planningOnly,true);assert(h.get('report').expedition);}
     assert.equal(h.find(tree,n=>n.props.className==='paa-primary paa-wb-apply').props.disabled,true);
     assert.equal(JSON.stringify(h.store),before);
   }
+});
+
+test('expedition import reevaluates the actual equipment and mission without running a recommendation',()=>{
+  const h=harness('expedition'),store=h.store;
+  store.info.fleets[2].api_ship=[2,3,-1,-1,-1,-1];
+  store.const.$shipTypes[2]={api_equip_type:{1:1}};
+  store.const.$equips[500]={api_id:500,api_name:'测试炮',api_type:[0,0,1,1],api_houg:5};
+  store.info.equips[101]={api_id:101,api_slotitem_id:500};store.info.ships[2].api_slot=[101,-1];
+  const before=JSON.stringify(store);
+  h.find(h.render(),n=>n.type?.name==='FleetImportPicker').props.onImport(3);
+  const tree=h.render(),report=h.get('report'),draft=h.get('slots');
+  assert(report.valid);assert(report.expedition);assert.deepEqual(report.scheme,W.scheme(draft,h.get('fleet')));
+  assert.deepEqual(report.scheme.ships.map(s=>s.id),[2,3]);assert.deepEqual(report.scheme.ships[0].slots,[101,-1]);
+  assert(h.find(tree,n=>n.props.className==='paa-wb-metrics'||String(n.props.className||'').includes('paa-exp')));
+  assert.deepEqual(h.calls,{fleet:0,equipment:0});assert.equal(JSON.stringify(store),before);
+});
+
+test('an imported 1-1 fleet is assessed without imposing a previous curated fleet strategy',()=>{
+  const h=harness(),plans=require('../../src/domain/routes/route_plans');h.set('area','1-1');
+  const guide=plans.recommendedOptions('1-1').find(option=>!option.fallback&&option.fleetRequirement);
+  assert(guide);h.set('mapRoute',guide.key);h.store.info.fleets[0].api_ship=[2,3,-1,-1,-1,-1];
+  h.find(h.render(),n=>n.type?.name==='FleetImportPicker').props.onImport(1);
+  h.render();const report=h.get('report'),selected=plans.recommendedOptions('1-1').find(option=>option.key===h.get('mapRoute'));
+  assert(report.valid);assert(selected?.fallback);assert.equal(W.draftRouteIssue(report,selected,true),null);
+  assert.equal(h.get('error'),'');assert.deepEqual(h.calls,{fleet:0,equipment:0});
+  assert.deepEqual(report.scheme.ships.map(ship=>ship.id),[2,3]);
+});
+
+test('failed recommendation renders structured exclusion counts in the active language',async()=>{
+  const {setLocale}=require('../../src/shared/i18n'),h=harness();
+  h.service.recommendNormalFleet=()=>({recommendations:[],reason:'Chinese detail for MCP',reasonBase:'本轮未找到同时满足攻略舰种、练度、关键装备和可达路线的编成；可调整固定舰娘、装备或制空目标',selectionFilters:{details:[{code:'minimumLevel',minimum:30,count:140},{code:'expedition',count:15}]}});
+  try{
+    setLocale('ja');await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+    let error=h.find(h.render(),n=>n.props.className==='paa-operation-feedback'&&n.props['data-state']==='error');
+    assert.match(error.children.join(''),/練度 30 未満 140隻/);assert.match(error.children.join(''),/遠征中 15隻/);
+    setLocale('zh-TW');error=h.find(h.render(),n=>n.props.className==='paa-operation-feedback'&&n.props['data-state']==='error');
+    assert.match(error.children.join(''),/等級低於 30/);assert.match(error.children.join(''),/全域排除/);
+  }finally{setLocale('zh-CN');}
+});
+
+test('expedition failure translates its reason and exclusion counts after importing a fleet',async()=>{
+  const {setLocale}=require('../../src/shared/i18n'),h=harness('expedition');
+  h.store.info.fleets[2].api_ship=[2,3];h.find(h.render(),n=>n.type?.name==='FleetImportPicker').props.onImport(3);
+  const before=JSON.stringify(h.get('slots'));
+  h.service.recommendExpeditionFleet=()=>({recommendations:[],reason:'legacy',reasonBase:'未找到可预览的参考编成；请检查可用舰娘、排除设置与固定舰娘',selectionFilters:{details:[{code:'expedition',count:3}]}});
+  try{
+    setLocale('ja');await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
+    let error=h.find(h.render(),n=>n.props.className==='paa-operation-feedback'&&n.props['data-state']==='error');
+    assert.match(error.children.join(''),/参考編成が見つかりません/);assert.match(error.children.join(''),/遠征中 3隻/);
+    setLocale('zh-TW');error=h.find(h.render(),n=>n.props.className==='paa-operation-feedback'&&n.props['data-state']==='error');
+    assert.match(error.children.join(''),/未找到可預覽的參考編成/);assert.match(error.children.join(''),/遠征中 3 艘/);
+    assert.equal(JSON.stringify(h.get('slots')),before);
+  }finally{setLocale('zh-CN');}
 });
 
 test('changing the workbench display language preserves the ship draft and recommendation inputs',()=>{

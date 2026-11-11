@@ -22,6 +22,7 @@ const {createShipPickerCache}=require('./ship_picker_cache');
 const {shipGroup,matchesLock}=require('../components/ship_picker');
 const equipmentPicker=require('../components/equipment_picker');
 const {withoutClaimed}=require('../components/quest_selection');
+const {recommendationError,formatError}=require('../models/recommendation_error');
 const blank=()=>Array(6).fill(null),pad=rows=>rows.concat(Array(Math.max(0,6-rows.length)).fill(null));
 const {createCalculationProgress,createProgressComponent}=require('../components/calculation_progress');
 const {t,useLocale,getLocale}=require('../../shared/i18n');
@@ -409,11 +410,17 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const importCurrentFleet=number=>{
       if(disabled)return;
       const current=getStore(),imported=W.importFleet(current,number);
-      if(imported.status!=='ready'){setError(t('舰队资料未同步'));return;}
-      const next=imported.slots;
+      if(imported.status!=='ready'){setError(({empty:'空舰队',unsynced:'舰队资料未同步',unsupported:'超过六艘'})[imported.status]||'舰队资料未同步');return;}
+      const next=kind==='normal'?imported.slots.map(slot=>slot?{...slot,preselected:true,preselectionComplete:true}:slot):imported.slots;
       operation.current++;routeCache.current=null;invalidateRouteCombat();resultViews.current.clear();
       setChoices([]);setRouteDrafts({});setExcluded([]);setPopup(null);setBasePopup(null);setNoPlan('');setPathIndex(0);setNodeId(null);
       observed.current=current;prepared.current=kind==='normal';
+      // An imported fleet is a fixed draft to inspect, not a recommendation
+      // for whichever curated fleet strategy happened to be selected before.
+      if(kind==='normal'){
+        const adaptive=require('../../domain/routes/route_plans').recommendedOptions(area,target,effectivePhase,selectionSettings,current).find(option=>option.fallback);
+        setMapRoute(adaptive?.key||'');
+      }
       const inspection=W.inspect(getController(),current,next,settings);
       commit(next,inspection);setDraftContext(conditionKey);
       if(kind==='expedition')setExpeditionCompleted(false);
@@ -624,14 +631,14 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           (!found.routeResults?.length?found.recommendations?.[0]?.routeKey:undefined);
         const routeResult=found.routeResults?.find(r=>r.key===selectedKey);
         if(kind==='normal'&&!found.recommendations?.length){
-          const message=found.reason||found.message||'当前条件下没有可到达的路线方案，请调整固定舰娘或目标';
+          const message=recommendationError(found,'当前条件下没有可到达的路线方案，请调整固定舰娘或目标');
           setError(message);setNoPlan({message:'本轮未找到符合路线和当前条件的编成。',
             hint:'可以调整任务勾选、固定舰娘或筛选条件后重试。当前编成已保留。'});
           if(routeResult&&!routeResult.chance)setMapRoute(selectedKey);
           return;
         }
         if(kind==='expedition'&&!found.recommendations?.length&&!found.closestRecommendation){
-          setError(found.reason||found.message||'当前条件下没有可用方案，请调整固定舰娘或目标');
+          setError(recommendationError(found,'当前条件下没有可用方案，请调整固定舰娘或目标'));
           setNoPlan({message:'本轮未找到符合远征和当前条件的编成。',
             hint:'可以调整任务勾选、固定舰娘或筛选条件后重试。当前编成已保留。'});
           return;
@@ -1123,7 +1130,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
               setSelectedQuests(current=>current.includes(code)?current.filter(item=>item!==code):[...current,code].sort());setError('');
             },onClearQuests:()=>{if(disabled)return;operation.current++;routeCache.current=null;setRouteDrafts({});setChoices([]);invalidateRouteCombat();setSelectedQuests([]);setError('');}})),
         h('section',{className:'paa-wb-right','aria-busy':working},commandControls,
-          error?h('p',{className:'paa-operation-feedback','data-state':'error',role:'alert'},t(error)):null,
+          error?h('p',{className:'paa-operation-feedback','data-state':'error',role:'alert'},formatError(error)):null,
           !dirty&&report.planningOnly?h('p',{className:'paa-operation-feedback','data-state':'warning',role:'status'},t('导入舰队当前仅供参考，暂不可应用')):null,
           operationFeedback,
           h('div',{className:'paa-wb-fleet-results','aria-busy':!!resultsPending},

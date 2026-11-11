@@ -2,20 +2,60 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fixture=require('../helpers/workbench_fixture'),W=require('../../src/ui/workbench/workbench_model');
 test('practice imports a live fleet as a draft and immediately reevaluates it',()=>{
- const store=fixture(),states=[],refs=[];let i=0,j=0,calls=0;
+ const store=fixture(),states=[],refs=[];let i=0,j=0,calls=0,forecastCalls=0;
  store.info.fleets[2].api_ship=[2,3];store.practiceState={known:true,opponents:[{id:10,index:1,name:'对手',ships:[{masterId:1,level:50}]}],revision:1};
+ store.const.$equips[501]={api_id:501,api_name:'测试炮',api_type:[0,0,1,1]};store.const.$shipTypes[2]={api_equip_type:{1:1}};
+ store.info.equips[101]={api_id:101,api_slotitem_id:501};store.info.ships[2].api_slot=[101,-1];
  const {Controller}=require('../../src/application/controller'),controller=new Controller({getStore:()=>store});
- const service={preview:(...args)=>{calls++;return controller.preview(...args);}};
+ const service={preview:(...args)=>{calls++;return controller.preview(...args);},recommendPracticeFleet:()=>assert.fail('import must not recommend or refit')};
  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},
   useRef(initial){const at=j++;return refs[at]||(refs[at]={current:initial});},useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
  const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>service});
  const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
  const render=()=>{i=0;j=0;return Page({kind:'practice',automaticOperations:true});};
  let tree=render();walk(tree).find(n=>n.props.className==='paa-practice-opponent-select').props.onClick();tree=render();
- const before=JSON.stringify(store),picker=walk(tree).find(n=>n.type?.name==='FleetImportPicker');assert(picker);picker.props.onImport(3);tree=render();
+ const forecast=require('../../src/domain/combat/practice_forecast'),original=forecast.estimate;
+ forecast.estimate=(...args)=>{forecastCalls++;return original(...args);};
+ const before=JSON.stringify(store),picker=walk(tree).find(n=>n.type?.name==='FleetImportPicker');assert(picker);
+ try{picker.props.onImport(3);tree=render();}finally{forecast.estimate=original;}
  assert.deepEqual(states[0].filter(Boolean).map(s=>s.id),[2,3]);assert(states[0].filter(Boolean).every(s=>s.pin));
+ assert.deepEqual(states[0][0].slots,[101,-1]);assert(forecastCalls>0,'selected opponent is reassessed with the imported fleet');
  assert.equal(states[1],1);assert(calls>0);assert.equal(JSON.stringify(store),before);
  assert(walk(tree).some(n=>n.props['data-ship-id']===2));
+});
+
+test('practice can inspect an away fleet but warns that it cannot be applied, in every language',()=>{
+ const {setLocale}=require('../../src/shared/i18n'),store=fixture(),states=[],refs=[];let i=0,j=0;
+ store.info.fleets[2].api_ship=[2,3];store.info.fleets[2].api_mission=[1,1];
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},
+  useRef(initial){const at=j++;return refs[at]||(refs[at]={current:initial});},useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>{throw Error('away')}})});
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[],render=()=>{i=0;j=0;return Page({automaticOperations:true});};
+ try{
+  walk(render()).find(n=>n.type?.name==='FleetImportPicker').props.onImport(3);
+  for(const [locale,text] of [['zh-CN','导入舰队当前仅供参考，暂不可应用'],['zh-TW','匯入艦隊目前僅供參考，暫時無法套用'],['ja','読込んだ艦隊は参考表示です。現在は反映できません']]){
+   setLocale(locale);const nodes=walk(render());assert(nodes.some(n=>n.props.className==='paa-fleet-warning'&&n.children.includes(text)));
+   assert.equal(nodes.find(n=>n.props.className==='paa-primary paa-wb-apply').props.disabled,true);
+  }
+  assert.deepEqual(states[0].filter(Boolean).map(s=>s.id),[2,3]);
+ }finally{setLocale('zh-CN');}
+});
+
+test('practice renders recommendation errors in the currently selected language',async()=>{
+ const {setLocale}=require('../../src/shared/i18n'),store=fixture(),states=[],refs=[];let i=0,j=0;
+ store.practiceState={known:true,opponents:[{id:10,index:1,name:'对手',ships:[{masterId:1,level:50}]}],revision:1};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},
+  useRef(initial){const at=j++;return refs[at]||(refs[at]={current:initial});},useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const service={preview:()=>({}),createSnapshot:()=>({snapshotId:'test'}),recommendPracticeFleet:async()=>{throw Object.assign(Error('legacy'),{code:'PRACTICE_TARGETS_OVER_CAPACITY',details:{count:7,capacity:6}});}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>service});
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[],render=()=>{i=0;j=0;return Page({automaticOperations:false});};
+ try{
+  walk(render()).find(n=>n.props.className==='paa-practice-opponent-select').props.onClick();
+  await walk(render()).find(n=>n.props.className==='paa-wb-complete').props.onClick();
+  for(const [locale,expected] of [['ja',/計7隻で、6隻/],['zh-TW',/共 7 艘，超過 6 艘/],['zh-CN',/共 7 艘，超过 6 艘/]]){
+   setLocale(locale);const warning=walk(render()).find(n=>n.props.className==='paa-fleet-warning');assert.match(warning.children.join(''),expected);
+  }
+ }finally{setLocale('zh-CN');}
 });
 test('overview navigation selects an active practice quest without clearing the existing draft',()=>{
  const store=fixture(),states=[],refs=[],effects=[];let i=0,j=0;

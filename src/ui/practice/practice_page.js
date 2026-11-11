@@ -19,6 +19,7 @@ const useOpponentMotion=require('./opponent_motion');
 const {normalizeName}=require('../../shared/name_matching');
 const equipmentPicker=require('../components/equipment_picker');
 const {withoutClaimed}=require('../components/quest_selection');
+const {practiceError,formatError}=require('../models/recommendation_error');
 const {createShipPickerCache}=require('../workbench/ship_picker_cache');
 const {createCalculationProgress,createProgressComponent}=require('../components/calculation_progress');
 const empty=()=>Array(6).fill(null);
@@ -275,7 +276,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
         const updated=W.withEquipment(next,result.scheme);
         service.preview('fleet',W.scheme(updated,fleet));
         setSlots(updated);
-      }catch(error){setMessage({key:'自动配装未完成：{reason}',reason:error.message||'请重新补全'});}
+      }catch(error){setMessage({key:'自动配装未完成：{reason}',reason:practiceError(error,'请重新补全')});}
       finally{active=false;clearInterval(progressTimer.current);progressTimer.current=null;setWorking(false);}
     };
     const pick=row=>{const next=slots.slice(),replacing=popup.slot===undefined&&!!next[popup.index];
@@ -310,7 +311,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
       }
       if(result.planningOnly)setMessage('方案包含目前不能编入的舰娘，请等待远征或入渠结束。');
       else if(!result.enemyKnown)setMessage('尚未取得完整对手编成，已按通用演习配装。');
-    }catch(error){setMessage(error.message||'未找到可用编成');}finally{setSelectedQuests(previous=>withoutClaimed(previous,getStore().questState));clearInterval(progressTimer.current);progressTimer.current=null;setWorking(false);}};
+    }catch(error){setMessage(practiceError(error,'未找到可用编成'));}finally{setSelectedQuests(previous=>withoutClaimed(previous,getStore().questState));clearInterval(progressTimer.current);progressTimer.current=null;setWorking(false);}};
     const card=(slot,index)=>{
       if(!slot)return h('button',{type:'button',className:'paa-wb-empty',key:`empty-${index}`,'data-fleet-slot':index,'data-empty':'true',disabled,onClick:()=>choose(index)},h('span',null,'＋'),t('第 {n} 位 · 选择舰娘',{n:index+1}));
       const ship=store.info.ships[slot.id],master=store.const.$ships[ship?.api_ship_id],row=rowById.get(slot.id);if(!ship||!master||!row)return h('div',{key:slot.id,className:'paa-wb-empty'},t('舰娘资料待同步'));
@@ -434,11 +435,12 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
           h('svg',{width:15,height:15,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'m4 16 9-9 3 3-9 9zM4 3v4M2 5h4M14 1v3M12.5 2.5h3'})),t(working?'计算中…':'一键补全')),
           h('button',{type:'button',className:'paa-wb-quiet',disabled,onClick:()=>{setSlots(empty());setMessage('');setShipLock('locked');}},t('一键清空')),
           h(FleetImportPicker,{store,disabled,hidden,onImport:number=>{const current=getStore(),imported=W.importFleet(current,number);
-            if(imported.status!=='ready'){setMessage('舰队资料未同步');return;}setSlots(imported.slots);setPopup(null);setMessage('');}})),
+            if(imported.status!=='ready'){setMessage(({empty:'空舰队',unsynced:'舰队资料未同步',unsupported:'超过六艘'})[imported.status]||'舰队资料未同步');return;}setSlots(imported.slots);setPopup(null);setMessage('');}})),
         automaticOperations||busy?h('div',{className:'paa-wb-apply-controls'},h(FleetTargetPicker,{value:fleet,disabled,hidden,onChange:setFleet,
           options:[1,2,3,4].map(n=>{const f=store.info?.fleets?.[n-1],unavailable=!f||!Array.isArray(f.api_mission),away=f&&!unavailable&&Number(f.api_mission[0])!==0;return {value:n,label:t('第 {n} 舰队',{n})+(unavailable?t('（未同步）'):away?t('（远征中）'):''),disabled:unavailable||away};})}),
           h('button',{type:'button',className:'paa-primary paa-wb-apply',ref:stopButtonRef,'data-running':!!busy,disabled:busy?stopping:disabled||!preview,'data-tooltip':busy?t('停止后续操作，已发送的操作会正常完成'):undefined,onClick:e=>{if(busy){if(!stopping)onStop?.(e);}else if(!disabled&&preview)onApply?.(scheme);}},t(busy?(stopping?'正在停止…':'停止操作'):'应用编成'))):null)),
-        operationFeedback,message?h('p',{className:'paa-fleet-warning',role:'status'},typeof message==='string'?t(message):t(message.key,{reason:t(message.reason)})):null,
+        operationFeedback,message?h('p',{className:'paa-fleet-warning',role:'status'},message.key?t(message.key,{reason:formatError(message.reason)}):formatError(message)):null,
+        !message&&filled.some(slot=>slot.imported)&&!preview?h('p',{className:'paa-fleet-warning',role:'status'},t('导入舰队当前仅供参考，暂不可应用')):null,
         h('div',{className:'paa-wb-fleet-results','aria-busy':working},
           h('div',{className:'paa-wb-fleet-results-content','aria-hidden':working||undefined,inert:working?'':undefined},
             metrics(),h('div',{className:'paa-wb-ships',ref:grid},...slots.map(card),calculationOverlay('paa-practice-narrow-overlay'))),
