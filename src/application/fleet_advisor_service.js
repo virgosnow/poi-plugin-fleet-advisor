@@ -15,6 +15,7 @@ const {McpHttpServer,DEFAULT_HTTP_PORT}=require('../bridge/http_server');
 const selectionFilters=require('../config/recommendation_filters');
 const computationSettings=require('../config/computation_settings');
 const experimentalSettings=require('../config/experimental_settings');
+const {SUPPORTED:SUPPORTED_LANGUAGES,normalizeLocale}=require('../shared/i18n');
 const performanceTrace=require('../shared/performance_trace');
 const {PerformanceLogs}=require('../infrastructure/cache/performance_logs');
 const {DiagnosticLogs}=require('../infrastructure/cache/diagnostic_logs');
@@ -41,7 +42,7 @@ function observedState(state,shipIds=[]) {
 }
 
 class FleetAdvisorService {
-  constructor({controller,getStore,storageDir,now=()=>Date.now(),createRecommendationWorker,prepareRecommendationWorker,releaseRecommendationWorker,readQuests}) {
+  constructor({controller,getStore,storageDir,hostLocale,now=()=>Date.now(),createRecommendationWorker,prepareRecommendationWorker,releaseRecommendationWorker,readQuests}) {
     this.controller=controller;this.getStore=getStore;this.now=now;this.storageDir=storageDir;
     this.readQuests=readQuests;
     this.snapshots=new Snapshots(getStore,now);
@@ -64,7 +65,12 @@ class FleetAdvisorService {
     this.mcpEnabled=false;this.persistenceReady=false;this.httpPort=DEFAULT_HTTP_PORT;
     this.experimentalSettings=experimentalSettings.normalize();
     this.recommendationFilters=selectionFilters.normalize();
-    try{fs.mkdirSync(storageDir,{recursive:true,mode:0o700});this.persistenceReady=true;this.load();}
+    // poi exposes its selected language as window.language. Persist the first
+    // detected supported preference so future host changes do not overwrite a
+    // choice already made in this plugin.
+    this.language=normalizeLocale(hostLocale);
+    try{fs.mkdirSync(storageDir,{recursive:true,mode:0o700});this.persistenceReady=true;this.load();
+      if(!fs.existsSync(this.stateFile))this.persist();}
     catch(e){this.mcpEnabled=false;this.storageError=e.message;}
     // Reconcile older cache files with the shared budget after loading settings.
     this.cacheReady=this.recommendations.maintain(()=>this.maintainDiskCache()).catch(e=>({error:e.message}));
@@ -76,6 +82,7 @@ class FleetAdvisorService {
       this.recommendationFilters=selectionFilters.normalize(saved.recommendationFilters);
       this.computationSettings=computationSettings.normalizePreferences(saved.computationSettings);
       this.experimentalSettings=experimentalSettings.normalize(saved.experimentalSettings);
+      if(SUPPORTED_LANGUAGES.includes(saved.language))this.language=saved.language;
       this.mcpEnabled=saved.mcpEnabled===true;
       if(Number.isInteger(saved.httpPort)&&saved.httpPort>=1&&saved.httpPort<=65535)this.httpPort=saved.httpPort;
       for(const job of saved.jobs||[]){
@@ -105,7 +112,7 @@ class FleetAdvisorService {
         this.jobs.delete(id);
       }
     }
-    const record={mcpEnabled:this.mcpEnabled,httpPort:this.httpPort,recommendationFilters:this.recommendationFilters,
+    const record={mcpEnabled:this.mcpEnabled,httpPort:this.httpPort,language:this.language,recommendationFilters:this.recommendationFilters,
       computationSettings:this.computationSettings,experimentalSettings:this.experimentalSettings,jobs:[...this.jobs.values()].map(job=>{
         if(!job.diagnosticLog)return job;
         const {diagnostics,...rest}=job;
@@ -144,6 +151,15 @@ class FleetAdvisorService {
   getRecommendationFilters(){return selectionFilters.normalize(this.recommendationFilters);}
   getComputationSettings(){return computationSettings.normalizePreferences(this.computationSettings);}
   getExperimentalSettings(){return experimentalSettings.normalize(this.experimentalSettings);}
+  getLanguage(){return this.language;}
+  setLanguage(value){
+    if(!this.persistenceReady)throw error('PERSISTENCE_UNAVAILABLE','设置不可写');
+    if(!SUPPORTED_LANGUAGES.includes(value))throw error('INVALID_QUERY','语言设置无效');
+    const previous=this.language;this.language=value;
+    try{this.persist();}catch(e){this.language=previous;throw error('PERSISTENCE_UNAVAILABLE','语言设置保存失败：'+e.message);}
+    this.emit({type:'language',language:value});
+    return value;
+  }
   recordWorkbenchTiming(stages){
     if(!this.experimentalSettings?.performanceDebug||!Array.isArray(stages))return;
     const allowed=new Set(['workbench.search','workbench.routeSort','workbench.finalBase','route.inspect','route.base','route.combat']);
@@ -253,7 +269,7 @@ class FleetAdvisorService {
     for(const [kind,group]of Object.entries(value||{})){
       if(!selectionFilters.DEFAULTS[kind]||!group||typeof group!=='object')throw error('INVALID_QUERY','无效的推荐设置');
       for(const [key,v]of Object.entries(group)){
-        if(!(key in selectionFilters.DEFAULTS[kind])||(key==='defaultGoal'?!['great','success'].includes(v):key==='minLevel'?(!Number.isInteger(v)||v<0||v>999):typeof v!=='boolean'))
+        if(!(key in selectionFilters.DEFAULTS[kind])||(key==='minLevel'?(!Number.isInteger(v)||v<0||v>999):typeof v!=='boolean'))
           throw error('INVALID_QUERY','无效的排除选项：'+key);
       }
     }
@@ -426,7 +442,7 @@ class FleetAdvisorService {
     const snapshot=this.snapshots.get(args.snapshotId);
     const scheme=args.scheme;
     const input=require('../domain/fleet/expedition_planning_store')(snapshot.store,scheme?.fleet);
-    args=this.equipmentRecommendationArgs(input,{...args,scheme});
+    args={...this.equipmentRecommendationArgs(input,{...args,scheme}),automaticFilters:this.getRecommendationFilters().expedition};
     return {snapshotId:args.snapshotId,...pageQueries.verifyConstraints(await this.recommendations.run('recommendExpeditionEquipment',input,args,onProgress),args,true)};
   }
   equipmentRecommendationArgs(store,args){

@@ -54,6 +54,7 @@ async function tickQuests(){
     const reader=questReader;if(!reader)return;
     const context=await reader.context({cached:true});
     if(reader!==questReader)return;
+    if(context.blocked||context.backoff){syncDiagnostics.report(context.blocked?'session_paused':'session_backoff');return;}
     const session=context.ready?context.sessionKey:null;
     if(session&&!context.identityVerified){
       const identity=await reader.read({sessionKey:session,kind:'identity'});
@@ -147,7 +148,7 @@ exports.pluginDidLoad=()=>{
     try{questReader?.observeRequest(event.detail);}catch(error){}
     try{basicDataSync?.observeRequest(event.detail,readStore(window));}catch(error){}
   };
-  networkListener=()=>{try{questReader?.observeFailure();}catch(error){}};
+  networkListener=()=>{try{questReader?.observeFailure({suspend:true});}catch(error){}};
   startListener=()=>{
     try{sessionGeneration++;observedSession=null;pendingHandoff=null;pendingProgressHandoff=null;questReader?.observeStart();questObserver?.resetSession();questAutoRead?.resetSession();
       practiceObserver?.resetSession();practiceSync?.reset();basicDataSync?.reset();service?.questProgressObserver?.resetSession?.();}catch(error){}
@@ -164,7 +165,7 @@ exports.pluginDidLoad=()=>{
     createObserver:(host,mode)=>mode==='controls'?new(require('./src/execution/control_observer').ControlObserver)(host):
       new WorkerObserver({createWorker:filename=>host.createObserverWorker(filename)}),
     onProgress:value=>service?.progress(value),onDiagnostic:value=>service?.recordDiagnostic(value)});
-  service=new FleetAdvisorService({controller,getStore:currentStore,
+  service=new FleetAdvisorService({controller,getStore:currentStore,hostLocale:window.language,
     readQuests:()=>questReader?questReader.readAll():Promise.resolve({status:'unavailable'}),
     // The main process owns lifecycle only; the coordinator and its existing
     // thread pool run in an independent, disposable utility process.
@@ -174,6 +175,7 @@ exports.pluginDidLoad=()=>{
     prepareRecommendationWorker:()=>getRecommendationHost().prewarm(),
     releaseRecommendationWorker:()=>recommendationHost?.release(),
     storageDir:path.join(os.homedir(),'.poi-plugin-fleet-advisor')});
+  require('./src/shared/i18n').setLocale(service.getLanguage?.()||'zh-CN');
   service.diagnosticLogs?.migrateRuns(path.join(__dirname,'logs'));
   syncDiagnostics.report('started');
   if(service.persistenceReady&&service.mcpEnabled){

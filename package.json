@@ -68,6 +68,7 @@
   "poiPlugin": {
     "id": "poi-plugin-fleet-advisor",
     "title": "舰队参谋",
+    "i18nDir": "src/ui/i18n",
     "description": "编成与换装",
     "icon": [
       "fas",
