@@ -2886,6 +2886,19 @@ test('an unselected route avoids repeated prompts without changing available fle
   assert(h.find(tree,n=>n.type?.name==='RoutePicker'),'the route selector remains available');
 });
 
+test('normal and expedition task focus compress the left panel and retain the draft',()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind),draft=[W.entry(h.store,2),null,null,null,null,null];h.set('slots',draft);
+    let tree=h.render(),quest=h.find(tree,n=>n.type?.name==='QuestSection');
+    assert.equal(quest.props.open,false);quest.props.onOpenChange(true);tree=h.render();
+    const left=h.find(tree,n=>n.props.className==='paa-wb-left');assert.equal(left.props['data-quest-focus'],true);
+    const compact=h.find(left,n=>n.props.className==='paa-quest-focus-rows');assert(compact);
+    assert.equal(compact.children.length,kind==='normal'?4:5);assert.deepEqual(h.get('slots'),draft);
+    compact.children[0].props.onClick();tree=h.render();assert.equal(h.get('questFocusOpen'),false);
+    assert.deepEqual(h.get('slots'),draft);assert.equal(h.calls.fleet+h.calls.equipment,0);
+  }
+});
+
 test('route card whitespace expands rules without toggling reading, selection or disabled controls',()=>{
   const h=harness(),slots=[W.entry(h.store,2)],settings={kind:'normal',fleet:1,area:'1-1',target:'boss',phase:'',missionId:1,revision:0};
   h.store.const.$ships[2].api_stype=4;h.set('area','1-1');h.set('slots',slots);h.set('mapRoute',W.mapOverview('1-1').options[0].key);

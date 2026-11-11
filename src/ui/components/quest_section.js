@@ -146,7 +146,8 @@ module.exports=function createQuestSection(React,options={}){
       h('details',{className:'paa-quest-disclosure',open,onToggle:event=>{const next=Boolean(event.currentTarget.open);setOpen(next);onOpenChange?.(next);}},
         h('summary',{'aria-controls':contentId.current},h('span',null,t('相关任务')),
           compactSelection&&count?.status==='ready'?h('span',{className:'paa-quest-count'},t('{n} 件',{n:count.count})+(selectedQuests.length?t(' · 预选 {n}',{n:selectedQuests.length}):'')):
-            selectedQuests.length?h('span',{className:'paa-quest-count'},t(compactSelection?'预选 {n}':'已选 {n}',{n:selectedQuests.length})):open&&ready?h('span',{className:'paa-quest-count'},t('{n} 项',{n:tasks.length})):null)),
+            selectedQuests.length?h('span',{className:'paa-quest-count'},t(compactSelection?'预选 {n}':'已选 {n}',{n:selectedQuests.length})):open&&ready?h('span',{className:'paa-quest-count'},t('{n} 项',{n:tasks.length})):null,
+          h('svg',{className:'paa-quest-expand-icon',viewBox:'0 0 16 16','aria-hidden':true},h('path',{d:open?'m4 3 4 3 4-3M4 13l4-3 4 3':'m4 6 4-4 4 4M4 10l4 4 4-4'})))),
       compactSelection&&!open&&selectedQuests.length?h('div',{className:'paa-quest-content paa-quest-selected-compact'},
         selectedTasks.length?h('ul',{'aria-label':t('已预选任务')},...selectedTasks.map(task=>
           h('li',{key:task.id??task.code},questText.number(task,state)?h('span',{className:'paa-quest-number'},questText.number(task,state)+' '):null,text(task.title)||text(task.code)||t('任务 {id}',{id:task.id})))):null,

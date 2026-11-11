@@ -32,6 +32,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
   const FleetTargetPicker=require('../components/fleet_target_picker')(React);
   const FleetImportPicker=require('../components/fleet_import_picker')(React);
   const ExecutionCard=require('../components/execution_card')(React,{subscribe,getStore});
+  const questFocus=require('../components/quest_focus'),useQuestFocus=questFocus.createQuestFocus(React);
   return function PracticePage({kind='practice',hidden=false,busy=false,stopping=false,onStop,stopButtonRef,onApply,onNavigateQuest,operationFeedback,executionPlan,automaticOperations,automaticFilters,navigationIntent}){
     const [slots,setSlots]=React.useState(empty),[fleet,setFleet]=React.useState(1),[opponentId,setOpponentId]=React.useState(null);
     const [attributeDetails,setAttributeDetails]=React.useState({}),[popup,setPopup]=React.useState(null),[search,setSearch]=React.useState('');
@@ -54,6 +55,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
     const calculationChannel=React.useRef({value:'',listeners:new Set()}),progressTimer=React.useRef(null);
     React.useEffect(()=>()=>clearInterval(progressTimer.current),[]);
     const shipPickerCache=React.useRef(null);if(!shipPickerCache.current)shipPickerCache.current=createShipPickerCache();
+    const {ref:questFocusRef,change:changeQuestFocus}=useQuestFocus(questsOpen,hidden,setQuestsOpen);
     const trainingPicker=usePickerToggle(React,{enabled:!hidden&&!busy&&!working,open:trainingOpen,anchor:trainingAnchor,
       // The remounted scroll element starts at the top; reset its virtual window too.
       onOpen:()=>{setTrainingScroll(0);trainingPendingFocus.current=null;setTrainingOpen(true);},
@@ -345,7 +347,11 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
         h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),t('计算中')),
         h(CalculationProgress,{channel:calculationChannel.current}))):null;
     return h('div',{className:'paa-workbench paa-practice','data-kind':kind,'data-calculating':working},h('div',{className:'paa-wb-columns'},
-      h('section',{className:'paa-wb-left','aria-busy':working,inert:working?'':undefined},h('div',{className:'paa-wb-context-controls paa-practice-context'},
+      h('section',{className:'paa-wb-left',ref:questFocusRef,'data-quest-focus':questsOpen||undefined,'aria-busy':working,inert:working?'':undefined},
+        questFocus.rows(h,[{key:'training',label:t('优先培养舰娘'),value:selectedNames.join('、')||t('无特别指定')},
+          {key:'opponent',label:t('演习对手'),value:selected?.name||'—'},
+          {key:'forecast',label:t('战况预测'),value:forecast?.status==='estimated'&&Number.isFinite(forecast.rows.find(row=>row.label==='S')?.percent)?`${rankText('S')} ${forecast.rows.find(row=>row.label==='S').percent}%`:'—'}],()=>changeQuestFocus(false),questsOpen),
+        h('div',{className:'paa-wb-context-controls paa-practice-context'},
         h('div',{className:'paa-practice-training',ref:trainingAnchor,onPointerEnter:trainingPicker.enter,onPointerLeave:trainingPicker.leave,
           onClickCapture:trainingPicker.guardClick,onKeyDown:e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeTraining();}},
           onBlur:e=>{const anchor=e.currentTarget;if(anchor.contains(e.relatedTarget))return;
@@ -427,7 +433,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
         h('section',{className:'paa-practice-block paa-practice-forecast-section'},h('h3',null,t('战况预测')),forecast?.status==='estimated'?
           h('div',null,forecastChart()):
           h('p',{className:'paa-muted'},t(!selected?'选择对手后查看。':!enemy.known?'对手舰队资料待同步。':!filled.length?'添加己方舰娘后查看。':forecast?.reason||'战斗资料不足。'))),
-        h(QuestSection,{state:store,slots,deckId:fleet,kind:'practice',onNavigateQuest,questState:quest,paused:hidden||busy,disabled,open:questsOpen,onOpenChange:setQuestsOpen,listTasks:practiceTasks,countTasks:countPracticeQuests,
+        h(QuestSection,{state:store,slots,deckId:fleet,kind:'practice',onNavigateQuest,questState:quest,paused:hidden||busy,disabled,open:questsOpen,onOpenChange:changeQuestFocus,listTasks:practiceTasks,countTasks:countPracticeQuests,
           selectedQuests,onToggleQuest:code=>{if(!disabled){setSelectedQuests(current=>current.includes(code)?current.filter(item=>item!==code):[...current,code].sort());setMessage('');}},
           onClearQuests:()=>{if(!disabled){setSelectedQuests([]);setMessage('');}}})),
       h('section',{className:'paa-wb-right'},h('div',{className:'paa-wb-command-area','data-running':!!busy},h('div',{className:'paa-wb-command-row'},

@@ -67,6 +67,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
   const mechanismBadges=require('../components/mechanism_badges')(React);
   const ExecutionCard=require('../components/execution_card')(React,{subscribe,getStore});
   const QuestSection=require('../components/quest_section')(React,{getController,subscribe});
+  const questFocus=require('../components/quest_focus'),useQuestFocus=questFocus.createQuestFocus(React);
   const AreaPicker=require('../components/area_picker')(React);
   const RoutePicker=require('../components/route_picker')(React);
   const FleetTargetPicker=require('../components/fleet_target_picker')(React);
@@ -143,6 +144,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     const [landBaseDrafts,setLandBaseDrafts]=React.useState({}),[basePopup,setBasePopup]=React.useState(null);
     const [baseClock,setBaseClock]=React.useState(()=>Date.now());
     const [shipWindow,setShipWindow]=React.useState(0);
+    const [questFocusOpen,setQuestFocusOpen]=React.useState(false);
+    const {ref:questFocusRef,change:changeQuestFocus}=useQuestFocus(questFocusOpen,hidden,setQuestFocusOpen);
     const locale=useLocale(React);
     const grid=React.useRef(null),alive=React.useRef(true),positions=React.useRef(new Map()),popupList=React.useRef(null);
     const resultViews=React.useRef(new Map());
@@ -1050,7 +1053,17 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           (kind==='normal'&&landBaseEntry&&(routeBases||[]).some(base=>base.modePlanned||base.slots?.some(slot=>slot.planned))?t('（含基地）'):''))):null));
     const rendered=h('div',{className:'paa-workbench','data-kind':kind,hidden},
       h('div',{className:'paa-wb-columns'},
-        h('section',{className:'paa-wb-left'},contextControls,
+        h('section',{className:'paa-wb-left',ref:questFocusRef,'data-quest-focus':questFocusOpen||undefined},
+          questFocus.rows(h,kind==='normal'?[{key:'area',label:t('海域'),value:[area,map?.name].filter(Boolean).join(' ')},
+            {key:'route',label:t('路线'),value:selectedRoute?require('../maps/map_localization').routeName(selectedRoute):t('选择路线')},
+            {key:'arrival',label:t(arrival.label),value:mapRoute?arrivalValue(arrival):'—'},
+            {key:'combat',label:t('战况预测'),value:combat?.balance?.label?t(combat.balance.label):'—'}]:[
+            {key:'mission',label:t('远征'),value:[store.const.$missions?.[missionId]?.api_disp_no||missionId,store.const.$missions?.[missionId]?.api_name].filter(Boolean).join(' ')},
+            {key:'goal',label:t('目标'),value:t(goal==='great'?'优先大成功':'成功即可')},
+            {key:'time',label:t('远征时间'),value:Number.isFinite(store.const.$missions?.[missionId]?.api_time)?t('{m}分',{m:store.const.$missions[missionId].api_time}):'—'},
+            {key:'requirements',label:t('出航条件'),value:expedition?(expedition.eligible?t('全部满足'):t('{n} 项待调整',{n:checks.length})):'—'},
+            {key:'income',label:t('净收益'),value:'—'}],()=>changeQuestFocus(false),questFocusOpen),
+          contextControls,
           kind==='expedition'?stableResult('expedition',expeditionView.overview({mission,master:store.const.$missions?.[missionId],missionMasters:store.const.$missions,missionProgress:store.expeditionProgress,fleets:store.info.fleets,useItems:store.const.$useitems,expedition,rate,income,goal,hasShips:rows.length>0,incomeUnit,onIncomeUnitChange:setIncomeUnit,onMissionChange:value=>changeMission(value,{preserveDraft:true}),disabled})):
           h(React.Fragment,null,h('section',{className:'paa-wb-map-section','aria-label':t('海域地图与攻略进度')},
             routePreview(h,{profile:mapProfile,mapAsset,pathIndex:0,nodeId,onPath:setPathIndex,onNode:selectMapNode,onBackground:()=>selectMapNode(null),onExpand:e=>{e?.currentTarget?.focus({preventScroll:true});setMapExpanded(true);},onPreviousRoute:previousRoute?()=>changeRoute(previousRoute):null,onNextRoute:nextRoute?()=>changeRoute(nextRoute):null,disabled,compact:true,showDetails:!!nodeId,nodePopup:true,textOnly:true,showPaths:false,airbases:mapAirbases}),
@@ -1125,7 +1138,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
                       h('span',{className:'paa-threat-identity'},h('span',{className:'paa-threat-name','data-tooltip':enemy.name,'data-tooltip-overflow':true,tabIndex:0},enemy.name),
                         h('small',{className:'paa-threat-meta'},h('span',{className:'paa-threat-node'},t('{nodes} 点',{nodes:(enemy.nodes||[]).join(' / ')}))))):
                       h('span',{className:'paa-muted'},unselected?'—':t(item?.status==='none'?'无战斗':'敌情暂不可用')))))))),
-          h(QuestSection,{key:navigationIntent?.id||'default',state:store,slots,deckId:fleet,kind,onNavigateQuest,mapId:kind==='normal'?area:undefined,
+          h(QuestSection,{key:navigationIntent?.id||'default',state:store,slots,deckId:fleet,kind,onNavigateQuest,open:questFocusOpen,onOpenChange:changeQuestFocus,mapId:kind==='normal'?area:undefined,
             missionId:kind==='expedition'?missionId:undefined,questState,paused,disabled,selectedQuests,onToggleQuest:code=>{
               if(disabled)return;operation.current++;routeCache.current=null;setRouteDrafts({});setChoices([]);invalidateRouteCombat();
               setSelectedQuests(current=>current.includes(code)?current.filter(item=>item!==code):[...current,code].sort());setError('');
