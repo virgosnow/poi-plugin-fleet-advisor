@@ -2,15 +2,15 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const create=require('../../src/ui/components/quest_section');
 
-function harness(props,result){
+function harness(props,result,options={}){
   const hooks=[],calls=[],countCalls=[];let cursor=0,tree;
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
     useRef(initial){const index=cursor++;return hooks[index]||(hooks[index]={current:initial});},
-    useState(initial){const index=cursor++;if(!(index in hooks))hooks[index]=initial;return [hooks[index],value=>{hooks[index]=value;}];},
+    useState(initial){const index=cursor++;if(!(index in hooks))hooks[index]=initial;return [hooks[index],value=>{hooks[index]=typeof value==='function'?value(hooks[index]):value;}];},
     useMemo(compute,deps){const index=cursor++,cached=hooks[index];if(!cached||deps.some((value,i)=>!Object.is(value,cached.deps[i])))hooks[index]={value:compute(),deps};return hooks[index].value;}};
   const Component=create(React,{listRelatedQuests:input=>{calls.push(input);return typeof result==='function'?result(input):result;},
     countRelatedQuests:input=>{countCalls.push(input);return typeof result==='function'||result.status!=='ready'?{status:'unknown',count:null}:
-      {status:'ready',count:result.tasks.filter(task=>[1,2,3].includes(Number(task.state))).length};}});
+      {status:'ready',count:result.tasks.filter(task=>[1,2,3].includes(Number(task.state))).length};},...options});
   const walk=(node,match)=>!node||typeof node!=='object'?[]:[...(match(node)?[node]:[]),...node.children.flatMap(child=>walk(child,match))];
   const render=()=>{cursor=0;tree=Component(props);return tree;};
   const find=match=>walk(tree,match)[0];
@@ -24,6 +24,20 @@ function task(overrides={}){
     checks:[{label:'夕张改二系旗舰',status:'met'},{label:'六水战驱逐舰',status:'met',actual:3,required:3}],
     goals:[{label:'1-5 Boss S胜 1 回'}],...overrides};
 }
+
+test('known objectives are localized while game task title and unknown objective stay verbatim',()=>{
+  const {setLocale}=require('../../src/shared/i18n');
+  try{
+    setLocale('ja-JP');
+    const ui=harness({defaultOpen:true},{status:'ready',tasks:[task({title:'任意远征',
+      goals:[{kind:'bossWin',map:'1-5',rankMin:'S',label:'1-5 Boss S胜 1次'}, {label:'本周演习A胜以上 4次'}],
+      checks:[{label:'旗舰：雪風 ≥1艘',status:'met'}]})]});
+    assert.match(ui.text(),/任意远征/);
+    assert.match(ui.text(),/1-5 ボス S勝利 1回/);
+    assert.match(ui.text(),/本周演习A胜以上 4次/);
+    assert.match(ui.text(),/旗艦：雪風 ≥1隻/);
+  }finally{setLocale('zh-CN');}
+});
 
 test('quest cards toggle selection by click and keyboard without a separate button',()=>{
   const selected=[];
@@ -50,6 +64,78 @@ test('read-only related tasks use the same cards without selection or invented f
   assert.equal(card.props.style.cursor,'default');
   assert.match(ui.text(),/演習で勝利/);assert.match(ui.text(),/进行中/);
   assert.doesNotMatch(ui.text(),/编成条件|不应显示的要求|补全时/);assert.equal(selected,0);
+});
+
+test('all related-task pages display observed resources and fixed/selectable rewards',()=>{
+  const definition=require('../../data/quests/requirements.json').quests.find(q=>q.code==='B27');
+  const id=definition.ids[0],live={api_no:id,api_category:2,api_title:definition.title,api_state:2,
+    api_get_material:[300,0,100,0],api_select_rewards:[[{api_kind:12,api_mst_id:35,api_count:2}]]};
+  const state={questState:{known:true,tasks:[live]},const:{$equips:{35:{api_name:'测试选项'},103:{api_name:'测试固定装备'}}}};
+  for(const kind of ['normal','expedition','practice']){
+    const ui=harness({kind,state,defaultOpen:true},{status:'ready',tasks:[task({id,code:'B27',title:definition.title})]});
+    assert(ui.find(n=>n.props['aria-label']==='燃料 300'),kind);assert(ui.find(n=>n.props['aria-label']==='钢材 100'),kind);
+    assert.match(ui.text(),/测试固定装备/);assert.match(ui.text(),/固定报酬/);assert.doesNotMatch(ui.text(),/固定报酬 · 参考/);
+    assert.match(ui.text(),/测试选项/);assert.match(ui.text(),/任选其一/);
+    assert.doesNotMatch(ui.text(),/任选其一 · 参考/,kind+' uses game-provided choices');
+    const card=ui.find(n=>n.type==='article'),order=card.children.map(child=>child?.props?.className);
+    assert(order.indexOf('paa-quest-requirements')<order.indexOf('paa-quest-goals'),kind+' presents fleet conditions first');
+    assert(order.indexOf('paa-quest-goals')<order.indexOf('paa-overview-rewards'),kind+' presents rewards last');
+  }
+});
+
+test('task rewards stay visible without a disclosure before and after task selection',()=>{
+  const selected=[],definition=require('../../data/quests/requirements.json').quests.find(q=>q.code==='B27'),id=definition.ids[0];
+  const live={api_no:id,api_category:2,api_title:definition.title,api_state:2,api_get_material:[0,0,0,0],
+    api_select_rewards:[[{api_kind:13,api_mst_id:3,api_count:2}]]};
+  const state={questState:{known:true,tasks:[live]}};
+  const ui=harness({kind:'normal',state,defaultOpen:true,onToggleQuest:code=>selected.push(code)},
+    {status:'ready',tasks:[task({id,code:'B27',title:definition.title})]});
+  const card=()=>ui.find(n=>n.type==='article');
+  assert.equal(ui.find(n=>n.props.className==='paa-overview-reward-toggle'),undefined);
+  assert.match(ui.text(),/开发资材/);
+  card().props.onKeyDown({key:'Enter',repeat:false,preventDefault(){}});ui.render();
+  assert.deepEqual(selected,['B27']);assert.match(ui.text(),/开发资材/);
+});
+
+test('each map objective shows its own observed progress and navigates independently',()=>{
+  const visits=[],selected=[];
+  const goal={kind:'bossWin',map:'1-5',rankMin:'S',key:'goal-one',count:3,label:'1-5 Boss S胜 3次',relatedToCurrent:true};
+  const ui=harness({kind:'normal',defaultOpen:true,onNavigateQuest:x=>visits.push(x),onToggleQuest:x=>selected.push(x)},
+    {status:'ready',tasks:[task({fleetRequirements:['旗舰：夕張改二 ≥1艘'],goals:[goal]})]},
+    {getController:()=>({getQuestGoalProgressForTasks:()=>new Map([['1001:goal-one',1]])})});
+  const card=ui.find(n=>n.type==='article'),order=card.children.map(n=>n?.props?.className);
+  assert(order.indexOf('paa-quest-requirements')<order.indexOf('paa-quest-goals'));
+  assert(order.indexOf('paa-quest-goals')<order.indexOf('paa-overview-rewards'));
+  assert.equal(ui.find(n=>n.props.className==='paa-quest-goal-progress').children[0],'≥1 / 3');
+  ui.find(n=>n.props.className==='paa-quest-goal-link').props.onClick();
+  assert.equal(visits[0].area,'1-5');assert.equal(visits[0].code,'B141');assert.deepEqual(selected,[]);
+});
+
+test('choice labels stay concise even for locally sourced reward groups',()=>{
+  const rewards={resources:[],fixed:[],choices:[[{name:'装备甲',count:1}],[{name:'装备乙',count:1}]],reference:true,choicesFromGame:false};
+  const ui=harness({kind:'normal',defaultOpen:true},{status:'ready',tasks:[task({rewards})]});
+  const labels=ui.all(n=>n.props.className==='paa-overview-reward-choice').map(n=>n.children[0].children[0]);
+  assert.deepEqual(labels,['任选其一 1','任选其一 2']);
+});
+
+test('missing and zero resource data stay distinct in related task rewards',()=>{
+  for(const [data,expected] of [[undefined,'资源报酬待同步'],[[0,0,0,0],'无资源报酬']]){
+    const live={api_no:1001,api_state:2,...(data?{api_get_material:data}:{})};
+    const ui=harness({kind:'normal',state:{questState:{known:true,tasks:[live]}},defaultOpen:true},{status:'ready',tasks:[task()]});
+    assert.match(ui.text(),new RegExp(expected));
+  }
+});
+
+test('confirmed resource-only rewards omit the unknown-other-rewards message',()=>{
+  for(const kind of ['normal','expedition','practice']){
+    const known={resources:[{name:'燃料',amount:100}],fixed:[],choices:[],reference:true,shipBonus:false};
+    const ui=harness({kind,defaultOpen:true},{status:'ready',tasks:[task({rewards:known})]});
+    assert(ui.find(n=>n.props['aria-label']==='燃料 100'));
+    assert.doesNotMatch(ui.text(),/其他报酬以游戏为准/,kind);
+    assert.equal(ui.find(n=>n.props.className==='paa-overview-reward-details'),undefined);
+    const unknown=harness({kind,defaultOpen:true},{status:'ready',tasks:[task({rewards:{...known,reference:false}})]});
+    assert.match(unknown.text(),/其他报酬以游戏为准/,kind);
+  }
 });
 
 test('controlled disclosure restores its externally saved open state',()=>{
@@ -137,7 +223,8 @@ test('normal selected tasks show only compact names when folded and keep origina
   const compact=()=>ui.find(n=>n.props.className==='paa-quest-content paa-quest-selected-compact');
   assert.equal(ui.find(n=>n.type==='details').props.open,false);assert.equal(ui.calls.length,1);
   assert.match(ui.text(),/3 件 · 预选 1/);
-  assert.deepEqual(compact().children[0].children.map(n=>n.children[0]),['第二任务']);
+  assert.deepEqual(compact().children[0].children.map(n=>n.children.at(-1)),['第二任务']);
+  assert.equal(compact().children[0].children[0].children[0].children[0],'B142 ');
   assert.equal(ui.find(n=>n.props.id===ui.find(n=>n.type==='summary').props['aria-controls']).props.hidden,true);
   ui.toggle(true);assert(!compact());
   assert.match(ui.text(),/预选 1 项，补全时同时满足编成要求/);
@@ -145,7 +232,7 @@ test('normal selected tasks show only compact names when folded and keep origina
   assert.equal(ui.find(n=>n.props['data-quest-id']===1002).props['aria-checked'],true);
   assert.equal(ui.all(n=>n.props['data-quest-id']===1002).length,1);
   ui.find(n=>n.props['data-quest-id']===1001).props.onKeyDown({key:'Enter',repeat:false,preventDefault(){}});ui.render();
-  ui.toggle(false);assert.deepEqual(compact().children[0].children.map(n=>n.children[0]),['「夕張改二」試してみてもいいかしら？','第二任务']);
+  ui.toggle(false);assert.deepEqual(compact().children[0].children.map(n=>n.children.at(-1)),['「夕張改二」試してみてもいいかしら？','第二任务']);
   ui.toggle(true);ui.find(n=>n.type==='button'&&n.children.includes('清除选择')).props.onClick();ui.render();
   assert.deepEqual(selected,[]);assert(!compact());
 });
@@ -181,7 +268,8 @@ test('task cards show the observed progress at the upper right and keep achieved
       task({id:103,code:'C',state:2,progressFlag:2}),task({id:104,code:'D',state:3}),task({id:105,code:'E',state:2})];
     const ui=harness({kind,selectedQuests:['D'],onToggleQuest(){}},{status:'ready',tasks:rows});ui.toggle(true);
     const card=id=>ui.find(n=>n.props['data-quest-id']===id);
-    const value=id=>card(id).children.find(n=>n?.props?.className==='paa-quest-progress')?.children[0];
+    const value=id=>card(id).children.find(n=>n?.props?.className==='paa-quest-header')?.children
+      .find(n=>n?.props?.className==='paa-quest-meta')?.children.find(n=>n?.props?.className==='paa-quest-progress')?.children[0];
     assert.equal(value(101),'进度未满 50%');assert.equal(value(102),'进度 50% 以上');
     assert.equal(value(103),'进度 80% 以上');assert.equal(value(104),'已达成');assert.equal(value(105),'进度未确认');
     assert.equal(card(104).props['aria-checked'],true);assert.equal(ui.all(n=>n.type==='article')[0].props['data-quest-id'],104);
@@ -248,7 +336,7 @@ test('zero counts, unmet checks and genuinely unknown checks remain distinct',()
   ui.toggle(true);
   assert.match(ui.text(),/0 \/ 3/);assert.match(ui.text(),/0 \/ 0/);
   assert(ui.find(n=>n.props['aria-label']==='当前 0\n要求 3'));
-  assert(ui.find(n=>n.props['data-tooltip']==='当前 0\n要求 0'));
+  const zero=ui.find(n=>n.props['aria-label']==='当前 0\n要求 0');assert(zero);assert.equal(zero.props['data-tooltip'],undefined);
   assert.equal(ui.all(n=>n.type==='li'&&n.props['data-status']==='unknown').length,1);
   assert.equal(ui.all(n=>n.type==='li'&&n.props['data-status']==='unmet').length,1);
   assert.match(ui.text(),/编成条件未满足/);assert.match(ui.text(),/1-6 抵达终点 1 回/);
@@ -283,8 +371,9 @@ test('compact other goals retain different requirements and mapless labels',()=>
     {map:'1-2',label:'1-2 Boss S胜 1次',relatedToCurrent:true},
     {map:'2-3',label:'2-3 Boss S胜 1次',relatedToCurrent:false}]})]});
   ui.toggle(true);const goals=ui.find(n=>n.props['aria-label']==='任务行动目标');
-  assert.deepEqual(goals.children.map(row=>row.props['data-related']),['true','false']);
-  assert.match(ui.text(),/其他：1-5、2-3 Boss S胜 1次；2-2 Boss A胜以上 2次；完成额外条件/);
+  assert.deepEqual(goals.children.map(row=>row.props['data-related']),['true','false','false','false']);
+  assert.match(ui.text(),/其他：1-5、2-3 Boss S胜 1次/);
+  assert.match(ui.text(),/2-2 Boss A胜以上 2次/);assert.match(ui.text(),/完成额外条件/);
 });
 
 test('goals remain separate and condition results stay beside the task metadata in both pages',()=>{

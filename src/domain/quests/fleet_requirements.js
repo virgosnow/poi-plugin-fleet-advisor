@@ -40,6 +40,24 @@ function ruleLabel(rule={}){
   return rule.kind==='freeSlots'?'自由舰位':'条件待确认';
 }
 
+// Describe the task's fleet rules without treating the current fleet as the
+// task requirement. A missing definition is distinct from unrestricted.
+function describeFleetRequirements(fleet){
+  if(!fleet||typeof fleet!=='object')return null;
+  const rules=[];
+  for(const [key,property] of [['sizeMin','min'],['sizeMax','max'],['sizeExact','exact']])
+    if(fleet[key]!==undefined)rules.push({kind:'fleetSize',[property]:fleet[key]});
+  if(fleet.fleetIndex!==undefined)rules.push({kind:'fleetIndex',index:fleet.fleetIndex});
+  const top=fleet.anyOf?{anyOf:fleet.anyOf}:{allOf:fleet.allOf||[]};
+  const flatten=node=>node.allOf&&!node.anyOf?node.allOf.flatMap(flatten):[node];
+  for(const rule of top.anyOf?[top]:top.allOf.flatMap(flatten)){
+    if(rule.kind==='freeSlots')continue;
+    if(rule.kind==='fleetSize'&&['exact','min','max'].every(key=>rule[key]===undefined||fleet[{exact:'sizeExact',min:'sizeMin',max:'sizeMax'}[key]]===rule[key]))continue;
+    rules.push(rule);
+  }
+  return rules;
+}
+
 function familyIndex(masters){
   const parent=new Map();
   const find=id=>{if(!parent.has(id))parent.set(id,id);let p=parent.get(id);if(p!==id){p=find(p);parent.set(id,p);}return p;};
@@ -148,13 +166,13 @@ function planStatus(plan,ctx,distinct){
 }
 function evaluateFleetRequirements(fleet,state,slots,deckId,shared){
   const ctx=context(state,slots,shared),checks=[];
-  const add=(label,status,actual,required)=>checks.push({label,status,...actual!==undefined?{actual}:{},...required!==undefined?{required}:{}});
+  const add=(label,status,actual,required,rule,code)=>checks.push({label,status,...actual!==undefined?{actual}:{},...required!==undefined?{required}:{},...rule?{rule}:{},...code?{code}:{}});
   const size=ctx.rows.length;
-  if(!size)add('请先选择舰娘',UNKNOWN);
+  if(!size)add('请先选择舰娘',UNKNOWN,undefined,undefined,undefined,'selectShip');
   for(const [key,sign,test] of [['sizeMin','≥',(a,b)=>a>=b],['sizeMax','≤',(a,b)=>a<=b],['sizeExact','＝',(a,b)=>a===b]]){
-    if(fleet[key]!==undefined)add(`舰数${sign}${fleet[key]}`,result(test(size,fleet[key])),size,fleet[key]);
+    if(fleet[key]!==undefined)add(`舰数${sign}${fleet[key]}`,result(test(size,fleet[key])),size,fleet[key],{kind:'fleetSize',[{sizeMin:'min',sizeMax:'max',sizeExact:'exact'}[key]]:fleet[key]});
   }
-  if(fleet.fleetIndex!==undefined)add(`第${fleet.fleetIndex}舰队`,deckId===undefined?UNKNOWN:result(Number(deckId)===fleet.fleetIndex),deckId,fleet.fleetIndex);
+  if(fleet.fleetIndex!==undefined)add(`第${fleet.fleetIndex}舰队`,deckId===undefined?UNKNOWN:result(Number(deckId)===fleet.fleetIndex),deckId,fleet.fleetIndex,{kind:'fleetIndex',index:fleet.fleetIndex});
   if(fleet.uniqueShipFamilies){
     const known=ctx.rows.filter(row=>row.family!==null).map(row=>row.family);
     const status=new Set(known).size!==known.length?UNMET:known.length!==size?UNKNOWN:MET;
@@ -170,7 +188,7 @@ function evaluateFleetRequirements(fleet,state,slots,deckId,shared){
       fleet[{exact:'sizeExact',min:'sizeMin',max:'sizeMax'}[key]]===rule[key]))continue;
     const status=any(plans(rule).map(plan=>planStatus(plan,ctx,!!fleet.distinctCompositionGroups)));
     const reading=rule.kind==='count'?countReading(rule,ctx):null;
-    add(ruleLabel(rule),status,reading?(reading.low===reading.high?reading.low:`${reading.low}–${reading.high}`):undefined);
+    add(ruleLabel(rule),status,reading?(reading.low===reading.high?reading.low:`${reading.low}–${reading.high}`):undefined,undefined,rule);
   }
   const total=any(plans(top).map(plan=>planStatus(plan,ctx,!!fleet.distinctCompositionGroups)));
   if(total!==MET&&all(checks.map(c=>c.status))===MET)add('每艘舰娘分别满足一个指定舰位／编成角色',total);
@@ -196,4 +214,4 @@ function createFleetRequirementPrecheck(state){
     return any(plans(top).map(plan=>planStatus(plan,ctx,!!fleet.distinctCompositionGroups)));
   };
 }
-module.exports={evaluateFleetRequirements,createFleetRequirementEvaluator,createFleetRequirementPrecheck,selectorLabel,ruleLabel};
+module.exports={evaluateFleetRequirements,createFleetRequirementEvaluator,createFleetRequirementPrecheck,selectorLabel,ruleLabel,describeFleetRequirements};

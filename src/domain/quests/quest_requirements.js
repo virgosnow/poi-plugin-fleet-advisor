@@ -4,7 +4,8 @@ const DATA=require('../../../data/quests/requirements.json');
 const LIMITED_EVENTS=require('../../../data/quests/limited');
 const MISSIONS=require('../../../data/expedition_rewards.json').missions;
 const {normalizeName}=require('../../shared/name_matching');
-const {evaluateFleetRequirements,createFleetRequirementEvaluator}=require('./fleet_requirements');
+const {evaluateFleetRequirements,createFleetRequirementEvaluator,describeFleetRequirements}=require('./fleet_requirements');
+const crypto=require('node:crypto');
 const INDEX=new Map();
 for(const [quests,event] of [[DATA.quests,null],...LIMITED_EVENTS.map(event=>[event.quests.filter(q=>['B','C','D'].includes(q.category)),event])])
   for(const quest of quests)for(const id of quest.ids){
@@ -142,16 +143,16 @@ function listRelatedQuests({state,mapId,missionId,slots=[],deckId,questState,now
     const evaluation=evaluate(definition.fleet,slots,deckId);
     const checks=evaluation.checks.concat(resourcesChecks(definition,state));
     if(related.some(entry=>entry.relation==='unknown'))checks.push({label:'本海域目标敌舰资料待确认',status:'unknown'});
-    const goals=entries.map(({goal,relation})=>({...goal,label:goalLabel(goal,{mapId,missionId}),relatedToCurrent:relation!==false}));
+    const goals=entries.map(({goal,relation})=>({...goal,key:crypto.createHash('sha256').update(JSON.stringify(goal)).digest('hex'),count:Math.max(1,Number(goal.count)||1),label:goalLabel(goal,{mapId,missionId}),relatedToCurrent:relation!==false}));
     const completion=definition.completionChecks||[];
     if(completion.some(check=>check.kind==='noRetreatedShips'))goals.push({kind:'noRetreatedShips',label:'到达目标时所需舰娘均未退避'});
     if(completion.some(check=>check.kind==='recheckFleetAtGoal'))goals.push({kind:'recheckFleetAtGoal',label:'到达目标时仍须保持指定编成'});
-    tasks.push({id:Number(live.api_no),code:definition.code,title:live.api_title||definition.title,
+    tasks.push({id:Number(live.api_no),code:definition.code,title:live.api_title||definition.title,gameTitle:typeof live.api_title==='string'?live.api_title:'',description:live.api_detail||'',
       state:Number(live.api_state),progressFlag:live.api_progress_flag==null?null:Number(live.api_progress_flag),period:definition.period,source:definition.source,
-      summary:goals.map(goal=>goal.label).join('；'),checks,status:statusOf(checks),goals});
+      summary:goals.map(goal=>goal.label).join('；'),fleetRequirements:describeFleetRequirements(definition.fleet),checks,status:statusOf(checks),goals});
   }
   tasks.sort((a,b)=>b.state-a.state||a.id-b.id);
   return {status:'ready',tasks};
 }
 
-module.exports={listRelatedQuests,countRelatedQuests,evaluateFleetRequirements,resolveQuestCodes,taskSnapshot,findDefinition,goalLabel,relation};
+module.exports={listRelatedQuests,countRelatedQuests,evaluateFleetRequirements,resolveQuestCodes,taskSnapshot,findDefinition,goalLabel,missionNumber,relation};

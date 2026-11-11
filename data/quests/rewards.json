@@ -7,6 +7,85 @@
     "license": "MIT; Copyright (c) 2026 cnxin; see SOURCE_LICENSE"
   },
   "quests": {
+    "B3": {
+      "id": 215,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 3,
+          "count": 1
+        }
+      ],
+      "choices": []
+    },
+    "B187": {
+      "id": 983,
+      "fixed": [
+        {
+          "kind": 12,
+          "id": 472,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 64,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 277,
+            "count": 1,
+            "level": 7
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 7
+          }
+        ]
+      ]
+    },
+    "Bd4": {
+      "id": 211,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 1,
+          "count": 2
+        }
+      ],
+      "choices": []
+    },
+    "Dd1": {
+      "id": 402,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 3,
+          "count": 1
+        }
+      ],
+      "choices": []
+    },
+    "Dd2": {
+      "id": 403,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 10,
+          "count": 1
+        },
+        {
+          "kind": 13,
+          "id": 11,
+          "count": 1
+        }
+      ],
+      "choices": []
+    },
     "B1": {
       "id": 202,
       "fixed": [
@@ -6556,6 +6635,1730 @@
           {
             "kind": 13,
             "id": 78,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P301": {
+      "id": 301,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 3,
+          "count": 1
+        }
+      ],
+      "choices": []
+    },
+    "P307": {
+      "id": 307,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 1,
+          "count": 2
+        }
+      ],
+      "choices": []
+    },
+    "P308": {
+      "id": 308,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 1,
+          "count": 2
+        },
+        {
+          "kind": 13,
+          "id": 4,
+          "count": 1
+        }
+      ],
+      "choices": []
+    },
+    "P309": {
+      "id": 309,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 1,
+          "count": 2
+        },
+        {
+          "kind": 13,
+          "id": 4,
+          "count": 1
+        }
+      ],
+      "choices": []
+    },
+    "P312": {
+      "id": 312,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 3,
+          "count": 2
+        },
+        {
+          "kind": 12,
+          "id": 145,
+          "count": 1
+        }
+      ],
+      "choices": []
+    },
+    "P316": {
+      "id": 316,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 4,
+          "count": 2
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 52,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 68,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P317": {
+      "id": 317,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 78,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 52,
+            "count": 1
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 5
+          },
+          {
+            "kind": 12,
+            "id": 145,
+            "count": 2
+          }
+        ]
+      ]
+    },
+    "P319": {
+      "id": 319,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 54,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 6
+          },
+          {
+            "kind": 13,
+            "id": 78,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P320": {
+      "id": 320,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 1,
+          "count": 3
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 4
+          }
+        ]
+      ]
+    },
+    "P322": {
+      "id": 322,
+      "fixed": [
+        {
+          "kind": 14,
+          "id": 382,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 64,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 57,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P323": {
+      "id": 323,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 4
+          },
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 4
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 78,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 57,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P324": {
+      "id": 324,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 24,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 26,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 61,
+            "count": 1
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 28,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 51,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 75,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P325": {
+      "id": 325,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 59,
+            "count": 3
+          },
+          {
+            "kind": 12,
+            "id": 227,
+            "count": 1
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 64,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 57,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P327": {
+      "id": 327,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 1,
+          "count": 3
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 4
+          },
+          {
+            "kind": 12,
+            "id": 45,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 52,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P328": {
+      "id": 328,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 54,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 227,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 64,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P331": {
+      "id": 331,
+      "fixed": [
+        {
+          "kind": 12,
+          "id": 57,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 77,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 24,
+            "count": 3
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 6
+          }
+        ]
+      ]
+    },
+    "P332": {
+      "id": 332,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 6
+          },
+          {
+            "kind": 13,
+            "id": 2,
+            "count": 6
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 21,
+            "count": 6
+          },
+          {
+            "kind": 12,
+            "id": 7,
+            "count": 6
+          },
+          {
+            "kind": 13,
+            "id": 57,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P333": {
+      "id": 333,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 3
+          },
+          {
+            "kind": 13,
+            "id": 5,
+            "count": 3
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 16,
+            "count": 3
+          },
+          {
+            "kind": 12,
+            "id": 146,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 77,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P334": {
+      "id": 334,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 27,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 4
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 54,
+            "count": 1,
+            "level": 2
+          },
+          {
+            "kind": 12,
+            "id": 17,
+            "count": 2,
+            "level": 2
+          },
+          {
+            "kind": 13,
+            "id": 70,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P335": {
+      "id": 335,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 77,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 4
+          },
+          {
+            "kind": 12,
+            "id": 40,
+            "count": 3
+          },
+          {
+            "kind": 12,
+            "id": 51,
+            "count": 2
+          }
+        ]
+      ]
+    },
+    "P336": {
+      "id": 336,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 44,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 346,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 226,
+            "count": 2
+          }
+        ]
+      ]
+    },
+    "P338": {
+      "id": 338,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 59,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 5
+          },
+          {
+            "kind": 13,
+            "id": 52,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 92,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P343": {
+      "id": 343,
+      "fixed": [
+        {
+          "kind": 14,
+          "id": 490,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 77,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 70,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P344": {
+      "id": 344,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 4
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 40,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 94,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P347": {
+      "id": 347,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 54,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 5
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 8
+          },
+          {
+            "kind": 13,
+            "id": 94,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 4
+          }
+        ]
+      ]
+    },
+    "P351": {
+      "id": 351,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 30,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 5
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 59,
+            "count": 3
+          },
+          {
+            "kind": 13,
+            "id": 52,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P352": {
+      "id": 352,
+      "fixed": [
+        {
+          "kind": 12,
+          "id": 407,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 40,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 94,
+            "count": 1
+          },
+          {
+            "kind": 14,
+            "id": 529,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P358": {
+      "id": 358,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 59,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 2
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 10
+          },
+          {
+            "kind": 12,
+            "id": 256,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 315,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P360": {
+      "id": 360,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 54,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 64,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 70,
+            "count": 1
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 275,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 486,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P364": {
+      "id": 364,
+      "fixed": [
+        {
+          "kind": 12,
+          "id": 502,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 13,
+            "count": 4
+          },
+          {
+            "kind": 13,
+            "id": 64,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 174,
+            "count": 2,
+            "level": 5
+          }
+        ]
+      ]
+    },
+    "P365": {
+      "id": 365,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 226,
+            "count": 3
+          },
+          {
+            "kind": 12,
+            "id": 40,
+            "count": 3
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 3
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 8
+          },
+          {
+            "kind": 13,
+            "id": 60,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 57,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P366": {
+      "id": 366,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 129,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 227,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 8
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 52,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 4
+          },
+          {
+            "kind": 13,
+            "id": 64,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P376": {
+      "id": 376,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 328,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 75,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 30
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 328,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 328,
+            "count": 1,
+            "level": 6
+          },
+          {
+            "kind": 13,
+            "id": 58,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P303": {
+      "id": 303,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 5,
+          "count": 1
+        }
+      ],
+      "choices": []
+    },
+    "P304": {
+      "id": 304,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 3,
+          "count": 1
+        }
+      ],
+      "choices": []
+    },
+    "P302": {
+      "id": 302,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 3,
+          "count": 2
+        },
+        {
+          "kind": 13,
+          "id": 4,
+          "count": 1
+        }
+      ],
+      "choices": []
+    },
+    "P311": {
+      "id": 311,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 1,
+          "count": 2
+        },
+        {
+          "kind": 12,
+          "id": 145,
+          "count": 1
+        }
+      ],
+      "choices": []
+    },
+    "P318": {
+      "id": 318,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 59,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 2
+          }
+        ]
+      ]
+    },
+    "P330": {
+      "id": 330,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 23,
+            "count": 4
+          },
+          {
+            "kind": 12,
+            "id": 24,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 3
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 20,
+            "count": 3
+          },
+          {
+            "kind": 12,
+            "id": 21,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 146,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P337": {
+      "id": 337,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 54,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 68,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 51,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 3
+          }
+        ]
+      ]
+    },
+    "P339": {
+      "id": 339,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 54,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 3
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 45,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 63,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 8
+          }
+        ]
+      ]
+    },
+    "P342": {
+      "id": 342,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 4
+          },
+          {
+            "kind": 12,
+            "id": 226,
+            "count": 1
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 25,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 49,
+            "count": 3
+          },
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 4
+          }
+        ]
+      ]
+    },
+    "P348": {
+      "id": 348,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 59,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 3
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 119,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 65,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 3
+          }
+        ]
+      ]
+    },
+    "P350": {
+      "id": 350,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 54,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 59,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 94,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 4
+          }
+        ]
+      ]
+    },
+    "P362": {
+      "id": 362,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 297,
+            "count": 3
+          },
+          {
+            "kind": 12,
+            "id": 13,
+            "count": 3
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 6
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 129,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 59,
+            "count": 3
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 4
+          }
+        ]
+      ]
+    },
+    "P371": {
+      "id": 371,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 94,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 7
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 40,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 145,
+            "count": 2
+          }
+        ]
+      ]
+    },
+    "P356": {
+      "id": 356,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 59,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 4
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 129,
+            "count": 1,
+            "level": 4
+          },
+          {
+            "kind": 13,
+            "id": 54,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 3
+          }
+        ]
+      ]
+    },
+    "P353": {
+      "id": 353,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 54,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 88,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 50,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 129,
+            "count": 1,
+            "level": 2
+          }
+        ]
+      ]
+    },
+    "P357": {
+      "id": 357,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 12,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 75,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 6
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 54,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 30,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 4
+          }
+        ]
+      ]
+    },
+    "P372": {
+      "id": 372,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 94,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 39,
+            "count": 2
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 54,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 10
+          },
+          {
+            "kind": 13,
+            "id": 57,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P354": {
+      "id": 354,
+      "fixed": [
+        {
+          "kind": 13,
+          "id": 73,
+          "count": 1
+        }
+      ],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 277,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 256,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 278,
+            "count": 1,
+            "level": 5
+          }
+        ]
+      ]
+    },
+    "P368": {
+      "id": 368,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 59,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 3
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 3
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 266,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 94,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 34,
+            "count": 3
+          }
+        ]
+      ]
+    },
+    "P373": {
+      "id": 373,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 94,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 75,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 8
+          }
+        ],
+        [
+          {
+            "kind": 12,
+            "id": 534,
+            "count": 3
+          },
+          {
+            "kind": 12,
+            "id": 536,
+            "count": 2
+          },
+          {
+            "kind": 12,
+            "id": 245,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P375": {
+      "id": 375,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 7,
+            "count": 4
+          },
+          {
+            "kind": 13,
+            "id": 75,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 10
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 57,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 5
+          }
+        ]
+      ]
+    },
+    "P345": {
+      "id": 345,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 242,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 249,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 4
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 77,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 5
+          }
+        ]
+      ]
+    },
+    "P346": {
+      "id": 346,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 6
+          },
+          {
+            "kind": 13,
+            "id": 1,
+            "count": 4
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 57,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 77,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 54,
+            "count": 1
+          }
+        ]
+      ]
+    },
+    "P355": {
+      "id": 355,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 12,
+            "id": 88,
+            "count": 1,
+            "level": 2
+          },
+          {
+            "kind": 12,
+            "id": 129,
+            "count": 1,
+            "level": 2
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 59,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 3
+          }
+        ]
+      ]
+    },
+    "P377": {
+      "id": 377,
+      "fixed": [],
+      "choices": [
+        [
+          {
+            "kind": 13,
+            "id": 54,
+            "count": 1
+          },
+          {
+            "kind": 12,
+            "id": 129,
+            "count": 2
+          },
+          {
+            "kind": 13,
+            "id": 4,
+            "count": 3
+          }
+        ],
+        [
+          {
+            "kind": 13,
+            "id": 59,
+            "count": 1
+          },
+          {
+            "kind": 13,
+            "id": 3,
+            "count": 6
+          },
+          {
+            "kind": 13,
+            "id": 94,
             "count": 1
           }
         ]

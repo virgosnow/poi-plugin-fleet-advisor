@@ -30,6 +30,14 @@ test('overview only includes active tasks, including unknown ones, and retains o
   assert.equal(query([live('B2',1),live('B2',3)]).tasks.length,1);
 });
 
+test('overview retains the actual game description independently of catalog goals',()=>{
+  const raw='【編成】<b>艦隊</b>を編成！<br>出撃 &amp; 勝利 &#x2605;';
+  const result=query([{...live('B131'),api_detail:raw},{api_no:999999,api_category:2,api_title:'未知',api_state:2,api_detail:'情報<br>不足'}]);
+  assert.equal(result.tasks.find(row=>row.code==='B131').description,'【編成】艦隊を編成！\n出撃 & 勝利 ★');
+  assert.equal(result.tasks.find(row=>row.id===999999).description,'情報\n不足');
+  assert.equal(query([live('B131')]).tasks[0].description,'');
+});
+
 test('structured goals have stable identities independent of their position',()=>{
   const first=query([live('B131')]).tasks[0].goals;
   const second=query([live('Dw2'),live('B131')]).tasks.find(row=>row.code==='B131').goals;
@@ -61,6 +69,22 @@ test('fixed, selectable and limited equipment rewards match task identity; game 
   assert(seasonal.find(t=>t.code==='2610B8').rewards.choices[0].some(x=>x.name==='試製 秋水'));
   const {rewards}=require('../../../src/domain/quests/quest_overview');
   assert.equal(rewards({api_no:999999},state,byCode('B27')).reference,false);
+});
+
+test('daily expedition Dd1 includes its verified development material',()=>{
+  const {rewards}=require('../../../src/domain/quests/quest_overview');
+  const row=rewards({api_no:402,api_get_material:[100,100,100,100]}, {}, {code:'Dd1'});
+  assert.equal(row.reference,true);
+  assert.deepEqual(row.fixed.map(x=>[x.kind,x.id,x.count]),[[13,3,1]]);
+});
+
+test('practice rewards use the community-number mapping while retaining internal task IDs',()=>{
+  const rows=query([{...live('P302'),api_category:3},{...live('P345'),api_category:3}]).tasks;
+  const weekly=rows.find(row=>row.code==='P302'),annual=rows.find(row=>row.code==='P345');
+  assert.equal(weekly.rewards.reference,true);assert(weekly.rewards.fixed.some(item=>item.kind===13&&item.id===3&&item.count===2));
+  assert.equal(annual.rewards.reference,true);assert.equal(annual.rewards.choices.length,2);
+  assert(annual.rewards.choices[0].some(item=>item.kind===12&&item.id===242));
+  assert.equal(annual.rewards.choicesFromGame,false);
 });
 
 test('reference rewards are tied to known quest IDs and retain complete choices',()=>{
@@ -98,11 +122,20 @@ test('combined, generic and unknown objectives retain correct navigation boundar
   assert.deepEqual(task('B175').goals.find(goal=>goal.label.includes('7-4')).destinations[0],
     {kind:'normal',area:'7-4',target:'O',label:'7-4'});
   const unknown=result.tasks.find(row=>row.id===999999);assert.equal(unknown.code,null);
-  assert.equal(unknown.goals[0].label,'出击 目标未知');assert.deepEqual(unknown.goals[0].destinations,[]);
+  assert.equal(unknown.goals[0].label,'目标条件待确认');assert.deepEqual(unknown.goals[0].destinations,[]);
   const unknownPractice=result.tasks.find(row=>row.id===999998);
   assert.equal(unknownPractice.category,'C');assert.equal(unknownPractice.code,null);
   assert.deepEqual(unknownPractice.goals[0].destinations,[]);
   assert.equal(listOverviewQuests({state:{}}).status,'unknown');
+});
+
+test('overview describes known fleet conditions without evaluating the current fleet',()=>{
+  const result=query([live('B136'),live('Dd1'),{api_no:999999,api_category:2,api_title:'未知',api_state:2}]);
+  const constrained=result.tasks.find(row=>row.code==='B136');
+  assert(constrained.fleetRequirements.some(rule=>rule.kind==='count'&&rule.positions?.[0]===1&&rule.selector?.name==='海風改二'));
+  assert(constrained.fleetRequirements.some(rule=>rule.kind==='count'&&rule.min===2&&rule.selector?.anyOf?.some(ship=>ship.name==='山風')));
+  assert.deepEqual(result.tasks.find(row=>row.code==='Dd1').fleetRequirements,[]);
+  assert.equal(result.tasks.find(row=>row.id===999999).fleetRequirements,null);
 });
 
 test('active practice tasks appear with a safe practice destination and preserve unknown tasks',()=>{
@@ -122,7 +155,7 @@ test('practice multi-stage goals do not misdirect sortie or consumable steps to 
    {api_no:318,api_category:3,api_state:2,api_title:'給糧艦「伊良湖」の支援'}]);
  const sortie=result.tasks.find(row=>row.id===317),ration=result.tasks.find(row=>row.id===318);
  assert.equal(sortie.goals[0].destinations[0].kind,'practice');
- assert(sortie.goals.slice(1).every(goal=>goal.known&&goal.destinations.length===0));
+ assert(sortie.goals.slice(1).every(goal=>goal.known&&goal.destinations.every(destination=>destination.kind==='normal')));
  assert.match(ration.goals[1].label,/战斗粮食/);assert.equal(ration.goals[1].destinations.length,0);
 });
 

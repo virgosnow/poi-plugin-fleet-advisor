@@ -3,7 +3,7 @@
 // sortie and expedition; live quest availability still comes from the game.
 const DATA=require('../../../data/quests/requirements.json');
 const events=require('../../../data/quests/limited');
-const {createFleetRequirementEvaluator}=require('./fleet_requirements');
+const {createFleetRequirementEvaluator,describeFleetRequirements}=require('./fleet_requirements');
 const {findDefinition,goalLabel,taskSnapshot}=require('./quest_requirements');
 const plain=v=>String(v||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
 const isPracticeGoal=goal=>['practice','practiceWin'].includes(goal?.kind);
@@ -26,10 +26,10 @@ function listPracticeQuests({state,slots=[],deckId,questState,now=Date.now()}={}
   const supported=!!(definition?.fleet&&(definition.goals||[]).some(isPracticeGoal));
   const evaluation=supported?evaluate(definition.fleet,slots,deckId):{status:'unknown',checks:[{label:'任务编成资料尚未收录',status:'unknown'}]};
   const label=Number(live.api_label_type),period=definition?.period||(label>=101&&label<=112?'yearly':({1:'once',2:'daily',3:'weekly',6:'monthly',7:'quarterly'})[label]);
-  const goals=definition?(definition.goals||[]).map(goal=>({kind:goal.kind,label:`${goal.stage>1?'演习完成后：':''}${goalLabel(goal,{period})}`})):
-    [{label:plain(live.api_detail)||'任务目标待确认'}];
-  tasks.push({id,code:definition?.code||`P-unknown-${id}`,title:plain(live.api_title),state:Number(live.api_state),progressFlag:live.api_progress_flag==null?null:Number(live.api_progress_flag),period,
-    status:evaluation.status,checks:evaluation.checks,goals,supported});
+  const goals=definition?(definition.goals||[]).map(goal=>({...goal,afterPractice:goal.stage>1,count:Math.max(1,Number(goal.count)||1),label:`${goal.stage>1?'演习完成后：':''}${goalLabel(goal,{period})}`})):
+    [{label:'目标条件待确认'}];
+  tasks.push({id,code:definition?.code||`P-unknown-${id}`,title:plain(live.api_title),gameTitle:typeof live.api_title==='string'?live.api_title:'',description:live.api_detail||'',source:definition?.source,state:Number(live.api_state),progressFlag:live.api_progress_flag==null?null:Number(live.api_progress_flag),period,
+    status:evaluation.status,checks:evaluation.checks,fleetRequirements:definition?describeFleetRequirements(definition.fleet):null,goals,supported});
  }
  tasks.sort((a,b)=>b.state-a.state||a.id-b.id);return {status:'ready',tasks};
 }

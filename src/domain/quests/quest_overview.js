@@ -1,6 +1,7 @@
 'use strict';
 const {taskSnapshot,findDefinition,goalLabel,relation}=require('./quest_requirements');
 const {listPracticeQuests}=require('./practice_quests');
+const {describeFleetRequirements}=require('./fleet_requirements');
 const crypto=require('node:crypto');
 const data=require('../../../data/quests/requirements.json');
 const missions=require('../../../data/expedition_rewards.json').missions;
@@ -8,6 +9,18 @@ const guides=require('../../../data/normal_route_guides.json').maps;
 const rewardCatalog=require('../../../data/quests/rewards.json').quests;
 const eventRewards=require('../../../data/quests/limited/2026-halloween-rewards.json').quests;
 const itemNames={1:'高速修复材',2:'高速建造材',3:'开发资材',4:'改修资材',10:'家具箱（小）',11:'家具箱（中）',12:'家具箱（大）',59:'伊良湖'};
+// Game text is displayed as text, never inserted as HTML. Preserve its line
+// breaks while removing formatting and decoding common HTML entities.
+function gameDescription(value){
+  if(typeof value!=='string')return '';
+  const entities={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '};
+  return value.replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]*>/g,'')
+    .replace(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi,(all,key)=>{
+      if(key[0]!=='#')return entities[key.toLowerCase()]??all;
+      const n=key[1]?.toLowerCase()==='x'?parseInt(key.slice(2),16):parseInt(key.slice(1),10);
+      return Number.isInteger(n)&&n>0&&n<=0x10ffff&&!(n>=0xd800&&n<=0xdfff)?String.fromCodePoint(n):all;
+    }).replace(/\r\n?/g,'\n').split('\n').map(line=>line.replace(/[\t ]+/g,' ').trim()).join('\n').trim();
+}
 const maps=new Set(Object.keys(guides).map(key=>key.split(':')[0]));
 const missionNumbers=new Map();
 for(const [id,row] of Object.entries(missions)){
@@ -87,10 +100,10 @@ function listOverviewQuests({state,questState,now=Date.now()}={}){
     if(!['B','C','D'].includes(category))continue;
     seen.add(id);
     const practiceTask=category==='C'?practice.get(id):null;
-    const goals=practiceTask?practiceTask.goals.map(goal=>({label:goal.label,known:!!goal.kind,destinations:practiceTask.supported&&['practice','practiceWin'].includes(goal.kind)?[{kind:'practice',label:'演习'}]:[]})):definition?(definition.goals||[]).map(goal=>({key:crypto.createHash('sha256').update(JSON.stringify(goal)).digest('hex'),count:Math.max(1,Number(goal.count)||1),label:goalLabel(goal,{}),destinations:destinations(goal,category)})):
-      [{label:String(live.api_detail||'目标资料待收录').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(),destinations:[]}];
-    tasks.push({id,code:practiceTask?.supported?practiceTask.code:definition?.code||null,title:live.api_title||definition?.title||`任务 ${id}`,
-      category,state:status,progressFlag:live.api_progress_flag==null?null:Number(live.api_progress_flag),period:practiceTask?.period||definition?.period||null,goals,rewards:rewards(live,state,definition,lookup)});
+    const goals=practiceTask?practiceTask.goals.map(goal=>({...goal,key:goal.key,count:goal.count,label:goal.label,known:!!goal.kind,destinations:practiceTask.supported&&['practice','practiceWin'].includes(goal.kind)?[{kind:'practice',label:'演习'}]:goal.map||goal.anyTargets?destinations(goal,'B'):[]})):definition?(definition.goals||[]).map(goal=>({...goal,key:crypto.createHash('sha256').update(JSON.stringify(goal)).digest('hex'),count:Math.max(1,Number(goal.count)||1),label:goalLabel(goal,{}),destinations:destinations(goal,category)})):
+      [{label:'目标条件待确认',destinations:[]}];
+    tasks.push({id,code:practiceTask?.supported?practiceTask.code:definition?.code||null,title:live.api_title||definition?.title||`任务 ${id}`,gameTitle:typeof live.api_title==='string'?live.api_title:'',description:gameDescription(live.api_detail),source:definition?.source,
+      category,state:status,progressFlag:live.api_progress_flag==null?null:Number(live.api_progress_flag),period:practiceTask?.period||definition?.period||null,fleetRequirements:definition?describeFleetRequirements(definition.fleet):null,goals,rewards:rewards(live,state,definition,lookup)});
   }
   tasks.sort((a,b)=>a.id-b.id);
   return {status:'ready',tasks};

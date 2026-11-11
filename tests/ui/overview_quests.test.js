@@ -61,10 +61,52 @@ test('goal progress is read-only and rewards use the game data',()=>{
   const Component=create(React,{getController:()=>service});
   const tree=Component({state});
   assert.equal(walk(tree,node=>node.type==='input').length,0);
-  assert(walk(tree,node=>node.children?.includes('至少 1/5')).length);
+  assert(walk(tree,node=>node.children?.includes('≥1 / 5')).length);
   assert(walk(tree,node=>node.props['aria-label']==='燃料 300').length);
   assert(walk(tree,node=>node.props['aria-label']==='铝土 200').length);
   assert(walk(tree,node=>node.type==='span'&&node.children?.join('').includes('测试装备 ×2')).length);
+});
+
+test('overview hides game descriptions while retaining all available rewards',()=>{
+  const observed={...task('B88'),api_detail:'指定艦隊を編成！<br>敵艦隊に勝利せよ！',api_get_material:[300,0,0,200],
+    api_select_rewards:[[{api_kind:12,api_mst_id:35,api_count:2},{api_kind:13,api_mst_id:3,api_count:1}]]};
+  const state={questState:{known:true,tasks:[observed]},const:{$equips:{35:{api_name:'测试装备'}}}},ui=harness({state});
+  const card=ui.find(node=>node.type==='article'),description=walk(card,n=>n.props.className==='paa-overview-quest-description')[0];
+  assert.equal(description,undefined);assert.doesNotMatch(strings(card),/指定艦隊を編成/);
+  assert(walk(card,n=>n.props['aria-label']==='燃料 300').length);assert(walk(card,n=>n.props['aria-label']==='铝土 200').length);
+  assert.equal(ui.find(n=>n.props.className==='paa-overview-reward-toggle'),undefined);
+  const details=ui.find(n=>n.props.className==='paa-overview-reward-details');assert.match(strings(details),/任选其一/);
+  assert.match(strings(details),/测试装备/);assert.match(strings(details),/开发资材/);assert.doesNotMatch(strings(details),/任选其一 · 参考/);
+  assert.equal(JSON.stringify(observed.api_detail),'"指定艦隊を編成！<br>敵艦隊に勝利せよ！"');
+});
+
+test('game descriptions stay hidden across locales and missing rewards remain unknown',()=>{
+  const i18n=require('../../src/shared/i18n');
+  const state={questState:{known:true,tasks:[{...task('B131'),api_detail:'艦隊を編成！<br>出撃せよ！'}]}};
+  try{for(const locale of ['zh-CN','zh-TW','ja-JP']){
+    i18n.setLocale(locale);const ui=harness({state}),description=ui.find(n=>n.props.className==='paa-overview-quest-description');
+    assert.equal(description,undefined);assert.doesNotMatch(strings(ui.find(n=>n.type==='article')),/艦隊を編成/);
+    assert(ui.find(n=>n.props.className==='paa-overview-rewards-unknown'),locale);
+  }}finally{i18n.setLocale('zh-CN');}
+});
+
+test('ship rewards remain marked unknown when only other fixed rewards are known',()=>{
+  const state={questState:{known:true,tasks:[{...task('B27'),api_bonus_flag:2,api_get_material:[0,0,0,0]}]}};
+  const ui=harness({state}),details=ui.find(n=>n.props.className==='paa-overview-reward-details');
+  assert.match(strings(details),/固定报酬/);assert.doesNotMatch(strings(details),/固定报酬 · 参考/);assert.match(strings(details),/舰娘报酬详情以游戏为准/);
+});
+
+test('practice task shows its community number and localized objective without changing its internal code',()=>{
+  const i18n=require('../../src/shared/i18n'),state={questState:{known:true,tasks:[{
+    api_no:302,api_category:3,api_state:2,api_title:'大規模演習',api_detail:'今週中に「演習」で他の提督の艦隊に対して20回「勝利」しよう！',api_get_material:[200,200,200,200]}]}};
+  const calls=[];try{
+    i18n.setLocale('zh-TW');const ui=harness({state,onNavigate:item=>calls.push(item)});
+    ui.find(n=>n.type==='button'&&strings(n).startsWith('演習')).props.onClick();ui.render();
+    const card=ui.find(n=>n.type==='article');assert.match(strings(card),/Cw1/);assert.match(strings(card),/大規模演習/);
+    assert.equal(walk(card,n=>n.props.className==='paa-overview-quest-description').length,0);
+    assert.match(strings(card),/本週演習勝利/);assert.doesNotMatch(strings(card),/他の提督の艦隊に対して20回/);
+    ui.find(n=>n.props.className==='paa-overview-quest-target').props.onClick();assert.equal(calls[0].code,'P302');
+  }finally{i18n.setLocale('zh-CN');}
 });
 
 test('overview batches progress reads and is memoized when React supports it',()=>{
@@ -75,7 +117,7 @@ test('overview batches progress reads and is memoized when React supports it',()
     getQuestGoalProgress:()=>{individual++;return 0;}};
   const Component=create(ReactWithMemo,{getController:()=>service}),tree=Component({state});
   assert.equal(memo,1);assert.equal(batches,1);assert.equal(individual,0);
-  assert(walk(tree,node=>node.props.className==='paa-overview-goal-status'&&node.props['data-complete']&&node.children.includes('✓ 1/1')).length);
+  assert(walk(tree,node=>node.props.className==='paa-overview-goal-status'&&node.props['data-complete']&&node.children.includes('1 / 1')).length);
 });
 
 test('goal progress distinguishes unknown, observed lower bounds and completed counts',()=>{
@@ -83,12 +125,13 @@ test('goal progress distinguishes unknown, observed lower bounds and completed c
   const Component=create(React,{getController:()=>({getQuestGoalProgress:()=>observed})});
   const state={questState:{known:true,tasks:[task('Bd7')]}};
   const status=()=>walk(Component({state}),node=>node.props.className==='paa-overview-goal-status')[0];
-  assert.equal(status().children[0],'进度未确认');assert.equal(status().props['data-complete'],false);
-  observed=0;assert.equal(status().children[0],'进度未确认');
-  observed=2;assert.equal(status().children[0],'至少 2/5');assert.equal(status().props['data-complete'],false);
+  assert.equal(status().children[0],'0 / 5');assert.equal(status().props['data-complete'],false);
+  assert.equal(status().props['aria-label'],'目标进度未确认');
+  observed=0;assert.equal(status().children[0],'0 / 5');
+  observed=2;assert.equal(status().children[0],'≥2 / 5');assert.equal(status().props['data-complete'],false);
   assert.equal(status().props['aria-label'],'已观察目标进度至少 2/5');
-  observed=5;assert.equal(status().children[0],'✓ 5/5');assert.equal(status().props['data-complete'],true);
-  observed=9;assert.equal(status().children[0],'✓ 5/5');assert.equal(observed,9);
+  observed=5;assert.equal(status().children[0],'5 / 5');assert.equal(status().props['data-complete'],true);
+  observed=9;assert.equal(status().children[0],'5 / 5');assert.equal(observed,9);
 });
 
 test('D39 game progress verifies its sole 30 expedition goal without inventing counts for other tasks',()=>{
@@ -100,28 +143,34 @@ test('D39 game progress verifies its sole 30 expedition goal without inventing c
   const article=id=>ui.find(node=>node.type==='article'&&node.props['data-quest-id']===id);
   const status=node=>walk(node,n=>n.props.className==='paa-overview-goal-status');
   const exact=status(article(443))[0];
-  assert.equal(exact.children[0],'1/2');assert.equal(exact.props['data-progress-source'],'game');
+  assert.equal(exact.children[0],'1 / 2');assert.equal(exact.props['data-progress-source'],'game');
   assert.equal(exact.props['aria-label'],'目标进度 1/2，依据游戏任务进度');
-  assert(status(article(408)).every(row=>row.children[0]==='进度未确认'),
+  assert(status(article(408)).every(row=>String(row.children[0]).startsWith('0 / ' )),
     'other tasks cannot infer objective counts from a coarse flag');
-  assert(status(article(442)).every(row=>row.children[0]==='进度未确认'),
+  assert(status(article(442)).every(row=>String(row.children[0]).startsWith('0 / ' )),
     'a multi-objective marker cannot identify which expedition was completed');
-  observed=2;ui.render();assert.equal(status(article(443))[0].children[0],'✓ 2/2',
+  observed=2;ui.render();assert.equal(status(article(443))[0].children[0],'2 / 2',
     'a newer observed completion is not overwritten by a stale 50% marker');
   state.questState.tasks[0].api_progress_flag=0;observed=0;ui.render();
-  assert.equal(status(article(443))[0].children[0],'进度未确认');
+  assert.equal(status(article(443))[0].children[0],'0 / 2');
 });
 
-test('reward details expand in place while category switching retains the selected task and exact rewards',()=>{
+test('all rewards remain visible while switching task categories',()=>{
   const sortie={...task('Bd7'),api_get_material:[300,0,0,200],api_select_rewards:[[{api_kind:12,api_mst_id:35,api_count:2}]]};
   const state={questState:{known:true,tasks:[sortie,task('Dw2')]},const:{$equips:{35:{api_name:'测试装备'}}}};
   const ui=harness({state});const tab=label=>ui.find(n=>n.type==='button'&&strings(n).startsWith(label));
   assert.equal(tab('出击').props['aria-pressed'],true);assert.equal(ui.all(n=>n.type==='article').length,1);
-  const toggle=ui.find(n=>n.props.className==='paa-overview-reward-toggle');assert(toggle);assert.equal(toggle.props['aria-expanded'],false);
-  toggle.props.onClick();ui.render();assert.equal(ui.find(n=>n.props.className==='paa-overview-reward-toggle').props['aria-expanded'],true);
+  assert.equal(ui.find(n=>n.props.className==='paa-overview-reward-toggle'),undefined);
   const details=ui.find(n=>n.props.className==='paa-overview-reward-details');assert.match(strings(details),/任选其一/);assert.match(strings(details),/测试装备/);
+  assert.equal(details.props['aria-hidden'],undefined);assert.equal(details.props.inert,undefined);
+  const summary=ui.find(n=>n.props.className==='paa-overview-reward-summary');
+  assert.equal(summary.children[0].props.className,'paa-overview-reward-details');
+  assert.equal(summary.children[1].props.className,'paa-overview-reward-resources');
+  const card=ui.find(n=>n.type==='article'),order=card.children.map(child=>child?.props?.className||child?.type);
+  assert(order.indexOf('paa-quest-requirements')<order.indexOf('paa-quest-goals'));
+  assert(order.indexOf('paa-quest-goals')<order.indexOf('paa-overview-rewards'));
   tab('远征').props.onClick();ui.render();assert.equal(tab('远征').props['aria-pressed'],true);assert.match(strings(ui.find(n=>n.type==='article')),/远征/);
-  tab('出击').props.onClick();ui.render();assert.equal(ui.find(n=>n.props.className==='paa-overview-reward-toggle').props['aria-expanded'],true);
+  tab('出击').props.onClick();ui.render();assert.match(strings(ui.find(n=>n.props.className==='paa-overview-reward-details')),/测试装备/);
 });
 
 test('task module defaults by container width and remembers manual choices independently',()=>{
