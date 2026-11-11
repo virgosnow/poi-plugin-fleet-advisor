@@ -25,12 +25,12 @@ function renderTier(h,assessment){
     h('svg',{viewBox:'0 0 12 12','aria-hidden':true,focusable:false},
       ...TIER_MARKS[label].map((d,i)=>h('path',{key:i,d}))),t(label));
 }
-function renderCombatBalance(h,assessment){
+function renderCombatBalance(h,assessment,{compactUnselected=false}={}){
   if(!validBalance(assessment)){
     const text=({partial:'部分待确认',unselected:'选择路线',empty:'选择舰娘',pending:'计算中',awaitingCompletion:'一键补全后计算',unreachable:'当前编成无法沿此路线到达'})[assessment?.status]||'战况预测待确认';
     return h('div',{className:'paa-balance-pending',role:'status','aria-label':t('combat.pendingAria',{status:t(text)})},
       h('div',{className:'paa-balance-labels','aria-hidden':true},h('span',null,t('我方')),
-        h('span',{className:'paa-balance-placeholder-text'},t(text)),h('span',null,t('敌方'))),
+        h('span',{className:'paa-balance-placeholder-text'},compactUnselected&&assessment?.status==='unselected'?'—':t(text)),h('span',null,t('敌方'))),
       h('div',{className:'paa-balance-track','data-pending':true,'aria-hidden':true}));
   }
   const {blueShare,label}=assessment.balance;

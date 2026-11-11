@@ -2584,7 +2584,7 @@ test('route selection can be cleared after completion without selecting a fallba
     assert(!h.find(tree,n=>n.props.className==='paa-real-route'));
     assert(!h.find(tree,n=>n.props.className==='paa-map-selection'));
     assert(!h.find(tree,n=>n.props.className==='paa-wb-route-requirements'));
-    assert(h.find(tree,n=>n.type==='strong'&&n.children.includes('请选择路线')));
+    assert(h.find(tree,n=>n.props.className==='paa-wb-arrival'&&h.find(n,x=>x.type==='strong'&&x.children.includes('—'))));
     await h.control(tree,label).props.onChange({target:{value:option.key}});
     assert.equal(h.get('mapRoute'),option.key);assert.equal(h.calls.fleet,1,'reselect reuses prepared recommendations');
   }
@@ -2649,7 +2649,8 @@ test('fleet air thresholds follow the selected map path while fleet power keeps 
   assert(h.find(metric,n=>n.props.className==='paa-wb-metric-state').children.includes('全程空确'));
   assert.match(metric.props['data-tooltip'],/保守估算|不是实战保证/);
   h.set('mapRoute','');const cleared=h.find(h.render(),n=>n.props.className==='paa-wb-metric air');
-  assert(h.find(cleared,n=>n.type==='small').children[0].includes('请选择路线'));
+  assert(!h.find(cleared,n=>n.type==='small'));
+  assert(h.find(cleared,n=>n.type==='strong').children[0].includes('500'),'clearing the route keeps current fleet air power');
 });
 
 test('estimated air superiority and supremacy use the corresponding result colors',t=>{
@@ -2872,6 +2873,17 @@ test('arrival status expands route requirements while notes and complete journey
   assert.equal(status.type,'div');assert.equal(status.props['aria-expanded'],undefined);
   assert(!empty.find(unselected,n=>n.props.className==='paa-wb-route-requirements'));
   assert.equal(h.calls.fleet+h.calls.equipment,0,'expanding rules does not launch recommendations');
+});
+
+test('an unselected route avoids repeated prompts without changing available fleet values',()=>{
+  const h=harness(),tree=h.render(),text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join('');
+  const arrival=h.find(tree,n=>n.props.className==='paa-wb-arrival'),threat=h.find(tree,n=>n.props.className==='paa-wb-threat');
+  const air=h.find(tree,n=>n.props.className==='paa-wb-metric air'),los=h.find(tree,n=>n.props.className==='paa-wb-metric los');
+  assert(!text(arrival).includes('请选择路线'));assert(!text(threat).includes('选择路线'));
+  assert.equal(text(h.find(threat,n=>n.props.className==='paa-threat-empty')),'—');
+  assert.match(text(air),/制空/);assert.match(text(los),/索敌/);
+  assert(!text(air).includes('请选择路线'));assert(!text(los).includes('请选择路线'));
+  assert(h.find(tree,n=>n.type?.name==='RoutePicker'),'the route selector remains available');
 });
 
 test('route card whitespace expands rules without toggling reading, selection or disabled controls',()=>{

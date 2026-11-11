@@ -75,20 +75,21 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
   const EquipmentPicker=equipmentPicker(React);
   const useMapLoading=require('../maps/map_loading')(React,{getStore});
   const CalculationProgress=createProgressComponent(React);
-  const summaryMetric=(reading,kind)=>{
+  const summaryMetric=(reading,kind,{unselected=false}={})=>{
     const good=kind==='air'?['supremacy','superiority'].includes(reading.stateCode):['meets','notRequired'].includes(reading.stateCode);
     const warning=reading.bad||reading.uncertain||reading.stateCode==='estimatedMeets';
     const tone=warning?'warning':good?reading.stateCode==='supremacy'?'green':kind==='air'?'blue':'green':'neutral';
     const icon=h('svg',{viewBox:'0 0 16 16','aria-hidden':true},warning?
       h('path',{d:'M8 2 15 14H1ZM8 6v4m0 2v.1'}):
       [h('circle',{key:'circle',cx:8,cy:8,r:6}),h('path',{key:'mark',d:good?'m5 8 2 2 4-4':'M5 8h6'})]);
+    const state=unselected?t(kind==='air'?'制空':'索敌'):t(reading.state);
     return h('div',{className:'paa-wb-metric '+kind+(reading.bad?' insufficient':''),'data-tone':tone,
       'data-tooltip':[reading.hint,reading.detail].filter(Boolean).join('\n'),
       'data-tooltip-content':reading.tooltipContent,tabIndex:0,
-      'aria-label':t(kind==='air'?'制空 {value}，{state}':'33式索敌 {value}，{state}',{value:reading.value,state:t(reading.state)})},
-      h('span',{className:'paa-wb-metric-state'},icon,t(reading.state)),
+      'aria-label':t(kind==='air'?'制空 {value}，{state}':'33式索敌 {value}，{state}',{value:reading.value,state:unselected?t(reading.state):state})},
+      h('span',{className:'paa-wb-metric-state'},icon,state),
       h('strong',{'data-label':t(kind==='air'?'我方':'33 式')},reading.value),
-      h('small',null,t(reading.compactHint||reading.hint)));
+      unselected?null:h('small',null,t(reading.compactHint||reading.hint)));
   };
   const arrivalIcon=tone=>['good','warning','bad'].includes(tone)?h('svg',{className:'paa-wb-arrival-icon','data-kind':tone==='good'?'check':'warning',viewBox:'0 0 16 16',width:14,height:14,fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
     tone==='good'?[h('circle',{key:'outline',cx:8,cy:8,r:6}),h('path',{key:'mark',d:'m5 8 2 2 4-4'})]:h('path',{d:'M8 2 15 14H1ZM8 6v4m0 2v.1'})):null;
@@ -1073,7 +1074,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
             }},
               h(routeRequirements.length?'button':'div',{className:'paa-wb-arrival','data-tone':arrival.tone,
                 ...(routeRequirements.length?{type:'button',disabled,'aria-expanded':routeRulesOpen,'aria-controls':`${kind}-route-requirements`,onClick:()=>setRouteRulesOpen(open=>!open)}:{role:'status'})},
-                h('span',null,t(arrival.label)),h('strong',null,arrivalIcon(arrival.tone),arrivalValue(arrival))),
+                h('span',null,t(arrival.label)),h('strong',null,arrivalIcon(arrival.tone),mapRoute?arrivalValue(arrival):'—')),
             !routeIssue&&!routeSearchFailed?arrivalNote(h,arrival):null,
             reasons.length?h('div',{className:'paa-wb-route-warnings','data-tone':routeIssue?'bad':undefined,role:'region',tabIndex:0,'aria-label':t('路线条件')},...reasons.map((reason,i)=>{
               const detail=routeIssue?.warningDetails?.find(item=>item.text===reason);
@@ -1113,17 +1114,17 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
                   'aria-expanded':combatDetailsOpen,'aria-controls':`${kind}-combat-details`,
                   onClick:()=>setCombatDetailsOpen(open=>!open)},h('span',{className:'paa-balance-title'},t('战况预测')),renderCombatBalance.renderTier(h,combat)):
                   h('h4',null,t('战况预测'))),
-              renderCombatBalance(h,combat),
+              renderCombatBalance(h,combat,{compactUnselected:true}),
               finalStageNotice?h('p',{className:'paa-balance-stage-note'},t(finalStageNotice)):null,
               collapse(h,{id:`${kind}-combat-details`,open:combatDetailsOpen&&!!renderCombatBalance.renderTier(h,combat)},renderCombatBalance.renderDetails(h,combat)),
               h('div',{className:'paa-threat-cards'},h('strong',{className:'paa-threat-title'},t('最大威胁')),
-                ...(targetNonCombat?(threat?.enemies?.length?threat.enemies.slice(0,2).map(enemy=>({enemy,item:threat})):[{item:threat}]):
+                ...(!mapRoute?[{unselected:true}]:targetNonCombat?(threat?.enemies?.length?threat.enemies.slice(0,2).map(enemy=>({enemy,item:threat})):[{item:threat}]):
                   [{enemy:targetThreat?.enemies?.[0],item:targetThreat},{enemy:threat?.enemies?.[0],item:threat}])
-                  .map(({enemy,item},index)=>h('div',{key:index,className:'paa-threat-card'},
+                  .map(({enemy,item,unselected},index)=>h('div',{key:index,className:unselected?'paa-threat-empty':'paa-threat-card'},
                     enemy?h('div',{className:'paa-threat-enemy'},portrait({name:enemy.name,portrait:V.portraitUrl(store,enemy.apiId)}),
                       h('span',{className:'paa-threat-identity'},h('span',{className:'paa-threat-name','data-tooltip':enemy.name,'data-tooltip-overflow':true,tabIndex:0},enemy.name),
                         h('small',{className:'paa-threat-meta'},h('span',{className:'paa-threat-node'},t('{nodes} 点',{nodes:(enemy.nodes||[]).join(' / ')}))))):
-                      h('span',{className:'paa-muted'},t(!mapRoute?'请选择路线':item?.status==='none'?'无战斗':'敌情暂不可用')))))))),
+                      h('span',{className:'paa-muted'},unselected?'—':t(item?.status==='none'?'无战斗':'敌情暂不可用')))))))),
           h(QuestSection,{key:navigationIntent?.id||'default',state:store,slots,deckId:fleet,kind,onNavigateQuest,mapId:kind==='normal'?area:undefined,
             missionId:kind==='expedition'?missionId:undefined,questState,paused,disabled,selectedQuests,onToggleQuest:code=>{
               if(disabled)return;operation.current++;routeCache.current=null;setRouteDrafts({});setChoices([]);invalidateRouteCombat();
@@ -1141,7 +1142,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
               h('svg',{className:'paa-wb-speed-gauge',viewBox:'0 0 19 14','aria-hidden':true},...[1,2,3,4].map(t=>h('rect',{key:t,x:(t-1)*5,y:14-t*3,width:3,height:t*3,rx:0.6,fill:t<=speedReading.tier?'currentColor':'none',stroke:'currentColor',strokeWidth:0.6,opacity:t<=speedReading.tier?1:0.28}))),
               h('strong',null,speedReading.ships.length?t(speedReading.label):'—'),
               speedRequirement.hint?h('small',null,t(speedRequirement.hint)):null),
-            summaryMetric(summary.air,'air'),summaryMetric(summary.los,'los'))):null,
+            summaryMetric(summary.air,'air',{unselected:!mapRoute}),summaryMetric(summary.los,'los',{unselected:!mapRoute}))):null,
           h('div',{className:'paa-wb-ships',ref:grid},...shipCards)),
             resultsPending?h('div',{className:'paa-wb-calculating paa-wb-fleet-overlay',role:'status','data-activity':activity},
               h('span',{className:'paa-wb-calculation-label'},h('span',{className:'paa-wb-calculation-heading'},
