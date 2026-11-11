@@ -556,7 +556,6 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       await new Promise(resolve=>setTimeout(resolve,20));
       try{
         if(activeQuestCodes.length){
-          if(initialStore.questState?.complete===false)throw Error('任务资料正在同步，完成后可继续补全');
           const related=require('../../domain/quests/quest_requirements').listRelatedQuests({state:initialStore,slots,deckId:fleet,
             mapId:kind==='normal'?area:undefined,missionId:kind==='expedition'?missionId:undefined,questState:initialStore.questState});
           if(related.status!=='ready'||activeQuestCodes.some(code=>!related.tasks.some(task=>task.code===code)))
@@ -594,7 +593,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
           const current=getStore(),related=require('../../domain/quests/quest_requirements').listRelatedQuests({state:current,slots,deckId:fleet,
             mapId:kind==='normal'?area:undefined,missionId:kind==='expedition'?missionId:undefined,questState:current.questState});
           if(withoutClaimed(activeQuestCodes,current.questState)!==activeQuestCodes){setSelectedQuests(previous=>withoutClaimed(previous,current.questState));return;}
-          if(current.questState?.complete===false||related.status!=='ready'||activeQuestCodes.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化，请重新选择任务');
+          if(related.status!=='ready'||activeQuestCodes.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化，请重新选择任务');
         }
         if(!routeCache.current)routeCache.current=new Map();
         if(!questSelectionChanged)routeCache.current.set(signature,{key:signature,info:initialInfo,master:initialMaster,stamp,fingerprint:sourceFingerprint,found});

@@ -29,7 +29,6 @@ const syncDiagnostics=new (require('./src/infrastructure/sync/sync_diagnostics')
   write:(message,code)=>{try{console.info(message);}catch(error){}service?.diagnosticLogs?.sync(code,message);}
 });
 let lastQuestView=null,lastQuestComplete=false,publicQuestView=null;
-const unknownQuests=Object.freeze({known:false,complete:false,tasks:Object.freeze([])});
 const unknownPractice=Object.freeze({known:false,opponents:Object.freeze([]),history:Object.freeze([]),localHistory:Object.freeze([]),revision:0});
 function questView(state){
   const view=questObserver.view(state),complete=questObserver.hasComplete(state);
@@ -89,6 +88,7 @@ function setQuestPageActive(owner,active){
   if(!['login','manual','normal','practice','expedition'].includes(owner)||!questAutoRead)return;
   questAutoRead.setActive(owner,active);
   if(active)questPages.add(owner);else questPages.delete(owner);
+  if(owner==='practice'&&!active)practiceSync?.suspend();
   if(questPages.size&&!questTimer){questTimer=setInterval(tickQuests,1500);tickQuests();}
   if(!questPages.size&&questTimer){clearInterval(questTimer);questTimer=null;}
 }
@@ -97,7 +97,7 @@ const currentStore=()=>{
   const verified=!!rawQuestReader?.sessionKey&&rawQuestReader.verifiedSessionKey===rawQuestReader.sessionKey;
   return {...state,...(expeditionProgress?{expeditionProgress:expeditionProgress.view(state)}:{}),
     ...(practiceObserver?{practiceState:verified?practiceObserver.view(state):unknownPractice}:{}),
-    ...(questObserver?{questState:verified?questView(state):unknownQuests}:{})};
+    ...(questObserver?{questState:questView(state)}:{})};
 };
 exports.pluginDidLoad=()=>{
   if(service)return;
@@ -123,23 +123,23 @@ exports.pluginDidLoad=()=>{
   questAutoRead=new (require('./src/infrastructure/quests/quest_auto_read').QuestAutoRead)({
     getContext:async({cached=false}={})=>{
       const quick=await questReader.context({cached:true});
-      if(cached||!quick.ready||questObserver.hasComplete())return quick;
+      if(cached||!quick.ready||questObserver.hasFreshComplete())return quick;
       return questReader.context();
     },
-    getQuestState:()=>({known:questObserver.hasComplete()}),
+    getQuestState:()=>({known:questObserver.hasFreshComplete()}),
     read:async options=>{
       const observer=questObserver,reader=questReader;
       return require('./src/infrastructure/quests/quest_sync').syncQuests({observer,reader,service,
         isCurrent:()=>questObserver===observer&&questReader===reader,...options});
     }});
-  practiceSync=new (require('./src/infrastructure/practice/practice_sync').PracticeSync)({reader:questReader,observer:practiceObserver,getStore:()=>readStore(window)});
+  practiceSync=new (require('./src/infrastructure/practice/practice_sync').PracticeSync)({reader:questReader,observer:practiceObserver,getStore:()=>readStore(window),isActive:()=>questPages.has('practice')});
   basicDataSync=new (require('./src/infrastructure/persistence/basic_data_sync').BasicDataSync)({reader:questReader,getStore:()=>readStore(window),expedition:expeditionProgress});
   progressListener=event=>{
     if(pendingHandoff&&/\/kcsapi\/(?:api_port\/port|api_req_air_corps\/)/.test(String(event.detail?.path||'')))pendingHandoff.basic=null;
     try{questReader?.observeResponse(event.detail);}catch(error){}
     try{expeditionProgress?.observe(event.detail,readStore(window));}catch(error){}
     try{if(rawQuestReader?.sessionKey&&rawQuestReader.verifiedSessionKey===rawQuestReader.sessionKey)service?.observeQuestProgress(event.detail);}catch(error){}
-    try{questObserver?.observe(event.detail,readStore(window));}catch(error){}
+    try{if(rawQuestReader?.sessionKey&&rawQuestReader.verifiedSessionKey===rawQuestReader.sessionKey)questObserver?.observe(event.detail,readStore(window));}catch(error){}
     try{practiceObserver?.observe(event.detail,readStore(window));}catch(error){}
     try{basicDataSync?.observe(event.detail,readStore(window));}catch(error){}
   };
@@ -175,6 +175,7 @@ exports.pluginDidLoad=()=>{
     prepareRecommendationWorker:()=>getRecommendationHost().prewarm(),
     releaseRecommendationWorker:()=>recommendationHost?.release(),
     storageDir:path.join(os.homedir(),'.poi-plugin-fleet-advisor')});
+  questObserver.setCache(service.questProgress);
   require('./src/shared/i18n').setLocale(service.getLanguage?.()||'zh-CN');
   service.diagnosticLogs?.migrateRuns(path.join(__dirname,'logs'));
   syncDiagnostics.report('started');

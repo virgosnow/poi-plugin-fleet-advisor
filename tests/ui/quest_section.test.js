@@ -321,11 +321,11 @@ test('partial task observations are not presented as a confirmed empty list',()=
   const ui=harness({questState:{known:true,complete:false,tasks:[]}},{status:'ready',tasks:[]});
   ui.toggle(true);assert.match(ui.text(),/任务资料正在后台同步/);assert.doesNotMatch(ui.text(),/暂无可受领/);
 });
-test('partial task rows stay visible but cannot drive a preselection before refresh',()=>{
+test('observed tasks can be selected even while the full list is incomplete',()=>{
   let picked=null;const ui=harness({questState:{known:true,complete:false},onToggleQuest:value=>{picked=value;}},{status:'ready',tasks:[task()]});
   ui.toggle(true);assert.match(ui.text(),/后台核实完整列表/);
-  const card=ui.find(node=>node.type==='article');assert.equal(card.props['aria-disabled'],true);
-  card.props.onClick({target:{closest:()=>null},currentTarget:{}});assert.equal(picked,null);
+  const card=ui.find(node=>node.type==='article');assert.equal(card.props['aria-disabled'],undefined);
+  card.props.onClick({target:{closest:()=>null},currentTarget:{}});assert.equal(picked,task().code);
 });
 
 test('zero counts, unmet checks and genuinely unknown checks remain distinct',()=>{

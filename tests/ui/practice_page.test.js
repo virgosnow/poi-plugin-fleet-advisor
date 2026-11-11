@@ -469,7 +469,7 @@ test('training picker waits for label focus before dismissing on blur',t=>{
 
 test('practice quest preselection is passed into completion and unavailable task data is rejected',async()=>{
  const store=fixture(),states=[],requests=[];let i=0;store.practiceState={known:true,opponents:[{id:10,index:1,name:'对手',ships:[{masterId:1,level:10}]}],revision:1};
- store.questState={known:true,complete:true,tasks:[{api_no:368,api_category:3,api_state:2,api_title:'「十六駆」演習！'}]};
+ store.questState={known:true,complete:false,tasks:[{api_no:368,api_category:3,api_state:2,api_title:'「十六駆」演習！'}]};
  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
   useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
  const service={preview:()=>({}),createSnapshot:()=>({snapshotId:'test'}),recommendPracticeFleet:async args=>{requests.push(args);return {scheme:{ships:[W.entry(store,1)]},enemyKnown:true};}};

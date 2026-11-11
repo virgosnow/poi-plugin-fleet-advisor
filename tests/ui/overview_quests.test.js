@@ -48,6 +48,12 @@ test('overview shows active tasks, progress hints and helpful empty states',()=>
   assert.match(strings(Component({state:{}})),/任务资料正在后台同步/);
 });
 
+test('overview allows navigation for a known task even when other tasks are still syncing',()=>{
+  const state={questState:{known:true,complete:false,tasks:[task('B131')]}};
+  const view=create(React)({state,onNavigate:()=>{}});assert.match(strings(view),/B131/);
+  const links=walk(view,node=>node.props.className==='paa-overview-quest-target');assert(links.length);assert(links.every(link=>!link.props.disabled));
+});
+
 test('overview keeps an achieved task visible until it is claimed',()=>{
   const state={questState:{known:true,tasks:[{...task('B131'),api_state:3}]}};
   const Component=create(React),tree=Component({state});

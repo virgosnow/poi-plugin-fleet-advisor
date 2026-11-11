@@ -41,8 +41,8 @@ class PracticeObserver{
       }catch(_){} }
     if(period!==this.period){this.period=period;this.listTime=null;this.opponents=[];this.known=false;this.pending=null;this.revision++;}
   }
-  view(store){this.sync(store);return {known:this.known,opponents:this.opponents,needsProfileRefresh:this.known&&this.opponents.some(row=>row.profileChecked!==true),history:this.history,localHistory:this.legacy,revision:this.revision};}
-  snapshot(store){this.sync(store);return this.key?{key:this.key,period:this.period,time:this.now(),known:this.known,opponents:JSON.parse(JSON.stringify(this.opponents)),pending:this.pending}:null;}
+  view(store){this.sync(store);return {known:this.known,opponents:this.opponents,listUpdatedAt:this.listTime,needsProfileRefresh:this.known&&this.opponents.some(row=>row.profileChecked!==true),history:this.history,localHistory:this.legacy,revision:this.revision};}
+  snapshot(store){this.sync(store);return this.key?{key:this.key,period:this.period,time:this.now(),listUpdatedAt:this.listTime,known:this.known,opponents:JSON.parse(JSON.stringify(this.opponents)),pending:this.pending}:null;}
   resetSession(){this.key=null;this.period=null;this.listTime=null;this.opponents=[];this.known=false;this.pending=null;this.revision++;}
   restore(value,store){this.sync(store);if(!this.key||value?.key!==this.key||value.period!==this.period||!Number.isFinite(value.time)||this.now()-value.time<0||this.now()-value.time>30000||!Array.isArray(value.opponents))return;
     // Earlier session snapshots recorded the server state but did not decode
@@ -56,7 +56,9 @@ class PracticeObserver{
         return {...row,state:RANK_STATE[recorded],rank:recorded};
       return {...row,state,rank:rankForState(state,recorded)};
     });
-    this.known=value.known===true||value.known===undefined&&value.opponents.length>0;this.listTime=this.known?value.time:null;this.pending=value.pending||null;this.revision++;}
+    this.known=value.known===true||value.known===undefined&&value.opponents.length>0;
+    const observed=Number.isFinite(value.listUpdatedAt)&&value.listUpdatedAt<=this.now()&&cycle(value.listUpdatedAt)===this.period?value.listUpdatedAt:value.time;
+    this.listTime=this.known?observed:null;this.pending=value.pending||null;this.revision++;}
   save(){if(!this.key)return;try{fs.mkdirSync(this.directory,{recursive:true});const file=path.join(this.directory,this.key+'.json'),tmp=file+'.tmp';
     const opponents=this.known&&this.listTime!==null?{period:this.period,time:this.listTime,opponents:this.opponents}:null;
     fs.writeFileSync(tmp,JSON.stringify({schemaVersion:1,history:this.history.slice(0,100),opponents}));fs.renameSync(tmp,file);}catch(_){/* Keep observations in memory. */}}

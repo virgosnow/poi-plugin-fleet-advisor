@@ -62,24 +62,26 @@ module.exports=function createQuestSection(React,options={}){
   return function QuestSection({state,slots,deckId,kind='normal',mapId,missionId,questState,selectedQuests=[],onToggleQuest,onClearQuests,onNavigateQuest,disabled=false,paused=false,defaultOpen=false,open:controlledOpen,onOpenChange,readOnly=false,listTasks,countTasks}){
     const [internalOpen,setOpen]=React.useState(!!defaultOpen),open=controlledOpen===undefined?internalOpen:!!controlledOpen;
     const last=React.useRef(null),lastCount=React.useRef(null);
+    const displayQuestState=questState??state?.questState;
     const contentId=React.useRef(null);if(!contentId.current)contentId.current=`paa-quest-content-${++nextContentId}`;
-    const count=React.useMemo(()=>!paused&&(kind==='normal'||kind==='practice'&&countTasks)?(kind==='practice'?countTasks:countRelatedQuests)({state,mapId,questState}):lastCount.current,
-      [kind,mapId,questState,state?.questState,state?.info?.quests,paused,countTasks]);
+    const count=React.useMemo(()=>!paused&&(kind==='normal'||kind==='practice'&&countTasks)?(kind==='practice'?countTasks:countRelatedQuests)({state,mapId,questState:displayQuestState}):lastCount.current,
+      [kind,mapId,displayQuestState,state?.questState,state?.info?.quests,paused,countTasks]);
     if((kind==='normal'||kind==='practice')&&!paused)lastCount.current=count;
     const needsTasks=open||selectedQuests.length>0;
-    const related=React.useMemo(()=>needsTasks?(listTasks||listRelatedQuests)({state,slots,deckId,kind,mapId,missionId,questState}):last.current,
-      [needsTasks,state,slots,deckId,kind,mapId,missionId,questState,listTasks]);
+    const related=React.useMemo(()=>needsTasks?(listTasks||listRelatedQuests)({state,slots,deckId,kind,mapId,missionId,questState:displayQuestState}):last.current,
+      [needsTasks,state,slots,deckId,kind,mapId,missionId,displayQuestState,listTasks]);
     if(needsTasks)last.current=related;
     i18n.useLocale(React);
     const t=i18n.t;
     const ready=related?.status==='ready';
-    const incomplete=(questState??state?.questState)?.complete===false;
+    const incomplete=displayQuestState?.complete===false;
+    const unavailable=incomplete&&displayQuestState?.known!==true;
     const tasks=ready&&Array.isArray(related.tasks)?related.tasks.filter(task=>task&&[1,2,3].includes(Number(task.state)))
       .sort((a,b)=>Number(b.state)-Number(a.state)):[];
     const service=options.getController?.(),counts=tasks.length?service?.getQuestGoalProgressForTasks?.(tasks):null;
     const [progressRevision,setProgressRevision]=React.useState(0);void progressRevision;
     if(React.useEffect)React.useEffect(()=>options.subscribe?.(event=>{if(event?.type==='questProgress')setProgressRevision(n=>n+1);}),[]);
-    const liveTasks=needsTasks?new Map(taskSnapshot(state,questState).tasks.filter(row=>row&&Number.isSafeInteger(Number(row.api_no)))
+    const liveTasks=needsTasks?new Map(taskSnapshot(state,displayQuestState).tasks.filter(row=>row&&Number.isSafeInteger(Number(row.api_no)))
       .map(row=>[Number(row.api_no),row])):new Map();
     let equipmentByName;
     const lookup=name=>{if(!equipmentByName){equipmentByName=new Map();for(const row of Object.values(state?.const?.$equips||{}))
@@ -88,7 +90,7 @@ module.exports=function createQuestSection(React,options={}){
       const localizedGoals={...task,goals:(Array.isArray(task.goals)?task.goals:[]).map(goal=>typeof goal==='object'&&goal?.kind?{...goal,label:questDisplay.structuredGoal(goal,task.period)}:goal)};
       const conditionStatus=status(task.status),checks=Array.isArray(task.checks)?task.checks:[],period=text(task.period),selected=selectedQuests.includes(task.code),taskState=Number(task.state),flag=Number(task.progressFlag);
       const progress=taskState===3?'已达成':taskState===2?(task.progressFlag==null?'进度未确认':flag===2?'进度 80% 以上':flag===1?'进度 50% 以上':flag===0?'进度未满 50%':'进度未确认'):'';
-      const toggle=()=>{if(!disabled&&!incomplete&&task.code)onToggleQuest?.(task.code);};
+      const toggle=()=>{if(!disabled&&!unavailable&&task.code)onToggleQuest?.(task.code);};
       const number=questText.number(task,state);
       const live=liveTasks.get(Number(task.id)),rewardData=task.rewards||rewards(live||{},state,live?findDefinition(live,Date.now()):null,lookup);
       const sameRule=(left,right)=>left&&right&&JSON.stringify(left)===JSON.stringify(right);
@@ -103,8 +105,8 @@ module.exports=function createQuestSection(React,options={}){
         h('span',{className:'paa-quest-state','data-active':taskState>=2},t(taskState>=2?'进行中':'可受领')),
         readOnly?null:h('span',{className:'paa-quest-condition-status','data-status':conditionStatus},t(STATUS_TEXT[conditionStatus])),
         progress?h('span',{className:'paa-quest-progress','data-complete':taskState===3},t(progress)):null);
-      return h('article',{key:task.id??task.code,className:'paa-quest-item',style:readOnly?{cursor:'default'}:undefined,...readOnly?{}:{role:'checkbox',tabIndex:disabled||incomplete||!task.code?-1:0,
-        'aria-checked':selected,'aria-disabled':disabled||incomplete||!task.code||undefined,'aria-label':t('选择任务：{title}',{title:text(task.title)||text(task.code)})},
+      return h('article',{key:task.id??task.code,className:'paa-quest-item',style:readOnly?{cursor:'default'}:undefined,...readOnly?{}:{role:'checkbox',tabIndex:disabled||unavailable||!task.code?-1:0,
+        'aria-checked':selected,'aria-disabled':disabled||unavailable||!task.code||undefined,'aria-label':t('选择任务：{title}',{title:text(task.title)||text(task.code)})},
         'data-quest-id':task.id,'data-condition-status':readOnly?undefined:conditionStatus,'data-selected':selected||undefined,'data-progress':!!progress,
         onClick:readOnly?undefined:event=>{if(event.defaultPrevented||event.button!==undefined&&event.button!==0||event.target?.closest?.('button,a'))return;
           if(event.currentTarget.ownerDocument?.getSelection?.()?.isCollapsed===false)return;toggle();},
@@ -131,7 +133,7 @@ module.exports=function createQuestSection(React,options={}){
             const map=kind==='normal'||kind==='practice'?label.match(/^(\d+-\d+)(.*)$/):null;
             const targets=goal&&(goal.map||goal.anyTargets)?require('../../domain/quests/quest_overview').destinations(goal,'B'):[];
             const content=map?[h('strong',{key:'map'},map[1]),map[2]]:[label];
-            const link=(destination,children,index)=>h('button',{key:index,type:'button',className:'paa-quest-goal-link',disabled:disabled||incomplete||!task.code,onClick:()=>onNavigateQuest({...destination,code:task.code})},...children);
+            const link=(destination,children,index)=>h('button',{key:index,type:'button',className:'paa-quest-goal-link',disabled:disabled||unavailable||!task.code,onClick:()=>onNavigateQuest({...destination,code:task.code})},...children);
             const body=onNavigateQuest&&targets.length===1?link(targets[0],content,0):h('span',{className:'paa-quest-goal-text'},...content,
               onNavigateQuest&&targets.length>1?h('span',{className:'paa-quest-goal-links'},...targets.map((target,i)=>link(target,[questDisplay.destination(target)],i))):null);
             return h('li',{key:index,'data-related':related?'true':'false'},body,

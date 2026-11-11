@@ -34,11 +34,25 @@ class QuestProgress {
     // Old progress files mix manual and observed values, so preserve them but
     // do not treat them as game observations in the new store.
     this.file=path.join(storageDir,'quest-observations.json');this.root=path.join(storageDir,'recommendation-cache');
-    this.now=now;this.getCacheLimit=getCacheLimit;this.pending=Promise.resolve();this.records={};this.error=null;this.lastError=null;
-    try{const saved=JSON.parse(fs.readFileSync(this.file,'utf8'));if(saved.version!==1||!saved.records||typeof saved.records!=='object'||Array.isArray(saved.records))throw Error('格式不支持');this.records=saved.records;}
+    this.now=now;this.getCacheLimit=getCacheLimit;this.pending=Promise.resolve();this.records={};this.snapshots={};this.error=null;this.lastError=null;
+    try{const saved=JSON.parse(fs.readFileSync(this.file,'utf8'));if(saved.version!==1||!saved.records||typeof saved.records!=='object'||Array.isArray(saved.records))throw Error('格式不支持');this.records=saved.records;
+      if(saved.snapshots&&typeof saved.snapshots==='object'&&!Array.isArray(saved.snapshots))this.snapshots=saved.snapshots;}
     catch(e){if(e.code!=='ENOENT')this.error=`任务记录读取失败：${e.message}`;}
   }
   enqueue(fn){const result=this.pending.then(fn).catch(e=>{this.lastError=e.message;throw e;});this.pending=result.catch(()=>{});return result;}
+  getQuestSnapshot(account){
+    if(typeof account!=='string'||!/^[a-f0-9]{64}$/.test(account))return null;
+    const value=this.snapshots[account];return value?JSON.parse(JSON.stringify(value)):null;
+  }
+  saveQuestSnapshot(account,value){
+    if(typeof account!=='string'||!/^[a-f0-9]{64}$/.test(account)||!value||typeof value!=='object')return Promise.resolve(false);
+    const snapshot=JSON.parse(JSON.stringify(value));
+    return this.enqueue(async()=>{
+      if(this.error)throw Error(this.error);
+      const snapshots={...this.snapshots,[account]:snapshot};
+      await this.persist(this.records,snapshots);this.snapshots=snapshots;return true;
+    });
+  }
   get(store,task,goal){
     const account=accountKey(store),row=account&&this.records[account]?.[task.code];
     const inferred=account?serverGoalLowerBound(store,task,goal):0;
@@ -107,8 +121,8 @@ class QuestProgress {
       if(JSON.stringify(records)!==JSON.stringify(this.records)){await this.persist(records);this.records=records;}
     });
   }
-  async persist(records){
-    const body=JSON.stringify({version:1,records}),temp=`${this.file}.${crypto.randomUUID()}.tmp`;
+  async persist(records,snapshots=this.snapshots){
+    const body=JSON.stringify({version:1,records,...Object.keys(snapshots).length?{snapshots}:{}}),temp=`${this.file}.${crypto.randomUUID()}.tmp`;
     await fs.promises.mkdir(path.dirname(this.file),{recursive:true,mode:0o700});
     const space=await reserveCacheSpace(this.root,{limitBytes:this.getCacheLimit(),replace:this.file,bytes:Buffer.byteLength(body)});
     if(!space.fits)throw Error('游戏数据缓存空间不足，请清理缓存或提高上限');
@@ -122,7 +136,7 @@ class QuestProgress {
   inspectCache(){return this.enqueue(async()=>{try{const files=await cacheFiles(this.root,'gameData');return {files:files.length,bytes:files.reduce((n,f)=>n+f.size,0),...(this.error||this.lastError?{writeError:this.error||this.lastError}:{})};}catch(e){return {files:null,bytes:null,error:e.message};}});}
   clearCache(){return this.enqueue(async()=>{const files=await cacheFiles(this.root,'gameData');let removed=0,failed=0;
     const main=files.find(f=>f.file===this.file);if(main&&!await removeCacheFile(main.file))return {removed:0,failed:1};
-    if(main)removed++;this.records={};this.error=null;this.lastError=null;
+    if(main)removed++;this.records={};this.snapshots={};this.error=null;this.lastError=null;
     for(const f of files)if(f!==main){if(await removeCacheFile(f.file))removed++;else failed++;}
     return {removed,failed};});}
 }

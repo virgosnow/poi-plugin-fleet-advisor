@@ -1593,7 +1593,7 @@ test('selected task codes reach both workbench searches and reset on destination
   const catalog=require('../../data/quests/limited/2026-halloween.json').quests;
   for(const kind of ['normal','expedition']){
     const h=harness(kind),quest=kind==='normal'?catalog.find(q=>q.code==='2610B1'):require('../../data/quests/requirements.json').quests.find(q=>q.code==='D1');
-    h.store.questState={known:true,tasks:[{api_no:quest.ids[0],api_title:quest.title,api_state:2}]};h.set('questState',h.store.questState);
+    h.store.questState={known:true,complete:false,tasks:[{api_no:quest.ids[0],api_title:quest.title,api_state:2}]};h.set('questState',h.store.questState);
     if(kind==='normal')h.set('area','1-3');
     const section=()=>h.find(h.render(),n=>n.type?.name==='QuestSection');
     section().props.onToggleQuest(quest.code);assert.deepEqual(h.get('selectedQuests'),[quest.code]);

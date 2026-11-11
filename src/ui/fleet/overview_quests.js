@@ -12,6 +12,7 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
   function OverviewQuests({state,questState,onNavigate,disabled=false}){
     i18n.useLocale(React);const t=i18n.t;
     const incomplete=(questState??state?.questState)?.complete===false;
+    const unavailable=incomplete&&(questState??state?.questState)?.known!==true;
     const [revision,setRevision]=React.useState?React.useState(0):[0,()=>{}];
     const [category,setCategory]=React.useState?React.useState('B'):['B',()=>{}];
     const [narrow,setNarrow]=React.useState?React.useState(false):[false,()=>{}];
@@ -51,7 +52,7 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
         ...gameConfirmed?{title:t('依据游戏任务进度')}:count>0&&!complete?{title:t('根据已观察到的记录，实际进度可能更高')}:count===0?{title:t('目标进度未确认')}:{}},progressText):null;
       const button=(destination,label,key,showStatus=false)=>{
         const area=String(label).match(/^(\d+-\d+)(.*)$/);
-        return h('button',{key,type:'button',disabled:disabled||incomplete||!task.code,
+        return h('button',{key,type:'button',disabled:disabled||unavailable||!task.code,
         className:'paa-overview-quest-target',onClick:()=>onNavigate?.({...destination,code:task.code}),
         'aria-label':t('{label}：前往{destination}并预选{title}{progress}',{label,destination:t(destination.kind==='normal'?'海域':destination.kind==='practice'?'演习':'远征'),title:task.title,progress:showStatus&&hasCount?`，${progressDescription}`:''})},
         h('span',{className:'paa-overview-target-label'},area?h(React.Fragment||'span',null,h('strong',null,area[1]),area[2]):label),

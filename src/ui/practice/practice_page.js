@@ -68,7 +68,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
       if(hidden||busy||working||intent?.kind!=='practice'||handledNavigation.current===intent.id)return;
       handledNavigation.current=intent.id;
       const current=getStore(),related=practiceTasks({state:current,slots,deckId:fleet,questState:current.questState});
-      if(current.questState?.complete===false||related.status!=='ready'||!related.tasks.some(task=>task.code===intent.code&&task.supported&&[2,3].includes(task.state))){
+      if(related.status!=='ready'||!related.tasks.some(task=>task.code===intent.code&&task.supported&&[2,3].includes(task.state))){
         setMessage('任务已变化或未同步，请重新选择任务');return;
       }
       setSelectedQuests(previous=>previous.includes(intent.code)?previous:[...previous,intent.code].sort());
@@ -297,14 +297,14 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
       try{
       if(activeQuestCodes.length){
         const current=getStore(),related=practiceTasks({state:current,slots,deckId:fleet,questState:current.questState});
-        if(current.questState?.complete===false||related.status!=='ready'||activeQuestCodes.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化或尚未同步，请重新选择');
+        if(related.status!=='ready'||activeQuestCodes.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化或尚未同步，请重新选择');
         if(activeQuestCodes.some(code=>!related.tasks.find(task=>task.code===code)?.supported))throw Error('所选演习任务的编成资料尚未收录，暂无法按任务补全');
       }
       const service=getController(),{snapshotId}=service.createSnapshot();
       const result=await service.recommendPracticeFleet({snapshotId,fleet,slots,opponent:selected,capacity:6,trainingShipIds,...activeQuestCodes.length?{questCodes:activeQuestCodes}: {}},value=>publish(progress.update(value)));
       if(activeQuestCodes.length){const current=getStore(),related=practiceTasks({state:current,slots,deckId:fleet,questState:current.questState});
         if(withoutClaimed(activeQuestCodes,current.questState)!==activeQuestCodes){setSelectedQuests(previous=>withoutClaimed(previous,current.questState));return;}
-        if(current.questState?.complete===false||related.status!=='ready'||activeQuestCodes.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化，请重新选择');}
+        if(related.status!=='ready'||activeQuestCodes.some(code=>!related.tasks.some(task=>task.code===code)))throw Error('所选任务已变化，请重新选择');}
       if(selectionRef.current.opponentId!==startSelection.opponentId||selectionRef.current.opponentKey!==startSelection.opponentKey)return;
       const old=new Map(slots.filter(Boolean).map(s=>[s.id,s]));setSlots(result.scheme.ships.map(s=>({...s,pin:!!old.get(s.id)?.pin,keep:old.get(s.id)?.keep||{}})).concat(Array(Math.max(0,6-result.scheme.ships.length)).fill(null)));
       if(selectionRef.current.opponentId===startSelection.opponentId&&selectionRef.current.opponentKey===startSelection.opponentKey){

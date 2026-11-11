@@ -78,7 +78,7 @@ test('malformed or failed responses do not change status and view identity stays
   assert.equal(observer.view(),stable);
   observer.observe({path:LIST,body:{api_result:1,api_data:{api_list:[row(1)]}}});assert.equal(observer.view(),stable);
 });
-test('startup seeds only same-day timestamped active rows; accepting data is never inferred from progress records',()=>{
+test('startup does not infer tasks from poi active rows or progress records',()=>{
   const {observer,store,now}=fixture();store.info.quests={
     records:{111:{count:5}},activeQuests:{
       1:{detail:row(1,2),time:now-1000},
@@ -86,25 +86,25 @@ test('startup seeds only same-day timestamped active rows; accepting data is nev
       3:{detail:row(3,3),time:now},4:{detail:row(4,1),time:now},
       5:{detail:row(5,2)},6:{detail:row(6,2),time:now+1}
     }};
-  assert.deepEqual(observer.view().tasks.map(t=>t.api_no),[3,1]);
-  observer.observe({path:QUEST+'clearitemget',postBody:{api_quest_id:1},body:{}});
-  assert.deepEqual(observer.view().tasks.map(task=>task.api_no),[3]);assert.deepEqual(observer.view().tasks.map(task=>task.api_no),[3]);
+  assert.deepEqual(observer.view(),{known:false,tasks:[]});
+  observer.observe({path:LIST,body:{api_list:[row(3,3)]}});
+  assert.deepEqual(observer.view().tasks.map(task=>task.api_no),[3]);
 });
-test('account changes clear observations, never revive same-reference prior account active rows, and do not persist raw account data',()=>{
+test('account changes clear observations and never import poi active rows',()=>{
   const {observer,store,now}=fixture();store.info.quests.activeQuests={1:{detail:row(1,2),time:now}};
-  assert.equal(observer.view().tasks.length,1);
+  assert.equal(observer.view().tasks.length,0);
   observer.observe({path:LIST,body:{api_list:[row(2)]}});
   store.info.basic.api_member_id='account-b';assert.deepEqual(observer.view(),{known:false,tasks:[]});
   observer.observe({path:LIST,body:{api_list:[row(3)]}});assert.deepEqual(observer.view().tasks.map(t=>t.api_no),[3]);
   store.info.basic.api_member_id='account-a';assert.deepEqual(observer.view(),{known:false,tasks:[]});
   assert(!JSON.stringify(observer).includes('account-a'));assert(!JSON.stringify(observer).includes('account-b'));
 });
-test('daily expiry removes stale statuses and stale host rows cannot repopulate; natural new responses restore known state',()=>{
+test('a new task day retains the last list until fresh data arrives',()=>{
   const {observer,store,setTime}=fixture();setTime('2026-10-23T04:59:59+09:00');
   store.info.quests.activeQuests={1:{detail:row(1,2),time:Date.parse('2026-10-23T04:59:00+09:00')}};
-  observer.observe({path:LIST,body:{api_list:[row(2)]}});assert.equal(observer.view().tasks.length,2);
-  setTime('2026-10-23T05:00:00+09:00');assert.deepEqual(observer.view(),{known:false,tasks:[]});
-  const expired=observer.view();assert.equal(observer.view(),expired);
+  observer.observe({path:LIST,body:{api_list:[row(2)]}});assert.equal(observer.view().tasks.length,1);
+  setTime('2026-10-23T05:00:00+09:00');assert.deepEqual(observer.view().tasks.map(t=>t.api_no),[2]);
+  assert.equal(observer.hasFreshComplete(),false);
   observer.observe({path:LIST,body:{api_list:[row(2,2)]}});assert.equal(observer.view().known,true);
   assert.deepEqual(observer.view().tasks.map(t=>t.api_no),[2]);
 });

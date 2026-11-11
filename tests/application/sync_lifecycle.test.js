@@ -6,7 +6,7 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 // Only the game-frame transport and unrelated host services are doubles.
 function fixture(initialAccount=null){
   const entry=path.resolve(__dirname,'../../index.js'),out={},timers=new Set(),listeners=new Map(),calls=[];
-  const state={info:{basic:initialAccount?{api_member_id:initialAccount}:null,quests:{activeQuests:{}},fleets:[]}};
+  const state={info:{basic:initialAccount?{api_member_id:initialAccount}:null,quests:{activeQuests:{}},fleets:[]}},snapshots=new Map();
   let doc=1,reader=null,service=null,api=null,holdQuest=null,holdIdentity=null,version=1;
   const window={document:{},getStore:()=>state,
     addEventListener:(name,fn)=>listeners.set(name,fn),removeEventListener:name=>listeners.delete(name)};
@@ -39,7 +39,7 @@ function fixture(initialAccount=null){
   class PracticeObserver{
     constructor(){this.state={known:false,opponents:[],revision:0};}
     view(){return this.state;}
-    acceptList(data){this.state={known:true,opponents:data.api_list.map(x=>({id:x.api_enemy_id,ships:null})),revision:this.state.revision+1};return true;}
+    acceptList(data){this.state={known:true,listUpdatedAt:Date.now(),opponents:data.api_list.map(x=>({id:x.api_enemy_id,ships:null})),revision:this.state.revision+1};return true;}
     acceptEnemy(data){const row=this.state.opponents.find(x=>x.id===data.api_member_id);row.ships=[];row.fleetUpdatedAt=Date.now();this.state.revision++;return true;}
     resetSession(){this.state={known:false,opponents:[],revision:this.state.revision+1};}
     observe(){} dispose(){}
@@ -47,6 +47,7 @@ function fixture(initialAccount=null){
   class ExpeditionProgress{view(){return {}} observe(){} acceptMissions(){return true} dispose(){}}
   class Service{
     constructor(args){service=this;this.getStore=args.getStore;this.persistenceReady=false;this.activeJobId=null;
+      this.questProgress={getQuestSnapshot:key=>snapshots.get(key)||null,saveQuestSnapshot:async(key,value)=>{snapshots.set(key,JSON.parse(JSON.stringify(value)));}};
       this.questProgressObserver={snapshot(){return null},restore(){},remember(){calls.push({kind:'progress-remember',account:state.info.basic?.api_member_id})},resetSession(){calls.push({kind:'progress-reset'})}};}
     reconcileQuestProgress(){} observeQuestProgress(){calls.push({kind:'progress-observe',account:state.info.basic?.api_member_id})} dispose(){} subscribe(){return ()=>{}}
   }
@@ -97,10 +98,11 @@ test('plugin starts before login and reacts to game.start without opening a task
   assert.deepEqual(f.api.getStore().questState.tasks.map(x=>x.api_no),[201]);
 });
 
-test('same-session plugin restart refreshes retained tasks rather than treating them as current',async t=>{
+test('same-session plugin restart immediately restores tasks and then refreshes them',async t=>{
   const f=fixture(1);f.start();t.after(()=>f.stop());await f.until(()=>f.api.getStore().questState.complete);
   await f.stop();f.setVersion(2);f.start();
-  assert.equal(f.api.getStore().questState.complete,false);
+  assert.equal(f.api.getStore().questState.complete,true);
+  assert.deepEqual(f.api.getStore().questState.tasks.map(x=>x.api_no),[101]);
   await f.until(()=>f.api.getStore().questState.complete&&f.api.getStore().questState.tasks.some(x=>x.api_no===102));
   assert.equal(f.calls.filter(x=>x.kind==='quest').length,2);
 });
