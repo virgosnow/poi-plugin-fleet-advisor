@@ -109,7 +109,7 @@ Normal search always uses route requirements and a single combat score; default 
 
 Arrival excludes retreat/battle outcomes. `arrival` describes selected/merged route or overall Boss arrival according to the strategy; do not add probabilities from different recommended fleets. `fleetSummary.air.reference/estimate` contains selected-route per-node thresholds and aircraft-loss estimates. The map catalog field `airControl` contains static reference information; use route evaluation for loss-adjusted results. LoS gates may have different coefficients: read `planning.losRequirements` / `fleetSummary.los`, not just coefficient 4. Missing data remains unknown. Search is bounded; `notFound` does not prove a solution is impossible.
 
-Expedition `eligible` and `greatSuccess` are separate. `income.rows[].net/greatNet` deduct fuel/ammo supply; catalog reference income is not the proposed fleet's income. Recommendation defaults to the plugin expedition goal setting; supply assumptions and uncertain probabilities remain explicit. A recommendation may be prepared for an away destination fleet, but excludes ships and equipment currently on expedition; preview and execution still require the real destination fleet to be available.
+Expedition `eligible` and `greatSuccess` are separate. `income.rows[].net/greatNet` deduct fuel/ammo supply; catalog reference income is not the proposed fleet's income. Recommendation defaults to `goal=great`; supply assumptions and uncertain probabilities remain explicit. The saved expedition borrowing setting applies independently of sortie: when disabled, only warehouse equipment and equipment on the candidate fleet are available. A recommendation may be prepared for an away destination fleet, but excludes ships and equipment currently on expedition; preview and execution still require the real destination fleet to be available.
 
 ### Workflows
 
@@ -328,7 +328,7 @@ Effect: **read-only**.
 
 #### `fleet_advisor_recommend_expedition_fleet`
 
-Recommend expedition ships/equipment with independent filters. Returns success/great goals, checks, probability and net income. Combat expedition net income includes the explicitly labeled repair reference, not an observed or expected loss. If no eligible result exists, closestRecommendation is an explicitly ineligible reference with shortfalls; never treat it as dispatch-ready. Honors manual locks; read-only.
+Recommend expedition ships/equipment with independent filters. Honors the saved expedition borrowing setting: when disabled, use only unequipped inventory and equipment owned by ships in each proposed fleet. Returns success/great goals, checks, probability and net income. Combat expedition net income includes the explicitly labeled repair reference, not an observed or expected loss. If no eligible result exists, closestRecommendation is an explicitly ineligible reference with shortfalls; never treat it as dispatch-ready. Honors manual locks; read-only.
 
 Effect: **read-only**.
 
@@ -346,7 +346,7 @@ Effect: **read-only**.
 
 #### `fleet_advisor_recommend_expedition_equipment`
 
-Refit equipment only; preserve supplied hulls/order. Returns full scheme, dispatch checks, great-success estimate and net income. Combat expedition net income includes the explicitly labeled repair reference, not an observed or expected loss. Only heldSlots.keep equipment is retained. No game change.
+Refit equipment only; preserve supplied hulls/order. Honors the saved expedition borrowing setting: when disabled, use only unequipped inventory and equipment owned by the supplied hulls. A held item from another ship is a conflict. Returns full scheme, dispatch checks, great-success estimate and net income. Combat expedition net income includes the explicitly labeled repair reference, not an observed or expected loss. Only heldSlots.keep equipment is retained. No game change.
 
 Effect: **read-only**.
 

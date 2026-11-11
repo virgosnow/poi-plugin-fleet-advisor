@@ -1,5 +1,7 @@
 # 舰队参谋 / Fleet Advisor
 
+[简体中文](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja-JP.md)
+
 <img src="https://raw.githubusercontent.com/virgosnow/poi-plugin-fleet-advisor/main/docs/images/fleet-advisor-icon.png" alt="舰队参谋图标" width="128">
 
 『提督、艦隊の編成と装備は、私にお任せください。』<br>
@@ -15,7 +17,7 @@
 
 ## 界面预览
 
-以下为 poi 中的运行画面。
+以下为 poi 中的运行画面，截图使用简体中文界面。
 
 ![常规海域工作台：路线地图、舰队与配装](https://raw.githubusercontent.com/virgosnow/poi-plugin-fleet-advisor/main/docs/images/normal-map.png)
 
@@ -51,7 +53,7 @@
 
 ## 设置与 AI 接入
 
-设置页可调整舰娘筛选、装备借用、计算线程和缓存容量。清理游戏数据缓存会删除本地任务进度记录。
+设置页可调整界面语言、舰娘筛选、装备借用、计算线程和缓存容量。界面语言支持简体中文、繁體中文和日本語；首次启动优先采用 poi 的语言设置，之后可在插件设置中切换。游戏原名保持原样，部分动态规则和诊断说明仍可能显示原文。清理游戏数据缓存会删除本地任务进度记录。
 
 需要连接 AI 工具时，在设置页启用 MCP，并将显示的地址填入同一台电脑上的 AI 工具；默认地址为 `http://127.0.0.1:47615/mcp`。MCP 提供只读查询、评估与推荐。详细接入方式见 [MCP API](docs/MCP_API.md)。
 
