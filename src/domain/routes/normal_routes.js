@@ -271,7 +271,7 @@ function evaluatePoint(rules,ships,metrics,prepared){
         rule:rule.note||null,tentative:true};
     }
     if(rule.uncertain)return {status:'unknown',destinations:(rule.choices||[]).map(choice=>choice.to),
-      reason:rule.note||'wikiwiki 未确认此分岐条件'};
+      ...(rule.choiceKind?{choiceKind:rule.choiceKind}:{}),reason:rule.note||'wikiwiki 未确认此分岐条件'};
     // A routing roll is conditional: on failure the next rule still applies.
     // Keep it distinct from a terminal choices rule (which ends this chain).
     if(Number.isFinite(rule.chance)&&rule.to){
@@ -365,7 +365,7 @@ function bossArrivalChance(route,paths){
   const choices=new Map();
   for(const nodes of paths){let from='start';for(const to of nodes){
     const rules=rulesFor(map,from,route.phase);
-    if(rules?.some(rule=>/能動分岐|能动分岐/.test(rule.note||''))){
+    if(rules?.some(rule=>rule.choiceKind==='player')){
       if(!choices.has(rules))choices.set(rules,{from,exits:new Set()});
       choices.get(rules).exits.add(to);
     }
@@ -530,4 +530,4 @@ function fixedArrivalCondition(route){
   return null;
 }
 module.exports={listNormalMaps,evaluateNormalRoute,evaluateSearchRoute,bossArrivalChance,predicate,preparePredicate,preparePoint,evaluatePoint,fixedArrivalCondition,
-  LANDING_CRAFT_IDS,LANDING_CRAFT_EXCLUDED};
+  LANDING_CRAFT_IDS,LANDING_CRAFT_EXCLUDED,SHIP_GROUPS};

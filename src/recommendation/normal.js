@@ -561,7 +561,7 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     return collect?collectCandidate(candidate,!schemeOverride||asSeed):candidate;
   };
 
-  if(quests.length)for(const rows of questSeeds(store,ctx,args,quests,{templates:requestedRoutes.flatMap(option=>option.templates||[])}))evaluate(rows);
+  if(quests.length)for(const rows of questSeeds(store,ctx,args,quests,{routes:requestedRoutes,templates:requestedRoutes.flatMap(option=>option.templates||[])}))evaluate(rows);
   if(area==='1-1'&&target==='boss')for(const rows of oneOneSeeds(ctx)){
     evaluate(rows);guideSeedKeys.add(idsKey(rows));
   }
@@ -699,6 +699,16 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     return cached.get(option.key);
   };
   const pathRankCache=new WeakMap();
+  const adaptiveArrivalCache=new WeakMap();
+  const taskAdaptiveArrival=(row,option)=>{
+    if(!quests.length||!option.fallback)return null;
+    let cached=adaptiveArrivalCache.get(row);if(!cached){cached=new Map();adaptiveArrivalCache.set(row,cached);}
+    if(!cached.has(option.key)){
+      const chance=routePlans.adaptiveArrival(row.route,option)?.arrival;
+      cached.set(option.key,chance?.probability??chance?.min??0);
+    }
+    return cached.get(option.key);
+  };
   const pathRank=(seed,option,repairable=false)=>{
     let cached=pathRankCache.get(seed);if(!cached){cached=new Map();pathRankCache.set(seed,cached);}
     const key=option.key+':'+repairable;if(cached.has(key))return cached.get(key);
@@ -1047,7 +1057,8 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
     const arrival=row=>row.route.probability??row.route.chanceRange?.[0]??0;
     const winners=()=>candidates.filter(row=>row.profile?.routePaths?.some(p=>routePlans.optionPaths(option)
       .some(nodes=>p.nodes.join('>')===nodes.join('>')))&&pathRank(row,option)>-Infinity&&validFor(row,option))
-      .sort((a,b)=>(option.arrivalMode==='boss'?arrival(b)-arrival(a):0)||pathRank(b,option)-pathRank(a,option));
+      .sort((a,b)=>(quests.length?taskAdaptiveArrival(b,option)-taskAdaptiveArrival(a,option):
+        option.arrivalMode==='boss'?arrival(b)-arrival(a):0)||pathRank(b,option)-pathRank(a,option));
     const compatible=(base,trial)=>{
       if(!trial||!validFor(trial,option)||!reachable(trial,option))return false;
       const before=planning(base,option),after=planning(trial,option);
@@ -1102,18 +1113,23 @@ function* searchNormalFleet(store,args,selectedOptions,allowCompact=true){
   const routeResults=requestedRoutes.map(option=>{
     const possible=candidates.filter(row=>row.profile?.routePaths?.some(p=>routePlans.optionPaths(option).some(nodes=>p.nodes.join('>')===nodes.join('>')))&&pathRank(row,option)>-Infinity);
     const viable=possible.filter(row=>reachable(row,option)&&(!option.strategy||routePlans.strategyAssessment(row.route,option).eligible))
-      .sort((a,b)=>(option.arrivalMode==='boss'?
+      .sort((a,b)=>(option.fallback&&quests.length?taskAdaptiveArrival(b,option)-taskAdaptiveArrival(a,option):option.arrivalMode==='boss'?
         (b.route.probability??b.route.chanceRange?.[0]??0)-(a.route.probability??a.route.chanceRange?.[0]??0):0)||pathRank(b,option)-pathRank(a,option));
     const item=viable.find(executable),chance=item?strictChance(item,option):null;
     const closest=item||possible.slice().sort((a,b)=>pathRank(b,option)-pathRank(a,option))[0]||seeds[0];
     const diagnostics=routePlans.routeDiagnostics(closest?.route||initial,option);
     const diagnosticPaths=option.fallback?[routePlans.optionPlanning(closest?.route||initial,option).nodes]:routePlans.optionPaths(option);
-    const namedWarnings=item?[]:diagnosticPaths.map(nodes=>
-      selectionFilters.shipRequirementWarnings(store,routePlans.namedShipRequirements(area,nodes,phase),ctx,args.automaticFilters));
+    const namedDetails=item?[]:diagnosticPaths.map(nodes=>
+      selectionFilters.shipRequirementWarningDetails(store,routePlans.namedShipRequirements(area,nodes,phase),ctx,args.automaticFilters));
+    const namedWarnings=namedDetails.map(details=>details.map(detail=>detail.text));
     const missingShips=namedWarnings.length&&namedWarnings.every(w=>w.length)?[...new Set(namedWarnings.flat())]:[];
     if(missingShips.length)diagnostics.warnings.unshift(...missingShips);
-    const briefShips=missingShips.length?diagnosticPaths.flatMap(nodes=>
-      selectionFilters.shipRequirementWarnings(store,routePlans.namedShipRequirements(area,nodes,phase),ctx,args.automaticFilters,{compact:true})):[];
+    const briefShipDetails=missingShips.length?diagnosticPaths.flatMap(nodes=>
+      selectionFilters.shipRequirementWarningDetails(store,routePlans.namedShipRequirements(area,nodes,phase),ctx,args.automaticFilters,{compact:true})):[];
+    const briefShips=briefShipDetails.map(detail=>detail.text);
+    // Additive structured metadata is used only for display. The original
+    // strings remain the compatibility and deduplication inputs.
+    if(briefShipDetails.length)diagnostics.briefWarningDetails=[...new Map(briefShipDetails.map(detail=>[detail.text,detail])).values()];
     diagnostics.briefWarnings=[...new Set([...briefShips,...diagnostics.points.filter(p=>p.status!=='random').flatMap(p=>{
       const label=p.from===null?null:`${p.from==='start'?'出发点':p.from} → ${p.to}`;
       if(label&&briefShips.some(s=>s.startsWith(label+'：')))return [];

@@ -3,6 +3,9 @@ const {previewForMap}=require('./sortie_profile');
 const {evaluatePoint,predicate,preparePredicate,preparePoint,bossArrivalChance:bossChance}=require('./normal_routes');
 const {effectiveRule,isPlayerChoice}=require('./route_policy');
 const {calculationTable}=require('../../shared/calculation_cache');
+// Rules originate in JSON data; never expose mutable references to those rules
+// from presentation trees returned to callers.
+const copyExpression=value=>value===undefined?null:JSON.parse(JSON.stringify(value));
 const maps=new Map();
 const mapFor=area=>{if(!maps.has(area))maps.set(area,require(`../../../data/normal_routes/${area}.json`));return maps.get(area);};
 // Static rule parsing is shared only within a synchronous search step/batch.
@@ -61,7 +64,7 @@ function fleetPaths(route,option){
 }
 function fleetPathOption(route,option){
   if(!option?.fallback&&optionPaths(option).length<=1||!route?.area||!route.ships?.length||option.phase&&option.phase!==route.phase)return option;
-  const displayPaths=fleetPaths(route,option);
+  const displayPaths=displayFleetPaths(route,option);
   const display=displayPaths.length?pathLabel(displayPaths):'无可达分支';
   const presetName=option.presetName||option.name;
   const fixedName=displayPaths.length===1?option.fixedPathNames?.[displayPaths[0].join('>')]:null;
@@ -105,6 +108,33 @@ function optionPlanning(route,option){
   const best=considered.slice().sort((a,b)=>b.chance.min-a.chance.min||a.losShortfall-b.losShortfall)[0];
   return {...best,branches,chance:{min,max,probability:Math.abs(min-max)<1e-9?min:null},losRequirements,
     losShortfall:losRequirements.reduce((sum,r)=>sum+(r.shortfall??1000),0)};
+}
+// Adaptive search selects one representative path, but the same fleet can
+// reach the target through other random branches. Preserve that selected
+// path's manual choices; alternative choices are not random outcomes.
+function adaptiveArrival(route,option){
+  if(!route?.area||!route.ships?.length||!option?.fallback||option.phase&&option.phase!==route.phase)return null;
+  const best=optionPlanning(route,option);
+  if(!best?.nodes)return null;
+  const choices=new Map(),branches=optionPaths(option).map(nodes=>({nodes,...planningPath(route,nodes,{allowTentative:false,includeLosRequirements:false})}))
+    .filter(branch=>branch.chance.max>0);
+  // Select one exit for each reached manual fork, including forks on random
+  // branches other than the representative route. Start with that route and
+  // then prefer the likeliest compatible journey at each remaining fork.
+  const ranked=branches.slice().sort((a,b)=>Number(b.nodes.join('>')===best.nodes.join('>'))-Number(a.nodes.join('>')===best.nodes.join('>'))||
+    (b.chance.probability??b.chance.min)-(a.chance.probability??a.chance.min));
+  for(const branch of ranked){
+    const assessments=new Map(branch.pointAssessments.map(point=>[point.from,point.assessment])),manual=[];let from='start';
+    for(const to of branch.nodes){if(isPlayerChoice(assessments.get(from)))manual.push([from,to]);from=to;}
+    if(manual.some(([point,to])=>choices.has(point)&&choices.get(point)!==to))continue;
+    for(const [point,to] of manual)if(!choices.has(point))choices.set(point,to);
+  }
+  const compatible=branches.filter(branch=>branch.nodes.every((to,i)=>!choices.has(i?branch.nodes[i-1]:'start')||choices.get(i?branch.nodes[i-1]:'start')===to));
+  const arrival=bossArrivalChance(route,{...option,paths:compatible.length?compatible.map(branch=>branch.nodes):[best.nodes]});
+  return {best,arrival,branches:compatible,playerChoices:arrival.playerChoices.length?arrival.playerChoices:[...choices].map(([point,to])=>({from:point,to}))};
+}
+function displayFleetPaths(route,option){
+  return option?.fallback?(adaptiveArrival(route,option)?.branches||[]).map(branch=>branch.nodes):fleetPaths(route,option);
 }
 function routeOptions(area,target='boss',phase){
   const phases=target==='boss'&&!phase?Object.keys(mapFor(area).bossPhases||{}):[];
@@ -221,7 +251,7 @@ function requirements(area,nodes,phase){
 }
 // UI explanation only. Never highlight a later true condition after an earlier
 // true OR unresolved condition: route rules are evaluated in priority order.
-function requirementDetails(area,nodes,phase,route){
+function requirementDetails(area,nodes,phase,route,{structured=false}={}){
   const map=mapFor(area),ready=route?.area===area&&route.ships?.length>0;
   const metrics={lineOfSight:route?.lineOfSight||{status:'unknown'},speed:route?.speed||{status:'unknown'}};
   const calculated={...metrics,lineOfSight:{...metrics.lineOfSight,
@@ -232,7 +262,9 @@ function requirementDetails(area,nodes,phase,route){
     const operator=value?.all?'all':value?.any?'any':value?.not?'not':null;
     const speedCondition=value?.speedAtLeast?{kind:'minimum',value:value.speedAtLeast}:
       value?.speedIs?{kind:'exact',value:value.speedIs}:null;
-    return {operator,text:describe(value),met:ready?predicate(value,route.ships,calculated):null,
+    // Keep the original machine-readable predicate available to display
+    // adapters. Rendering a translated description must never alter it.
+    return {operator,text:describe(value),...(structured&&!operator?{expression:copyExpression(value)}:{}),met:ready?predicate(value,route.ships,calculated):null,
       ...(speedCondition?{speedCondition}:{}),
       children:operator?(operator==='not'?[value.not]:value[operator]).map(tree):[]};
   };
@@ -275,7 +307,7 @@ function possiblePoint(rules,ships,metrics,prepared){
     // Hull feasibility only reads destinations and predicates; no display-note normalization.
     const rule=sourceRule;
     const match=prepared?prepared.get(rule)(ships,metrics):predicate(rule.when,ships,metrics);if(match===false)continue;
-    const fixed=rule.assumedTo&&!rule.conditionUnknown&&!/能動分岐|能动分岐/.test(rule.note||'')?rule.assumedTo:rule.to;
+    const fixed=rule.assumedTo&&!rule.conditionUnknown&&rule.choiceKind!=='player'?rule.assumedTo:rule.to;
     for(const to of fixed?[fixed]:(rule.choices||[]).map(c=>c.to))destinations.add(to);
     if(rule.assumedTo)destinations.add(rule.assumedTo);
     if(match===true&&(!Number.isFinite(rule.chance)||rule.chance>=1))break;
@@ -465,7 +497,7 @@ function losWindows(route,nodes){
 }
 // Diagnose every edge, including those after the first failure. The player
 // needs all constraints to repair a fleet, not just the first blocked node.
-function routeDiagnostics(route,option){
+function routeDiagnostics(route,option,{structured=false}={}){
   let paths=optionPaths(option);
   if(option?.fallback)paths=[optionPlanning(route,option).nodes];
   else if(paths.length>1){
@@ -475,7 +507,7 @@ function routeDiagnostics(route,option){
   const map=mapFor(route.area),points=new Map();
   for(const nodes of paths){
     const planned=planningPath(route,nodes,{allowTentative:false});
-    const details=requirementDetails(route.area,nodes,route.phase,route);let from='start';
+    const details=requirementDetails(route.area,nodes,route.phase,route,{structured});let from='start';
     for(const to of nodes){
       const key=from+'>'+to,a=planned.pointAssessments.find(p=>p.from===from)?.assessment;
       const fixed=map.fixedEdges?.[`${from}#${route.phase}`]??map.fixedEdges?.[from];
@@ -493,34 +525,46 @@ function routeDiagnostics(route,option){
         const label=`${from==='start'?'出发点':from} → ${to}`;
         const current=unavailable?'当前阶段尚未开放该节点':availabilityUnknown?'当前阶段是否开放该节点待确认':a?.tentative?`规则样本不足：${a.rule||hit?.condition||'出口待核实'}`:hit?`当前命中：${hit.condition} → ${hit.destinations}${a?.status==='unknown'&&a.reason?'；'+a.reason:''}`:
           a?.reason||a?.rule||(fixed?`当前固定前往 ${fixed}`:'该点带路规则尚未确认');
+        // Parallel display metadata. The legacy strings above remain intact
+        // for existing clients and all route/recommendation decisions.
+        const currentDetail=!structured?null:unavailable?{code:'stageNotOpen'}:availabilityUnknown?{code:'stageUnknown'}:
+          a?.tentative?{code:'tentative',...(a.rule?{reason:a.rule}:hit?{conditionTree:hit.conditionTree,chance:hit.chance,destinations:hit.destinations}:{reasonCode:'unknownExit'})}:
+          hit?{code:'matched',conditionTree:hit.conditionTree,chance:hit.chance,destinations:hit.destinations,
+            ...(a?.status==='unknown'&&a.reason?{reason:a.reason}:{})}:
+          a?.reason||a?.rule?{code:'raw',text:a.reason||a.rule}:fixed?{code:'fixed',destination:fixed}:{code:'unknownRule'};
         const requirements=desired.map(r=>({condition:r.condition,state:r.state,tentative:r.tentative}));
-        for(const gate of planned.losRequirements.filter(r=>r.from===from))requirements.unshift({
-          condition:`33 式索敌（系数 ${gate.coefficient}） ≥ ${gate.required}`,
-          state:gate.shortfall===0?'matched':'unmatched',tentative:false});
+        const requirementDetails=structured?desired.map(r=>({code:'rule',conditionTree:r.conditionTree,chance:r.chance,destinations:r.destinations,state:r.state,text:r.condition})):null;
+        for(const gate of planned.losRequirements.filter(r=>r.from===from)){
+          const state=gate.shortfall===0?'matched':'unmatched';
+          requirements.unshift({condition:`33 式索敌（系数 ${gate.coefficient}） ≥ ${gate.required}`,state,tentative:false});
+          if(structured)requirementDetails.unshift({code:'losMinimum',coefficient:gate.coefficient,required:gate.required,state,text:`33 式索敌（系数 ${gate.coefficient}） ≥ ${gate.required}`});
+        }
         const readings=planned.losRequirements.filter(r=>r.from===from).map(r=>`索敌系数 ${r.coefficient}：当前 ${r.score===null?'未知':r.score.toFixed(1)}，固定门槛 ≥ ${r.required}`);
         const needed=(readings.length?'；'+readings.join('；'):'')+(requirements.length?'；通过条件（按规则优先级判定）：'+requirements.map(r=>r.condition).join('；或 '):'');
         const summary=status==='random'?`${label}：随机分岐，${referenceProbability?
           `${to} ${Math.round((Number.isFinite(weight)?weight:referenceProbability)*1000)/10}%；其余偏航`:
           a.probabilities.map(p=>`${p.to} ${Math.round(p.probability*1000)/10}%`).join(' / ')}`:
           `${label}：${status==='blocked'?'受阻':'待确认'}，${current}${needed}`;
-        points.set(key,{from,to,status,current,requirements,summary});
+        points.set(key,{from,to,status,current,requirements,summary,...structured?{currentDetail,requirementDetails}:{}});
       }
       from=to;
     }
     const sequence='>start>'+nodes.join('>')+'>';
     for(const segment of map.incompatiblePathSegments||[])if(sequence.includes('>'+segment.nodes.join('>')+'>')){
-      const key=segment.nodes.join('→');points.set(key,{from:segment.nodes[0],to:segment.nodes.at(-1),status:'blocked',requirements:[],summary:`${key}：路线组合不兼容，${segment.reason||segment.note||'无法用同一编成连续通过'}`});
+      const key=segment.nodes.join('→'),reason=segment.reason||segment.note||'无法用同一编成连续通过';
+      points.set(key,{from:segment.nodes[0],to:segment.nodes.at(-1),status:'blocked',requirements:[],
+        ...structured?{reasonCode:'incompatiblePath',reasonId:segment.reasonId,area:route.area,nodes:[...segment.nodes],reason}:{},summary:`${key}：路线组合不兼容，${reason}`});
     }
   }
   const strategy=strategyAssessment(route,option),chance=strategy?.chance||optionPlanning(route,option).chance;
   // An unused alternative is not an obstruction when another branch covers
   // the whole journey. Keep all diagnostics when the group cannot be reached.
   const issues=paths.length>1&&chance.probability===1?[]:[...points.values()],fleet=fleetRequirementAssessment(route,option);
-  if(strategy&&!strategy.speedMet)issues.unshift({from:null,to:null,status:'blocked',requirements:[],summary:
+  if(strategy&&!strategy.speedMet)issues.unshift({from:null,to:null,status:'blocked',requirements:[],...structured?{reasonCode:'strategySpeed',minimumSpeed:option.strategy.minimumSpeed}:{},summary:
     `流派速力要求：全队${({fast:'高速',fastPlus:'高速＋',fastest:'最速'})[option.strategy.minimumSpeed]}统一；当前配装未达到。`});
-  if(strategy&&!strategy.radarMet)issues.unshift({from:null,to:null,status:'blocked',requirements:[],summary:
+  if(strategy&&!strategy.radarMet)issues.unshift({from:null,to:null,status:'blocked',requirements:[],...structured?{reasonCode:'strategyRadar',radarCarriers:option.strategy.radarCarriers}:{},summary:
     `流派电探要求：至少 ${option.strategy.radarCarriers} 艘携带电探；当前配装未达到。`});
-  if(!fleet.eligible)issues.unshift({from:null,to:null,status:'blocked',requirements:[],summary:`攻略编成要求：${fleet.description}；当前编成未满足。`});
+  if(!fleet.eligible)issues.unshift({from:null,to:null,status:'blocked',requirements:[],...structured?{reasonCode:'fleetRequirement',expression:copyExpression(option.fleetRequirement)}:{},summary:`攻略编成要求：${fleet.description}；当前编成未满足。`});
   if(!map.graphComplete||!paths.every(nodes=>route.targetNodes?.includes(nodes.at(-1))))issues.push({from:null,to:null,status:'unknown',requirements:[],summary:'路线图或目标节点资料不完整，无法确认整条路线'});
   return {chance,points:issues,blocked:issues.filter(p=>p.status==='blocked'),unknown:issues.filter(p=>p.status==='unknown'),
     warnings:issues.map(p=>p.summary),strategyEligible:strategy?.eligible??true};
@@ -765,4 +809,4 @@ function hullSeeds(ctx,options,family){
   const unique=lists=>[...new Map(lists.flatMap(([,rows])=>rows).map(s=>[s.rows.map(r=>r.id).join(','),s.rows])).values()];
   return {rows:unique(beams),baselineRows:unique(beams.filter(([key])=>!key.endsWith(':combat'))),attempted,truncated};
 }
-module.exports={optionPaths,bossArrivalChance,pathLabel,fleetPaths,fleetPathOption,orderedPathNodes,optionPlanning,fleetRequirementAssessment,routeOptions,recommendedOptions,currentPhase,pathChance,isPlayerChoice,requirements,requirementDetails,hullSeeds,hullCache,mergeHullParts,possiblePoint,routeFleetSizes,planningPath,hullPath,strategyAssessment,routeDiagnostics,routingNeeds,losGates,losWindows,createLoSWindowReader,withPlanningCache,namedShipRequirements};
+module.exports={optionPaths,bossArrivalChance,pathLabel,fleetPaths,displayFleetPaths,adaptiveArrival,fleetPathOption,orderedPathNodes,optionPlanning,fleetRequirementAssessment,routeOptions,recommendedOptions,currentPhase,pathChance,isPlayerChoice,requirements,requirementDetails,hullSeeds,hullCache,mergeHullParts,possiblePoint,routeFleetSizes,planningPath,hullPath,strategyAssessment,routeDiagnostics,routingNeeds,losGates,losWindows,createLoSWindowReader,withPlanningCache,namedShipRequirements};

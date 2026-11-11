@@ -1884,6 +1884,7 @@
             "to": "O"
           }
         ],
+        "choiceKind": "player",
         "note": "能動分岐（出击者选择）"
       }
     ],
@@ -1990,6 +1991,7 @@
             "to": "Q"
           }
         ],
+        "choiceKind": "player",
         "note": "能動分岐（出击者选择）"
       }
     ],

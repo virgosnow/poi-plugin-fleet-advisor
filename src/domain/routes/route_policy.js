@@ -5,8 +5,7 @@
 // Source notes do not depend on a candidate fleet. Bound by text, not rule
 // identity, so source edits and live reloads cannot reuse a stale description.
 const noteCache=new Map();
-const isPlayerChoice=a=>a?.status==='unknown'&&!a.tentative&&
-  /能動分岐|能动分岐/.test(a.reason||a.rule||'');
+const isPlayerChoice=a=>a?.status==='unknown'&&!a.tentative&&a.choiceKind==='player';
 function referenceNote(note=''){
   if(noteCache.has(note))return noteCache.get(note);
   let cleaned=note;
@@ -20,7 +19,7 @@ function referenceNote(note=''){
 }
 function effectiveRule(rule){
   if(rule.conditionUnknown)return {...rule,tentative:false,uncertain:true};
-  if(/能動分岐|能动分岐/.test(rule.note||''))return rule;
+  if(rule.choiceKind==='player')return rule;
   return {...rule,tentative:false,uncertain:false,
     ...(rule.assumedTo?{to:rule.assumedTo,choices:undefined}:{}),
     note:referenceNote(rule.note||'')};

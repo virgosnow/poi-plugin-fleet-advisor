@@ -55,6 +55,45 @@ function drumFixture(missionId,drums=DATA.missions[missionId].gs.max+4){
   return {store,spec,scheme:{fleet:2,ships:types.map((_,i)=>({id:i+1}))}};
 }
 
+test('expedition borrowing follows the candidate fleet for search and equipment refits',()=>{
+  const {store,scheme}=drumFixture(21);
+  hull(store,99,2,{},4);store.info.ships[99].api_slot=[4000,-1,-1,4003];
+  store.info.ships[scheme.ships[0].id].api_slot[0]=4001; // 4002 remains in the warehouse.
+  const before=JSON.stringify(store),cargo=row=>row.scheme.ships.flatMap(s=>[...s.slots,s.ex]).filter(id=>id>=4000&&id<=4003);
+  for(const allowEquipmentBorrowing of [false,true,false]){
+    const automaticFilters={allowEquipmentBorrowing};
+    const fitted=recommendExpeditionEquipment(store,{missionId:21,scheme,goal:'success',automaticFilters});
+    assert(fitted.evaluation.eligible);assert.deepEqual(cargo(fitted).sort(),allowEquipmentBorrowing?[4000,4001,4002,4003]:[4001,4002]);
+    const searched=recommendExpeditionFleet(store,{missionId:21,fleet:2,goal:'success',limit:1,excludedShipIds:[99],automaticFilters}).recommendations[0];
+    assert(searched?.evaluation.eligible);assert(cargo(searched).every(id=>allowEquipmentBorrowing||![4000,4003].includes(id)));
+  }
+  const heldSlots=[{id:scheme.ships[0].id,slots:[4000],keep:{0:true}}];
+  assert.throws(()=>recommendExpeditionEquipment(store,{missionId:21,scheme,heldSlots,automaticFilters:{allowEquipmentBorrowing:false}}),/不借用.*草稿已保留/);
+  assert.equal(JSON.stringify(store),before);
+});
+
+test('expedition service applies its saved borrowing setting to search and refitting',async t=>{
+  const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+  const {FleetAdvisorService}=require('../../src/application/fleet_advisor_service');
+  const {store,scheme}=drumFixture(21);hull(store,99,2,{},4);store.info.ships[99].api_slot=[4000,4001,4002,4003];
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'paa-exp-borrow-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const service=new FleetAdvisorService({storageDir:dir,getStore:()=>store,controller:new Controller({getStore:()=>store})});
+  const cargo=row=>row.scheme.ships.flatMap(s=>[...s.slots,s.ex]).filter(id=>id>=4000&&id<=4003);
+  try{
+    const {snapshotId}=service.createSnapshot();
+    for(const allowEquipmentBorrowing of [false,true,false]){
+      service.setRecommendationFilters({expedition:{allowEquipmentBorrowing,excludeFirstFleet:false}});
+      const automaticFilters={allowEquipmentBorrowing:!allowEquipmentBorrowing};
+      const fitted=await service.recommendExpeditionEquipment({snapshotId,missionId:21,scheme,goal:'success',automaticFilters});
+      assert.equal(cargo(fitted).length,allowEquipmentBorrowing?4:0);
+      const result=await service.recommendExpeditionFleet({snapshotId,missionId:21,fleet:2,goal:'success',limit:1,excludedShipIds:[99],automaticFilters});
+      assert(result.recommendations.length);assert.equal(cargo(result.recommendations[0]).length,allowEquipmentBorrowing?4:0);
+      assert.equal(result.selectionFilters.settings.allowEquipmentBorrowing,allowEquipmentBorrowing);
+    }
+  }finally{await service.dispose();}
+});
+
 test('all seven drum-bonus success dispatches fit the effective tier and stop without wasting cargo or extra drums',()=>{
   assert.deepEqual(drumMissions,[21,24,37,38,40,44,142]);
   for(const missionId of drumMissions){

@@ -6,6 +6,7 @@ const {error}=require('../shared/errors');
 const {canEquip,acceptsOtherSlot}=require('../domain/fleet/equipment_rules');
 const {orderEquipment}=require('../domain/fleet/equipment_order');
 const {availableEquipment}=require('./loadout/loadout_policy');
+const {equipmentForFleet,assertFleetEquipment}=require('./loadout/equipment_borrowing');
 const expeditions=require('../domain/expeditions/expeditions');
 const expeditionIncome=require('../domain/expeditions/expedition_income');
 const expeditionLoadout=require('../domain/expeditions/expedition_loadout');
@@ -276,7 +277,7 @@ function searchExpeditionFleet(store,args,shared={}){
       let scheme=schemeOf(ctx.fleet,ordered);
       try{
         if(args.heldSlots?.some(Boolean))scheme=holdDraftEquipment(store,scheme,args.heldSlots);
-        if(!spec.totals)scheme=addDrums(store,scheme,spec,inventory);
+        if(!spec.totals)scheme=addDrums(store,scheme,spec,equipmentForFleet(inventory,scheme.ships,args.automaticFilters));
         if(!scheme||!questMatches(scheme))continue;
         const result=prepared.evaluate(scheme);evaluated++;onRow(candidateRow(scheme,result,ordered),0);
       }catch(_){/* unavailable or incompatible seed */}
@@ -298,9 +299,10 @@ function searchExpeditionFleet(store,args,shared={}){
         // provide no benefit and should not consume slots or borrowed equipment.
         // Monthly outfits are refitted later, including making room for drums.
         // A full current outfit must not discard an otherwise usable hull set.
-        const schemes=[spec.totals?basicScheme:addDrums(store,basicScheme,spec,inventory)];
+        const candidateInventory=equipmentForFleet(inventory,basicScheme.ships,args.automaticFilters);
+        const schemes=[spec.totals?basicScheme:addDrums(store,basicScheme,spec,candidateInventory)];
         if(!spec.totals&&goal==='great'&&spec.gs.kind==='drum')schemes.push(addDrums(store,basicScheme,
-          {...spec,drums:Math.max(spec.drums||0,spec.gs.max||0),drumCarriers:Math.max(1,spec.drumCarriers||0)},inventory));
+          {...spec,drums:Math.max(spec.drums||0,spec.gs.max||0),drumCarriers:Math.max(1,spec.drumCarriers||0)},candidateInventory));
         const equipmentSeen=new Set();
         for(const scheme of schemes){
         if(!scheme||equipmentSeen.has(JSON.stringify(scheme)))continue;equipmentSeen.add(JSON.stringify(scheme));
@@ -385,7 +387,7 @@ function searchExpeditionFleet(store,args,shared={}){
         const tier=Math.max(spec.drums||0,spec.drumCarriers||0,goal==='great'&&spec.gs.kind==='drum'?spec.gs.max||0:0);
         const fitKey=JSON.stringify([scheme,tier,goal]);
         let fitted=fits.get(fitKey);
-        if(!fitted){fitted=fitExpeditionEquipment(store,{missionId,goal,scheme,heldSlots:args.heldSlots},{ctx,inventory,readStats:prepared.readStats});fits.set(fitKey,fitted);}
+        if(!fitted){fitted=fitExpeditionEquipment(store,{missionId,goal,scheme,heldSlots:args.heldSlots,automaticFilters:args.automaticFilters},{ctx,inventory,readStats:prepared.readStats});fits.set(fitKey,fitted);}
         if(!questMatches(fitted.scheme))continue;
         row={...row,scheme:fitted.scheme,evaluation:fitted.evaluation,income:fitted.income,gap:gapScore(fitted.evaluation)};
       }
@@ -443,21 +445,23 @@ function searchExpeditionFleet(store,args,shared={}){
 function recommendExpeditionEquipment(store,args){
   return withEquipmentIndexCache(store,()=>fitExpeditionEquipment(store,args));
 }
-function fitExpeditionEquipment(store,{scheme,missionId,goal='success',heldSlots=[]},shared={}){
+function fitExpeditionEquipment(store,{scheme,missionId,goal='success',heldSlots=[],automaticFilters},shared={}){
   const spec=expeditions.DATA.missions[missionId];
   if(!spec||!['success','great'].includes(goal))throw error('INVALID_QUERY','远征编号或目标无效');
   if(!scheme?.ships?.length||scheme.fleet===1)throw error('INVALID_QUERY','请选择第2–4舰队及舰娘');
   const ids=scheme.ships.map(s=>s.id),ctx=shared.ctx||context(store,{fleet:scheme.fleet,fixedShipIds:ids},2);
   if(!shared.ctx)ctx.preview.preview('fleet',{fleet:scheme.fleet,ships:ids.map(id=>({id}))});
-  const held=new Map(heldSlots.filter(Boolean).map(s=>[s.id,s])),inventory=shared.inventory||availableEquipment(store),available=new Set(inventory.map(i=>i.id));
+  const held=new Map(heldSlots.filter(Boolean).map(s=>[s.id,s]));
+  const inventory=equipmentForFleet(shared.inventory||availableEquipment(store),scheme.ships,automaticFilters),available=new Set(inventory.map(i=>i.id));
+  assertFleetEquipment({ships:heldSlots.filter(Boolean).map(s=>({slots:(s.slots||[]).map((id,k)=>s.keep?.[k]?id:-1),ex:s.keep?.ex?s.ex:-1}))},inventory,automaticFilters);
   const statOpportunity=shared.statOpportunity||(spec.totals&&(spec.drums||spec.drumCarriers)?
     require('./expedition_candidates').drumOpportunity(store,inventory,spec):null);
   const minimumDrums=Math.max(spec.drums||0,spec.drumCarriers||0),greatDrums=Math.max(minimumDrums,spec.gs.max||0);
   if(spec.totals&&goal==='great'&&spec.gs.kind==='drum'&&greatDrums>minimumDrums&&shared.drumTier===undefined){
     const scope={...shared,ctx,inventory,statOpportunity};
-    const great=fitExpeditionEquipment(store,{scheme,missionId,goal,heldSlots},{...scope,drumTier:greatDrums});
+    const great=fitExpeditionEquipment(store,{scheme,missionId,goal,heldSlots,automaticFilters},{...scope,drumTier:greatDrums});
     if(great.evaluation.eligible)return great;
-    const minimum=fitExpeditionEquipment(store,{scheme,missionId,goal,heldSlots},{...scope,drumTier:minimumDrums});
+    const minimum=fitExpeditionEquipment(store,{scheme,missionId,goal,heldSlots,automaticFilters},{...scope,drumTier:minimumDrums});
     return minimum.evaluation.eligible||gapOrder({gap:gapScore(minimum.evaluation)},{gap:gapScore(great.evaluation)})<0?minimum:great;
   }
   const reserved=new Map(),isDrum=id=>store.info.equips[id]?.api_slotitem_id===75;

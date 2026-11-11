@@ -60,15 +60,21 @@ test('preferences persist independently, migrate old settings, and roll back on 
     fs.writeFileSync(path.join(dir,'mcp-state.json'),JSON.stringify({mcpEnabled:false,httpPort:47615,jobs:[]}));
     const create=()=>new FleetAdvisorService({storageDir:dir,getStore:()=>store,controller:new Controller({getStore:()=>store})});
     service=create();assert.deepEqual(service.getRecommendationFilters(),F.DEFAULTS);
-    service.setRecommendationFilters({normal:{allowEquipmentBorrowing:false,minLevel:60,excludeUnremodeled:false},expedition:{defaultGoal:'success',excludeHeavyDamage:false}});
+    service.setRecommendationFilters({normal:{allowEquipmentBorrowing:false,minLevel:60,excludeUnremodeled:false},expedition:{allowEquipmentBorrowing:false,excludeHeavyDamage:false}});
     restored=create();assert.equal(restored.getRecommendationFilters().normal.minLevel,60);
     assert.equal(restored.getRecommendationFilters().normal.allowEquipmentBorrowing,false);
     for(const allowEquipmentBorrowing of [0,1,null,'false'])assert.throws(()=>restored.setRecommendationFilters({normal:{allowEquipmentBorrowing}}),/无效/);
     assert.equal(F.normalizeGroup('normal',{maxRoutes:2}).allowEquipmentBorrowing,true);
     assert(!('maxRoutes' in F.normalizeGroup('normal',{maxRoutes:2})));
-    assert.deepEqual(restored.getRecommendationFilters().expedition,{...F.DEFAULTS.expedition,defaultGoal:'success',excludeHeavyDamage:false});
-    for(const defaultGoal of [null,true,0,'unknown','GREAT'])assert.throws(()=>restored.setRecommendationFilters({expedition:{defaultGoal}}),/无效/);
-    assert.equal(F.normalizeGroup('expedition',{defaultGoal:'invalid'}).defaultGoal,'great');
+    assert.deepEqual(restored.getRecommendationFilters().expedition,{...F.DEFAULTS.expedition,allowEquipmentBorrowing:false,excludeHeavyDamage:false});
+    for(const allowEquipmentBorrowing of [0,1,null,'false'])assert.throws(()=>restored.setRecommendationFilters({expedition:{allowEquipmentBorrowing}}),/无效/);
+    assert.equal(F.normalizeGroup('expedition',{defaultGoal:'success'}).allowEquipmentBorrowing,false);
+    assert.equal(F.normalizeGroup('practice',{}).allowEquipmentBorrowing,false);
+    for(const kind of ['expedition','practice']){
+      assert.equal(F.normalizeGroup(kind,{allowEquipmentBorrowing:true}).allowEquipmentBorrowing,true,'explicit saved preferences are preserved');
+      assert.equal(F.normalizeGroup(kind,{allowEquipmentBorrowing:false}).allowEquipmentBorrowing,false);
+    }
+    assert(!('defaultGoal' in F.normalizeGroup('expedition',{defaultGoal:'success'})));
     assert.equal(restored.mcpEnabled,false);
     const copy=restored.getRecommendationFilters();copy.normal.minLevel=1;assert.equal(restored.getRecommendationFilters().normal.minLevel,60);
     assert.throws(()=>restored.setRecommendationFilters({normal:{minLevel:-1}}),/无效/);
@@ -167,7 +173,7 @@ test('snapshot worker searches only the observed phase while the UI retains the 
     assert.deepEqual(require('../../src/ui/workbench/workbench_model').mapOverview('7-2','boss',undefined,undefined,store).profile.targetNodes,['M']);
   }finally{await service.dispose();clean(dir);}
 });
- test('settings align equipment borrowing with the independent expedition goal control',()=>{
+ test('settings expose independent borrowing controls for all three activities',()=>{
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()})};
   let changed;const view=require('../../src/ui/settings/recommendation_settings')(React),props={value:F.normalize(),onChange:value=>{changed=value;},disabled:false},tree=view(props);
   const nodes=n=>n&&typeof n==='object'?[n,...n.children.flatMap(nodes)]:[];
@@ -178,13 +184,15 @@ test('snapshot worker searches only the observed phase while the UI retains the 
   borrowing.children[0].props.onClick();assert.equal(changed,undefined);
   borrowing.children[1].props.onClick();assert.equal(changed.normal.allowEquipmentBorrowing,false);
   assert.deepEqual(changed.expedition,F.DEFAULTS.expedition);
-  const goal=nodes(tree).find(n=>n.props['aria-label']==='远征默认目标');
-  assert.equal(goal.props.role,'group');
-  const buttons=goal.children;
-  assert.deepEqual(buttons.map(n=>[n.children[0],n.props['aria-pressed']]),[['优先大成功',true],['成功即可',false]]);
-  changed=undefined;buttons[0].props.onClick();assert.equal(changed,undefined,'selected goal does not write again');
-  buttons[1].props.onClick();
-  assert.equal(changed.expedition.defaultGoal,'success');assert.deepEqual(changed.normal,F.DEFAULTS.normal);
+  const expeditionBorrowing=nodes(tree).find(n=>n.props['aria-label']==='远征装备借用');
+  assert.equal(expeditionBorrowing.props.role,'group');
+  assert.deepEqual(expeditionBorrowing.children.map(n=>[n.children[0],n.props['aria-pressed']]),[['允许借用',false],['不借用',true]]);
+  changed=undefined;expeditionBorrowing.children[1].props.onClick();assert.equal(changed,undefined);
+  expeditionBorrowing.children[0].props.onClick();
+  assert.equal(changed.expedition.allowEquipmentBorrowing,true);assert.deepEqual(changed.normal,F.DEFAULTS.normal);
+  const practiceBorrowing=nodes(tree).find(n=>n.props['aria-label']==='演习装备借用');
+  assert.deepEqual(practiceBorrowing.children.map(n=>[n.children[0],n.props['aria-pressed']]),[['允许借用',false],['不借用',true]]);
+  assert(!nodes(tree).some(n=>n.props['aria-label']==='远征默认目标'));
   const helps=nodes(tree).filter(n=>n.props['data-tooltip']);
   assert.deepEqual(helps.map(n=>n.props['aria-label']),['出击设置说明','远征设置说明','演习设置说明']);
   const damaged=nodes(tree).find(n=>n.props['aria-label']==='远征设置：排除大破舰');
@@ -192,7 +200,7 @@ test('snapshot worker searches only the observed phase while the UI retains the 
   assert(helps.every(n=>n.type==='button'&&n.props.className==='paa-settings-help'));
   assert(nodes(tree).filter(n=>n.props.className==='paa-selection-options').every(n=>!nodes(n).some(c=>c.props.className==='paa-settings-help')),'individual filters have no question marks');
   changed=undefined;
-  const disabledGoal=nodes(view({...props,disabled:true})).find(n=>n.props['aria-label']==='远征默认目标');
+  const disabledGoal=nodes(view({...props,disabled:true})).find(n=>n.props['aria-label']==='远征装备借用');
   assert(disabledGoal.children.every(n=>n.props.disabled));disabledGoal.children[1].props.onClick();assert.equal(changed,undefined);
   const disabledBorrowing=nodes(view({...props,disabled:true})).find(n=>n.props['aria-label']==='出击装备借用');
   assert(disabledBorrowing.children.every(n=>n.props.disabled));disabledBorrowing.children[1].props.onClick();assert.equal(changed,undefined);
@@ -233,4 +241,22 @@ test('named routing counts do not count duplicate instances as different ships',
   const requirements=[{from:'G',to:'P',alternatives:[[{prefixes:['神風','羽黒'],min:2}]]}];
   const warnings=F.shipRequirementWarnings(s,requirements,ctx,F.DEFAULTS.normal);
   assert.match(warnings[0],/可用 1\/2/);assert.match(warnings[0],/羽黒：未持有/);
+});
+
+test('routing warnings distinguish settings from busy ships without repeating the same reason',()=>{
+  const s=source();s.const.$ships[1].api_name='神風';
+  s.info.fleets[2]={api_ship:[1],api_mission:[1,1]};s.info.repairs=[{api_ship_id:1}];
+  const ship=s.info.ships[1],row={id:1,ship,master:s.const.$ships[1],name:'神風',level:ship.api_lv,available:false};
+  const ctx={excluded:[],byId:new Map([[1,row]])};
+  const requirements=[{from:'A',to:'B',alternatives:[[{prefixes:['神風'],min:1}]]}];
+  const full=F.shipRequirementWarnings(s,requirements,ctx,F.DEFAULTS.normal)[0];
+  const compact=F.shipRequirementWarnings(s,requirements,ctx,F.DEFAULTS.normal,{compact:true})[0];
+  assert.equal((full.match(/远征中/g)||[]).length,1);
+  assert.equal((full.match(/入渠中/g)||[]).length,1);
+  assert.match(full,/出击设置「远征中」/);
+  assert.match(compact,/远征中、入渠中/);
+  const relaxed={...F.DEFAULTS.normal,excludeExpedition:false,excludeRepairing:false};
+  const unavailable=F.shipRequirementWarnings(s,requirements,ctx,relaxed)[0];
+  assert.match(unavailable,/远征中，当前不能编入/);
+  assert.match(unavailable,/入渠中，当前不能编入/);
 });

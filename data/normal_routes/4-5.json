@@ -197,6 +197,7 @@
             "to": "D"
           }
         ],
+        "choiceKind": "player",
         "note": "能動分岐（出撃者の選択）"
       }
     ],
@@ -212,6 +213,7 @@
             "to": "F"
           }
         ],
+        "choiceKind": "player",
         "note": "能動分岐（出撃者の選択）"
       }
     ],
@@ -420,6 +422,7 @@
             "to": "J"
           }
         ],
+        "choiceKind": "player",
         "note": "能動分岐（出撃者の選択）"
       }
     ],

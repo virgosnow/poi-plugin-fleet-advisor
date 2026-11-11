@@ -4,6 +4,42 @@
 const {resolveQuestCodes}=require('../domain/quests/quest_requirements');
 const {createFleetRequirementEvaluator,createFleetRequirementPrecheck}=require('../domain/quests/fleet_requirements');
 const {shipFamilyKey}=require('./context');
+const {SHIP_GROUPS}=require('../domain/routes/normal_routes');
+
+// These are diversity hints only. Exact route and equipment checks still run
+// after fitting; a negative or unknown rule must not eliminate any candidate.
+function routeCoverageAnchors(area,routes,phase){
+  if(!area||!routes?.length)return [];
+  const map=require(`../../data/normal_routes/${area}.json`),seen=new Set(),anchors=[];
+  const add=(types=[],prefixes=[],minimum=1,flagship=false)=>{
+    const sortedTypes=[...new Set(types.map(Number))].sort((a,b)=>a-b),names=[...new Set(prefixes)].sort();
+    if(!sortedTypes.length&&!names.length)return;
+    const count=Math.max(1,Math.min(6,Number(minimum)||1)),key=JSON.stringify([sortedTypes,names,count,flagship]);
+    if(seen.has(key))return;seen.add(key);
+    const match=row=>sortedTypes.includes(row.stype)||names.some(name=>row.name.startsWith(name));
+    anchors.push(rows=>flagship?!!rows[0]&&match(rows[0]):rows.filter(match).length>=Math.min(count,rows.length));
+  };
+  const scan=value=>{
+    if(!value||typeof value!=='object'||value.not)return;
+    const count=value.count;
+    if(count&&(Number(count.min)>0||Number(count.exact)>0))add([...(count.stypes||[]),...(count.groups||[]).flatMap(g=>SHIP_GROUPS[g]||[])],count.prefixes||[],count.min??count.exact);
+    if(value.shipName?.prefixes)add([],value.shipName.prefixes);
+    if(value.flagshipName?.prefixes)add([],value.flagshipName.prefixes,1,true);
+    if(value.flagshipStype)add(value.flagshipStype,[],1,true);
+    if(value.allStypes)add(value.allStypes);
+    for(const key of ['all','any'])if(Array.isArray(value[key]))value[key].forEach(scan);
+  };
+  const paths=require('../domain/routes/route_plans').optionPaths;
+  for(const option of routes)for(const nodes of paths(option)){
+    let from='start';
+    for(const to of nodes){
+      const rules=map.machineRules?.[`${from}#${phase}`]??map.machineRules?.[from]??[];
+      for(const rule of rules)if(rule.to===to||rule.assumedTo===to||(rule.choices||[]).some(choice=>choice.to===to))scan(rule.when);
+      from=to;
+    }
+  }
+  return anchors;
+}
 
 function questRequirements(codes=[]){return codes.length?resolveQuestCodes(codes):[];}
 function createQuestChecker(store,quests){
@@ -19,7 +55,7 @@ function createQuestPrecheck(store,quests){
   return scheme=>quests.every(quest=>evaluate(quest.fleet,scheme.ships,scheme.fleet)!=='unmet');
 }
 function satisfiesQuests(store,scheme,quests){return createQuestChecker(store,quests)(scheme);}
-function questSeeds(store,ctx,args,quests,{limit=128,templates=[],rankPower}={}){
+function questSeeds(store,ctx,args,quests,{limit=128,templates=[],rankPower,routes=[]}={}){
   if(!quests.length)return [];
   const selectors=new Map();
   function visit(node){
@@ -49,6 +85,7 @@ function questSeeds(store,ctx,args,quests,{limit=128,templates=[],rankPower}={})
   (args.heldSlots||[]).forEach((held,index)=>{if(held&&held.holdPosition!==false&&(held.pin||Object.keys(held.keep||{}).length))locks.set(index,held.id);});
   if(args.fixedFlagshipId!==undefined)locks.set(0,args.fixedFlagshipId);
   const fixed=new Set(ctx.fixed),result=[],seen=new Set();
+  const anchors=routeCoverageAnchors(args.area,routes,args.phase);
   // Resolve the static selector keys and expression tree once per search,
   // not once per partially assembled fleet in the beam.
   function compileRule(rule){
@@ -117,9 +154,24 @@ function questSeeds(store,ctx,args,quests,{limit=128,templates=[],rankPower}={})
       }
     }
     next.sort((a,b)=>b.rank-a.rank||b.power-a.power||a.key.localeCompare(b.key));
-    beam=next.slice(0,limit).map(item=>item.rows);
+    // Retain the original beam and add one best representative for each
+    // routing feature. This prevents high-level task hulls from crowding out
+    // a weaker but route-critical tender or named ship before route scoring.
+    const coverage=[];
+    for(const anchor of anchors){
+      const candidate=next.find(item=>anchor(item.rows));
+      if(candidate)coverage.push(candidate);
+    }
+    if(!template||position+1===template.length)for(const item of coverage){
+      const rows=item.rows,missing=[...fixed].some(id=>!rows.some(row=>row.id===id));
+      if(missing||[...locks.keys()].some(index=>index>=rows.length)||seen.has(item.key))continue;
+      if(quests.every(quest=>evaluate(quest.fleet,rows.map(row=>({id:row.id})),ctx.fleet).status==='met')){
+        seen.add(item.key);result.push(rows);
+      }
+    }
+    beam=[...new Map([...next.slice(0,limit),...coverage].map(item=>[item.key,item.rows])).values()];
   }
   }
   return result;
 }
-module.exports={questRequirements,createQuestChecker,createQuestPrecheck,satisfiesQuests,questSeeds};
+module.exports={questRequirements,createQuestChecker,createQuestPrecheck,satisfiesQuests,questSeeds,routeCoverageAnchors};

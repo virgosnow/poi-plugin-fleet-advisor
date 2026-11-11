@@ -427,31 +427,31 @@ test('one-one percentages change with actual ship count, never claim fixed arriv
 test('only explicit player-controlled exits bypass probability uncertainty',()=>{
   const {isPlayerChoice}=require('../../../src/domain/routes/route_plans'),{evaluatePoint}=require('../../../src/domain/routes/normal_routes');
   let checked=0;
-  for(const area of ['4-5','5-3','5-5','6-3','7-4','7-5']){
+  for(const area of ['4-5','5-3','5-5','5-6','6-3','7-4','7-5']){
     const map=require(`../../../data/normal_routes/${area}.json`);
     for(const rules of Object.values(map.machineRules))for(const rule of rules){
-      if(!/能動分岐/.test(rule.note||''))continue;
-      assert(isPlayerChoice(evaluatePoint([rule],[],{})),area);checked++;
+      if(rule.choiceKind!=='player')continue;
+      assert(isPlayerChoice(evaluatePoint([{...rule,note:'player choice'}],[],{})),area);checked++;
     }
   }
-  assert.equal(checked,10);
+  assert.equal(checked,12);
   const route={area:'6-3',targetNodes:['C'],pointAssessments:[{from:'A',assessment:{
-    status:'unknown',destinations:['B','C'],reason:'能動分岐（出撃者の選択）'}}]};
+    status:'unknown',choiceKind:'player',destinations:['B','C'],reason:'player chooses an exit'}}]};
   assert.equal(pathChance(route,['A','C']).probability,1);
   assert.equal(pathChance(route,['A','J']).probability,0,'player choice cannot invent an exit');
-  route.pointAssessments[0].assessment.reason='出口尚未确认';
+  route.pointAssessments[0].assessment.choiceKind=undefined;
   assert.equal(pathChance(route,['A','C']).probability,null);
-  route.pointAssessments[0].assessment.reason='能動分岐';route.pointAssessments[0].assessment.tentative=true;
+  route.pointAssessments[0].assessment.choiceKind='player';route.pointAssessments[0].assessment.tentative=true;
   assert.equal(pathChance(route,['A','C']).probability,null);
 });
 
 test('route details guide explicit player choices without requiring or matching a fleet',()=>{
   const {requirementDetails}=require('../../../src/domain/routes/route_plans');
   let checked=0;
-  for(const area of ['4-5','5-3','5-5','6-3','7-4','7-5']){
+  for(const area of ['4-5','5-3','5-5','5-6','6-3','7-4','7-5']){
     const map=require(`../../../data/normal_routes/${area}.json`);
     for(const [from,rules] of Object.entries(map.machineRules))for(const rule of rules){
-      if(!/能動分岐/.test(rule.note||''))continue;
+      if(rule.choiceKind!=='player')continue;
       for(const {to} of rule.choices){
         const detail=requirementDetails(area,[from,to],null,null).find(p=>p.from===from);
         assert.equal(detail.playerChoice,true,`${area} ${from}→${to}`);
@@ -460,7 +460,7 @@ test('route details guide explicit player choices without requiring or matching 
       checked++;
     }
   }
-  assert.equal(checked,10);
+  assert.equal(checked,12);
   const ordinary=requirementDetails('5-3',['D','G','I','O','K','E','Q'],null,null);
   assert(ordinary.filter(p=>p.from!=='O').every(p=>!p.playerChoice&&p.rules.length));
   const invalid=requirementDetails('5-3',['O','Z'],null,null).find(p=>p.from==='O');
@@ -1002,10 +1002,20 @@ test('unavailable historical routing ships appear in both API message and visibl
   assert.match(selected.message,/神風 Lv.50 已持有.*出击设置「未改造」/);
   assert.match(selected.diagnostics.warnings[0],/G → P.*神風/);
   assert.equal(selected.diagnostics.briefWarnings[0],'G → P：神風 Lv.50（未改造，已排除）');
+  const detail=selected.diagnostics.briefWarningDetails.find(item=>item.text===selected.diagnostics.briefWarnings[0]);
+  assert.equal(detail.code,'missingRoutingShips');
+  const {formatMissingRoutingShips}=require('../../../src/ui/models/route_warnings');
+  const {setLocale}=require('../../../src/shared/i18n');
+  try{
+    setLocale('ja-JP');assert.match(formatMissingRoutingShips(detail),/G → P：神風 Lv\.50（未改装、除外済み）/);
+    setLocale('zh-TW');assert.match(formatMissingRoutingShips(detail),/G → P：神風 Lv\.50（未改造，已排除）/);
+  }finally{setLocale('zh-CN');}
   assert.equal(JSON.stringify(store),before);
   delete store.info.ships[2];
   const absent=recommendNormalFleet(store,{area:'7-3',phase:'gauge2',}).routeResults.find(r=>r.key===key);
   assert.match(absent.message,/神風：未持有/);
+  const absentDetail=absent.diagnostics.briefWarningDetails.find(item=>item.text.includes('神風：未持有'));
+  try{setLocale('ja-JP');assert.match(formatMissingRoutingShips(absentDetail),/神風：未所持/);}finally{setLocale('zh-CN');}
 });
 
 test('interleaved hull shards preserve the global truncated DFS prefix',()=>{

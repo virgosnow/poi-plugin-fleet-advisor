@@ -470,6 +470,7 @@
             "to": "J"
           }
         ],
+        "choiceKind": "player",
         "note": "能動分岐（出撃者の選択）"
       }
     ],
@@ -921,6 +922,7 @@
         "E",
         "G"
       ],
+      "reasonId": "7-4:start>C>E>G",
       "reason": "E→G 限定补给/扬陆与海防或练巡护航六舰组合，这种组合出发固定 A。",
       "source": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-4",
       "reviewed": "2026-10-09"
@@ -933,6 +935,7 @@
         "J",
         "P"
       ],
+      "reasonId": "7-4:start>C>E>J>P",
       "reason": "J→P允许的海防/驱逐/大鹰型/练巡组合不能同时满足出发C及C→E；经C到J需走L/K。",
       "source": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-4",
       "reviewed": "2026-10-09"

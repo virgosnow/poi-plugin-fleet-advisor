@@ -557,6 +557,7 @@
         "D",
         "H"
       ],
+      "reasonId": "6-2:C>D>H",
       "reason": "C→D要求战舰级+空母系至少3；D→H要求两者均为0，条件矛盾。",
       "source": "https://wikiwiki.jp/kancolle/%E4%B8%AD%E9%83%A8%E6%B5%B7%E5%9F%9F/6-2",
       "reviewed": "2026-10-09"

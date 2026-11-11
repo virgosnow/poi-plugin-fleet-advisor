@@ -114,6 +114,85 @@ test('task seeds retain route-specific hull types when higher-level escorts domi
   assert.deepEqual(row.scheme.ships.map(ship=>store.const.$ships[store.info.ships[ship.id].api_ship_id].api_stype).sort(),[2,2,2,2,3]);
 });
 
+function routeCoverageStore(){
+  const store=fixture();
+  for(let id=9;id<=38;id++){
+    store.info.ships[id]={...structuredClone(store.info.ships[1]),api_id:id,api_ship_id:id};
+    store.const.$ships[id]={...structuredClone(store.const.$ships[1]),api_id:id};
+  }
+  for(const [id,name,type,level] of [[1,'村雨改二',2,77],[2,'稲木改二',1,76],[3,'対馬改',1,48],[4,'三隈改二特',16,31]]){
+    Object.assign(store.const.$ships[id],{api_name:name,api_stype:type,api_yomi:`ship${id}`});
+    store.info.ships[id].api_lv=level;
+  }
+  for(let id=5;id<=38;id++){
+    Object.assign(store.const.$ships[id],{api_name:`强力舰${id}`,api_yomi:`ship${id}`,api_stype:[18,4,9,11,3,5][id%6]});
+    store.info.ships[id].api_lv=120-id;
+  }
+  return store;
+}
+
+test('task route coverage retains a lower-level 2-2 tender and reaches the Boss without changing the task',async()=>{
+  const store=routeCoverageStore(),before=JSON.stringify(store),args={area:'2-2',fleet:1,questCodes:['2610B2'],airGoal:'ignore',
+    automaticFilters:{minLevel:0,excludeUnremodeled:false,excludeFatigued:false}};
+  const quests=questRequirements(args.questCodes),ctx=context(store,args,1),plans=require('../../src/domain/routes/route_plans');
+  const fallback=plans.recommendedOptions('2-2','boss').filter(option=>option.fallback);
+  assert(!questSeeds(store,ctx,args,quests).some(rows=>rows.some(row=>row.id===4)),
+    'the original task-only beam is crowded out by stronger hulls');
+  const covered=questSeeds(store,ctx,args,quests,{routes:fallback});
+  assert(covered.some(rows=>rows.length===6&&rows.some(row=>row.id===4)),
+    'a task-compatible water tender survives route-aware candidate generation');
+  assert(covered.every(rows=>satisfiesQuests(store,{fleet:1,ships:rows.map(row=>({id:row.id}))},quests)));
+  const check=result=>{
+    const route=result.routeResults.find(row=>row.fallback),row=result.recommendations.find(item=>item.routeKey===route.key);
+    assert(row,result.reason);assert.equal(row.route.probability,1);
+    assert.deepEqual(row.selectedPath,['C','E','F','H','K']);
+    assert(row.scheme.ships.some(ship=>ship.id===4));
+    assert(satisfiesQuests(store,row.scheme,quests));
+  };
+  check(recommendNormalFleet(store,args));
+  check(await recommendNormalFleetParallel(store,args,(_batch,run)=>run()));
+  assert.equal(JSON.stringify(store),before,'search does not modify the account snapshot');
+});
+
+test('route-aware task candidates improve 2-3 arrival and preserve held ship positions',()=>{
+  const store=routeCoverageStore(),quests=questRequirements(['2610B2']);
+  const args={area:'2-3',fleet:1,questCodes:['2610B2'],airGoal:'ignore',
+    automaticFilters:{minLevel:0,excludeUnremodeled:false,excludeFatigued:false}};
+  const result=recommendNormalFleet(store,args),row=result.recommendations[0];
+  assert(row,result.reason);assert(row.route.probability>0.98);
+  assert(satisfiesQuests(store,row.scheme,quests));
+  const heldArgs={...args,fixedShipIds:[1],heldSlots:[null,{id:1,pin:true,keep:{}}]};
+  const ctx=context(store,heldArgs,1),routes=require('../../src/domain/routes/route_plans').recommendedOptions('2-3','boss');
+  const seeds=questSeeds(store,ctx,heldArgs,quests,{routes});
+  assert(seeds.length);assert(seeds.every(rows=>rows[1]?.id===1));
+  assert(seeds.every(rows=>satisfiesQuests(store,{fleet:1,ships:rows.map(item=>({id:item.id}))},quests)));
+});
+
+test('task adaptive search compares overall arrival without mixing manual branch choices',()=>{
+  const store=routeCoverageStore(),args={area:'1-4',fleet:1,questCodes:['2610B2'],airGoal:'ignore',
+    automaticFilters:{minLevel:0,excludeUnremodeled:false,excludeFatigued:false}};
+  const result=recommendNormalFleet(store,args),option=result.routeResults.find(row=>row.fallback);
+  const row=result.recommendations.find(item=>item.routeKey===option?.key);assert(row,result.reason);
+  const arrival=require('../../src/domain/routes/route_plans').adaptiveArrival(row.route,option);
+  assert(arrival?.arrival.probability>=0.9125,'a more likely single path must not lower overall arrival');
+  assert(satisfiesQuests(store,row.scheme,questRequirements(args.questCodes)));
+});
+
+test('task coverage keeps a phase-specific named routing ship even when stronger destroyers exist',()=>{
+  const store=routeCoverageStore();
+  Object.assign(store.const.$ships[4],{api_name:'神風改',api_stype:2});
+  const args={area:'7-3',phase:'gauge2',fleet:1,questCodes:['2610B2'],
+    automaticFilters:{minLevel:0,excludeUnremodeled:false,excludeFatigued:false}};
+  const quests=questRequirements(args.questCodes),ctx=context(store,args,1);
+  const routes=require('../../src/domain/routes/route_plans').recommendedOptions(args.area,'boss',args.phase);
+  assert(!questSeeds(store,ctx,args,quests).some(rows=>rows.some(row=>row.id===4)),
+    'the task-only beam does not retain this lower-level ship');
+  const seeds=questSeeds(store,ctx,args,quests,{routes});
+  assert(seeds.some(rows=>rows.length===6&&rows.some(row=>row.id===4)),
+    'the named phase-specific routing ship survives the task beam');
+  assert(seeds.every(rows=>satisfiesQuests(store,{fleet:1,ships:rows.map(row=>({id:row.id}))},quests)));
+});
+
 test('pumpkin escort task finds a compatible real path with unremodeled ships excluded',async()=>{
   const store=fixture();
   for(const [id,name,type] of [[1,'対馬改',1],[2,'稲木改二',1],[3,'村雨改二',2],[4,'早波',2],

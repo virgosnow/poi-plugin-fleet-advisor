@@ -845,6 +845,7 @@
             "to": "P"
           }
         ],
+        "choiceKind": "player",
         "note": "能動分岐（出撃者の選択）"
       }
     ],

@@ -819,6 +819,7 @@
         "E",
         "G"
       ],
+      "reasonId": "7-2:start>A>B>C>E>G",
       "reason": "进入A的舰种/数量条件均不能再满足C→E，或被补给/潜水条件提前转D。",
       "source": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-2",
       "reviewed": "2026-10-09"
@@ -831,6 +832,7 @@
         "I",
         "M"
       ],
+      "reasonId": "7-2:start>C>D>I>M",
       "reason": "直达C且能转D的组合必须含补给舰；I点会提前转J，不能到M。",
       "source": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-2",
       "reviewed": "2026-10-09"
@@ -842,6 +844,7 @@
         "D",
         "H"
       ],
+      "reasonId": "7-2:start>C>D>H",
       "reason": "直达C且能转D的组合必须含补给舰且大型舰最多1；D不可能转H。",
       "source": "https://wikiwiki.jp/kancolle/%E5%8D%97%E8%A5%BF%E6%B5%B7%E5%9F%9F/7-2",
       "reviewed": "2026-10-09"
