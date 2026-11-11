@@ -8,11 +8,18 @@ const {referenceWeights}=require('../../domain/routes/route_policy');
 function equipmentTooltip(item){return [item?.tooltip,item?.statsText].filter(Boolean).join('\n');}
 function equipmentTooltipProps(item,notes=[]){
   if(!item)return {'data-tooltip':'空槽'};
-  const values=[...(item.stats||[]),...(item.airPowerText!==undefined?[['制空值',item.airPowerText]]:[])],rows=[];
+  const values=[...(item.stats||[]),...(item.airPowerText!==undefined?[['制空值',item.airPowerText]]:[])],rows=[],statKeys=[];
+  // Older callers can provide plain label/value pairs. New equipment models
+  // carry stable stat IDs so translation never controls fit highlighting.
+  const keys=[...(item.stats||[]).map((row,index)=>item.statKeys?.[index]||(row[0]==='命中'?'accuracy':null)),
+    ...(item.airPowerText!==undefined?['airPower']:[])];
   const fitDelta=item.gunFit?.known?Number(item.gunFit.delta):0,roundedFit=Number.isFinite(fitDelta)?Number(fitDelta.toFixed(1)):0;
-  for(let i=0;i<values.length;i+=2)rows.push([...values[i],...(values[i+1]||['',''])]);
+  for(let i=0;i<values.length;i+=2){
+    rows.push([...values[i],...(values[i+1]||['',''])]);
+    statKeys.push([keys[i]||null,keys[i+1]||null]);
+  }
   return require('./metric_tooltips').attributes({kind:'equipment',title:item.tooltip||item.name,compact:true,sections:values.length?
-    [{layout:'equipment-stats',columns:['属性','数值','属性','数值'],rows,numeric:[1,3],fitTone:roundedFit>0?'positive':roundedFit<0?'negative':null}]:[],notes:[...notes,item.airPowerBasis,item.gunFitNote,
+    [{layout:'equipment-stats',columns:['属性','数值','属性','数值'],rows,statKeys,numeric:[1,3],fitTone:roundedFit>0?'positive':roundedFit<0?'negative':null}]:[],notes:[...notes,item.airPowerBasis,item.gunFitNote,
       item.stats?.length?'':item.stats?'无属性加成':'装备属性资料待同步'].filter(Boolean)},
     [equipmentTooltip(item),item.airPowerText!==undefined?`制空值：${item.airPowerText}`:'',...notes].filter(Boolean).join('\n'));
 }
@@ -29,12 +36,13 @@ function equipmentItem(store,id,slot){
   if(!master||id<=0)return null;
   const name=master.api_name||'未知装备',extra=slot==='ex';
   const interceptor=Number(master.api_type?.[2])===48;
-  const fields=[['api_houg','火力'],['api_raig','雷装'],['api_baku','爆装'],['api_tyku','对空'],['api_tais','对潜'],['api_saku','索敌'],['api_houm',interceptor?'对爆':'命中'],['api_houk',interceptor?'迎击':'回避'],['api_souk','装甲']];
-  const values=fields.flatMap(([key,label])=>{const n=Number(master[key]);return Number.isFinite(n)&&n!==0?[[label,`${n>0?'+':''}${n}`]]:[];});
-  if(Number(master.api_leng)>0)values.push(['射程',({1:'短',2:'中',3:'长',4:'超长',5:'超超长'}[master.api_leng]||String(master.api_leng))]);
-  if(Number(master.api_distance)>0)values.push(['航程',String(master.api_distance)]);
+  const fields=[['api_houg','火力','firepower'],['api_raig','雷装','torpedo'],['api_baku','爆装','bomber'],['api_tyku','对空','antiAir'],['api_tais','对潜','antiSubmarine'],['api_saku','索敌','lineOfSight'],['api_houm',interceptor?'对爆':'命中',interceptor?'bomberDefense':'accuracy'],['api_houk',interceptor?'迎击':'回避',interceptor?'interception':'evasion'],['api_souk','装甲','armor']];
+  const values=[],statKeys=[];
+  for(const [key,label,statKey]of fields){const n=Number(master[key]);if(Number.isFinite(n)&&n!==0){values.push([label,`${n>0?'+':''}${n}`]);statKeys.push(statKey);}}
+  if(Number(master.api_leng)>0){values.push(['射程',({1:'短',2:'中',3:'长',4:'超长',5:'超超长'}[master.api_leng]||String(master.api_leng))]);statKeys.push('range');}
+  if(Number(master.api_distance)>0){values.push(['航程',String(master.api_distance)]);statKeys.push('flightRange');}
   const stats=values.map(row=>row.join(' '));
-  return {id,slot,extra,name,aircraftType:Number(master.api_type?.[2]),stats:values,statsSummary:stats.map(s=>s.replace(' ','')).join(' '),statsText:stats.length?'基础属性：'+stats.join(' · '):'',icon:equipmentIconUrl(master.api_type?.[3]),
+  return {id,slot,extra,name,aircraftType:Number(master.api_type?.[2]),stats:values,statKeys,statsSummary:stats.map(s=>s.replace(' ','')).join(' '),statsText:stats.length?'基础属性：'+stats.join(' · '):'',icon:equipmentIconUrl(master.api_type?.[3]),
     tooltip:`${extra?'增设':`${Number(slot)+1} 槽`} · ${name}`+(item.api_level>0?` ★${item.api_level}`:'')+(item.api_alv>0?` · 熟练度 ${item.api_alv}`:'')};
 }
 function withGunFit(store,entry,item){
@@ -46,8 +54,14 @@ function withGunFit(store,entry,item){
   const base=Number(store.const?.$equips?.[store.info?.equips?.[item.id]?.api_slotitem_id]?.api_houm||0);
   const hasFit=result.known&&rounded(result.delta)!==0;
   const accuracy=result.known?`${signed(base+result.delta)}${hasFit?`（${signed(result.delta)}）`:''}`:`${signed(base)}（待确认）`;
-  const stats=(item.stats||[]).filter(([name])=>name!=='命中'&&name!=='适重'&&name!=='适重总计');stats.push(['命中',accuracy]);
-  return {...item,gunFit:result,stats,statsSummary:stats.map(row=>row.join('')).join(' '),
+  const stats=[],statKeys=[];
+  for(const [index,row]of (item.stats||[]).entries()){
+    const key=item.statKeys?.[index];
+    if(key==='accuracy'||['命中','适重','适重总计'].includes(row[0]))continue;
+    stats.push(row);statKeys.push(key||null);
+  }
+  stats.push(['命中',accuracy]);statKeys.push('accuracy');
+  return {...item,gunFit:result,stats,statKeys,statsSummary:stats.map(row=>row.join('')).join(' '),
     gunFitNote:result.known?(hasFit?`括号内为昼战适重${result.estimated?'（预估）':''}`:result.estimated?'适重预估':''):'适重待确认'};
 }
 
@@ -131,7 +145,7 @@ function routeReasons(row){
       reasons.push(`${point.from==='start'?'起点':`${point.from} 点`}随机分岐${choices?`：${choices}`:`：可能前往 ${(a.destinations||[]).join(' / ')}`}。${a.rule||'该编成无法固定这一出口。'}`);
     }else if(a.status==='tentative')reasons.push(`${point.from} 点条件待确认。`);
     else if(a.status==='unknown'){
-      if(/能動分岐|能动分岐/.test(a.reason||a.rule||'')){
+      if(a.choiceKind==='player'){
         reasons.push(`${point.from} 点为能动分岐，可自行选择 ${(a.destinations||[]).join(' / ')}；请按路线预览的出口选择。`);
         continue;
       }

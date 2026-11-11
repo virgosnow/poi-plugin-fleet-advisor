@@ -52,8 +52,10 @@ function openingAviation(target,variant,store){
   const state=live?'ready':possible?'unknown':'blocked';
   const reason=live?'':possible?'攻击机槽位容量：待确认。':'攻击机槽位容量：0 架；需换槽。';
   const power=openingPower.aviationPowers(target,store,attack,all);
-  return {key:'opening-air',label:'开幕航空攻击',variant,state,attacks:power.rows,detail:tooltip(live?'有可用攻击机时固定发动':possible?'发动情况：待确认':'当前无法发动',power.detail,
-    [...power.notes,'开幕航空战中攻击敌舰；中大破仍可发动。','按出击前满载；未计损耗、触接与暴击。',reason,...power.reasons])};
+  const activation=live?'有可用攻击机时固定发动':possible?'发动情况：待确认':'当前无法发动';
+  const notes=[...power.notes,'开幕航空战中攻击敌舰；中大破仍可发动。','按出击前满载；未计损耗、触接与暴击。',reason,...power.reasons].filter(Boolean);
+  return {key:'opening-air',label:'开幕航空攻击',variant,state,attacks:power.rows,
+    tooltipData:{kind:'aircraft',activation,notes},detail:tooltip(activation,power.detail,notes)};
 }
 
 function nightAttack(target,flagship,store){
@@ -62,9 +64,10 @@ function nightAttack(target,flagship,store){
   if([7,11,18].includes(type)||Number(master.api_houg?.[0])===0&&Number(master.api_raig?.[0])===0)return null;
   const modes=nightCI.surfaceModes(target);if(!modes.length)return null;
   const double=modes[0].coefficient===null,taiha=damaged(ship,0.25);
-  const effect=double||[140,130].includes(modes[0].coefficient)&&!['鱼见电','鱼水电'].includes(modes[0].label)?'shelling':'torpedo';
+  const effect=double||[140,130].includes(modes[0].coefficient)&&!['torpedoLookoutRadar','torpedoSkilledRadar'].includes(modes[0].id)?'shelling':'torpedo';
   const ci=nightCI.reading(target,flagship,modes,nightCI.surfacePower(target,store));
-  return {key:'night',label:double?'夜战连击':effect==='shelling'?'夜战炮击 CI':'夜战雷击 CI',effect,state:taiha?'blocked':'ready',ci,detail:
+  return {key:'night',label:double?'夜战连击':effect==='shelling'?'夜战炮击 CI':'夜战雷击 CI',effect,state:taiha?'blocked':'ready',ci,attacks:ci.rows,
+    tooltipData:{...ci.tooltipData,activation:taiha?'发动率：0.0%':ci.tooltipData.activation,activationRows:taiha?[{key:'rate',percent:0}]:ci.tooltipData.activationRows,notes:[...ci.tooltipData.notes,taiha?'当前大破，修复后可用。':''].filter(Boolean)},detail:
     tooltip.withNotes(ci.detail,taiha?'当前大破，修复后可用。':'',taiha?'发动率：0.0%':null)};
 }
 
@@ -96,9 +99,10 @@ function nightAviation(target,store){
     unknown?'夜间飞机的槽位容量：待确认。':!capacity?'夜间飞机槽位容量：0 架；需换槽。':!healthKnown?'当前损伤状态待确认。':'';
   const power=nightCI.aviationPower(target,planes.map(p=>({...p,kind:nightAircraftKind(p.equipment)})),store);
   const value=!capacity||unknown||power.basePower==null?null:cap(power.basePower,360);
-  return {key:'night-air',label:'夜间航空攻击',effect:'aviation',state,basePower:!capacity||unknown?null:power.basePower,attacks:[{label:'夜间航空攻击',power:value,hits:1}],detail:
-    tooltip(state==='ready'?'满足夜间发舰条件时固定发动':state==='blocked'?'当前无法发动':'发动情况：待确认',
-      `夜间航空攻击\n攻击力：${value??'待确认'} × 1击`,[`不要求空优。需夜间飞机${native?'':'＋夜间要员'}。${reason}`,...power.reasons||[]])};
+  const activation=state==='ready'?'满足夜间发舰条件时固定发动':state==='blocked'?'当前无法发动':'发动情况：待确认';
+  const notes=[`不要求空优。需夜间飞机${native?'':'＋夜间要员'}。${reason}`,...power.reasons||[]];
+  return {key:'night-air',label:'夜间航空攻击',effect:'aviation',state,basePower:!capacity||unknown?null:power.basePower,attacks:[{label:'夜间航空攻击',power:value,hits:1}],
+    tooltipData:{kind:'modes',activation,notes},detail:tooltip(activation,`夜间航空攻击\n攻击力：${value??'待确认'} × 1击`,notes)};
 }
 
 // 夜戦#CarrierNightSpecialAttacks, checked 2026-10-16.
@@ -129,7 +133,8 @@ function carrierNightCutIn(target,aviation,flagship,store){
   const reason=state==='blocked'?'当前损伤或槽位容量不满足，需修复／换槽。':state==='unknown'?'容量或损伤资料待确认。':'';
   const capacityKnown=slots.every(s=>s.planes!==null)&&live.length>0;
   const ci=nightCI.reading(target,flagship,modes,capacityKnown?nightCI.aviationPower(target,slots,store):null,{available:capacityKnown,aviation:true});
-  return {key:'night-carrier-ci',label:'空母夜袭 CI',effect:'aviation',state,ci,detail:
+  return {key:'night-carrier-ci',label:'空母夜袭 CI',effect:'aviation',state,ci,attacks:ci.rows,
+    tooltipData:{...ci.tooltipData,activation:state==='blocked'?'发动率：0.0%':ci.tooltipData.activation,activationRows:state==='blocked'?[{key:'rate',percent:0}]:ci.tooltipData.activationRows,notes:[...ci.tooltipData.notes,`无需空优；不发动时为普通夜间航空攻击。${reason}`]},detail:
     tooltip.withNotes(ci.detail,`无需空优；不发动时为普通夜间航空攻击。${reason}`,state==='blocked'?'发动率：0.0%':null)};
 }
 
@@ -148,7 +153,8 @@ function nightZuiunAttack(target,lighting,flagship,store){
   const capacityKnown=planes.every(p=>p.planes!==null)&&capacity;
   const ci=nightCI.reading(target,flagship,nightCI.zuiunModes(target,capacityKnown?planes:planes.map(p=>({...p,planes:1}))),
     capacityKnown?nightCI.surfacePower(target,store):null,{zuiun:true,available:capacityKnown});
-  return {key:'night-zuiun',label:'夜战瑞云 CI',effect:'shelling',state,ci,detail:
+  return {key:'night-zuiun',label:'夜战瑞云 CI',effect:'shelling',state,ci,attacks:ci.rows,
+    tooltipData:{...ci.tooltipData,activation:state==='blocked'?'发动率：0.0%':ci.tooltipData.activation,activationRows:state==='blocked'?[{key:'rate',percent:0}]:ci.tooltipData.activationRows,notes:[...ci.tooltipData.notes,`可分散目标并提供照明效果；需未中破。${reason}${lighting?'照明弹／探照灯会降低该 CI 的发动率（未计入）。':''}`]},detail:
     tooltip.withNotes(ci.detail,`可分散目标并提供照明效果；需未中破。${reason}${lighting?'照明弹／探照灯会降低该 CI 的发动率（未计入）。':''}`,state==='blocked'?'发动率：0.0%':null)};
 }
 
@@ -173,13 +179,14 @@ function illumination(target){
   const state=usable?'conditional':known?'blocked':'unknown';
   const effects=[flares?'照明弹：概率提高全队夜战命中和 CI，抑制敌方 CI。':'',
     lights?'探照灯：提供全队夜战辅助，携带舰更易被集火。':''].filter(Boolean);
-  if(known&&flares&&hp<=4)effects.push('照明弹耐久门槛：>4。');
-  if(known&&lights&&hp<=1)effects.push('探照灯耐久门槛：>1。');
-  if(!known)effects.push('当前耐久待确认。');
+  const notes=[];
+  if(known&&flares&&hp<=4)notes.push('照明弹耐久门槛：>4。');
+  if(known&&lights&&hp<=1)notes.push('探照灯耐久门槛：>1。');
+  if(!known)notes.push('当前耐久待确认。');
   return {key:'illumination',label:'照明',state,detail:tooltip([
     flares?`照明弹发动率：${!known?'待确认':hp<=4?'0.0%':'70.0%'}`:'',
     lights?(known&&hp>1?'耐久 >1 时探照灯固定发动':known?'探照灯当前无法发动':'探照灯发动情况：待确认'):''
-  ],effects.filter(s=>!s.includes('门槛')&&!s.includes('待确认')),effects.filter(s=>s.includes('门槛')||s.includes('待确认')))};
+  ],effects,notes)};
 }
 
 function carrierCutIn(target,flagship,context,store){
@@ -197,10 +204,9 @@ function carrierCutIn(target,flagship,context,store){
   const unavailable=equipped.filter(mode=>!live.includes(mode));
   const ci=carrierCI.read(context(),target,flagship,modes,{blocked:state==='blocked',uncertain:live.join('/')!==possible.join('/')});
   const power=carrierCI.attackPowers(target,store,modes);
-  return {key:'carrier-ci',label:`战爆联合·${modes[0]}`,state,hint:'需空优',ci,detail:
-    tooltip(ci.detail,power.rows.map(r=>`${r.label}\n攻击力：${r.power??'待确认'} × 1击`),
-      ['需空优／空确，水面目标。',
-       unavailable.length?'槽位容量不满足或待确认：'+unavailable.join(' / '):'',cannotAttack?'当前损伤无法炮击。':'',...power.reasons]),attacks:power.rows};
+  const notes=['需空优／空确，水面目标。',unavailable.length?'槽位容量不满足或待确认：'+unavailable.join(' / '):'',cannotAttack?'当前损伤无法炮击。':'',...power.reasons].filter(Boolean);
+  return {key:'carrier-ci',label:`战爆联合·${modes[0]}`,state,hint:'需空优',ci,attacks:power.rows,
+    tooltipData:{kind:'modes',activation:ci.detail,notes},detail:tooltip(ci.detail,power.rows.map(r=>`${r.label}\n攻击力：${r.power??'待确认'} × 1击`),notes)};
 }
 
 function aswSynergy(target){
@@ -280,12 +286,18 @@ function fleetMechanisms(store,entries,speedReading,profile,{conditionalGroundDo
     const opening=aswRows[i],synergy=aswSynergy(target);
     const aswPower=opening.eligible!==false||synergy?openingPower.aswPower(target,store,{opening:opening.eligible===true}):null;
     const aswArt=[7,11,18].includes(Number(target.master.api_stype))?{effect:'aviation'}:{};
-    if(opening.eligible!==false)add('asw','先制对潜',opening.eligible===true?'ready':'unknown',tooltip(
-      opening.eligible===true?'满足对潜攻击条件时固定发动':'发动情况：待确认',aswPower.detail,
-      ['开幕攻击潜艇；同航战，已计当前配装的对潜协同。',
-       opening.threshold!=null?`对潜：${opening.totalAsw??'待确认'}\n门槛：${opening.threshold}${opening.totalAsw==null?'\n'+opening.reason:''}`:opening.reason,...aswPower.reasons||[],aswPower.reason]),{...aswArt,attacks:aswPower.rows});
-    if(synergy){const [activation,effect,notes]=synergy.detail.split('\n\n');badges.push({...synergy,attacks:aswPower.rows,
-      detail:tooltip(activation,[aswPower.detail,effect],['同航战，显示协同后的整套配装攻击力。',notes,...aswPower.reasons||[],aswPower.reason])});}
+    if(opening.eligible!==false){
+      const activation=opening.eligible===true?'满足对潜攻击条件时固定发动':'发动情况：待确认';
+      const notes=['开幕攻击潜艇；同航战，已计当前配装的对潜协同。',
+        opening.threshold!=null?`对潜：${opening.totalAsw??'待确认'}\n门槛：${opening.threshold}${opening.totalAsw==null?'\n'+opening.reason:''}`:opening.reason,...aswPower.reasons||[],aswPower.reason].filter(Boolean);
+      add('asw','先制对潜',opening.eligible===true?'ready':'unknown',tooltip(activation,aswPower.detail,notes),
+        {...aswArt,attacks:aswPower.rows?.map(row=>({...row,label:row.formation})),tooltipData:{kind:'modes',rowHeading:'阵型',activation,notes}});
+    }
+    if(synergy){const [activation,effect,notes]=synergy.detail.split('\n\n');
+      const extraNotes=[effect,'同航战，显示协同后的整套配装攻击力。',notes,...aswPower.reasons||[],aswPower.reason].filter(Boolean);
+      badges.push({...synergy,attacks:aswPower.rows?.map(row=>({...row,label:row.formation})),
+        tooltipData:{kind:'modes',rowHeading:'阵型',activation,notes:extraNotes},
+        detail:tooltip(activation,[aswPower.detail,effect],['同航战，显示协同后的整套配装攻击力。',notes,...aswPower.reasons||[],aswPower.reason])});}
     const aaci=antiAirBadge(target,antiAir);if(aaci)badges.push(aaci);
     const ground=groundBadge(target,store,{profile,context:groundContext,conditionalDayDouble:conditionalGroundDouble});
     if(ground){
@@ -297,8 +309,8 @@ function fleetMechanisms(store,entries,speedReading,profile,{conditionalGroundDo
     const torpedo=items.some(e=>e.type===22)||[13,14].includes(Number(target.master.api_stype))&&Number(ship.api_lv)>=10;
     if(torpedo){
       const power=openingPower.torpedoPower(target,store);
-      add('torpedo','先制雷击','ready',tooltip('满足先制雷击条件时固定发动',power.detail,
-        [(items.some(e=>e.type===22)?'已装备甲标的。':`潜水舰等级：${Number(ship.api_lv)}\n门槛：10。`),'同航战、单纵阵，按完好状态计算。',...power.reasons]),{attacks:[{label:'鱼雷',power:power.power,hits:1}]});
+      const activation='满足先制雷击条件时固定发动',notes=[(items.some(e=>e.type===22)?'已装备甲标的。':`潜水舰等级：${Number(ship.api_lv)}\n门槛：10。`),'同航战、单纵阵，按完好状态计算。',...power.reasons];
+      add('torpedo','先制雷击','ready',tooltip(activation,power.detail,notes),{attacks:[{label:'鱼雷',power:power.power,hits:1}],tooltipData:{kind:'modes',activation,notes}});
     }
     const smoke=items.filter(e=>/^発煙装置(?:改)?\(煙幕\)$/.test(compact(e.master?.api_name)));
     if(smoke.length)add('smoke','烟幕',targets.length>=4?'conditional':'blocked',tooltip(targets.length>=4?'发动率：待确认':'发动率：0.0%',
@@ -314,7 +326,7 @@ function fleetMechanisms(store,entries,speedReading,profile,{conditionalGroundDo
       const double=result.attacks.find(r=>r.hits===2),doubleAttack=double?{power:double.power,hits:2}:null;
       const label=double?(result.attacks.length>1?'昼战连击·CI':'昼战连击'):'弹着 CI';
       add('spotting',label,taiha?'blocked':unknown?'unknown':!live?'blocked':'conditional',result.detail,
-        {ci:result.ci,attacks:result.attacks,...doubleAttack?{doubleAttack}:{}});
+        {ci:result.ci,attacks:result.attacks,tooltipData:result.tooltipData,...doubleAttack?{doubleAttack}:{}});
     }
     for(const variant of ['aircraft','seaplane']){
       const openingAir=openingAviation(target,variant,store);if(openingAir)badges.push(openingAir);

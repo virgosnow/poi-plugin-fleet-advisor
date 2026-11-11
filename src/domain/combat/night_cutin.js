@@ -82,16 +82,17 @@ function surfaceModes(target){
   const items=target.items,type=Number(target.master.api_stype),level=Number(target.ship.api_lv);
   const main=items.filter(e=>[1,2,3,38].includes(e.type)).length,secondary=items.filter(e=>e.type===4).length;
   const torpedo=items.filter(e=>[5,32].includes(e.type)).length,modes=[];
-  const mode=(label,multiplier,hits,coefficient)=>({label,multiplier,hits,coefficient});
+  const mode=(id,label,multiplier,hits,coefficient)=>({id,label,multiplier,hits,coefficient,
+    displayHits:typeof hits==='number'?hits:'1–2',hitsUncertain:typeof hits!=='number'&&(!Number.isFinite(level)||level<1)});
   let generic;
   const late=items.filter(e=>e.type===32&&/後期型/.test(e.master?.api_name)).length;
-  if([13,14].includes(type)&&late&&items.some(e=>e.type===51))generic=mode('后期鱼雷＋潜水电探',1.75,2,105);
-  else if([13,14].includes(type)&&late>=2)generic=mode('后期鱼雷×2',1.6,2,110);
-  else if(main>=3)generic=mode('主炮×3',2,1,140);
-  else if(main>=2&&secondary)generic=mode('主炮×2＋副炮',1.75,1,130);
-  else if(torpedo>=2)generic=mode('鱼雷×2',1.5,2,122);
-  else if(main&&torpedo)generic=mode('主炮＋鱼雷',1.3,2,115);
-  else if(main+secondary>=2)generic=mode('双炮连击',1.2,2,null);
+  if([13,14].includes(type)&&late&&items.some(e=>e.type===51))generic=mode('lateTorpedoSubRadar','后期鱼雷＋潜水电探',1.75,2,105);
+  else if([13,14].includes(type)&&late>=2)generic=mode('lateTorpedoDouble','后期鱼雷×2',1.6,2,110);
+  else if(main>=3)generic=mode('mainTriple','主炮×3',2,1,140);
+  else if(main>=2&&secondary)generic=mode('mainDoubleSecondary','主炮×2＋副炮',1.75,1,130);
+  else if(torpedo>=2)generic=mode('torpedoDouble','鱼雷×2',1.5,2,122);
+  else if(main&&torpedo)generic=mode('mainTorpedo','主炮＋鱼雷',1.3,2,115);
+  else if(main+secondary>=2)generic=mode('doubleAttack','双炮连击',1.2,2,null);
   if(type===2&&!secondary){
     const radar=items.some(surfaceRadar),lookout=items.some(e=>['熟練見張員','水雷戦隊熟練見張員'].includes(compact(e.master?.api_name)));
     const skilled=items.some(e=>compact(e.master?.api_name)==='水雷戦隊熟練見張員');
@@ -99,10 +100,10 @@ function surfaceModes(target){
     const d3=items.filter(e=>compact(e.master?.api_name)==='12.7cm連装砲D型改三').length;
     const dBonus=(d2+d3>=2?1.4:d2+d3?1.25:1)*(1+.05*Math.min(d3,2));
     const hits=Number.isFinite(level)&&level>=1?(level>=80?'1–2':1):'1–2（等级待确认）';
-    if(main&&torpedo&&radar)modes.push(mode('主鱼电',1.3*dBonus,hits,115));
-    if(torpedo&&lookout&&radar)modes.push(mode(skilled?'鱼水电':'鱼见电',1.2*dBonus,hits,140));
-    if(!main&&torpedo>=2&&skilled)modes.push(mode('鱼水鱼',1.5,hits,126));
-    if(!main&&torpedo&&skilled&&items.some(e=>e.type===30))modes.push(mode('鱼桶水',1.3,hits,122));
+    if(main&&torpedo&&radar)modes.push(mode('mainTorpedoRadar','主鱼电',1.3*dBonus,hits,115));
+    if(torpedo&&lookout&&radar)modes.push(mode(skilled?'torpedoSkilledRadar':'torpedoLookoutRadar',skilled?'鱼水电':'鱼见电',1.2*dBonus,hits,140));
+    if(!main&&torpedo>=2&&skilled)modes.push(mode('torpedoSkilledTorpedo','鱼水鱼',1.5,hits,126));
+    if(!main&&torpedo&&skilled&&items.some(e=>e.type===30))modes.push(mode('torpedoDrumSkilled','鱼桶水',1.3,hits,122));
   }
   if(generic)modes.push(generic);
   return modes;
@@ -111,7 +112,7 @@ function surfaceModes(target){
 function zuiunModes(target,planes){
   const count=planes.filter(p=>p.planes>0).length,radar=target.items.some(surfaceRadar),modes=[];
   for(const [needed,hasRadar,multiplier]of [[2,true,1.36],[2,false,1.32],[1,true,1.28],[1,false,1.24]])
-    if(count>=needed&&(!hasRadar||radar))modes.push({label:`夜瑞×${needed}${hasRadar?'＋水上电探':''}`,multiplier,hits:2,coefficient:135});
+    if(count>=needed&&(!hasRadar||radar))modes.push({id:'nightZuiun',planeCount:needed,radar:hasRadar,label:`夜瑞×${needed}${hasRadar?'＋水上电探':''}`,multiplier,hits:2,coefficient:135});
   return modes;
 }
 
@@ -133,7 +134,9 @@ function reading(target,flagship,modes,power,{zuiun=false,available=true,aviatio
   const blocks=rows.map(m=>`${m.label}\n${attack(m)}`);
   const powerNote=basePower===null?`攻击力待确认：${power?.reasons?.join('；')||'属性或改修资料不完整'}。`:'';
   const detail=tooltip(activation,blocks,powerNote);
-  return {total,rows,fixed,basePower,fit,blue:power?.blue,powerSource:power?.source,detail};
+  return {total,rows,fixed,basePower,fit,blue:power?.blue,powerSource:power?.source,detail,
+    tooltipData:{kind:'modes',activation:Array.isArray(activation)?activation.join('\n'):activation,notes:powerNote?[powerNote]:[],
+      activationRows:ciRows.length?[{key:'rate',percent:total},...(rows.length>1?ciRows.map(m=>({key:'mode',id:m.id,planeCount:m.planeCount,radar:m.radar,label:m.label,percent:m.occurrence})):[])]:null}};
 }
 
 module.exports={surfaceModes,zuiunModes,surfacePower,aviationPower,reading,fixedTerm,hullStat,nightImprovement};

@@ -195,6 +195,75 @@ function harness(kind='normal',automaticFilters,storeView=store=>store){
   return {render,find,control,chooseGoal,get,set,service,calls,store,effects,refs};
 }
 
+test('importing a game fleet evaluates its exact ships and equipment without changing the apply target',()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind),store=h.store,target=kind==='normal'?1:2;
+    store.info.fleets[2].api_ship=[2,3,-1,-1,-1,-1];
+    store.const.$shipTypes[2]={api_equip_type:{1:1}};
+    store.const.$equips[500]={api_id:500,api_name:'测试炮',api_type:[0,0,1,1]};
+    store.info.equips[101]={api_id:101,api_slotitem_id:500};store.info.ships[2].api_slot=[101,-1];
+    const before=JSON.stringify(store),picker=h.find(h.render(),n=>n.type?.name==='FleetImportPicker');
+    assert(picker);picker.props.onImport(3);const tree=h.render(),draft=h.get('slots');
+    assert.deepEqual(draft.filter(Boolean).map(s=>s.id),[2,3]);
+    assert.deepEqual(draft[0].slots,[101,-1]);assert(draft.filter(Boolean).every(s=>s.pin));
+    assert.equal(h.get('fleet'),target);assert(h.get('report').valid);
+    assert(kind==='normal'?h.get('report').route:h.get('report').expedition);
+    assert.equal(h.get('report').planningOnly,false);
+    assert.equal(JSON.stringify(store),before);assert.deepEqual(h.calls,{fleet:0,equipment:0});
+    assert(h.find(tree,n=>n.props.className==='paa-wb-ship'&&n.props['data-ship-id']===2));
+  }
+});
+
+test('an expedition fleet can be imported for analysis but cannot be applied while its ships are away',()=>{
+  for(const kind of ['normal','expedition']){
+    const h=harness(kind);h.store.info.fleets[2].api_ship=[2,3];h.store.info.fleets[2].api_mission=[1,1];
+    const before=JSON.stringify(h.store);
+    h.find(h.render(),n=>n.type?.name==='FleetImportPicker').props.onImport(3);
+    const tree=h.render();assert(h.get('report').valid);assert.equal(h.get('report').planningOnly,true);
+    assert(kind==='normal'?h.get('report').route:h.get('report').expedition);
+    assert.equal(h.find(tree,n=>n.props.className==='paa-primary paa-wb-apply').props.disabled,true);
+    assert.equal(JSON.stringify(h.store),before);
+  }
+});
+
+test('changing the workbench display language preserves the ship draft and recommendation inputs',()=>{
+  const {setLocale}=require('../../src/shared/i18n'),h=harness();
+  h.store.const.$equips[501]={api_name:'Test Plane',api_type:[0,0,7,7]};
+  h.store.info.equips[101]={api_id:101,api_slotitem_id:501,api_level:3,api_alv:7};
+  h.store.info.ships[2].api_slot[0]=101;
+  h.store.info.maps={35:{api_gauge_num:1,api_defeat_count:1,api_required_defeat_count:4}};
+  const original=[W.entry(h.store,2),null,null,null,null,null];h.set('slots',original);
+  const before=JSON.stringify(original),findComplete=tree=>h.find(tree,n=>n.props.className==='paa-wb-complete');
+  try{
+    setLocale('ja-JP');let tree=h.render();
+    assert(findComplete(tree).children.includes('一括補完'));
+    assert(h.find(tree,n=>n.props.className==='paa-wb-ship'));
+    assert.equal(h.find(tree,n=>n.props.className==='paa-wb-gear-name').children[0],'Test Plane ★3 · 熟練度 7');
+    assert.match(h.find(tree,n=>n.props.className==='paa-wb-progress').props['data-tooltip'],/第1段階.*K マス/);
+    assert.equal(h.find(tree,n=>n.props.className==='paa-wb-progress-value').children[0],'残り 3 / 4');
+    assert.equal(JSON.stringify(h.get('slots')),before);
+    setLocale('zh-TW');tree=h.render();
+    assert(findComplete(tree).children.includes('一鍵補全'));
+    assert.equal(JSON.stringify(h.get('slots')),before);
+    assert.deepEqual(h.calls,{fleet:0,equipment:0});
+  }finally{setLocale('zh-CN');}
+});
+
+test('language changes invalidate only the visible airbase view cache',()=>{
+  const {setLocale}=require('../../src/shared/i18n');setLocale('zh-CN');
+  const h=harness();h.set('area','6-4');
+  h.store.info.airbase=[{api_area_id:6,api_rid:1,api_name:'User Base',api_action_kind:1,api_distance:5,api_plane_info:[]}];
+  const draft=[W.entry(h.store,2),null,null,null,null,null];h.set('slots',draft);
+  const stop=h.effects.find(e=>String(e.fn).includes('subscribe(setCurrent)'))?.fn();assert.equal(typeof stop,'function');
+  try{
+    h.render();const view=h.refs.find(ref=>ref.current?.dependencies?.includes('6-4')&&ref.current?.value?.props?.className==='paa-airbase');
+    assert(view);const before=view.current.value;
+    setLocale('ja-JP');h.render();
+    assert.equal(view.current.dependencies.at(-1),'ja-JP');assert.notEqual(view.current.value,before,'display cache was rebuilt');
+    assert.equal(h.get('slots'),draft);assert.deepEqual(h.calls,{fleet:0,equipment:0});
+  }finally{stop();setLocale('zh-CN');}
+});
+
 test('supported normal maps show the editable airbase directly below the map',()=>{
   const h=harness();
   h.store.info.airbase=[{api_area_id:6,api_rid:1,api_action_kind:1,api_distance:{api_base:5,api_bonus:0},
@@ -1568,19 +1637,13 @@ test('task page synchronization does not invalidate fleet previews or recommenda
   assert.equal(fingerprint(state),before);assert.equal(JSON.stringify(businessState(state)),snapshot);
 });
 
-test('expedition starts from its persisted goal and default changes preserve existing drafts',()=>{
-  const h=harness('expedition',{defaultGoal:'success'});
-  assert.equal(h.get('goal'),'success');
-  assert.equal(h.find(h.render(),n=>n.type==='button'&&n.children.includes('成功即可')).props['aria-pressed'],true);
-  const syncDefault=()=>h.effects.filter(e=>String(e.fn).includes('previousDefaultGoal.current')).at(-1).fn();
-  h.render({automaticFilters:{defaultGoal:'great'}});syncDefault();
-  assert.equal(h.get('goal'),'great','an untouched empty page follows the new default without searching');
+test('expedition uses great as its initial goal and borrowing changes preserve drafts',()=>{
+  const h=harness('expedition',{allowEquipmentBorrowing:true,defaultGoal:'success'});
+  assert.equal(h.get('goal'),'great');
   const slots=[W.entry(h.store,2),null,null,null,null,null];h.set('slots',slots);
-  h.render({automaticFilters:{defaultGoal:'success'}});syncDefault();
+  h.render({automaticFilters:{allowEquipmentBorrowing:false}});
   assert.equal(h.get('goal'),'great');assert.deepEqual(h.get('slots'),slots);
   assert.equal(h.calls.fleet+h.calls.equipment,0);
-  assert.equal(harness('expedition',{defaultGoal:'success'}).get('goal'),'success','remounting uses the saved default');
-  assert.equal(harness('expedition',{}).get('goal'),'great','older preferences retain the previous default');
 });
 
 test('expedition completion loads the closest reference draft instead of throwing an empty-result error',async()=>{
@@ -1654,16 +1717,16 @@ test('a successful or obsolete expedition search does not open a no-plan dialog'
   assert.equal(h.get('error'),'');
 });
 
-test('switching expeditions selects the latest default goal without starting a search',()=>{
-  for(const defaultGoal of ['success','great']){
-    const h=harness('expedition',{defaultGoal}),manual=defaultGoal==='success'?'great':'success';
+test('switching expeditions resets the goal without starting a search',()=>{
+  for(const manual of ['success','great']){
+    const h=harness('expedition',{});
     h.set('goal',manual);h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
     const before=JSON.stringify(h.store),picker=()=>h.find(h.render(),n=>n.type?.name==='AreaPicker');
     picker().props.onChange('1');assert.equal(h.get('goal'),manual,'reselecting the same expedition preserves the manual goal');
-    picker().props.onChange('2');assert.equal(h.get('missionId'),2);assert.equal(h.get('goal'),defaultGoal);
+    picker().props.onChange('2');assert.equal(h.get('missionId'),2);assert.equal(h.get('goal'),'great');
     assert(h.get('slots').every(s=>s===null));
-    h.find(h.render({automaticFilters:{defaultGoal:manual}}),n=>n.type?.name==='AreaPicker').props.onChange(3);
-    assert.equal(h.get('goal'),manual,'the next expedition uses the newly saved default');
+    h.find(h.render({automaticFilters:{allowEquipmentBorrowing:false}}),n=>n.type?.name==='AreaPicker').props.onChange(3);
+    assert.equal(h.get('goal'),'great');
     assert.equal(h.calls.fleet+h.calls.equipment,0);assert.equal(JSON.stringify(h.store),before);
   }
 });
@@ -2378,8 +2441,8 @@ test('numeric route references keep normal condition highlights without sample-c
   const detail=h.find(tree,n=>n.props.className==='paa-wb-route-requirements');
   const gate=h.find(detail,n=>n.props.className==='paa-wb-route-rule'&&text(n).includes('战舰')&&text(n).includes('最多 3 艘'));
   assert(gate);assert.equal(gate.props['data-state'],'estimated');
-  assert(text(detail).includes('< 49')&&text(detail).includes('否则继续判断'));
-  assert(text(gate).includes('按配装估算命中'));
+  assert(text(detail).includes('< 49')&&text(detail).includes('继续判断'));
+  assert(text(detail).includes('按配装估算命中'));assert(text(gate).includes('≈'));
   assert(!/样本不足|疑似固定|规则待确认/.test(text(detail)));
   assert.equal(h.calls.fleet+h.calls.equipment,0,'displaying rules never launches a search');
 });
@@ -2531,10 +2594,10 @@ test('fleet air thresholds follow the selected map path while fleet power keeps 
 });
 
 test('estimated air superiority and supremacy use the corresponding result colors',t=>{
-  const original=W.fleetSummary;let state='预计全程空优';
-  t.mock.method(W,'fleetSummary',(...args)=>{const summary=original(...args);return {...summary,air:{...summary.air,state,bad:false}};});
-  for(const [value,tone] of [['预计全程空优','blue'],['预计全程空确','green'],['全程空优','blue'],['全程空确','green'],['损耗待确认','neutral']]){
-    state=value;const h=harness(),slots=[W.entry(h.store,2)];h.set('slots',slots);h.set('mapRoute','guide:3-5-01');
+  const original=W.fleetSummary;let state='预计全程空优',stateCode='superiority';
+  t.mock.method(W,'fleetSummary',(...args)=>{const summary=original(...args);return {...summary,air:{...summary.air,state,stateCode,bad:false}};});
+  for(const [value,code,tone] of [['预计全程空优','superiority','blue'],['预计全程空确','supremacy','green'],['全程空优','superiority','blue'],['全程空确','supremacy','green'],['损耗待确认','unknown','neutral']]){
+    state=value;stateCode=code;const h=harness(),slots=[W.entry(h.store,2)];h.set('slots',slots);h.set('mapRoute','guide:3-5-01');
     h.set('report',{valid:true,scheme:W.scheme(slots,1),
       settingsKey:JSON.stringify({kind:'normal',fleet:1,area:'3-5',target:'boss',phase:'',missionId:1,revision:0}),
       route:{verdict:'guaranteed'},metrics:{airPower:{status:'range',min:500,max:501}}});
@@ -2545,8 +2608,10 @@ test('estimated air superiority and supremacy use the corresponding result color
 
 test('unavailable routes cannot be selected until clear, which also clears the route selection',async()=>{
   const h=harness();h.set('area','2-2');const options=W.mapOverview('2-2').options;
+  const missing={code:'missingRoutingShips',from:'C',to:'E',compact:true,text:'C → E：神風：未持有',
+    choices:[[{prefixes:['神風'],min:1,available:0,missingAll:true,ships:[],missingPrefixes:[],text:'神風：未持有'}]]};
   h.service.recommendNormalFleet=args=>{h.calls.fleet++;return {routeResults:options.map((o,i)=>({...o,status:i===1?'notFound':'available',
-    chance:i===1?null:{min:1,max:1,probability:1},recommendationIndex:i===1?null:i===0?0:1,diagnostics:i===1?{briefWarnings:['C → E：带路条件未满足']}:null})),
+    chance:i===1?null:{min:1,max:1,probability:1},recommendationIndex:i===1?null:i===0?0:1,diagnostics:i===1?{briefWarnings:['C → E：带路条件未满足',missing.text],briefWarningDetails:[missing]}:null})),
     recommendations:[0,2].map((i,j)=>({routeKey:options[i].key,scheme:W.scheme([W.entry(h.store,j+2)],1)}))};};
   await h.control(h.render(),'参考路线').props.onChange({target:{value:options[2].key}});
   await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();assert.equal(h.get('mapRoute'),options[2].key);
@@ -2561,7 +2626,13 @@ test('unavailable routes cannot be selected until clear, which also clears the r
   await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();
   assert.equal(h.get('mapRoute'),options[1].key);assert.equal(h.get('error'),'');
   const warning=h.find(h.render(),n=>n.props['aria-label']==='推荐路线受阻条件');
-  assert.deepEqual(warning.children.map(n=>n.children.join('')),['C → E：带路条件未满足']);
+  assert.deepEqual(warning.children.map(n=>n.children.join('')),['C → E：带路条件未满足',missing.text]);
+  const {setLocale}=require('../../src/shared/i18n');
+  try{
+    setLocale('ja-JP');const translated=h.find(h.render(),n=>n.props['aria-label']==='推奨ルートの阻害条件');
+    assert(translated);assert.equal(translated.children[1].children.join(''),'C → E：神風：未所持');
+    assert.equal(h.calls.fleet,2,'language changes do not trigger another recommendation');
+  }finally{setLocale('zh-CN');}
 });
 
 test('same-scheme route switches and pin or keep changes retain inspected probabilities',async()=>{
@@ -2706,7 +2777,7 @@ test('route warnings stay on the left and no stale chance or duplicate LoS badge
   h.set('report',W.inspect(h.service,h.store,slots,settings));
   const text=n=>typeof n==='string'?n:(n?.children||[]).map(text).join(' ');
   let tree=h.render(),left=h.find(tree,n=>n.props.className==='paa-wb-left'),right=h.find(tree,n=>n.props.className==='paa-wb-right');
-  assert.match(text(left),/到达概率 80%/);assert.match(text(left),/随机分岐/);
+  assert.match(text(left),/到达概率 80%/);assert.match(text(left),/随机分歧/);
   assert.equal(h.find(left,n=>n.props.className==='paa-wb-arrival-icon').props['data-kind'],'warning');
   assert(!text(right).includes('随机分岐'));assert(!text(right).includes('请留意路线条件'));
   assert(!h.find(left,n=>n.props.className==='paa-wb-los'));

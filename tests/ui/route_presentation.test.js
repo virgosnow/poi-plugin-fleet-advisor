@@ -68,6 +68,60 @@ test('merged arrival probabilities render one complete journey and one unchanged
   assert(text(arrivalNote(h,{note:'能动分歧请按所选路线选择出口'})).includes('能动分歧'));
 });
 
+test('adaptive 2-3 sums the same fleet’s Boss-bound branches and highlights each viable journey',()=>{
+  const store=require('../helpers/workbench_fixture')(),W=require('../../src/ui/workbench/workbench_model');
+  [3,18,18,2,1,1].forEach((stype,i)=>{store.const.$ships[i+1].api_stype=stype;});
+  const route=require('../../src/domain/routes/normal_routes').evaluateNormalRoute(store,{area:'2-3',scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
+  const selected=P.recommendedOptions('2-3').find(o=>o.fallback),best=P.optionPlanning(route,selected);
+  const arrival=W.routeArrival({route},selected,true),summary=P.adaptiveArrival(route,selected);
+  assert(Math.abs(best.chance.probability-.43425)<1e-9,'the representative route alone is 43.4%');
+  assert.equal(arrival.value,'到达概率 97.9%');assert.equal(summary.branches.length,8);
+  assert(Math.abs(summary.branches.reduce((sum,branch)=>sum+branch.chance.probability,0)-arrival.probability)<1e-9);
+  const list=all(arrivalNote(h,arrival),n=>n.type==='li');assert.equal(list.length,8);
+  const values=arrival.noteLines.filter(line=>line.nodes).map(line=>line.probability);
+  assert.deepEqual(values,values.slice().sort((a,b)=>b-a));
+  assert.deepEqual(P.fleetPathOption(route,selected).displayPaths,P.displayFleetPaths(route,selected));
+  const overview=W.mapOverview('2-3','boss','',undefined,store);
+  const profile=W.selectedMapProfile(overview,selected.key,null,route,true,store);
+  assert.deepEqual(profile.highlightPaths,P.displayFleetPaths(route,selected));
+  assert.equal(P.fleetPaths(route,selected).length,1,'the recommendation search still uses its representative path');
+});
+
+test('adaptive manual forks use one exit per point instead of adding incompatible choices',()=>{
+  const store=require('../helpers/workbench_fixture')(),W=require('../../src/ui/workbench/workbench_model');
+  const route=require('../../src/domain/routes/normal_routes').evaluateNormalRoute(store,{area:'4-5',scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
+  const selected=P.recommendedOptions('4-5').find(o=>o.fallback),summary=P.adaptiveArrival(route,selected);
+  assert.deepEqual(summary.playerChoices,[{from:'A',to:'D'},{from:'C',to:'D'}]);
+  assert.deepEqual(summary.branches.map(branch=>branch.nodes.join('')).sort(),['ADHT','CDHT']);
+  assert.equal(summary.arrival.probability,1);
+  const arrival=W.routeArrival({route},selected,true);assert.equal(arrival.value,'固定到达');
+  assert.match(arrival.note,/能动分歧：A 点选 D，C 点选 D/);
+  assert.equal(all(arrivalNote(h,arrival),n=>n.type==='li').length,2);
+});
+
+test('adaptive single fixed paths stay compact and unknown Boss odds remain unknown',()=>{
+  const store=require('../helpers/workbench_fixture')(),W=require('../../src/ui/workbench/workbench_model');
+  [16,3,6,2,2,2].forEach((stype,i)=>{store.const.$ships[i+1].api_stype=stype;});
+  const route=require('../../src/domain/routes/normal_routes').evaluateNormalRoute(store,{area:'2-2',scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
+  const selected=P.recommendedOptions('2-2').find(o=>o.fallback),fixed=W.routeArrival({route},selected,true);
+  assert.equal(fixed.value,'固定到达');assert.equal(fixed.note,'');assert.equal(arrivalNote(h,fixed),null);
+  const unknown=W.routeArrival({route:{...route,probability:null,chanceRange:[0,1]}},selected,true);
+  assert.equal(unknown.value,'到达率待确认');assert.equal(unknown.probability,null);
+});
+
+test('adaptive three-way unknown rolls that rejoin do not count three 50% references',()=>{
+  const store=require('../helpers/workbench_fixture')(),W=require('../../src/ui/workbench/workbench_model');
+  for(let i=1;i<=6;i++)store.const.$ships[i].api_stype=13;
+  const route=require('../../src/domain/routes/normal_routes').evaluateNormalRoute(store,{area:'5-3',scheme:{fleet:1,ships:[1,2,3,4,5,6]}});
+  const selected=P.recommendedOptions('5-3').find(o=>o.fallback),arrival=W.routeArrival({route},selected,true);
+  assert.equal(arrival.value,'到达概率 50%');
+  const rows=arrival.noteLines.filter(row=>row.nodes);
+  assert.deepEqual(rows.map(row=>row.value),['30%','20%']);
+  assert(rows.every(row=>row.nodes.includes('L/M/N')));
+  assert(Math.abs(rows.reduce((sum,row)=>sum+row.probability,0)-arrival.probability)<1e-9);
+  assert.match(arrival.note,/能动分歧：O 点选 K/);
+});
+
 test('a sole fixed journey hides its probability rows and summary, while preserving phase and player-choice guidance',()=>{
   const store=require('../helpers/workbench_fixture')(),W=require('../../src/ui/workbench/workbench_model');
   [16,3,6,2,2,2].forEach((stype,i)=>{store.const.$ships[i+1].api_stype=stype;});

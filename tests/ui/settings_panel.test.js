@@ -70,13 +70,15 @@ test('sortie and expedition exclusion controls autosave separately and propagate
   assert.equal(saved.normal.minLevel,60);assert.equal(saved.expedition.minLevel,0);
   control('远征设置：排除未改造舰').props.onChange({target:{checked:true}});tree=render();
   assert(saved.expedition.excludeUnremodeled);
-  const goalButton=label=>find(control('远征默认目标'),n=>n.type==='button'&&n.children.includes(label));
-  assert.equal(goalButton('优先大成功').props['aria-pressed'],true);
-  goalButton('成功即可').props.onClick();tree=render();
-  assert.equal(saved.expedition.defaultGoal,'success');
-  assert.equal(goalButton('成功即可').props['aria-pressed'],true);
-  assert.equal(goalButton('优先大成功').props['aria-pressed'],false);
-  assert.equal(workbenches(tree).find(n=>n.props.kind==='expedition').props.automaticFilters.defaultGoal,'success');
+  const borrowingButton=label=>find(control('远征装备借用'),n=>n.type==='button'&&n.children.includes(label));
+  assert.equal(borrowingButton('不借用').props['aria-pressed'],true);
+  borrowingButton('允许借用').props.onClick();tree=render();
+  assert.equal(saved.expedition.allowEquipmentBorrowing,true);
+  assert.equal(workbenches(tree).find(n=>n.props.kind==='expedition').props.automaticFilters.allowEquipmentBorrowing,true);
+  borrowingButton('不借用').props.onClick();tree=render();
+  assert.equal(saved.expedition.allowEquipmentBorrowing,false);
+  assert.equal(borrowingButton('不借用').props['aria-pressed'],true);
+  assert.equal(workbenches(tree).find(n=>n.props.kind==='expedition').props.automaticFilters.allowEquipmentBorrowing,false);
   assert.equal(workbenches(tree)[0].props.automaticFilters.minLevel,60);
   assert(workbenches(tree).every((n,i)=>n.type===original[i]));
   service.setRecommendationFilters=()=>{throw Error('磁盘不可写');};
@@ -87,7 +89,7 @@ test('sortie and expedition exclusion controls autosave separately and propagate
   assert(!find(tree,n=>n.props.className==='paa-settings-notice'));
   control('回到主页').props.onClick();tree=render();
   assert.equal(saved.normal.minLevel,60);assert(saved.expedition.excludeUnremodeled,'home retains persisted preferences');
-  assert.equal(saved.expedition.defaultGoal,'success');
+  assert.equal(saved.expedition.allowEquipmentBorrowing,false);
   assert(!find(tree,n=>n.props.role==='alert'),'home clears transient failures');
 });
 test('settings navigation preserves drafts and MCP controls keep their actions after layout changes',async()=>{

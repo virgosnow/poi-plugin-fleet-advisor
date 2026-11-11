@@ -1,4 +1,7 @@
 'use strict';
+require('../shared_catalog');
+const {t}=require('../../shared/i18n');
+const mechanismDisplay=require('../i18n/mechanism_display');
 const {equipmentIconUrl}=require('../models/presentation_model');
 const jetIcon=require('url').pathToFileURL(require('path').join(__dirname,'../../../data/icons/material/jet-assault.svg')).href;
 // Visible bounds in the existing game equipment sprites, without their transparent margins.
@@ -46,7 +49,7 @@ function createMechanismIcon(React){
     if(badge.key==='barrage')return h('svg',{...props,viewBox:'9 10 31 27',fill:'currentColor','data-equipment-icon':15,'data-mechanism-art':'barrage'},h('path',{d:barragePath}));
     let type=types[badge.key];
     if(badge.key==='ground')type=({rocket:31,landing:20,beaching:52})[badge.variant]||12;
-    else if(badge.key==='night')type=badge.effect==='torpedo'||/雷击|鱼雷|主鱼|驱逐|潜水/.test(badge.label)?5:2;
+    else if(badge.key==='night')type=badge.effect==='torpedo'?5:2;
     const frame=frames[type],src=equipmentIconUrl(type);
     if(!frame||!src)return null;
     const [x,y,w,height,size]=frame,edge=['asw','asw-synergy'].includes(badge.key)?13:16,scale=Math.min(edge/w,Math.min(edge,14)/height);
@@ -69,10 +72,12 @@ module.exports=React=>{
   const priority=badge=>order[badge.key]??40;
   return badges=>(badges||[]).slice().sort((a,b)=>priority(a)-priority(b)).map(b=>{
     const state={estimate:'预计',unknown:'待确认',blocked:'未就绪'}[b.state],detail=b.detail||b.label;
-    return h('span',{key:b.variant?`${b.key}:${b.variant}`:b.key,className:'paa-wb-mechanism','data-mechanism':b.key,'data-category':b.category||groups[b.key]||'support','data-state':b.state,'data-tier':b.key==='speed'?b.tier:undefined,'data-tooltip':detail,tabIndex:0,'aria-label':detail},
+    const structured=b.tooltipData&&(b.tooltipData.kind==='antiAir'?b.tooltipData.cutins?.length:Array.isArray(b.attacks)&&b.attacks.length)?
+      JSON.stringify({kind:'mechanism',mechanism:b.key,sections:[],layout:b.tooltipData.kind,activation:b.tooltipData.activation,activationRows:b.tooltipData.activationRows,notes:b.tooltipData.notes,rowHeading:b.tooltipData.rowHeading,canDay:b.tooltipData.canDay,surfaceNight:b.tooltipData.surfaceNight,attacks:b.attacks,cutins:b.tooltipData.cutins,rate:b.tooltipData.rate,fleetRate:b.tooltipData.fleetRate,showFleetRate:b.tooltipData.showFleetRate}):undefined;
+    return h('span',{key:b.variant?`${b.key}:${b.variant}`:b.key,className:'paa-wb-mechanism','data-mechanism':b.key,'data-category':b.category||groups[b.key]||'support','data-state':b.state,'data-tier':b.key==='speed'?b.tier:undefined,'data-tooltip':detail,'data-tooltip-content':structured,tabIndex:0,'aria-label':mechanismDisplay.text(detail)},
       b.key==='speed'?h('svg',{className:'paa-wb-speed-gauge',viewBox:'0 0 19 14',width:19,height:14,'aria-hidden':true,'data-tier':b.tier},
         ...[1,2,3,4].map(t=>h('rect',{key:t,x:(t-1)*5,y:14-t*3,width:3,height:t*3,rx:0.6,fill:t<=b.tier?'currentColor':'none',stroke:'currentColor',strokeWidth:0.6,opacity:t<=b.tier?1:0.28}))):null,
-      icon(b),b.label,state&&!(b.key==='speed'&&b.state==='unknown')?h('small',null,state):null);
+      icon(b),mechanismDisplay.label(b),state&&!(b.key==='speed'&&b.state==='unknown')?h('small',null,t(state)):null);
   });
 };
 

@@ -108,6 +108,7 @@ function antiAirBadge(target,context=fleetAntiAir([target])){
   const lines=cutins.map(c=>`${c.id}型：${c.rate===null?'待确认':pct(c.rate)}，${c.multiplier===null?'击落加成待确认':`固定击坠×${c.multiplier}，保底+${c.fixed}机`}`);
   return {key:'aaci',label:'对空特攻',state:cutins.some(c=>c.multiplier!==null)?'ready':'unknown',cutins,
     rate:rate??null,fleetRate:context.total,
+    tooltipData:{kind:'antiAir',cutins,rate:rate??null,fleetRate:context.total,showFleetRate:context.active>1,notes:['提升全队击落，每战择一。']},
     detail:require('../../shared/mechanism_text')([`参考发动率：${rate==null?'待确认':pct(rate)}${context.active>1?'（本舰）':''}`,
       context.active>1?`全队参考发动率：${context.total==null?'待确认':pct(context.total)}`:''],lines,'提升全队击落，每战择一。')};
 }

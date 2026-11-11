@@ -85,14 +85,16 @@ function assaultBadge(target,store,profile){
   if(nodes.length&&!nodes.some(n=>applicable(n)!==false))reasons.push('所选路线没有喷式强袭适用节点');
   const state=illegal||steel===0||!live&&!unknown?'blocked':unknown?'unknown':'ready';
   const totalSteel=rows.every(r=>r.steel!==null)?rows.reduce((sum,r)=>sum+r.steel,0):null;
-  const detail=tooltip(state==='ready'?'有可用喷气攻击机时固定发动':state==='unknown'?'发动情况：待确认':'当前无法发动',
+  const activation=state==='ready'?'有可用喷气攻击机时固定发动':state==='unknown'?'发动情况：待确认':'当前无法发动';
+  const notes=[`本舰钢材消耗：${totalSteel??'待确认'}／次`,
+      '普通航空战前攻击敌舰。','按出击前满载；未计损耗与暴击。',...reasons];
+  const detail=tooltip(activation,
     rows.flatMap(r=>[
       `第 ${r.slot+1} 槽 ${r.name}（${r.planes??'待确认'} 架）`,
       r.planes===0||r.legal===false?'攻击力：不可用':`攻击力：${r.power??'待确认'} × 1击`]),
-    [`本舰钢材消耗：${totalSteel??'待确认'}／次`,
-      '普通航空战前攻击敌舰。','按出击前满载；未计损耗与暴击。',...reasons]);
+    notes);
   return {key:'jet-assault',label:'喷式强袭',state,
-    attacks:rows,steelAvailable:steel,reasons,detail};
+    attacks:rows,tooltipData:{kind:'aircraft',activation,notes},steelAvailable:steel,reasons,detail};
 }
 function antiAirLoss(count,node,jet){
   if(count<=0||jet.role==='fighter')return 0;

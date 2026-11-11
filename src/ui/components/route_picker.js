@@ -4,6 +4,8 @@ const renderCombatBalance=require('./combat_balance');
 const {LABELS}=require('../../domain/combat/combat_balance');
 const usePickerToggle=require('./picker_hover');
 const {pickerPlacement}=require('./picker_placement');
+const {t,useLocale}=require('../../shared/i18n');
+const localized=require('../maps/map_localization');
 const routeBlocked=option=>['notFound','unconfirmed'].includes(option?.status);
 const combatScore=option=>{
   const {status,balance}=option?.combat||{};
@@ -33,6 +35,7 @@ function routeGroups(options,currentPhase){
 module.exports=function createRoutePicker(React){
   const h=React.createElement,placementEffect=React.useLayoutEffect||React.useEffect;
   return function RoutePicker({options=[],value='',onChange,currentPhase,disabled=false,hidden=false,area}){
+    useLocale(React);
     const [open,setOpen]=React.useState(false),anchor=React.useRef(null),trigger=React.useRef(null),panel=React.useRef(null),pointerInside=React.useRef(false);
     const [expanded,setExpanded]=React.useState({});
     const show=()=>{setExpanded({});setOpen(true);};
@@ -87,37 +90,37 @@ module.exports=function createRoutePicker(React){
     const toggle=group=>setExpanded({context,phases:{...(expanded.context===context?expanded.phases:{}),[group.phase]:!isExpanded(group)}});
     const path=routeFormula;
     return h('div',{className:'paa-area-picker paa-wb-route-picker','data-kind':'route'},
-      h('span',{className:'paa-area-label'},'路线'),
+      h('span',{className:'paa-area-label'},t('路线')),
       h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:picker.guardClick,onPointerEnter:picker.enter,onPointerLeave:picker.leave},
         h('button',{type:'button',className:'paa-area-trigger paa-route-trigger',ref:trigger,disabled,
-          'aria-label':'路线','aria-haspopup':'dialog','aria-expanded':open&&!disabled&&!hidden,
+          'aria-label':t('路线'),'aria-haspopup':'dialog','aria-expanded':open&&!disabled&&!hidden,
           onClick:()=>{if(!disabled&&!hidden)picker.click();}},
-          h('span',{className:'paa-wb-route-name'},selected?.name||'选择路线'),
-          selected?h('span',{className:'paa-wb-route-path'},`${selected.phaseLabel?selected.phaseLabel+'　':''}${path(selected)}`):null,
+          h('span',{className:'paa-wb-route-name'},selected?localized.routeName(selected):t('选择路线')),
+          selected?h('span',{className:'paa-wb-route-path'},`${selected.phaseLabel?localized.phaseLabel(selected.phaseLabel)+'　':''}${path(selected)==='无可达分支'?t('map.noRoute'):path(selected)}`):null,
           h('span',{className:'paa-area-chevron','aria-hidden':true})),
-        open&&!disabled&&!hidden?h('section',{className:'paa-area-panel paa-route-panel',ref:panel,role:'dialog','aria-label':'选择路线',
+        open&&!disabled&&!hidden?h('section',{className:'paa-area-panel paa-route-panel',ref:panel,role:'dialog','aria-label':t('选择路线'),
           onKeyDownCapture:picker.engageKeyboard,onPointerDownCapture:picker.engageSelect},
-          h('div',{className:'paa-area-panel-head'},h('span',null,'选择路线'),h('button',{type:'button','aria-label':'关闭路线选择',onClick:close},'×')),
-          h('div',{className:'paa-area-regions paa-route-list',role:'listbox','aria-label':'推荐路线'},
-            h('button',{className:'paa-route-clear',type:'button',role:'option','aria-selected':!selected,onClick:()=>choose('')},'选择路线',h('small',null,'取消路线预选')),
+          h('div',{className:'paa-area-panel-head'},h('span',null,t('选择路线')),h('button',{type:'button','aria-label':t('关闭路线选择'),onClick:close},'×')),
+          h('div',{className:'paa-area-regions paa-route-list',role:'listbox','aria-label':t('推荐路线')},
+            h('button',{className:'paa-route-clear',type:'button',role:'option','aria-selected':!selected,onClick:()=>choose('')},t('选择路线'),h('small',null,t('取消路线预选'))),
             ...groups.map(group=>{
               const expanded=isExpanded(group),id=`paa-routes-${area}-${group.phase}`;
               const rows=group.options.map(option=>h('button',{key:option.key,type:'button',className:'paa-route-option',role:'option',disabled:routeBlocked(option),tabIndex:expanded&&!routeBlocked(option)?0:-1,'aria-selected':option.key===value,onClick:()=>{if(expanded&&!routeBlocked(option))choose(option.key);}},
-                h('span',{className:'paa-route-option-head'},h('span',null,option.name),
+                h('span',{className:'paa-route-option-head'},h('span',null,localized.routeName(option)),
                   combatScore(option)?renderCombatBalance.renderTier(h,option.combat):
-                    h('small',null,option.status==='notFound'?'上次未找到方案':option.status==='unconfirmed'?'方案待确认':option.status==='notSearched'?'选择后计算':option.combat?.status==='pending'?'计算中':option.combat?'暂不可评估':'')),
-                h('span',{className:'paa-route-option-path'},path(option))));
-              return h('section',{key:group.phase,role:'group','aria-label':group.label,className:'paa-route-group'},
+                    h('small',null,t(option.status==='notFound'?'上次未找到方案':option.status==='unconfirmed'?'方案待确认':option.status==='notSearched'?'选择后计算':option.combat?.status==='pending'?'计算中':option.combat?'暂不可评估':''))),
+                h('span',{className:'paa-route-option-path'},path(option)==='无可达分支'?t('map.noRoute'):path(option))));
+              return h('section',{key:group.phase,role:'group','aria-label':localized.phaseLabel(group.label),className:'paa-route-group'},
                 groups.length>1?h('button',{type:'button',className:'paa-route-phase-toggle','aria-expanded':expanded,'aria-controls':id,onClick:()=>toggle(group)},
                   h('span',{className:'paa-fleet-chevron','data-open':expanded,'aria-hidden':true},'›'),
-                  h('span',null,group.label),group.phase===currentPhase?h('small',null,'当前阶段'):null,
-                  h('small',{className:'paa-route-phase-count'},`${group.options.length} 条`)):null,
+                  h('span',null,localized.phaseLabel(group.label)),group.phase===currentPhase?h('small',null,t('当前阶段')):null,
+                  h('small',{className:'paa-route-phase-count'},t('map.routeCount',{count:group.options.length}))):null,
                 h('div',{id,className:'paa-collapse','data-open':expanded,'aria-hidden':!expanded,inert:expanded?undefined:''},
                   h('div',{className:'paa-collapse-clip'},h('div',{className:'paa-route-options'},...rows))));
             })),
-          !groups.length?h('p',{className:'paa-muted'},'当前没有推荐路线'):null):null),
+          !groups.length?h('p',{className:'paa-muted'},t('当前没有推荐路线')):null):null),
       h('button',{type:'button',className:'paa-route-reset',disabled:disabled||hidden||!value,
-        'aria-label':'重置路线','data-tooltip':'取消路线选择',
+        'aria-label':t('重置路线'),'data-tooltip':t('取消路线选择'),
         onClick:()=>{if(disabled||hidden||!value)return;picker.dismiss();setOpen(false);onChange('');}},
         h('svg',{width:18,height:18,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
           h('path',{d:'M4 7a6 6 0 1 1 0 6M4 3v4h4'}))));

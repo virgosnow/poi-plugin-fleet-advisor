@@ -39,7 +39,7 @@ function createCombatAssessment({plans,profileForRoute,evaluate}){
     }catch(error){value={status:'unknown',reasons:['战力资料暂无法计算']};}
     // A busy renderer can exhaust the time budget transiently; do not make
     // the same unchanged draft permanently retain that failed calculation.
-    const timedOut=value?.status==='unknown'&&value.reasons?.some(reason=>reason.includes('超过时间预算'));
+    const timedOut=value?.status==='unknown'&&value.reasonCode==='timeBudgetExceeded';
     if(!bypassCache&&!timedOut){if(cache.size>=8)cache.delete(cache.keys().next().value);
       cache.set(key,{info:store.info,master:store.const,value});}
     return value;

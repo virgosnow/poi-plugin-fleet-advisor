@@ -3,6 +3,9 @@
 const {maps}=require('../../../data/sortie/land_base/maps.json');
 const V=require('../models/presentation_model');
 const {normalizeName}=require('../../shared/name_matching');
+const {t,registerCatalog}=require('../../shared/i18n');
+const localeCatalog=require('../i18n/airbase');
+registerCatalog('ja',localeCatalog.ja);registerCatalog('zh-TW',localeCatalog.zhTW);
 
 function observedDraft(store,area){
   const map=maps.find(row=>row.id===area&&row.available);if(!map)return null;
@@ -85,7 +88,9 @@ function equipmentOptions(store,area,bases,scheme,rid,slotId,search=''){
     const group=groups.get(key);group.count++;
     if(entry.itemId===current)Object.assign(group,row);
   }
-  return [...groups.values()].filter(row=>!term||normalizeName(`${row.name} ${row.category} ${row.id}`).toLowerCase().includes(term))
+  // Search accepts both the original internal category and the displayed
+  // locale label; inventory eligibility, IDs and game names remain untouched.
+  return [...groups.values()].filter(row=>!term||normalizeName(`${row.name} ${row.category} ${t(row.category)} ${row.id}`).toLowerCase().includes(term))
     .sort((a,b)=>a.categoryId-b.categoryId||a.sortNo-b.sortNo||b.stars-a.stars||b.proficiency-a.proficiency||a.id-b.id);
 }
 function replaceSlot(store,bases,rid,slotId,itemId){

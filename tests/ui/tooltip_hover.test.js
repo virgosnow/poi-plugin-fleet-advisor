@@ -71,3 +71,17 @@ test('a real map node tooltip shows radius after the delay and closes on click o
   h.page.emit('pointerover',{target:h.target,buttons:0});t.mock.timers.tick(350);assert(h.tip);
   h.win.emit('scroll',{target:h.other});assert.equal(h.tip,null);h.cleanup();
 });
+
+test('language switching dismisses stale or pending tooltip and next hover uses the new locale',t=>{
+  const locale=require('../../src/shared/i18n');t.mock.timers.enable({apis:['setTimeout']});const h=harness(false,'满足先制雷击条件时固定发动');h.target.dataset.mechanism='torpedo';
+  try{
+    locale.setLocale('zh-CN');h.page.emit('pointerover',{target:h.target,buttons:0});t.mock.timers.tick(350);
+    assert.match(h.tip.textContent,/满足先制雷击条件时固定发动/);
+    locale.setLocale('ja-JP');assert.equal(h.tip,null,'existing tooltip is dismissed');
+    h.page.emit('pointerover',{target:h.target,buttons:0});t.mock.timers.tick(350);
+    assert.match(h.tip.textContent,/開幕雷撃/);assert.doesNotMatch(h.tip.textContent,/先制雷击/);
+    h.page.emit('focusout',{});h.page.emit('pointerover',{target:h.target,buttons:0});
+    locale.setLocale('zh-TW');t.mock.timers.tick(350);assert.equal(h.tip,null,'old pending timer is cancelled');
+    h.page.emit('pointerover',{target:h.target,buttons:0});t.mock.timers.tick(350);assert.match(h.tip.textContent,/先制雷擊/);
+  }finally{h.cleanup();locale.setLocale('zh-CN');}
+});

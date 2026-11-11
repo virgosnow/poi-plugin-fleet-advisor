@@ -15,7 +15,9 @@ for(let offset=0;offset+512<=tar.length;) {
 assert.equal(metadata?.name,'poi-plugin-fleet-advisor','Incorrect published package identity');
 assert.equal(metadata.poiPlugin.id,metadata.name,'poi identity differs from package name');
 assert.equal(metadata.poiPlugin.title,'舰队参谋','Incorrect Chinese title');
-for(const name of ['data/quests/requirements.json','src/domain/quests/quest_requirements.js','src/domain/quests/fleet_requirements.js','src/infrastructure/quests/quest_observer.js','src/infrastructure/quests/quest_auto_read.js','src/host/quest_reader.js','src/ui/components/quest_section.js','src/ui/components/quest_section_styles.js'])
+assert.equal(metadata.poiPlugin.i18nDir,'src/ui/i18n','Missing poi plugin translation directory');
+for(const locale of ['zh-CN','zh-TW','ja-JP','en-US'])assert(names.includes(`package/${metadata.poiPlugin.i18nDir}/${locale}.json`),'Missing poi title translation '+locale);
+for(const name of ['data/quests/requirements.json','src/domain/quests/quest_requirements.js','src/domain/quests/fleet_requirements.js','src/infrastructure/quests/quest_observer.js','src/infrastructure/quests/quest_auto_read.js','src/host/quest_reader.js','src/ui/components/quest_section.js','src/ui/components/quest_section_styles.js','src/ui/components/quest_rewards.js'])
   assert(names.includes('package/'+name),'Missing related task runtime '+name);
 for(const name of ['data/quests/limited/index.js','data/quests/limited/2026-halloween.json','src/recommendation/quest_constraints.js'])
   assert(names.includes('package/'+name),'Missing limited task catalog '+name);

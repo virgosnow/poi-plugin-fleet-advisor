@@ -1,4 +1,8 @@
 'use strict';
+require('../i18n/readability');
+const {t,registerCatalog,useLocale}=require('../../shared/i18n');
+const localeCatalog=require('../i18n/expedition_practice');
+registerCatalog('ja',localeCatalog.ja);registerCatalog('zh-TW',localeCatalog.zhTW);
 const W=require('../workbench/workbench_model'),V=require('../models/presentation_model');
 const {opponentProfile}=require('../../recommendation/practice');
 const {fleetMechanisms,fleetSpeed,aircraftCapacity}=require('../../domain/combat/ship_mechanisms');
@@ -19,14 +23,15 @@ const {createShipPickerCache}=require('../workbench/ship_picker_cache');
 const {createCalculationProgress,createProgressComponent}=require('../components/calculation_progress');
 const empty=()=>Array(6).fill(null);
 const TRAINING_ROW_STEP=53,TRAINING_OVERSCAN=4,TRAINING_VISIBLE=8;
-const rankText=rank=>`${rank}${['SS','S','A','B'].includes(rank)?'胜':'败'}`;
+const rankText=rank=>`${rank}${t(['SS','S','A','B'].includes(rank)?'胜':'败')}`;
 const {listPracticeQuests:practiceTasks,countPracticeQuests}=require('../../domain/quests/practice_quests');
 module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
-  const h=React.createElement,EquipmentIcon=require('../components/equipment_icon')(React),ResourceIcon=require('../components/resource_icon')(React),badges=require('../components/mechanism_badges')(React),QuestSection=require('../components/quest_section')(React),ShipPicker=shipPicker(React),EquipmentPicker=equipmentPicker(React);
+  const h=React.createElement,EquipmentIcon=require('../components/equipment_icon')(React),ResourceIcon=require('../components/resource_icon')(React),badges=require('../components/mechanism_badges')(React),QuestSection=require('../components/quest_section')(React,{getController,subscribe}),ShipPicker=shipPicker(React),EquipmentPicker=equipmentPicker(React);
   const CalculationProgress=createProgressComponent(React),placementEffect=React.useLayoutEffect||React.useEffect;
   const FleetTargetPicker=require('../components/fleet_target_picker')(React);
+  const FleetImportPicker=require('../components/fleet_import_picker')(React);
   const ExecutionCard=require('../components/execution_card')(React,{subscribe,getStore});
-  return function PracticePage({kind='practice',hidden=false,busy=false,stopping=false,onStop,stopButtonRef,onApply,operationFeedback,executionPlan,automaticOperations,automaticFilters,navigationIntent}){
+  return function PracticePage({kind='practice',hidden=false,busy=false,stopping=false,onStop,stopButtonRef,onApply,onNavigateQuest,operationFeedback,executionPlan,automaticOperations,automaticFilters,navigationIntent}){
     const [slots,setSlots]=React.useState(empty),[fleet,setFleet]=React.useState(1),[opponentId,setOpponentId]=React.useState(null);
     const [attributeDetails,setAttributeDetails]=React.useState({}),[popup,setPopup]=React.useState(null),[search,setSearch]=React.useState('');
     const [revision,setRevision]=React.useState(0),[working,setWorking]=React.useState(false),[message,setMessage]=React.useState(''),[questsOpen,setQuestsOpen]=React.useState(false);
@@ -39,6 +44,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
     const [selectedQuests,setSelectedQuests]=React.useState([]);
     const [trainingLock,setTrainingLock]=React.useState('locked'),[trainingScroll,setTrainingScroll]=React.useState(0);
     const [shipWindow,setShipWindow]=React.useState(0);
+    useLocale(React);
     const observed=React.useRef(null),previewRef=React.useRef(null),handledNavigation=React.useRef(null);
     if(!busy||!observed.current)observed.current=getStore();
     const grid=React.useRef(null),popupList=React.useRef(null),forecastCache=React.useRef(null),opponentList=React.useRef(null),store=observed.current,practice=store.practiceState||{},quest=store.questState||{};
@@ -115,16 +121,23 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
         type:W.TYPES[typeId]||store.const.$shipTypes?.[typeId]?.api_name||'未知舰种',cond:Number(ship.api_cond)||0,masterId:ship.api_ship_id};
     }).filter(Boolean);
     const trainingQuery=normalizeName(trainingSearch).toLowerCase();
-    const trainingMatches=trainingRows.filter(row=>(!trainingQuery||normalizeName(`${row.name} ${row.type} ${row.id} ${row.level} ${row.remodel}`).toLowerCase().includes(trainingQuery))&&
+    const trainingMatches=trainingRows.filter(row=>(!trainingQuery||normalizeName(`${row.name} ${row.type} ${W.TYPES[row.typeId]?t(W.TYPES[row.typeId]):row.type} ${row.id} ${row.level} ${row.remodel}`).toLowerCase().includes(trainingQuery))&&
       (trainingType==='all'||shipPicker.shipGroup(row.typeId)===trainingType)&&
       (trainingLock==='all'||row.locked===(trainingLock==='locked')))
       .sort((a,b)=>trainingSort==='level-asc'?a.level-b.level||a.id-b.id:trainingSort==='morale-desc'?b.cond-a.cond||b.level-a.level||a.id-b.id:
         trainingSort==='name'?a.name.localeCompare(b.name,'ja')||b.level-a.level||a.id-b.id:b.level-a.level||a.id-b.id);
-    const selectedNames=trainingShipIds.map(id=>trainingRows.find(row=>row.id===id)?.name||'舰娘资料待同步');
-    const trainingLabel=selectedNames.length?selectedNames.join('、'):'无特别指定';
+    const selectedNames=trainingShipIds.map(id=>trainingRows.find(row=>row.id===id)?.name||t('舰娘资料待同步'));
+    const trainingLabel=selectedNames.length?selectedNames.join('、'):t('无特别指定');
     const trainingStart=Math.min(Math.max(0,Math.floor(trainingScroll/TRAINING_ROW_STEP)-TRAINING_OVERSCAN),Math.max(0,trainingMatches.length-1));
     const trainingEnd=Math.min(trainingMatches.length,trainingStart+TRAINING_VISIBLE+TRAINING_OVERSCAN*2);
     const trainingGraphs=trainingOpen&&Array.isArray(store.const?.$shipgraph)?new Map(store.const.$shipgraph.map(graph=>[Number(graph.api_id),graph])):null;
+    const displayRemodel=row=>{
+      const ship=store.info.ships[row.id],master=store.const.$ships[ship?.api_ship_id];
+      const next=Number(master?.api_aftershipid),level=Number(master?.api_afterlv);
+      if(master?.api_aftershipid==null)return t('改造等级待确认');
+      if(next<=0)return t('无后续改造');
+      return Number.isFinite(level)&&level>0?t('下一改造 Lv.{level}{ready}',{level,ready:Number(ship?.api_lv)>=level?t('（已达）'):''}):t('改造等级待确认');
+    };
     const trainingKeys=event=>{
       if(event.key!=='Tab')return;const label=event.target.closest?.('[data-index]');if(!label)return;
       let next=Number(label.dataset.index)+(event.shiftKey?-1:1);
@@ -153,21 +166,21 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
     const forecastChart=()=>{
       let start=0;const stops=forecast.rows.map(row=>{const end=start+row.count/forecast.samples*100,color=colors[row.label];const segment=`${color} ${start}% ${end}%`;start=end;return segment;});
       return h('div',{className:'paa-practice-forecast'},h('div',{className:'paa-practice-pie',role:'img',
-        'aria-label':forecast.rows.map(row=>`${rankText(row.label)} ${row.percent||'少于 1'}%`).join('，'),
+        'aria-label':forecast.rows.map(row=>`${rankText(row.label)} ${row.percent||t('少于 1')}%`).join('，'),
         style:{background:`conic-gradient(${stops.join(',')})`}}),
       h('div',{className:'paa-practice-forecast-legend'},...forecast.rows.map(row=>h('div',{key:row.label},
         h('span',{className:'paa-practice-forecast-dot',style:{background:colors[row.label]}}),h('span',null,rankText(row.label)),
         h('strong',null,row.percent?`${row.percent}%`:'<1%')))));
     };
     const resourceSummary=()=>{
-      if(consumption.status!=='known')return {items:[],detail:consumption.status==='empty'?'添加舰娘后计算':consumption.reason||'补给资料待确认'};
-      const range=value=>value===null?'待确认':value.min===value.max?String(value.min):`${value.min}–${value.max}`;
+      if(consumption.status!=='known')return {items:[],detail:t(consumption.status==='empty'?'添加舰娘后计算':consumption.reason||'补给资料待确认')};
+      const range=value=>value===null?t('待确认'):value.min===value.max?String(value.min):`${value.min}–${value.max}`;
       const referenceAir=forecast?.air?.status==='estimated'?forecast.air:null,referenceLoss=referenceAir?.bauxite;
       const items=[['燃料',String(consumption.fuel)],['弹药',range({min:consumption.ammoDay,max:consumption.ammoNight})],
-        ['铝土',referenceLoss?range(referenceLoss):consumption.bauxite===null?'待确认':consumption.bauxite.max===0?'0':`≤${consumption.bauxite.max}`],...(consumption.hasJets?[['钢材',range(consumption.steel)]]:[])];
+        ['铝土',referenceLoss?range(referenceLoss):consumption.bauxite===null?t('待确认'):consumption.bauxite.max===0?'0':`≤${consumption.bauxite.max}`],...(consumption.hasJets?[['钢材',range(consumption.steel)]]:[])];
       const airNote=referenceLoss?'铝土按假设配装估算，实际受敌方防空与制空影响。':
         consumption.bauxite===null?'铝土消耗待确认。':consumption.bauxite.max===0?'无需补充舰载机。':'铝土为理论上限，并非平均消耗。';
-      return {items,detail:['满补给、满载；弹药范围为昼战至夜战。',airNote,consumption.hasJets?'喷式强袭可能额外消耗钢材。':''].filter(Boolean).join('\n')};
+      return {items,detail:[t('readability.resourceFull'),t(airNote),consumption.hasJets?t('喷式强袭可能额外消耗钢材。'):''].filter(Boolean).join('\n')};
     };
     const fmtRange=value=>!value?'—':value.min===value.max?String(value.min):`${value.min}–${value.max}`;
     let mechanisms=new Map(),speed=null,preview=null,ownAir=null;
@@ -190,44 +203,44 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
       }catch(_){ownAir={status:'unknown',reason:'航空资料不足'};}
     }
     const metrics=()=>{
-      const airValue=ownAir?.status==='range'?fmtRange(ownAir):filled.length?'待确认':'—';
+      const airValue=ownAir?.status==='range'?fmtRange(ownAir):filled.length?t('待确认'):'—';
       const opponentAir=forecast?.air?.status==='estimated'?forecast.air:null;
       const stateNames={supremacy:'空确',superiority:'空优',parity:'空均',disadvantage:'空劣',loss:'空丧',noAirBattle:'无航空战'};
-      const stateText=opponentAir?.states?.length?opponentAir.states.map(state=>stateNames[state]||'待确认').join('～'):null;
+      const stateText=opponentAir?.states?.length?opponentAir.states.map(state=>t(stateNames[state]||'待确认')).join('～'):null;
       const airWarning=!!opponentAir?.states?.some(state=>state==='loss'||state==='disadvantage');
       const metricIcon=(kind)=>h('svg',{viewBox:'0 0 16 16','aria-hidden':true},kind==='warning'?
         h('path',{d:'M8 2 15 14H1ZM8 6v4m0 2v.1'}):
         [h('circle',{key:'outline',cx:8,cy:8,r:6}),h('path',{key:'mark',d:kind==='check'?'m5 8 2 2 4-4':'M5 8h6'})]);
-      const airHint=opponentAir?`假设对手配装 · 敌方 ${fmtRange(opponentAir.enemyAirPower)}`:!selected?'选择对手后可参考制空状态':!enemy.known?'对手舰队资料待同步':'对手制空待确认';
-      const airDetail=[filled.length?`我方制空：${airValue}（满载）`:'添加舰娘后显示我方制空',ownAir?.reason,
-        opponentAir?`敌方制空：${fmtRange(opponentAir.enemyAirPower)}（假设可开发装备）`:airHint,
-        stateText?`预计：${stateText}`:''].filter(Boolean).join('\n');
+      const airHint=opponentAir?t('假设对手配装 · 敌方 {value}',{value:fmtRange(opponentAir.enemyAirPower)}):t(!selected?'选择对手后可参考制空状态':!enemy.known?'对手舰队资料待同步':'对手制空待确认');
+      const airDetail=[filled.length?t('我方制空：{value}（满载）',{value:airValue}):t('添加舰娘后显示我方制空'),ownAir?.reason&&t(ownAir.reason),
+        opponentAir?t('敌方制空：{value}（假设可开发装备）',{value:fmtRange(opponentAir.enemyAirPower)}):airHint,
+        stateText?t('预计：{value}',{value:stateText}):''].filter(Boolean).join('\n');
       const flag=experience?.status==='estimated'?experience.ships.find(row=>row.flagship):null;
       const escorts=experience?.status==='estimated'?experience.ships.filter(row=>!row.flagship&&row.normal):[];
       const escort=escorts.length?{min:Math.min(...escorts.map(row=>row.normal.min)),max:Math.max(...escorts.map(row=>row.normal.max))}:null;
       const expRows=(experience?.ships||[]).map(row=>{const ship=store.info.ships[row.id],master=store.const.$ships[ship?.api_ship_id];
-        return [`${master?.api_name||'舰娘'}${row.flagship?'（旗舰）':''}`,fmtRange(row.normal),fmtRange(row.mvp)];});
-      const expDetail=experience?.status==='estimated'?metricTooltips.attributes({title:'经验参考',sections:[{title:'模拟战果范围',columns:['舰娘','普通','MVP'],rows:expRows}],
-        notes:['根据模拟战果估算；普通经验不含 MVP，被击沉无经验。',...(experience.sOnly?['S 胜显示参考值，实际可能波动。']:[]),...(experience.notes?.some(note=>note.includes('练巡'))?['练巡加成按资料估算。']:[])]}):{'data-tooltip':experience?.reason||(!selected?'选择对手后计算':!filled.length?'添加舰娘后计算':'经验资料待确认')};
-      const xpValue=flag?.normal?(experience.sOnly?`约 ${flag.representativeNormal}`:fmtRange(flag.normal)):selected&&filled.length?'待确认':'—';
-      const xpHint=escort?`随伴 ${fmtRange(escort)}`:experience?.status==='estimated'?'参考模拟战果':!selected?'选择对手后计算':!filled.length?'添加舰娘后计算':experience?.reason||'经验资料待确认';
+        return [`${master?.api_name||t('舰娘')}${row.flagship?t('（旗舰）'):''}`,fmtRange(row.normal),fmtRange(row.mvp)];});
+      const expDetail=experience?.status==='estimated'?metricTooltips.attributes({title:t('经验参考'),sections:[{title:t('模拟战果范围'),columns:[t('舰娘'),t('普通'),'MVP'],rows:expRows}],
+        notes:[t('根据模拟战果估算；普通经验不含 MVP，被击沉无经验。'),...(experience.sOnly?[t('S 胜显示参考值，实际可能波动。')]:[]),...(experience.notes?.some(note=>note.includes('练巡'))?[t('练巡加成按资料估算。')]:[])]}):{'data-tooltip':t(experience?.reason||(!selected?'选择对手后计算':!filled.length?'添加舰娘后计算':'经验资料待确认'))};
+      const xpValue=flag?.normal?(experience.sOnly?t('约 {value}',{value:flag.representativeNormal}):fmtRange(flag.normal)):selected&&filled.length?t('待确认'):'—';
+      const xpHint=escort?t('随伴 {value}',{value:fmtRange(escort)}):t(experience?.status==='estimated'?'参考模拟战果':!selected?'选择对手后计算':!filled.length?'添加舰娘后计算':experience?.reason||'经验资料待确认');
       const resources=resourceSummary();
-      return h('div',{className:'paa-wb-metrics','data-columns':3,'aria-label':'经验、制空与资源消耗','aria-live':'polite'},
-        h('div',{className:'paa-wb-metric speed','data-tier':experience?.status==='estimated'?'2':'0','data-has-requirement':'true',tabIndex:0,'aria-label':`旗舰经验参考：${xpValue}`,...expDetail},
+      return h('div',{className:'paa-wb-metrics','data-columns':3,'aria-label':t('经验、制空与资源消耗'),'aria-live':'polite'},
+        h('div',{className:'paa-wb-metric speed','data-tier':experience?.status==='estimated'?'2':'0','data-has-requirement':'true',tabIndex:0,'aria-label':t('旗舰经验参考：{value}',{value:xpValue}),...expDetail},
           h('svg',{viewBox:'0 0 16 16','aria-hidden':true},h('circle',{cx:8,cy:8,r:5,fill:'none',stroke:'currentColor',strokeWidth:1.6}),h('path',{d:'m5.5 8 1.5 1.5 3-3',fill:'none',stroke:'currentColor',strokeWidth:1.4})),
-          h('strong',null,`旗舰经验 ${xpValue}`),h('small',null,xpHint)),
-        h('div',{className:'paa-wb-metric air','data-tone':stateText?(airWarning?'warning':'blue'):'neutral',tabIndex:0,'aria-label':`综合制空 ${airValue}${stateText?`，预计${stateText}`:''}`,'data-tooltip':airDetail},
-          h('span',{className:'paa-wb-metric-state'},metricIcon(airWarning?'warning':stateText?'check':'neutral'),stateText?`预计${stateText}`:'综合制空'),h('strong',{'data-label':'我方'},airValue),h('small',null,airHint)),
-        h('div',{className:'paa-wb-metric los paa-practice-resources','data-tone':resources.items.length?'green':'neutral',tabIndex:0,'aria-label':'预计资源消耗','data-tooltip':resources.detail},
-          h('span',{className:'paa-wb-metric-state'},metricIcon(resources.items.length?'check':'neutral'),'预计消耗'),
-          h('small',{className:'paa-practice-resource-items'},resources.items.length?resources.items.map(([name,value])=>h('span',{className:'paa-practice-consumption-item',key:name,'aria-label':`${name} ${value}`},
+          h('strong',null,t('旗舰经验 {value}',{value:xpValue})),h('small',null,xpHint)),
+        h('div',{className:'paa-wb-metric air','data-tone':stateText?(airWarning?'warning':'blue'):'neutral',tabIndex:0,'aria-label':t('综合制空 {value}',{value:airValue})+(stateText?'，'+t('预计{value}',{value:stateText}):''),'data-tooltip':airDetail},
+          h('span',{className:'paa-wb-metric-state'},metricIcon(airWarning?'warning':stateText?'check':'neutral'),stateText?t('预计{value}',{value:stateText}):t('综合制空')),h('strong',{'data-label':t('我方')},airValue),h('small',null,airHint)),
+        h('div',{className:'paa-wb-metric los paa-practice-resources','data-tone':resources.items.length?'green':'neutral',tabIndex:0,'aria-label':t('预计资源消耗'),'data-tooltip':resources.detail},
+          h('span',{className:'paa-wb-metric-state'},metricIcon(resources.items.length?'check':'neutral'),t('预计消耗')),
+          h('small',{className:'paa-practice-resource-items'},resources.items.length?resources.items.map(([name,value])=>h('span',{className:'paa-practice-consumption-item',key:name,'aria-label':`${t(name)} ${value}`},
             h(ResourceIcon,{name,size:14}),h('span',null,value))):resources.detail)));
     };
     const enemyShip=(s,index)=>{
-      const name=s.master.api_name||'舰娘',portrait=V.portraitUrl(store,s.masterId),type=W.TYPES[s.master.api_stype]||store.const.$shipTypes?.[s.master.api_stype]?.api_name||'未知舰种';
+      const name=s.master.api_name||t('舰娘'),portrait=V.portraitUrl(store,s.masterId),typeId=s.master.api_stype,knownType=W.TYPES[typeId],type=knownType?t(knownType):store.const.$shipTypes?.[typeId]?.api_name||t('未知舰种');
       return h('div',{className:'paa-practice-enemy-ship',key:index},
         h('div',{className:'paa-practice-enemy-head'},h('span',{className:'paa-practice-enemy-index','aria-hidden':true},index+1),h('span',{className:'paa-practice-enemy-portrait'},h('span',null,name.slice(0,2)),portrait?h('img',{src:portrait,alt:'',draggable:false,onError:e=>{e.currentTarget.style.display='none';}}):null),
-          h('div',{className:'paa-practice-enemy-identity'},h('strong',null,name),h('small',null,`${type} · ${s.level?`Lv.${s.level}`:'等级待同步'}`))));
+          h('div',{className:'paa-practice-enemy-identity'},h('strong',null,name),h('small',null,`${type} · ${s.level?`Lv.${s.level}`:t('等级待同步')}`))));
     };
     const choose=(index,slot)=>{setSearch('');if(slot===undefined){const ship=store.info.ships[slots[index]?.id],type=store.const.$ships[ship?.api_ship_id]?.api_stype;
       setShipType(type!=null?`type:${type}`:'all');setShipSort('level-desc');}else{
@@ -246,7 +259,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
     const refreshEquipment=async(next)=>{
       const initialStore=getStore(),startSelection={...selectionRef.current},channel=calculationChannel.current;
       const progress=createCalculationProgress();let active=true;
-      const publish=value=>{channel.value=value;for(const listener of channel.listeners)listener(value);};
+      const publish=value=>{channel.progress=progress.snapshot();channel.value=value;for(const listener of channel.listeners)listener(value);};
       publish(progress.update({stage:'prepareEquipment'}));
       progressTimer.current=setInterval(()=>{const value=progress.tick();if(value)publish(value);},1000);
       setWorking(true);
@@ -262,7 +275,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
         const updated=W.withEquipment(next,result.scheme);
         service.preview('fleet',W.scheme(updated,fleet));
         setSlots(updated);
-      }catch(error){setMessage('自动配装未完成：'+(error.message||'请重新补全'));}
+      }catch(error){setMessage({key:'自动配装未完成：{reason}',reason:error.message||'请重新补全'});}
       finally{active=false;clearInterval(progressTimer.current);progressTimer.current=null;setWorking(false);}
     };
     const pick=row=>{const next=slots.slice(),replacing=popup.slot===undefined&&!!next[popup.index];
@@ -272,7 +285,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
     const complete=async()=>{if(disabled||!selected)return;const startSelection={...selectionRef.current};
       const activeQuestCodes=withoutClaimed(selectedQuests,getStore().questState);
       const progress=createCalculationProgress(),channel=calculationChannel.current;
-      const publish=value=>{channel.value=value;for(const listener of channel.listeners)listener(value);};
+      const publish=value=>{channel.progress=progress.snapshot();channel.value=value;for(const listener of channel.listeners)listener(value);};
       publish(progress.update({stage:'prepare'}));
       progressTimer.current=setInterval(()=>{const value=progress.tick();if(value)publish(value);},1000);
       setWorking(true);setMessage('');
@@ -299,24 +312,24 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
       else if(!result.enemyKnown)setMessage('尚未取得完整对手编成，已按通用演习配装。');
     }catch(error){setMessage(error.message||'未找到可用编成');}finally{setSelectedQuests(previous=>withoutClaimed(previous,getStore().questState));clearInterval(progressTimer.current);progressTimer.current=null;setWorking(false);}};
     const card=(slot,index)=>{
-      if(!slot)return h('button',{type:'button',className:'paa-wb-empty',key:`empty-${index}`,'data-fleet-slot':index,'data-empty':'true',disabled,onClick:()=>choose(index)},h('span',null,'＋'),`第 ${index+1} 位 · 选择舰娘`);
-      const ship=store.info.ships[slot.id],master=store.const.$ships[ship?.api_ship_id],row=rowById.get(slot.id);if(!ship||!master||!row)return h('div',{key:slot.id,className:'paa-wb-empty'},'舰娘资料待同步');
+      if(!slot)return h('button',{type:'button',className:'paa-wb-empty',key:`empty-${index}`,'data-fleet-slot':index,'data-empty':'true',disabled,onClick:()=>choose(index)},h('span',null,'＋'),t('第 {n} 位 · 选择舰娘',{n:index+1}));
+      const ship=store.info.ships[slot.id],master=store.const.$ships[ship?.api_ship_id],row=rowById.get(slot.id);if(!ship||!master||!row)return h('div',{key:slot.id,className:'paa-wb-empty'},t('舰娘资料待同步'));
       const detailId=`paa-practice-stats-${slot.id}`;
       const gear=k=>{const eq=row.gearIcons.find(x=>x.slot===k),type=store.const.$equips[store.info.equips[eq?.id]?.api_slotitem_id],capacity=aircraftCapacity(master,type,k);
         return h('button',{key:k,type:'button',disabled,className:'paa-wb-gear',...V.equipmentTooltipProps(eq),onClick:()=>choose(index,k)},
-          h('span',{className:'paa-wb-slot-label'},k==='ex'?'增':k+1),eq?h(EquipmentIcon,{item:eq}):h('span',{className:'paa-wb-gear-empty'},'＋'),
-          h('span',{className:'paa-wb-gear-name'},eq?eq.tooltip.replace(/^.*? · /,''):'空槽'),capacity!==undefined?h('span',{className:'paa-wb-aircraft-count'},`${capacity??'—'} 架`):null);};
+          h('span',{className:'paa-wb-slot-label'},k==='ex'?t('增'):k+1),eq?h(EquipmentIcon,{item:eq}):h('span',{className:'paa-wb-gear-empty'},'＋'),
+          h('span',{className:'paa-wb-gear-name'},eq?eq.tooltip.replace(/^.*? · /,''):t('空槽')),capacity!==undefined?h('span',{className:'paa-wb-aircraft-count'},t('{n} 架',{n:capacity??'—'})):null);};
       return h('article',{key:slot.id,className:'paa-wb-ship','data-fleet-slot':index,'data-ship-id':slot.id},h('div',{className:'paa-fleet-ship-heading'},
         h('div',{className:'paa-wb-ship-head'},h('button',{type:'button',className:'paa-wb-portrait paa-fleet-portrait-toggle',disabled,'aria-expanded':!!attributeDetails[slot.id],
-          'aria-controls':detailId,'aria-label':`${row.name}：属性`,'data-tooltip':attributeDetails[slot.id]?undefined:'查看属性',onClick:e=>details.toggle(setAttributeDetails,slot.id,e)},
+          'aria-controls':detailId,'aria-label':t('{name}：属性',{name:row.name}),'data-tooltip':attributeDetails[slot.id]?undefined:t('查看属性'),onClick:e=>details.toggle(setAttributeDetails,slot.id,e)},
           h('span',null,row.name.slice(0,2)),row.portrait?h('img',{src:row.portrait,alt:'',draggable:false}):null),
-          h('div',{className:'paa-wb-identity'},h('strong',null,row.name),h('small',null,`${index===0?'旗舰':`第 ${index+1} 位`} · ${W.TYPES[master.api_stype]||row.type} · Lv.${row.level}`)),
-          h('div',{className:'paa-wb-ship-actions'},h('button',{type:'button',className:'paa-wb-replace',disabled,onClick:()=>choose(index)},'换船'),
-            h('button',{type:'button',className:'paa-wb-remove',disabled,onClick:()=>setSlots(previous=>previous.filter((_,i)=>i!==index).concat(null))},'移除'))),
-        collapse(h,{open:attributeDetails[slot.id],id:detailId},h('dl',{className:'paa-fleet-ship-stats','aria-label':'舰娘当前属性','data-tooltip':'舰娘当前属性，未计入本页尚未应用的配装'},
-          ...details.stats(ship).map(s=>h('div',{key:s.label},h('dt',null,statIcon.react(React,s.label),s.label),h('dd',null,s.value??'—')))))),
-        h('div',{className:'paa-wb-mechanisms','aria-label':'当前配装机制'},...badges((mechanisms.get(slot.id)||[]).filter(b=>!['special-shelling','special-night','special-submarine','smoke'].includes(b.key)))),
-        h('div',{className:'paa-wb-gears'},...slot.slots.map((_,i)=>gear(i)),ship.api_slot_ex!==0?gear('ex'):h('div',{className:'paa-wb-gear-unopened'},'增 · 未开启')),
+          h('div',{className:'paa-wb-identity'},h('strong',null,row.name),h('small',null,`${index===0?t('旗舰'):t('第 {n} 位',{n:index+1})} · ${W.TYPES[master.api_stype]?t(W.TYPES[master.api_stype]):row.type} · Lv.${row.level}`)),
+          h('div',{className:'paa-wb-ship-actions'},h('button',{type:'button',className:'paa-wb-replace',disabled,onClick:()=>choose(index)},t('换船')),
+            h('button',{type:'button',className:'paa-wb-remove',disabled,onClick:()=>setSlots(previous=>previous.filter((_,i)=>i!==index).concat(null))},t('移除')))),
+        collapse(h,{open:attributeDetails[slot.id],id:detailId},h('dl',{className:'paa-fleet-ship-stats','aria-label':t('舰娘当前属性'),'data-tooltip':t('舰娘当前属性，未计入本页尚未应用的配装')},
+          ...details.stats(ship).map(s=>h('div',{key:s.label},h('dt',null,statIcon.react(React,s.label),t(s.label)),h('dd',null,s.value??'—')))))),
+        h('div',{className:'paa-wb-mechanisms','aria-label':t('当前配装机制')},...badges((mechanisms.get(slot.id)||[]).filter(b=>!['special-shelling','special-night','special-submarine','smoke'].includes(b.key)))),
+        h('div',{className:'paa-wb-gears'},...slot.slots.map((_,i)=>gear(i)),ship.api_slot_ex!==0?gear('ex'):h('div',{className:'paa-wb-gear-unopened'},t('增 · 未开启'))),
         h(ExecutionCard,{running:!!(busy&&!hidden&&executionPlan?.fleet===fleet&&executionPlan.targets?.[index]===slot.id),stopping,fleet,index,ship:slot.id}));
     };
     const chooseOpponent=o=>{
@@ -328,7 +341,7 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
     };
     const calculationOverlay=extra=>working?h('div',{className:'paa-wb-calculating paa-wb-fleet-overlay'+(extra?' '+extra:''),role:'status','data-activity':'complete'},
       h('span',{className:'paa-wb-calculation-label'},h('span',{className:'paa-wb-calculation-heading'},
-        h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),'计算中'),
+        h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}),t('计算中')),
         h(CalculationProgress,{channel:calculationChannel.current}))):null;
     return h('div',{className:'paa-workbench paa-practice','data-kind':kind,'data-calculating':working},h('div',{className:'paa-wb-columns'},
       h('section',{className:'paa-wb-left','aria-busy':working,inert:working?'':undefined},h('div',{className:'paa-wb-context-controls paa-practice-context'},
@@ -337,53 +350,53 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
           onBlur:e=>{const anchor=e.currentTarget;if(anchor.contains(e.relatedTarget))return;
             setTimeout(()=>{if(!trainingPointerInside.current&&(!anchor.isConnected||!anchor.contains(anchor.ownerDocument.activeElement))){
               trainingPicker.dismiss();setTrainingOpen(false);}},0);}},
-          h('div',{role:'button',tabIndex:disabled?-1:0,ref:trainingTrigger,className:'paa-practice-training-trigger','aria-disabled':disabled||undefined,'aria-label':`优先培养舰娘：${trainingLabel}`,'aria-haspopup':'dialog','aria-expanded':trainingOpen,
+          h('div',{role:'button',tabIndex:disabled?-1:0,ref:trainingTrigger,className:'paa-practice-training-trigger','aria-disabled':disabled||undefined,'aria-label':t('优先培养舰娘：{name}',{name:trainingLabel}),'aria-haspopup':'dialog','aria-expanded':trainingOpen,
             onClick:trainingPicker.click,onKeyDown:event=>{if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();trainingPicker.click();}}},
-            h('span',{className:'paa-practice-training-title'},'优先培养舰娘',h('span',{className:'paa-area-chevron','aria-hidden':true})),
+            h('span',{className:'paa-practice-training-title'},t('优先培养舰娘'),h('span',{className:'paa-area-chevron','aria-hidden':true})),
             trainingShipIds.length?h('span',{className:'paa-practice-training-portraits','data-count':trainingShipIds.length,'aria-label':trainingLabel},
               ...trainingShipIds.slice(0,6).map((id,index)=>{const ship=store.info.ships[id],url=V.portraitUrl(store,ship?.api_ship_id);return h('span',{className:'paa-practice-training-portrait',key:id},
                 url?h('img',{src:url,alt:selectedNames[index],draggable:false}):h('span',null,selectedNames[index]),
-                h('button',{type:'button',className:'paa-practice-training-remove',disabled,'aria-label':`移除${selectedNames[index]}`,
+                h('button',{type:'button',className:'paa-practice-training-remove',disabled,'aria-label':t('移除{name}',{name:selectedNames[index]}),
                   onClick:event=>{event.stopPropagation();setTrainingShipIds(previous=>previous.filter(shipId=>shipId!==id));}},'×'));}),
               ...[0,1,2,3,4,5].map(limit=>trainingShipIds.length>limit?h('span',{className:`paa-practice-training-more paa-practice-training-more-${limit}`,key:`more-${limit}`,'aria-hidden':true},`+${trainingShipIds.length-limit}`):null)):
               h('span',{className:'paa-practice-training-empty-hint'},trainingLabel)),
-          trainingOpen&&!disabled?h('section',{ref:trainingDialog,className:'paa-practice-training-panel',role:'dialog','aria-label':'选择要培养的舰娘',
+          trainingOpen&&!disabled?h('section',{ref:trainingDialog,className:'paa-practice-training-panel',role:'dialog','aria-label':t('选择要培养的舰娘'),
             onKeyDownCapture:trainingPicker.engageKeyboard,onPointerDownCapture:event=>{trainingPointerInside.current=true;trainingPicker.engageSelect(event);}},
-            h('div',{className:'paa-area-panel-head'},h('span',null,'选择培养舰娘'),h('span',{className:'paa-mission-count'},`已选择 ${trainingShipIds.length} / 6 艘 · ${trainingMatches.length} 项`),
-              h('button',{type:'button',className:'paa-mission-search-reset','aria-label':'清除培养舰娘',disabled:!trainingShipIds.length,onClick:()=>{
+            h('div',{className:'paa-area-panel-head'},h('span',null,t('选择培养舰娘')),h('span',{className:'paa-mission-count'},t('已选择 {n} / 6 艘 · {count} 项',{n:trainingShipIds.length,count:trainingMatches.length})),
+              h('button',{type:'button',className:'paa-mission-search-reset','aria-label':t('清除培养舰娘'),disabled:!trainingShipIds.length,onClick:()=>{
                 trainingDialog.current?.querySelector('input[type=search]')?.focus({preventScroll:true});setTrainingShipIds([]);
-              }},'清除'),
-              h('button',{type:'button','aria-label':'关闭舰娘选择',onClick:closeTraining},'×')),
+              }},t('清除')),
+              h('button',{type:'button','aria-label':t('关闭舰娘选择'),onClick:closeTraining},'×')),
             h('div',{className:'paa-mission-controls paa-practice-training-controls'},
-              h('input',{type:'search',className:'paa-practice-training-search',value:trainingSearch,placeholder:'舰名 / 舰种 / ID','aria-label':'搜索舰娘',
+              h('input',{type:'search',className:'paa-practice-training-search',value:trainingSearch,placeholder:t('舰名 / 舰种 / ID'),'aria-label':t('搜索舰娘'),
                 onPointerDown:()=>{editingTrainingSearch.current=true;},onCompositionStart:()=>{editingTrainingSearch.current=true;},
                 onBlur:()=>{editingTrainingSearch.current=false;},onChange:e=>{editingTrainingSearch.current=true;setTrainingSearch(e.target.value);}}),
-              h('select',{'aria-label':'排序方式',value:trainingSort,onChange:e=>setTrainingSort(e.target.value)},
-                ...[['level-asc','等级从低到高'],['level-desc','等级从高到低'],['morale-desc','士气从高到低'],['name','舰名排序']].map(([key,label])=>h('option',{key,value:key},label)))),
-            h('div',{className:'paa-practice-training-tabs',role:'group','aria-label':'舰种筛选'},
-              h('span',{className:'paa-practice-training-filter-label'},'舰种'),h('div',{className:'paa-practice-training-filter-options'},
+              h('select',{'aria-label':t('排序方式'),value:trainingSort,onChange:e=>setTrainingSort(e.target.value)},
+                ...[['level-asc','等级从低到高'],['level-desc','等级从高到低'],['morale-desc','士气从高到低'],['name','舰名排序']].map(([key,label])=>h('option',{key,value:key},t(label))))),
+            h('div',{className:'paa-practice-training-tabs',role:'group','aria-label':t('舰种筛选')},
+              h('span',{className:'paa-practice-training-filter-label'},t('舰种')),h('div',{className:'paa-practice-training-filter-options'},
               ...[['all','全部'],...shipPicker.SHIP_GROUPS].map(([key,label])=>
-                h('button',{key,type:'button','aria-pressed':trainingType===key,onClick:()=>setTrainingType(key)},label)))),
-            h('div',{className:'paa-practice-training-lock-filter',role:'group','aria-label':'锁定筛选'},
-              h('span',{className:'paa-practice-training-filter-label'},'锁定'),h('div',{className:'paa-practice-training-filter-options'},
+                h('button',{key,type:'button','aria-pressed':trainingType===key,onClick:()=>setTrainingType(key)},t(label))))),
+            h('div',{className:'paa-practice-training-lock-filter',role:'group','aria-label':t('锁定筛选')},
+              h('span',{className:'paa-practice-training-filter-label'},t('锁定')),h('div',{className:'paa-practice-training-filter-options'},
               ...[['all','全部'],['locked','已锁定'],['unlocked','未锁定']].map(([key,label])=>
-                h('button',{key,type:'button','aria-pressed':trainingLock===key,onClick:()=>setTrainingLock(key)},label)))),
+                h('button',{key,type:'button','aria-pressed':trainingLock===key,onClick:()=>setTrainingLock(key)},t(label))))),
             h('div',{className:'paa-practice-training-list',ref:trainingList,onScroll:event=>setTrainingScroll(event.currentTarget.scrollTop),onKeyDown:trainingKeys},
               h('div',{className:'paa-practice-training-window',style:{height:trainingMatches.length*TRAINING_ROW_STEP}},...trainingMatches.slice(trainingStart,trainingEnd).map((row,offset)=>{const index=trainingStart+offset,checked=trainingSelected.has(row.id),full=!checked&&!occupied.has(row.id)&&occupied.size>=6,portrait=V.portraitUrl(store,row.masterId,undefined,trainingGraphs);
               return h('label',{key:row.id,className:'paa-practice-training-option','data-index':index,'data-selected':checked,'data-unavailable':full,style:{top:index*TRAINING_ROW_STEP}},
                 h('input',{type:'checkbox',checked,disabled:full,onChange:()=>setTrainingShipIds(previous=>checked?previous.filter(id=>id!==row.id):previous.concat(row.id))}),
                 h('span',{className:'paa-wb-portrait'},h('span',null,row.name.slice(0,2)),portrait?h('img',{src:portrait,alt:'',draggable:false,loading:'lazy',decoding:'async',onError:e=>{e.currentTarget.style.display='none';}}):null),
                 h('span',{className:'paa-practice-training-identity'},h('strong',{className:'paa-practice-training-name'},row.name),
-                  h('small',null,`${row.type} · Lv.${row.level} · ${row.remodel}`)),
-                row.locked?h('svg',{className:'paa-practice-training-lock','data-locked':true,viewBox:'0 0 16 16',role:'img','aria-label':'已锁定'},
+                  h('small',null,`${W.TYPES[row.typeId]?t(W.TYPES[row.typeId]):row.type} · Lv.${row.level} · ${displayRemodel(row)}`)),
+                row.locked?h('svg',{className:'paa-practice-training-lock','data-locked':true,viewBox:'0 0 16 16',role:'img','aria-label':t('已锁定')},
                   h('rect',{x:3,y:7,width:10,height:7,rx:1.5,fill:'none',stroke:'currentColor',strokeWidth:1.5}),
                   h('path',{d:'M5 7V5a3 3 0 0 1 6 0v2',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round'})):null);
-            })),trainingMatches.length?null:h('div',{className:'paa-practice-training-empty'},'没有匹配舰娘，请调整筛选或搜索。'))):null)),
-        h('section',{className:'paa-practice-block paa-practice-opponent-section'},h('div',{className:'paa-practice-opponent-header'},h('h3',null,'演习对手'),
-          h('button',{type:'button',className:'paa-practice-opponent-clear',disabled:disabled||!selected,'aria-label':'取消选择演习对手',onClick:()=>{
-            if(disabled||!selected)return;selectionRef.current={opponentId:null,opponentKey};setOpenOpponents({});setOpponentId(0);}},'取消选择')),
-        practice.known?h('p',{className:'paa-muted paa-practice-cache-note'},'舰队可能随时变化，显示最近同步的资料。'):null,
-        !practice.known?h('p',{className:'paa-muted'},'等待游戏空闲后同步演习对手。'):h('div',{className:'paa-practice-opponent-layout','data-open':!!selected&&!!openOpponents[selected.id],'data-has-opponents':opponents.length>0},
+            })),trainingMatches.length?null:h('div',{className:'paa-practice-training-empty'},t('没有匹配舰娘，请调整筛选或搜索。')))):null)),
+        h('section',{className:'paa-practice-block paa-practice-opponent-section'},h('div',{className:'paa-practice-opponent-header'},h('h3',null,t('演习对手')),
+          h('button',{type:'button',className:'paa-practice-opponent-clear',disabled:disabled||!selected,'aria-label':t('取消选择演习对手'),onClick:()=>{
+            if(disabled||!selected)return;selectionRef.current={opponentId:null,opponentKey};setOpenOpponents({});setOpponentId(0);}},t('取消选择'))),
+        practice.known?h('p',{className:'paa-muted paa-practice-cache-note'},t('舰队可能随时变化，显示最近同步的资料。')):null,
+        !practice.known?h('p',{className:'paa-muted'},t('等待游戏空闲后同步演习对手。')):h('div',{className:'paa-practice-opponent-layout','data-open':!!selected&&!!openOpponents[selected.id],'data-has-opponents':opponents.length>0},
         h('div',{className:'paa-practice-opponents',ref:opponentList},
         h('span',{className:'paa-practice-opponent-indicator','aria-hidden':true}),...opponents.map(o=>{
           const master=store.const.$ships[o.flagship],img=master?V.portraitUrl(store,o.flagship):null;
@@ -393,37 +406,39 @@ module.exports=(React,{getStore,getController,setQuestPageActive,subscribe})=>{
           return h('div',{key:o.id,className:'paa-practice-opponent-item','data-selected':visualSelected,'data-disabled':!!disabled,onClick:()=>chooseOpponent(o)},h('div',{className:'paa-practice-opponent-row'},
             h('button',{type:'button',className:'paa-practice-opponent-select',disabled,'aria-pressed':visualSelected,
             'aria-expanded':visualSelected?open:undefined,'aria-controls':visualSelected?detailId:undefined,
-            'aria-label':`${o.index} 号对手 ${o.name||'对手'}，${o.admiralRank||'军衔待同步'}，Lv.${o.level??'未知'}，${o.comment==null?'签名待同步':o.comment||'无签名'}${result?`，${result}`:''}`,onClick:event=>{event?.stopPropagation?.();chooseOpponent(o);}},
+            'aria-label':t('{n} 号对手 {name}，{rank}，Lv.{level}，{comment}{result}',{n:o.index,name:o.name||t('对手'),rank:o.admiralRank||t('军衔待同步'),level:o.level??t('未知'),comment:o.comment==null?t('签名待同步'):o.comment||t('无签名'),result:result?`，${result}`:''}),onClick:event=>{event?.stopPropagation?.();chooseOpponent(o);}},
             h('span',{className:'paa-practice-opponent-portrait','aria-hidden':true},img?h('img',{src:img,alt:'',draggable:false}):null),
             h('span',{className:'paa-practice-opponent-body'},
-              h('span',{className:'paa-practice-opponent-heading'},h('strong',null,o.name||'对手'),
-                h('small',null,o.admiralRank||'军衔待同步'),h('small',null,`Lv.${o.level??'—'}`)),
-              h('small',{className:'paa-practice-opponent-comment',title:o.comment??undefined},o.comment==null?'签名待同步':o.comment||'无签名')),
+              h('span',{className:'paa-practice-opponent-heading'},h('strong',null,o.name||t('对手')),
+                h('small',null,o.admiralRank||t('军衔待同步')),h('small',null,`Lv.${o.level??'—'}`)),
+              h('small',{className:'paa-practice-opponent-comment',title:o.comment??undefined},o.comment==null?t('签名待同步'):o.comment||t('无签名'))),
             h('span',{className:'paa-practice-rank','data-outcome':rank?(win?'win':'loss'):undefined,'aria-hidden':true},
-              rank?h('span',null,win?'胜利':'败北'):null,rank?h('strong',null,rank):null)),
+              rank?h('span',null,t(win?'胜利':'败北')):null,rank?h('strong',null,rank):null)),
             visualSelected?null:h('button',{type:'button',className:'paa-practice-opponent-toggle',disabled,'aria-expanded':open,'aria-controls':detailId,
-              'aria-label':`${open?'收起':'展开'}${o.name||`第 ${o.index} 位对手`}的舰队，${shipCount===null?'舰船数量待同步':`${shipCount} 艘`}`,onClick:event=>{event?.stopPropagation?.();chooseOpponent(o);}},
-              h('span',{className:'paa-practice-opponent-count','aria-hidden':true},shipCount===null?'—':`${shipCount}艘`),
+              'aria-label':t('{verb}{name}的舰队，{count}',{verb:t(open?'收起':'展开'),name:o.name||t('第 {n} 位对手',{n:o.index}),count:shipCount===null?t('舰船数量待同步'):t('{n} 艘',{n:shipCount})}),onClick:event=>{event?.stopPropagation?.();chooseOpponent(o);}},
+              h('span',{className:'paa-practice-opponent-count','aria-hidden':true},shipCount===null?'—':t('{n}艘',{n:shipCount})),
               h('svg',{viewBox:'0 0 16 16','aria-hidden':true},h('path',{d:'m6 4 4 4-4 4'})))));
         })),
         h('aside',{id:'paa-practice-opponent-detail',className:'paa-practice-enemy-detail','data-open':!!selected&&!!openOpponents[selected.id],
           'aria-hidden':!selected||!openOpponents[selected.id],inert:!selected||!openOpponents[selected.id]?'':undefined},
-          h('div',{className:'paa-practice-enemy-content'},!enemy.known?h('p',{className:'paa-muted'},'对手舰队资料待同步。'):
-            h('div',{className:'paa-practice-enemy-ships','aria-label':'对手编成'},...enemy.ships.map(enemyShip)))))),
-        h('section',{className:'paa-practice-block paa-practice-forecast-section'},h('h3',null,'战况预测'),forecast?.status==='estimated'?
+          h('div',{className:'paa-practice-enemy-content'},!enemy.known?h('p',{className:'paa-muted'},t('对手舰队资料待同步。')):
+            h('div',{className:'paa-practice-enemy-ships','aria-label':t('对手编成')},...enemy.ships.map(enemyShip)))))),
+        h('section',{className:'paa-practice-block paa-practice-forecast-section'},h('h3',null,t('战况预测')),forecast?.status==='estimated'?
           h('div',null,forecastChart()):
-          h('p',{className:'paa-muted'},!selected?'选择对手后查看。':!enemy.known?'对手舰队资料待同步。':!filled.length?'添加己方舰娘后查看。':forecast?.reason||'战斗资料不足。')),
-        h(QuestSection,{state:store,slots,deckId:fleet,kind:'practice',questState:quest,paused:hidden||busy,disabled,open:questsOpen,onOpenChange:setQuestsOpen,listTasks:practiceTasks,countTasks:countPracticeQuests,
+          h('p',{className:'paa-muted'},t(!selected?'选择对手后查看。':!enemy.known?'对手舰队资料待同步。':!filled.length?'添加己方舰娘后查看。':forecast?.reason||'战斗资料不足。'))),
+        h(QuestSection,{state:store,slots,deckId:fleet,kind:'practice',onNavigateQuest,questState:quest,paused:hidden||busy,disabled,open:questsOpen,onOpenChange:setQuestsOpen,listTasks:practiceTasks,countTasks:countPracticeQuests,
           selectedQuests,onToggleQuest:code=>{if(!disabled){setSelectedQuests(current=>current.includes(code)?current.filter(item=>item!==code):[...current,code].sort());setMessage('');}},
           onClearQuests:()=>{if(!disabled){setSelectedQuests([]);setMessage('');}}})),
       h('section',{className:'paa-wb-right'},h('div',{className:'paa-wb-command-area','data-running':!!busy},h('div',{className:'paa-wb-command-row'},
         h('div',{className:'paa-wb-edit-controls'},h('button',{type:'button',className:'paa-wb-complete',disabled:disabled||!selected,onClick:complete},
-          h('svg',{width:15,height:15,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'m4 16 9-9 3 3-9 9zM4 3v4M2 5h4M14 1v3M12.5 2.5h3'})),working?'计算中…':'一键补全'),
-          h('button',{type:'button',className:'paa-wb-quiet',disabled,onClick:()=>{setSlots(empty());setMessage('');setShipLock('locked');}},'一键清空')),
+          h('svg',{width:15,height:15,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'m4 16 9-9 3 3-9 9zM4 3v4M2 5h4M14 1v3M12.5 2.5h3'})),t(working?'计算中…':'一键补全')),
+          h('button',{type:'button',className:'paa-wb-quiet',disabled,onClick:()=>{setSlots(empty());setMessage('');setShipLock('locked');}},t('一键清空')),
+          h(FleetImportPicker,{store,disabled,hidden,onImport:number=>{const current=getStore(),imported=W.importFleet(current,number);
+            if(imported.status!=='ready'){setMessage('舰队资料未同步');return;}setSlots(imported.slots);setPopup(null);setMessage('');}})),
         automaticOperations||busy?h('div',{className:'paa-wb-apply-controls'},h(FleetTargetPicker,{value:fleet,disabled,hidden,onChange:setFleet,
-          options:[1,2,3,4].map(n=>{const f=store.info?.fleets?.[n-1],unavailable=!f||!Array.isArray(f.api_mission),away=f&&!unavailable&&Number(f.api_mission[0])!==0;return {value:n,label:`第 ${n} 舰队${unavailable?'（未同步）':away?'（远征中）':''}`,disabled:unavailable||away};})}),
-          h('button',{type:'button',className:'paa-primary paa-wb-apply',ref:stopButtonRef,'data-running':!!busy,disabled:busy?stopping:disabled||!preview,'data-tooltip':busy?'停止后续操作，已发送的操作会正常完成':undefined,onClick:e=>{if(busy){if(!stopping)onStop?.(e);}else if(!disabled&&preview)onApply?.(scheme);}},busy?(stopping?'正在停止…':'停止操作'):'应用编成')):null)),
-        operationFeedback,message?h('p',{className:'paa-fleet-warning',role:'status'},message):null,
+          options:[1,2,3,4].map(n=>{const f=store.info?.fleets?.[n-1],unavailable=!f||!Array.isArray(f.api_mission),away=f&&!unavailable&&Number(f.api_mission[0])!==0;return {value:n,label:t('第 {n} 舰队',{n})+(unavailable?t('（未同步）'):away?t('（远征中）'):''),disabled:unavailable||away};})}),
+          h('button',{type:'button',className:'paa-primary paa-wb-apply',ref:stopButtonRef,'data-running':!!busy,disabled:busy?stopping:disabled||!preview,'data-tooltip':busy?t('停止后续操作，已发送的操作会正常完成'):undefined,onClick:e=>{if(busy){if(!stopping)onStop?.(e);}else if(!disabled&&preview)onApply?.(scheme);}},t(busy?(stopping?'正在停止…':'停止操作'):'应用编成'))):null)),
+        operationFeedback,message?h('p',{className:'paa-fleet-warning',role:'status'},typeof message==='string'?t(message):t(message.key,{reason:t(message.reason)})):null,
         h('div',{className:'paa-wb-fleet-results','aria-busy':working},
           h('div',{className:'paa-wb-fleet-results-content','aria-hidden':working||undefined,inert:working?'':undefined},
             metrics(),h('div',{className:'paa-wb-ships',ref:grid},...slots.map(card),calculationOverlay('paa-practice-narrow-overlay'))),

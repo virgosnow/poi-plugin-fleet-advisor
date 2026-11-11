@@ -5,7 +5,7 @@ module.exports=`
 .paa-workbench[data-kind=expedition] .paa-wb-left :is(h3,h4,summary,button,select,small,label,.paa-area-label,.paa-area-trigger strong,.paa-area-name,.paa-exp-section-head>span,.paa-exp-income-title>span,.paa-exp-unlock-list,.paa-exp-unlock-caption,.paa-exp-item-note,.paa-exp-condition-caption,.paa-exp-condition,.paa-exp-condition>strong,.paa-exp-condition-detail,.paa-exp-detail-table){font-size:14px;line-height:22px}
 .paa-workbench[data-kind=expedition] .paa-wb-left :is(h3,h4){font-weight:600;margin:0;color:var(--paa-text)}
 .paa-workbench[data-kind=expedition] .paa-wb-left>.paa-wb-context-controls{gap:12px;padding:0 2px 8px;border:0;background:none}
-.paa-workbench[data-kind=expedition] .paa-wb-left .paa-area-label,.paa-exp-goal-field>span{flex:0 0 28px;width:28px;color:var(--paa-muted);font-size:14px;line-height:22px}
+.paa-workbench[data-kind=expedition] .paa-wb-left .paa-area-label,.paa-exp-goal-field>span{flex:0 0 max-content;min-width:3.5em;width:auto;color:var(--paa-muted);font-size:14px;line-height:22px}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-area-picker{gap:10px}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-area-trigger{height:40px;min-height:40px;gap:8px;padding:7px 32px 7px 12px;border-radius:6px;background:var(--paa-card);color:var(--paa-text)}
 .paa-area-picker[data-kind=expedition] .paa-mission-selected-state{flex:none}
@@ -14,6 +14,7 @@ module.exports=`
 .paa .paa-exp-goal button{min-width:0;min-height:30px;padding:3px 4px;border:0;border-radius:3px;box-shadow:none;background:transparent;color:var(--paa-muted);white-space:normal}
 .paa .paa-exp-goal button[aria-pressed=true]{background:var(--paa-soft);color:var(--paa-text);font-weight:500}
 .paa .paa-exp-goal button:hover:not(:disabled){background:var(--paa-soft);color:var(--paa-text)}
+.paa-exp-condition-groups,.paa-exp-condition-group{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 8px}.paa-exp-condition-part{white-space:nowrap}.paa-exp-condition-or{color:var(--paa-muted);font-weight:400}
 .paa-workbench[data-kind=expedition] .paa-wb-left [data-result-region=expedition]>.paa-wb-calculation-content{display:flex;flex-direction:column;gap:12px}
 .paa-workbench[data-kind=expedition] .paa-wb-left :is(.paa-exp-time,.paa-exp-outcome,.paa-exp-income,.paa-exp-unlock){padding:14px 16px;border:1px solid var(--paa-line);border-radius:10px;background:var(--paa-card);color:var(--paa-text)}
 .paa-workbench[data-kind=expedition] .paa-wb-left .paa-exp-section-head{min-height:24px;margin-bottom:9px;gap:8px}

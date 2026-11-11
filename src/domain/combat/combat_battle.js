@@ -152,10 +152,10 @@ function deriveFleetSpecial(store,entries){
   const attacks=(badge.attacks||[]).map(row=>({index:row.position-1,power:row.day,nightPower:row.night,hits:row.hits}));
   if(!formation||!FINITE(rate)||rate>100||!attacks.length||attacks.some(row=>!Number.isInteger(row.index)||row.index<0||row.index>=entries.length||!Number.isInteger(row.hits)||row.hits<1||!FINITE(row.power)))
     return {status:'unknown',available:null,reasons:['特殊炮击阵形、发动率或攻击力待确认']};
-  const hpLimits=/^(Nelson|Rodney) Touch$/.test(badge.label)?[[0,.5]]:
-    badge.label==='大和三舰齐射'?[[0,.5],[1,.5],[2,.5]]:
-    /大和/.test(badge.label)?[[0,.5],[1,.5]]:
-    badge.label==='Colorado级齐射'?[[0,.5],[1,.25],[2,.25]]:[[0,.5],[1,.25]];
+  const hpLimits=badge.attackKind==='nelsonTouch'?[[0,.5]]:
+    badge.attackKind==='yamatoTriple'?[[0,.5],[1,.5],[2,.5]]:
+    badge.attackKind?.startsWith('yamato')?[[0,.5],[1,.5]]:
+    badge.attackKind==='colorado'?[[0,.5],[1,.25],[2,.25]]:[[0,.5],[1,.25]];
   const reasons=['按特殊炮击阵形参考，实际须选阵形'];
   if(badge.activation?.reference||badge.activation?.tentative)reasons.push('特殊炮击发动率为参考');
   return {status:badge.activation?.reference||badge.activation?.tentative?'partial':'known',available:true,
@@ -171,7 +171,8 @@ function prepareBattle(friendly,enemies,{kind='battle',ownFormation,enemyFormati
     return {status:'unknown',reasons:['战斗类型暂不支持']};
   if(escort.length&&kind!=='battle')return {status:'unknown',reasons:['此敌联合战斗类型尚未建模']};
   const combined=escort.length>0,mainCount=enemies.length;
-  const allies=friendly.map(friendlyActor),foes=[...enemies,...escort].map((e,i)=>enemyActor(e,i,kind,enemyAir?.[i],combined)),reasons=new Set();
+  const allies=friendly.map(friendlyActor),foes=[...enemies,...escort].map((e,i)=>enemyActor(e,i,kind,enemyAir?.[i],combined)),reasons=new Set(),blockingReasons=new Set();
+  const block=(code,message)=>{blockingReasons.add(code);reasons.add(message);};
   if(allies.some(s=>!s)||foes.some(s=>!s))return {status:'unknown',reasons:['舰娘或敌舰耐久、装甲、攻击资料不足']};
   // Range affects the first shelling round, not air-only or opening-night
   // nodes. Keep conflicting source evidence visible on the assessment.
@@ -185,9 +186,12 @@ function prepareBattle(friendly,enemies,{kind='battle',ownFormation,enemyFormati
     allies[i].nightAswScratchOnly=kind!=='nightBattle'&&!combined;
     const night=ownNight?.[i];if(!allies[i].carrier||!night)continue;
     if(!['known','partial'].includes(night.status)||![true,false,null].includes(night.available)||night.available!==false&&!FINITE(night.power)){
-      reasons.add('己方空母夜战资格或攻击力待确认');continue;
+      block('carrierNightUnknown','己方空母夜战资格或攻击力待确认');continue;
     }
-    if(night.status==='partial')reasons.add((night.reasons||[]).join('；')||'己方空母夜战资料部分待确认');
+    if(night.status==='partial'){
+      const detail=(night.reasons||[]).join('；');
+      if(detail)reasons.add(detail);else block('carrierNightUnknown','己方空母夜战资料部分待确认');
+    }
     allies[i].nightCarrier=night.available!==false;allies[i].nightBase=night.power;
     allies[i].nightPowerRange=FINITE(night.powerMin)&&FINITE(night.powerMax)?[night.powerMin,night.powerMax]:null;
     allies[i].nightCarrierMode=night.mode;
@@ -219,7 +223,7 @@ function prepareBattle(friendly,enemies,{kind='battle',ownFormation,enemyFormati
           night&&allies[i].nightModes?.length&&groundAttackPower(reading,{night:true,special:true}).status==='unknown'))incomplete=true;
       }
     }
-    if(incomplete)reasons.add('陆上目标的装备特效或攻击资格待确认');
+    if(incomplete)block('groundAttackUnknown','陆上目标的装备特效或攻击资格待确认');
     if(kind!=='nightBattle'&&allies.some(s=>s.hasAircraft))reasons.add('假设航空开幕对陆上目标伤害为零，可能低估火力');
     if(kind!=='nightBattle')reasons.add('敌方陆基攻击方式按参考估算');
     if(combined)reasons.add('敌联合对地炮击补正待确认');
@@ -235,11 +239,11 @@ function prepareBattle(friendly,enemies,{kind='battle',ownFormation,enemyFormati
       ...(kind!=='nightBattle'&&s.aswCapable?[s.enemyAsw]:[]),
       ...((kind==='nightBattle'||includeNight)&&s.nightAswCapable?[s.nightAsw]:[])]);
     if(readings.some(r=>r.status==='unknown'||!FINITE(r.powerMin)||!FINITE(r.powerMax)))
-      reasons.add('敌方对潜攻击力资料不完整');
+      block('enemyAswUnknown','敌方对潜攻击力资料不完整');
     if(readings.some(r=>r.status==='partial'))
       reasons.add('敌方对潜按已知攻击范围参考，夜战擦伤及飞机损耗可能影响结果');
   }
-  if(allies.some(s=>s.asw?.status==='unknown')&&foes.some(s=>s.submarine))reasons.add('部分舰娘对潜能力待确认');
+  if(allies.some(s=>s.asw?.status==='unknown')&&foes.some(s=>s.submarine))block('friendlyAswUnknown','部分舰娘对潜能力待确认');
   if(allies.some(s=>!FINITE(s.range))||foes.some(s=>!FINITE(s.range)))reasons.add('部分射程未知，按编队顺序估计');
   if(kind!=='nightBattle'&&kind!=='aerialRaid'&&kind!=='aerialCombat'&&foes.some(s=>s.openingUncertain))reasons.add('部分敌舰先制雷击条件待确认');
   if(allies.some(s=>!FINITE(s.fire)||!FINITE(s.torpedo)))reasons.add('部分舰娘火力或雷装待确认');
@@ -248,7 +252,7 @@ function prepareBattle(friendly,enemies,{kind='battle',ownFormation,enemyFormati
   if(!enemyFormation)reasons.add('敌方阵形未知，按单纵阵参考');
   if(kind!=='nightBattle'&&allies.some(s=>s.carrier&&s.armedCarrier&&!FINITE(s.carrierRaw)))reasons.add('舰娘空母炮击威力待确认');
   if(kind==='nightBattle'&&allies.some(s=>!s.carrier&&!FINITE(s.nightBase)))reasons.add('部分舰娘夜战攻击力按面板参考');
-  if((kind==='nightBattle'||includeNight)&&allies.some(s=>s.carrier&&!ownNight?.[s.index]))reasons.add('己方空母夜战和夜间航空攻击尚未完整计入');
+  if((kind==='nightBattle'||includeNight)&&allies.some(s=>s.carrier&&!ownNight?.[s.index]))block('carrierNightUnknown','己方空母夜战和夜间航空攻击尚未完整计入');
   if(includeNight&&!combined&&(allies.some(s=>s.submarine)||foes.some(s=>s.submarine)))reasons.add('昼转夜对潜按擦伤参考');
   if(kind!=='nightBattle'){
     if(foes.some(s=>s.carrier))reasons.add('敌方空母满载炮击及损伤按参考估算');
@@ -276,7 +280,7 @@ function prepareBattle(friendly,enemies,{kind='battle',ownFormation,enemyFormati
   }
   return {status:reasons.size?'partial':'estimated',kind,allies,foes,combined,mainCount,includeNight:!!includeNight,
     enemyMain:foes.slice(0,mainCount),enemyEscort:foes.slice(mainCount),ownFormation:own,enemyFormation:enemy,special:specialEnabled?special:null,
-    ownAir,ownAirSecond,enemyAir,ownSpotting,hitModel,reasons:[...reasons],assumptions:['按出击前补给及当前耐久',
+    ownAir,ownAirSecond,enemyAir,ownSpotting,hitModel,reasons:[...reasons],blockingReasonCodes:[...blockingReasons],assumptions:['按出击前补给及当前耐久',
       ...(!ownFormation?[`己方阵形尚未选择，按${own==='lineAbreast'?'单横':'单纵'}阵参考`]:[]),
       `未计支援、基地航空队与弹着观测${specialEnabled?'':'、特殊炮击'}`,
       '固定参考命中与交战条件；仅作相对比较，不是实际胜率或撤退率','航空损耗区间取中间架数参考，不代表实际损耗概率',

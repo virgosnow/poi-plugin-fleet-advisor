@@ -5,7 +5,7 @@
 function aircraftSurvival(air,reference,estimate){
   if(!air?.slots?.length)return {penalty:0,slots:[],uncertainNodes:[]};
   const uncertainNodes=(reference?.nodes||[]).filter(n=>!n.noAirBattle&&n.kind!=='aerialRaid'&&
-    n.antiAir?.status==='unknown'&&/特殊对空/.test(n.antiAir.reason||'')).map(n=>n.id);
+    n.antiAir?.status==='unknown'&&n.antiAir.reasonCode==='specialAntiAirUnknown').map(n=>n.id);
   const remaining=new Map();
   for(const path of estimate?.paths||[])for(const step of path.steps||[]){
     // A known interception bound applies even if a later node is unknown.

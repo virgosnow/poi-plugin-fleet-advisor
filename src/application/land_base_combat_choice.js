@@ -121,7 +121,7 @@ function createLandBaseCombatSelector({assess=require('./combat_assessment').ass
     }else if(valid(original)){
       incomplete=true;best.proposal.warnings=[...new Set([...best.proposal.warnings,'基地飞机组合比较超时，已保留此前方案，请重试'])];
     }
-    const timedOut=best.assessment?.status==='unknown'&&best.assessment.reasons?.some(reason=>reason.includes('超过时间预算'));
+    const timedOut=best.assessment?.status==='unknown'&&best.assessment.reasonCode==='timeBudgetExceeded';
     if(key&&!timedOut&&!incomplete){if(cache.size>=8)cache.delete(cache.keys().next().value);cache.set(key,best);}
     return best;
   };

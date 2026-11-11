@@ -49,7 +49,7 @@ function propose(store,scheme,inventory,profile,heldSlots,limit){
       const next=value.targetFor(store,trial),newCi=fleetAntiAir([next]);
       if(oldCi.rows.some(c=>!newCi.rows.some(n=>n.id===c.id))||oldCi.known&&!newCi.known)return;
       const modes=night.surfaceModes(next);
-      if(oldModes.some(m=>!modes.some(n=>n.label===m.label&&n.multiplier>=m.multiplier)))return;
+      if(oldModes.some(m=>!modes.some(n=>n.id===m.id&&n.multiplier>=m.multiplier)))return;
       if(oldTerm!==null&&(night.fixedTerm(next,scheme.ships[0].id===entry.id).term??-Infinity)<oldTerm)return;
       // Lookout occurrence is a presence bonus, not a reason to retain two.
       if(oldModes.some(m=>m.coefficient)&&target.items.some(e=>e.type===39)&&!next.items.some(e=>e.type===39))return;

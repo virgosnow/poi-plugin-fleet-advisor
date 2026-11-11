@@ -25,7 +25,7 @@ function enemyFormation(formation,fleet,kind){
   const strength=value=>Math.max(SURFACE_FORMATION[value]??0,hasSubs?(ASW_FORMATION[value]??0):0);
   return options.slice().sort((a,b)=>strength(b)-strength(a))[0];
 }
-function unknown(reason,threats){return {status:'unknown',reasons:[reason],threats};}
+function unknown(reason,threats,reasonCode){return {status:'unknown',reasons:[reason],threats,...reasonCode?{reasonCode}:{}};}
 // Keep each node's reference scenarios paired across candidate fleets and
 // routes. A different number of attacks at an earlier node must not silently
 // replace every random draw at the Boss. This does not make a scenario count
@@ -99,7 +99,7 @@ function groundReferenceSlots(store,entry,loss){
 // unknown. The caller supplies one preparation per actual formation and path.
 function preflightAlternatives(nodes,prepare,checkTime=()=>false){
   for(const node of nodes)for(const formation of node.formations){
-    if(checkTime())return {status:'unknown',reason:'战力计算超过时间预算'};
+    if(checkTime())return {status:'unknown',reasonCode:'timeBudgetExceeded',reason:'战力计算超过时间预算'};
     const result=prepare(node,formation);
     if(result.reason)return {status:'unknown',reason:`${node.id} 点：${result.reason}`};
   }
@@ -300,7 +300,7 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
       if(antiAir.status!=='known')preflightAssumptions.add(`${node.id} 点：${antiAir.reason||'敌方防空资料不足'}，陆航防空损耗待确认`);
     }
     for(const reason of base.reasons)preflightAssumptions.add(`${node.id} 点：${reason}`);
-    if(prep.reasons.some(reason=>/敌方对潜攻击力|舰娘对潜能力待确认|陆上目标的装备特效或攻击资格待确认|夜战混编的对潜|空母夜战/.test(reason)))
+    if(prep.blockingReasonCodes?.length)
       return fail(prep.reasons.join('；'));
     // Unknown opening torpedoes on unusual enemies must not be hidden by an
     // alternative with a higher static score. Ordinary ship assumptions remain
@@ -314,7 +314,7 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
   for(const candidate of candidates){
     const checked=preflightAlternatives(candidate.nodes,(node,formation)=>prepareFor(node,formation,candidate.index),
       ()=>now()-start>timeMs);
-    if(checked.status!=='known')return unknown(checked.reason,threats);
+    if(checked.status!=='known')return unknown(checked.reason,threats,checked.reasonCode);
   }
   const omittedBase=`未计支援、基地航空队${specialReady?'':'、特殊炮击'}；敌方命中资料不足时按参考值估算`;
   const supplyTracker=createSupplyTracker(store,scheme);
@@ -354,7 +354,7 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
     supply=supplyTracker.snapshot();
     if(used.ammo===null){if(laterBattleExists(chosen.path.nodes,pathStep,nodes))warnings.add(`${id} 点弹药消耗待确认`);}
     else remainingAmmo=Number.isFinite(supply.ammo)?supply.ammo:Math.max(0,remainingAmmo-used.ammo);
-    if(now()-start>timeMs)return unknown('战力计算超过时间预算',threats);
+    if(now()-start>timeMs)return unknown('战力计算超过时间预算',threats,'timeBudgetExceeded');
   }
   if(!prepared.length)return unknown('所选路线没有可比较的战斗',threats);
   if(prepared.some(step=>step.prep.landBase?.waves?.length)){
@@ -417,7 +417,7 @@ function evaluateRoute(store,scheme,profile,{route,airPower,landBases,now=()=>pe
     objectiveProgress+=progress;
     const batch=batches[sample%2];batch.progress+=progress;batch.count++;
     ran++;
-    if(now()-start>timeMs)return unknown('战力计算超过时间预算',threats);
+    if(now()-start>timeMs)return unknown('战力计算超过时间预算',threats,'timeBudgetExceeded');
   }
   // Compare getting through the route and the final target's actual result.
   // Easy en-route victories cannot conceal an ineffective boss battle, and

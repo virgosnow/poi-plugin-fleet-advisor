@@ -27,7 +27,7 @@ function antiAirEnvelope(patterns){
     if(ships.every(s=>s.shipType==='潜水艦'||s.shipType==='潜水空母'))continue;
     // These enemies have suspected, not quantified, special interception.
     if(ships.some(s=>/砲台小鬼|防空棲姫|軽巡ト級flagship|輸送ワ級II|防空巡棲姫|防空埋護/.test(s.name)))
-      return {status:'unknown',reason:'敌方特殊对空迎击尚未定量'};
+      return {status:'unknown',reasonCode:'specialAntiAirUnknown',reason:'敌方特殊对空迎击尚未定量'};
     const combined=!!p.escortFleet?.enemyShips?.length;
     const formations=p.formation||[];
     const factors=formations.map(f=>combined?(/第三|輪形/.test(f)?1.5:/第一/.test(f)?1.1:1):

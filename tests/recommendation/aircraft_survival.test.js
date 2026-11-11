@@ -10,7 +10,7 @@ test('known strong AA losses reduce aircraft credit while keeping fighter/recon 
   assert.equal(aircraftSurvival(air(),{},null).slots[0].risk,0);
 });
 test('unquantified enemy AACI remains unknown and adds greater fragility to small attack slots',()=>{
-  const reference={nodes:[{id:'K',kind:'battle',antiAir:{status:'unknown',reason:'敌方特殊对空迎击尚未定量'}}]};
+  const reference={nodes:[{id:'K',kind:'battle',antiAir:{status:'unknown',reasonCode:'specialAntiAirUnknown',reason:'not yet quantified'}}]};
   const small=aircraftSurvival(air(11,4),reference),large=aircraftSurvival(air(11,24),reference);
   assert(small.slots[0].risk>large.slots[0].risk);assert.equal(small.slots[0].remainingLowerBound,null);
   assert.deepEqual(small.uncertainNodes,['K']);
@@ -35,7 +35,7 @@ test('real ordinary simulation feeds survival scoring, including terminal interc
   assert.equal(score.slots[0].remainingLowerBound,0);assert.equal(score.slots[0].risk,.5);
   const safe={...node,antiAir:{status:'known',proportion:0,fixed:0}};
   assert(score.slots[0].risk>aircraftSurvival(input,{nodes:[safe]},{paths:[simulateAirPath(input,[safe])]}).slots[0].risk);
-  const unknown={...node,antiAir:{status:'unknown',reason:'敌方特殊对空迎击尚未定量'}};
+  const unknown={...node,antiAir:{status:'unknown',reasonCode:'specialAntiAirUnknown',reason:'not yet quantified'}};
   assert.equal(simulateAirPath(input,[unknown]).status,'estimated','terminal unknown AA does not invalidate arrival air control');
 });
 test('fragile cruiser bombers get one real recon alternative while held slots and inventory remain intact',()=>{

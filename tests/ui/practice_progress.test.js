@@ -9,6 +9,24 @@ test('shared calculation progress identifies practice stages and remains an esti
  assert.match(progress.tick(),/筛选演习编成与配装 · 预计总进度 [0-9]+%/);
  assert.match(progress.update({stage:'finalize'}),/核对结果 · 预计总进度 95%/);
 });
+test('structured progress renders the same percentage independently of source wording and language',()=>{
+ const {setLocale}=require('../../src/shared/i18n');
+ const {createProgressComponent}=require('../../src/ui/components/calculation_progress');
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
+   useState:value=>[value,()=>{}],useEffect:()=>{}};
+ const progress=createCalculationProgress();progress.update({stage:'practice'});
+ const channel={value:'計算中の別の表示形式',progress:progress.snapshot(),listeners:new Set()};
+ const view=createProgressComponent(React);
+ try{
+  setLocale('ja-JP');let tree=view({channel});
+  assert.equal(tree.children.find(n=>n.type==='strong').children[0],'5%');
+  assert.equal(tree.children.find(n=>n.type==='small').children[0],'演習編成と装備を選定中');
+  setLocale('zh-TW');tree=view({channel});
+  assert.equal(tree.children.find(n=>n.type==='strong').children[0],'5%');
+  assert.equal(tree.children.find(n=>n.type==='small').children[0],'篩選演習編成與配裝');
+  assert.deepEqual(progress.snapshot(),{stage:'practice',percent:5});
+ }finally{setLocale('zh-CN');}
+});
 test('practice recommendation blocks the retained cards with shared progress until it completes',async()=>{
  const store=fixture(),states=[],refs=[];let si=0,ri=0,resolve,reject,report;
  store.practiceState={known:true,opponents:[{id:10,index:1,name:'对手',ships:[{masterId:1,level:10}]}],revision:1};store.questState={known:true,tasks:[]};

@@ -21,9 +21,11 @@ test('only supported maps show their own area bases with aircraft and observed s
   const central=view.model(store,'6-5');
   assert.equal(central.map.maxSortieSquadrons,2);
   assert.deepEqual(central.bases.map(base=>base.id),[1,2]);
+  assert(central.bases.every(base=>base.nameIsFallback),'locally generated names are distinguished from game names');
   assert.equal(central.bases[0].distance,8);
   assert.equal(central.bases[1].mode,'出击');
   const southwest=view.model(store,'7-4');
+  assert.equal(southwest.bases[0].nameIsFallback,false);assert.equal(southwest.bases[0].name,'南西航空队');
   assert.equal(southwest.map.maxSortieSquadrons,1);
   assert.equal(southwest.bases[0].distance,6);
   assert.equal(southwest.bases[0].mode,'防空');

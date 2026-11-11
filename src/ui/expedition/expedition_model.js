@@ -156,12 +156,12 @@ function missionProgressItem(id,masters={},progress={}){
   const locked=progress.list?.period===period&&progress.list.catalogIds.includes(id)&&!listed&&!current;
   const state=done?'已完成':locked?'未解锁':current&&[0,1].includes(record.state)?'未完成':'待同步';
   const number=missionNumber(id,master);
-  return {missionId:id,number,name:master.api_name||'',status:state,completed:!!done,text:`${done?'✓':'○'} ${number}${master.api_name?' '+master.api_name:''}（${monthly?'本期':''}${state}）`};
+  return {missionId:id,number,name:master.api_name||'',status:state,completed:!!done,monthly,text:`${done?'✓':'○'} ${number}${master.api_name?' '+master.api_name:''}（${monthly?'本期':''}${state}）`};
 }
 function missionChain(missionId,masters={},progress={}){
   const id=Number(missionId),rule=UNLOCKS.missions[id];if(!rule)return null;
   return {before:[...(rule.missions||[]).map(n=>missionProgressItem(n,masters,progress)),
-    ...(rule.maps||[]).map(area=>({text:`通关海域 ${area}`})),...(rule.quests||[]).map(quest=>({text:`完成任务 ${quest}`}))],
+    ...(rule.maps||[]).map(area=>({kind:'map',area,text:`通关海域 ${area}`})),...(rule.quests||[]).map(quest=>({kind:'quest',quest,text:`完成任务 ${quest}`}))],
     current:missionProgressItem(id,masters,progress),
     after:Object.entries(UNLOCKS.missions).filter(([,row])=>(row.missions||[]).includes(id)).map(([n])=>missionProgressItem(Number(n),masters,progress))};
 }
@@ -184,4 +184,4 @@ function unlockText(missionId,masters={},progress={}){
   const items=unlockItems(missionId,masters,progress);
   return [UNLOCKS.missions[missionId]?'解锁条件（全部满足）':null,...items.map(item=>item.text)].filter(Boolean).join('\n');
 }
-module.exports={missionSummary,rewardItems,rateText,requirements,missingConditions,baseRewardRows,probabilityDetails,fleetStatus,shipBadges,durationText,incomeText,incomeBreakdown,unlockItems,unlockText,downstreamPaths,missionChain,referenceIncome};
+module.exports={TYPES,missionSummary,rewardItems,rateText,requirements,missingConditions,baseRewardRows,probabilityDetails,fleetStatus,shipBadges,durationText,incomeText,incomeBreakdown,unlockItems,unlockText,downstreamPaths,missionChain,referenceIncome};

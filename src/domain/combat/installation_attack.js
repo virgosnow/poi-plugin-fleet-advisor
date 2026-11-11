@@ -180,15 +180,15 @@ function groundBadge(target,store,{profile,context,conditionalDayDouble=false}={
   const beaching=configuration.beaching,beachingDetail=beaching?
     (beaching.active?'接岸放下跳板，战车突击；优先攻击陆上目标。':`接岸登陆演出被${presentationItems.some(e=>flags(e.master).some(f=>['mortar','mortarConcentrated'].includes(f)))?'迫击炮':'火箭弹'}覆盖；仍优先攻击陆上目标。`)+
       `\n陆战部队：${beaching.units}件${beaching.active?`\n演出战车：${beaching.tanks}辆`:''}\n\n`:'';
-  return {key:'ground',label:configuration.label,categories:configuration.categories,state:carrierState==='blocked'?'blocked':unknown.length||carrierState==='unknown'||encountered&&!attacks.length?'unknown':'ready',effects:rows,attacks,detail:require('../../shared/mechanism_text')(
-    carrierState==='blocked'?'当前昼战无法发动':carrierState==='unknown'?'发动情况：待确认':'攻击陆上目标时固定生效',
-    attacks.length?attacks.map(line):'对地攻击力：待确认',
-    [beachingDetail,(attacks.length?'单纵阵／同航战；'+(attacks.some(r=>r.dayHits===2)?
+  const activation=carrierState==='blocked'?'当前昼战无法发动':carrierState==='unknown'?'发动情况：待确认':'攻击陆上目标时固定生效';
+  const notes=[beachingDetail,(attacks.length?'单纵阵／同航战；'+(attacks.some(r=>r.dayHits===2)?
       conditional?'昼战连击需空优／空确，概率发动。':'昼战连击按路线制空估算，概率发动。':carrier?'昼战按航空炮击。':'昼战按普通炮击。'):
       (missingEnemies?'所选路线敌情资料不足，对地攻击力待确认。':'选择路线后显示对应陆上目标的攻击力。'))+
     (configuration.unverifiedMix?'混装演出待确认。':'')+
     (carrier?(hybrid?'速吸改昼间按航空炮击计算，夜战参考普通炮击。':'仅昼间对地炮击。')+(carrierState==='blocked'?'当前昼战配装不可用：需可用对地舰爆，或只带舰攻。':carrierState==='unknown'?'航空槽容量待确认。':''):'')+
-    (unknown.length?'\n待确认：'+unknown.join('、'):'')])};
+    (unknown.length?'\n待确认：'+unknown.join('、'):'')].filter(Boolean);
+  return {key:'ground',label:configuration.label,categories:configuration.categories,state:carrierState==='blocked'?'blocked':unknown.length||carrierState==='unknown'||encountered&&!attacks.length?'unknown':'ready',effects:rows,attacks,
+    tooltipData:{kind:'ground',activation,notes,canDay,surfaceNight},detail:require('../../shared/mechanism_text')(activation,attacks.length?attacks.map(line):'对地攻击力：待确认',notes)};
 }
 const targetCache=new WeakMap();
 function groundTarget(name){

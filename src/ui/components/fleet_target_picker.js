@@ -1,4 +1,7 @@
 'use strict';
+const {t,useLocale,registerCatalog}=require('../../shared/i18n');
+const catalog=require('../i18n/fleet_target');
+registerCatalog('zh-CN',catalog.zhCN);registerCatalog('ja',catalog.ja);registerCatalog('zh-TW',catalog.zhTW);
 
 // Keep the list in the plugin window: native select popups can be positioned
 // in the wrong screen coordinate space in poi's detached window.
@@ -6,6 +9,7 @@ module.exports=function createFleetTargetPicker(React){
   const h=React.createElement,layoutEffect=React.useLayoutEffect||React.useEffect;
   return function FleetTargetPicker({value,options=[],onChange,disabled=false,hidden=false}){
     const [open,setOpen]=React.useState(false),anchor=React.useRef(null),menu=React.useRef(null),trigger=React.useRef(null);
+    useLocale(React);
     const close=restore=>{setOpen(false);if(restore)trigger.current?.focus({preventScroll:true});};
     React.useEffect(()=>{if(disabled||hidden)setOpen(false);},[disabled,hidden]);
     layoutEffect(()=>{
@@ -39,14 +43,14 @@ module.exports=function createFleetTargetPicker(React){
         (index+(event.key==='ArrowDown'?1:-1)+items.length)%items.length;
       items[next].focus({preventScroll:true});
     };
-    return h('div',{className:'paa-wb-field paa-fleet-target-field'},h('span',null,'编入'),
+    return h('div',{className:'paa-wb-field paa-fleet-target-field'},h('span',null,t('编入')),
       h('div',{className:'paa-fleet-target',ref:anchor},
         h('button',{type:'button',className:'paa-fleet-target-trigger',ref:trigger,disabled:disabled||hidden,
-          'aria-label':'编入舰队','aria-haspopup':'listbox','aria-expanded':open&&!disabled&&!hidden,
+          'aria-label':t('编入舰队'),'aria-haspopup':'listbox','aria-expanded':open&&!disabled&&!hidden,
           'data-fleet-value':value,onClick:()=>setOpen(previous=>!previous),
           onKeyDown:event=>{if(['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();setOpen(true);}}},
-          h('span',null,selected?.label||`第 ${value} 舰队`),h('span',{className:'paa-fleet-target-chevron','aria-hidden':true})),
-        open&&!disabled&&!hidden?h('div',{className:'paa-fleet-target-menu',ref:menu,role:'listbox','aria-label':'选择编入舰队',onKeyDown:menuKeys},
+          h('span',null,selected?.label||t('fleetTarget.default',{fleet:value})),h('span',{className:'paa-fleet-target-chevron','aria-hidden':true})),
+        open&&!disabled&&!hidden?h('div',{className:'paa-fleet-target-menu',ref:menu,role:'listbox','aria-label':t('选择编入舰队'),onKeyDown:menuKeys},
           ...options.map(option=>h('button',{key:option.value,type:'button',role:'option',disabled:option.disabled,
             'aria-selected':option.value===value,onClick:()=>{if(!option.disabled){onChange(option.value);close(true);}}},option.label))):null));
   };

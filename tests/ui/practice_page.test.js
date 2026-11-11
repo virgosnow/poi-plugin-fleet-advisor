@@ -1,6 +1,22 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fixture=require('../helpers/workbench_fixture'),W=require('../../src/ui/workbench/workbench_model');
+test('practice imports a live fleet as a draft and immediately reevaluates it',()=>{
+ const store=fixture(),states=[],refs=[];let i=0,j=0,calls=0;
+ store.info.fleets[2].api_ship=[2,3];store.practiceState={known:true,opponents:[{id:10,index:1,name:'对手',ships:[{masterId:1,level:50}]}],revision:1};
+ const {Controller}=require('../../src/application/controller'),controller=new Controller({getStore:()=>store});
+ const service={preview:(...args)=>{calls++;return controller.preview(...args);}};
+ const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},
+  useRef(initial){const at=j++;return refs[at]||(refs[at]={current:initial});},useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>service});
+ const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
+ const render=()=>{i=0;j=0;return Page({kind:'practice',automaticOperations:true});};
+ let tree=render();walk(tree).find(n=>n.props.className==='paa-practice-opponent-select').props.onClick();tree=render();
+ const before=JSON.stringify(store),picker=walk(tree).find(n=>n.type?.name==='FleetImportPicker');assert(picker);picker.props.onImport(3);tree=render();
+ assert.deepEqual(states[0].filter(Boolean).map(s=>s.id),[2,3]);assert(states[0].filter(Boolean).every(s=>s.pin));
+ assert.equal(states[1],1);assert(calls>0);assert.equal(JSON.stringify(store),before);
+ assert(walk(tree).some(n=>n.props['data-ship-id']===2));
+});
 test('overview navigation selects an active practice quest without clearing the existing draft',()=>{
  const store=fixture(),states=[],refs=[],effects=[];let i=0,j=0;
  store.questState={known:true,complete:true,tasks:[{api_no:371,api_category:3,api_state:2,api_title:'春です！「春雨」、演習しますっ！'}]};
@@ -95,7 +111,7 @@ test('practice page displays observed opponents, preserves manual drafts and kee
  states[0]=Array(6).fill(null);tree=render();
  const quests=walk(tree).find(n=>n.type?.name==='QuestSection');
  assert.equal(quests.props.readOnly,undefined);assert.equal(quests.props.kind,'practice');assert.equal(typeof quests.props.onToggleQuest,'function');
- const practiceTask=quests.props.listTasks({state:store,questState:store.questState}).tasks[0];assert.equal(practiceTask.id,1);assert.equal(practiceTask.status,'unknown');assert.equal(practiceTask.supported,false);assert.equal(practiceTask.goals[0].label,'演習で勝利');
+ const practiceTask=quests.props.listTasks({state:store,questState:store.questState}).tasks[0];assert.equal(practiceTask.id,1);assert.equal(practiceTask.status,'unknown');assert.equal(practiceTask.supported,false);assert.equal(practiceTask.goals[0].label,'目标条件待确认');
  assert.equal(quests.props.listTasks({questState:{known:false}}).status,'unknown');
  walk(tree).find(n=>n.props.className==='paa-practice-opponent-select').props.onClick();tree=render();
  const opponentSection=walk(tree).find(n=>n.type==='section'&&walk(n).some(c=>c?.type==='h3'&&c.children.includes('演习对手')));

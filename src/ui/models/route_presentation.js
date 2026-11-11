@@ -1,5 +1,8 @@
 'use strict';
 const {pathLabel}=require('../../domain/routes/route_plans');
+const {t,registerCatalog}=require('../../shared/i18n');
+registerCatalog('ja',{'各路线到达概率':'各ルートの到達率'});
+registerCatalog('zh-TW',{'各路线到达概率':'各路線抵達機率'});
 
 function routeFormula(option){
   const raw=option?.displayPathLabel||option?.strategy?.pathLabel||option?.pathLabel||option?.nodes?.join('→')||'';
@@ -47,7 +50,7 @@ function arrivalNote(h,arrival){
   const content=[];
   for(let i=0;i<lines.length;i++){
     const row=lines[i];
-    if(!row.nodes){content.push(h('small',{key:i,'data-muted':row.muted||undefined},row.text));continue;}
+    if(!row.nodes){content.push(h('small',{key:i,'data-muted':row.muted||undefined},t(row.text)));continue;}
     const branches=[];
     for(;;){
       const branch=lines[i];
@@ -56,7 +59,7 @@ function arrivalNote(h,arrival){
       if(!lines[i+1]?.nodes)break;
       i++;
     }
-    content.push(h('ul',{key:`paths-${i}`,className:'paa-wb-arrival-paths','aria-label':'各路线到达概率'},...branches));
+    content.push(h('ul',{key:`paths-${i}`,className:'paa-wb-arrival-paths','aria-label':t('各路线到达概率')},...branches));
   }
   return h('div',{className:'paa-wb-arrival-note'},...content);
 }

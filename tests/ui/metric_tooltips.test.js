@@ -91,7 +91,7 @@ test('equipment tooltip stays compact with no stats without affecting other stru
  assert.equal(structuredWidth(equip(3),800),285);assert.equal(structuredWidth(equip(4),800),320);assert.equal(structuredWidth(equip(8),800),320);
  assert.equal(structuredWidth(equip(4),320),304);
  assert.equal(structuredWidth({compact:true,sections:[{columns:['a','b','c','d'],rows:[]}]},800),360);
- assert.equal(structuredWidth({sections:[{columns:['a','b','c','d'],rows:[]}]},800),520);
+ assert.equal(structuredWidth({sections:[{columns:['a','b','c','d'],rows:[]}]},800),480);
 });
 
 test('equipment accuracy colors follow fit adjustment rather than total accuracy',()=>{
@@ -140,4 +140,37 @@ test('hover tables align identifiers centrally and numbers right without unbalan
  for(const [i,align]of ['left','right','left','right'].entries())assert(gear.row[i].className.includes('paa-tooltip-align-'+align));
  const air=inspect({sections:[{columns:['节点','战前制空','敌方制空','预计结果'],numeric:[1,2],rows:[['A','180–190','100','空优']]}]});
  assert(air.row[0].className.includes('paa-tooltip-align-center'));assert(air.row[3].className.includes('paa-tooltip-align-center'));
+});
+
+test('tooltip alignment and fit color use semantic identifiers when labels change language',()=>{
+ const reading={status:'range',min:45,max:45},summary={reference:{nodes:[{id:'A',enemyAirPower:20}]},estimate:{paths:[{steps:[{
+   node:'A',round:1,before:{min:45,max:45},required:{superiority:30,supremacy:60}
+ }]}]}};
+ const air=T.air(fixture(),reading,summary);
+ air.sections[0].columns=['マス','戦闘前','敵制空','判定'];
+ const tip=doc.createElement('div');assert(renderStructured(doc,tip,JSON.stringify(air)));
+ const table=all(tip).find(n=>n.tag==='table'),header=table.children[0].children[0].children,row=table.children[1].children[0].children;
+ assert.deepEqual(header.map(c=>c.style.width),['18%','28%','28%','26%']);
+ for(const [i,align]of ['center','right','right','center'].entries()){
+  assert(header[i].className.includes('paa-tooltip-align-'+align));
+  assert(row[i].className.includes('paa-tooltip-align-'+align));
+ }
+ const data=JSON.parse(V.equipmentTooltipProps({name:'主砲',stats:[['命中','-1（+5）'],['火力','+3']],gunFit:{known:true,delta:5}})['data-tooltip-content']);
+ data.sections[0].rows[0][0]='命中率';
+ const gear=doc.createElement('div');assert(renderStructured(doc,gear,JSON.stringify(data)));
+ assert.match(all(gear).find(n=>n.tag==='dd'&&n.textContent==='-1（+5）').className,/is-fit-positive/);
+});
+
+test('tooltip headers and stat names translate without modifying the data or changing the layout',()=>{
+ const {setLocale}=require('../../src/shared/i18n');
+ const data={sections:[{columns:['节点','战前制空','敌方制空','预计结果'],columnKeys:['node','friendlyAir','enemyAir','outcome'],
+   rows:[['A','45','20','空优']],numeric:[1,2]}]};
+ const before=JSON.stringify(data);
+ try{
+  setLocale('ja-JP');const tip=doc.createElement('div');assert(renderStructured(doc,tip,JSON.stringify(data)));
+  const table=all(tip).find(n=>n.tag==='table'),head=table.children[0].children[0].children;
+  assert.deepEqual(head.map(c=>c.textContent),['マス','戦闘前制空値','敵制空値','予測結果']);
+  assert.deepEqual(head.map(c=>c.style.width),['18%','28%','28%','26%']);
+  assert.equal(JSON.stringify(data),before);
+ }finally{setLocale('zh-CN');}
 });

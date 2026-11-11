@@ -456,7 +456,7 @@ test('ground aircraft reference preserves confirmed depletion and flags assumed 
 test('time budget exhaustion and an unverified path cannot generate a grade',()=>{
   const f=fixture(),p=profile('1-1','雷巡流');let clock=0;
   const timeout=assess(f,p,{now:()=>clock+=60});
-  assert.equal(timeout.status,'unknown');assert.match(timeout.reasons[0],/时间预算/);
+  assert.equal(timeout.status,'unknown');assert.equal(timeout.reasonCode,'timeBudgetExceeded');assert.match(timeout.reasons[0],/时间预算/);
   assert.equal(timeout.balance,undefined);
   assert.equal(assess(f,{...p,selectedPathsVerified:false}).status,'unknown');
   const excess=assess(f,{...p,routePaths:Array.from({length:9},()=>p.routePaths[0])});

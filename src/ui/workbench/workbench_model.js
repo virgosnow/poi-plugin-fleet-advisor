@@ -13,6 +13,19 @@ function entry(store,id){
   if(!ship||!master)throw Error('舰娘资料已变化，请重新选择');
   return {id:Number(id),slots:(ship.api_slot||[]).slice(0,master.api_slot_num),ex:ship.api_slot_ex>0?ship.api_slot_ex:-1,pin:false,keep:{}};
 }
+// Read a complete game fleet without modifying it or changing the apply target.
+function importFleet(store,number){
+  const fleet=store.info?.fleets?.[Number(number)-1];
+  if(!fleet||!Array.isArray(fleet.api_ship))return {status:'unsynced'};
+  const ids=fleet.api_ship.map(Number).filter(id=>id>0);
+  if(!ids.length)return {status:'empty'};
+  if(ids.length>6)return {status:'unsupported'};
+  if(ids.some(id=>{const ship=store.info?.ships?.[id],master=store.const?.$ships?.[ship?.api_ship_id];
+    if(!ship||!master||!Array.isArray(ship.api_slot)||!Number.isInteger(Number(master.api_slot_num))||ship.api_slot.length<Number(master.api_slot_num))return true;
+    return [...ship.api_slot.slice(0,Number(master.api_slot_num)),ship.api_slot_ex].some(item=>Number(item)>0&&!store.info?.equips?.[item]);
+  }))return {status:'unsynced'};
+  return {status:'ready',slots:ids.map(id=>({...entry(store,id),pin:true,imported:true})).concat(Array(6-ids.length).fill(null))};
+}
 function scheme(slots,fleet){return {fleet,ships:slots.filter(Boolean).map(({id,slots,ex})=>({id,slots:[...slots],ex}))};}
 function resolved(store,plan){
   const expected=new Map((plan.equipment.expected||[]).map(x=>[x.shipId,x.state]));
@@ -156,20 +169,31 @@ function withEquipment(slots,candidate){
 function inspect(service,store,slots,settings){
   const {fleet,kind,area,target,phase,missionId}=settings,candidate=scheme(slots,fleet);
   const out={scheme:candidate,settingsKey:JSON.stringify(settings),valid:false,profile:null,route:null,metrics:null,expedition:null,error:''};
-  try{
+  const evaluate=(source,hypothetical=false)=>{
     if(!candidate.ships.length)throw Error('先选择要固定的舰娘，或一键补全');
-    const planning=kind==='expedition'?require('../../domain/fleet/expedition_planning_store')(store,fleet):store;
-    const plan=planning===store?service.preview('fleet',candidate):require('../../domain/fleet/fleet_plan').createFleetPlanner(()=>planning).preview('fleet',candidate);
+    const planning=kind==='expedition'?require('../../domain/fleet/expedition_planning_store')(source,fleet):source;
+    const plan=planning===store&&!hypothetical?service.preview('fleet',candidate):require('../../domain/fleet/fleet_plan').createFleetPlanner(()=>planning).preview('fleet',candidate);
     out.plan=plan;out.valid=true;
     if(kind==='normal'){
       const routes=require('../../domain/routes/normal_routes');
-      out.route=routes.evaluateNormalRoute(store,{area,target,phase:phase||undefined,fleet,scheme:candidate});
+      out.route=routes.evaluateNormalRoute(source,{area,target,phase:phase||undefined,fleet,scheme:candidate});
       out.route.fixedArrivalCondition=routes.fixedArrivalCondition(out.route);
       out.profile=profileForRoute(area,out.route);
     }
-    out.metrics=require('../../domain/fleet/fleet_metrics').evaluateCandidate(store,plan);
-    if(kind==='expedition')out.expedition=expeditions.evaluateExpedition(store,fleet,missionId,candidate);
-  }catch(e){out.error=e.message;}
+    out.metrics=require('../../domain/fleet/fleet_metrics').evaluateCandidate(source,plan);
+    if(kind==='expedition')out.expedition=expeditions.evaluateExpedition(source,fleet,missionId,candidate);
+    out.valid=true;out.planningOnly=hypothetical;
+  };
+  try{evaluate(store);}catch(e){
+    out.error=e.message;
+    if(slots.some(slot=>slot?.imported))try{
+      // This copy is for analysis only. It does not make ships or equipment
+      // available for execution; the UI keeps application disabled.
+      const fleets=(store.info?.fleets||[]).map(row=>({...row,api_mission:[0,0,0]}));
+      const hypothetical={...store,info:{...store.info,fleets,repairs:[]}};
+      evaluate(hypothetical,true);
+    }catch(_){out.valid=false;}
+  }
   return out;
 }
 function routeChoices(result){
@@ -198,7 +222,7 @@ function mapOverview(area,target='boss',phase,settings,store){
 function routeEdgeProbabilities(route,option){
   if(!route?.area||!route.ships?.length||!option||option.phase&&option.phase!==route.phase)return [];
   const plans=require('../../domain/routes/route_plans'),edges=new Map();
-  const paths=option.fallback?plans.fleetPaths(route,option):plans.optionPaths(option);
+  const paths=option.fallback?plans.displayFleetPaths(route,option):plans.optionPaths(option);
   const branches=paths.map(nodes=>({nodes,...plans.planningPath(route,nodes,
     {allowTentative:false,includeLosRequirements:false})}));
   for(const branch of branches){
@@ -231,7 +255,7 @@ function selectedMapProfile(overview,selection,actual,route,hasFleet=!!route?.sh
   // The full style is a preview only for an empty draft. A blocked fleet or
   // stale inspection must not make impossible alternatives look reachable.
   // Unknown (but not disproved) branches remain visible alongside random ones.
-  const paths=!hasFleet?requested:current?plans.fleetPaths(route,option||{nodes:requested[0]}):[];
+  const paths=!hasFleet?requested:current?plans.displayFleetPaths(route,option||{nodes:requested[0]}):[];
   // Reference targets/encounters remain available even for a blocked draft;
   // highlightPaths alone describes the currently traversable alternatives.
   const selected=(paths.length?paths:requested).flatMap(nodes=>{
@@ -298,7 +322,7 @@ function mapProgress(store,area){
       remaining!==null?`剩余 ${remaining} / ${total}${transport?' TP':''}`:'进度未知';
     const explanation=state==='locked'?'海域尚未解锁，按本地资料显示完整进度条':state==='unknown'?'尚未取得该阶段的有效剩余量':
       state==='pending'?'后续阶段尚未开始；不代表解谜或起点已解锁':detail;
-    return {node:gauge.bossNode,phase:gauge.phase||'',label,total,remaining,state,detail,isCurrent:active&&state!=='complete',
+    return {node:gauge.bossNode,phase:gauge.phase||'',stage:index+1,unitKind:transport?'transport':gauge.mechanism==='arrival'?'arrival':'defeat',label,total,remaining,state,detail,isCurrent:active&&state!=='complete',
       title:`第 ${index+1} 阶段 · ${label} · ${explanation}${total!==null?` · 总计 ${total} ${unit}`:''}`};
   });
 }
@@ -320,7 +344,7 @@ function displayBossFlagship(profile,nodeId){
 // Describe the current fitted fleet, independently of a full recommendation search.
 function draftRouteIssue(report,selected,ready){
   if(!ready||!report?.route?.ships?.length||!selected)return null;
-  const plans=require('../../domain/routes/route_plans'),details=plans.routeDiagnostics(report.route,selected);
+  const plans=require('../../domain/routes/route_plans'),details=plans.routeDiagnostics(report.route,selected,{structured:true});
   const route=report.route,strategy=plans.strategyAssessment(route,selected);
   const knownSpeed=['observed','computed','estimated'].includes(route.speed?.status);
   const knownRadar=(route.ships||[]).every(s=>typeof s.radarEquipped==='boolean');
@@ -328,20 +352,62 @@ function draftRouteIssue(report,selected,ready){
   const fleetCondition=selected.fleetRequirement?require('../../domain/routes/normal_routes').predicate(selected.fleetRequirement,route.ships,{}):true;
   const unmetFleet=fleetCondition===false,impossible=details.chance?.max===0;
   if(!impossible&&!unmetSpeed&&!unmetRadar&&!unmetFleet)return null;
-  const relevant=details.blocked.filter(p=>!p.summary?.startsWith('流派速力要求：')||knownSpeed)
-    .filter(p=>!p.summary?.startsWith('流派电探要求：')||knownRadar)
-    .filter(p=>!p.summary?.startsWith('攻略编成要求：')||fleetCondition===false);
-  const warnings=[...new Set(relevant.map(p=>{
-    if(p.from===null||!p.current)return p.summary;
+  const relevant=details.blocked.filter(p=>p.reasonCode!=='strategySpeed'||knownSpeed)
+    .filter(p=>p.reasonCode!=='strategyRadar'||knownRadar)
+    .filter(p=>p.reasonCode!=='fleetRequirement'||fleetCondition===false);
+  const records=new Map();
+  for(const p of relevant){
     const requirements=[...new Set((p.requirements||[]).filter(r=>r.state!=='matched').map(r=>r.condition))];
-    return `${p.from==='start'?'出发点':p.from} → ${p.to}：${p.current}${requirements.length?'；需要 '+requirements.join(' 或 '):''}`;
-  }))];
-  return {unreachable:impossible,value:impossible?'无法沿此路线抵达':'编成不满足路线要求',warnings};
+    const text=p.from===null||!p.current?p.summary:
+      `${p.from==='start'?'出发点':p.from} → ${p.to}：${p.current}${requirements.length?'；需要 '+requirements.join(' 或 '):''}`;
+    if(records.has(text))continue;
+    const detail=p.reasonCode==='incompatiblePath'?{code:p.reasonCode,reasonId:p.reasonId,area:p.area,nodes:p.nodes,reason:p.reason,text}:
+      p.from===null&&['strategySpeed','strategyRadar','fleetRequirement'].includes(p.reasonCode)?{
+      code:p.reasonCode,minimumSpeed:p.minimumSpeed,radarCarriers:p.radarCarriers,expression:p.expression,text
+    }:p.from!==null&&p.currentDetail&&Array.isArray(p.requirementDetails)?{
+      code:'routeBlocked',from:p.from,to:p.to,current:p.currentDetail,
+      requirements:requirements.map(condition=>p.requirementDetails.find(item=>item.text===condition)),text
+    }:null;
+    records.set(text,detail);
+  }
+  const warnings=[...records.keys()],warningDetails=[...records.values()].filter(Boolean);
+  return {unreachable:impossible,value:impossible?'无法沿此路线抵达':'编成不满足路线要求',warnings,warningDetails};
 }
 function routeArrival(report,selected,ready,target='boss'){
   const result=routeArrivalResult(report,selected,ready,target);
   return selected?.phaseNote?withArrivalNotes(result,
     [{kind:'phase',text:selected.phaseNote},...(result.noteLines||(result.note?[{text:result.note}]:[]))]):result;
+}
+// Unknown three-way rolls use a 50% reference for a chosen exit; those
+// references cannot be added as though they were a normalized distribution.
+// When every exit immediately rejoins the same suffix, show that shared
+// journey once, without applying a fictitious roll at the fork.
+function adaptiveArrivalRows(branches,total){
+  let rows=branches.map(branch=>({nodes:branch.nodes.slice(),probability:branch.chance.probability,points:branch.pointAssessments}));
+  for(let i=0;i<rows.length;i++)for(const point of rows[i].points){
+    const a=point.assessment,at=point.from==='start'?-1:rows[i].nodes.indexOf(point.from);
+    if(at<0&&point.from!=='start'||a?.status!=='random'||!a.referencePathProbability||a.destinations?.length<3||a.probabilities?.some(p=>Number.isFinite(p.probability)))continue;
+    const next=at+1;if(next>=rows[i].nodes.length)continue;
+    const prefix=rows[i].nodes.slice(0,next).join('>'),suffix=rows[i].nodes.slice(next+1).join('>');
+    const matching=rows.map((row,index)=>({row,index})).filter(({row})=>row.nodes.slice(0,next).join('>')===prefix&&row.nodes.slice(next+1).join('>')===suffix&&a.destinations.includes(row.nodes[next]));
+    if(matching.length!==a.destinations.length||new Set(matching.map(({row})=>row.nodes[next])).size!==a.destinations.length)continue;
+    const probability=matching[0].row.probability;
+    if(probability!==null&&matching.some(({row})=>row.probability===null||Math.abs(row.probability-probability)>1e-9))continue;
+    const nodes=rows[i].nodes.slice();nodes[next]=a.destinations.slice().sort().join('/');
+    const merged={...rows[i],nodes,probability:probability===null?null:Math.min(1,probability/a.referencePathProbability)};
+    const indices=new Set(matching.map(({index})=>index));rows=rows.filter((_,index)=>!indices.has(index));rows.splice(i,0,merged);
+  }
+  rows=rows.map(row=>{
+    const unresolved=row.points.some(({from,assessment:a})=>{
+      const at=from==='start'?-1:row.nodes.indexOf(from),next=at+1;
+      return (at>=0||from==='start')&&a?.status==='random'&&a.referencePathProbability&&a.destinations?.length>2&&
+        !a.probabilities?.some(p=>Number.isFinite(p.probability))&&!String(row.nodes[next]||'').includes('/');
+    });
+    return unresolved?{...row,probability:null}:row;
+  });
+  const sum=rows.reduce((n,row)=>n+(row.probability??0),0);
+  if(Number.isFinite(total)&&sum>total+1e-8)rows=rows.map(row=>({...row,probability:null}));
+  return rows;
 }
 function routeArrivalResult(report,selected,ready,target='boss'){
   const label='按既定路线抵达目标';
@@ -360,8 +426,20 @@ function routeArrivalResult(report,selected,ready,target='boss'){
       ...strategy.branches.filter(b=>b.probability>0).sort((a,b)=>b.probability-a.probability).map(b=>({nodes:b.nodes,probability:b.probability,value:`${Math.round(b.probability*1000)/10}%`})),
       ...(manual.length?[{text:`能动分歧：${manual.map(p=>`${p.from} 点选 ${p.to}`).join('，')}`}]:[])]:
       [{text:`需全队${speedNames[selected.strategy.minimumSpeed]}统一${selected.strategy.radarCarriers?`、至少 ${selected.strategy.radarCarriers} 艘携带电探`:''}；当前速力：${speedNames[route.speed?.fleetSpeed]||'待确认'}。请补全或调整舰娘及提速装备。`}];
-    return withArrivalNotes({label,value:strategy.eligible?'固定到达':route.speed?.status==='unknown'?'条件待确认':'流派条件未满足',
+    return withArrivalNotes({label,usable:strategy.eligible,value:strategy.eligible?'固定到达':route.speed?.status==='unknown'?'条件待确认':'流派条件未满足',
       tone:strategy.eligible?'good':'warning',warnings:strategy.eligible?[]:plans.routeDiagnostics(route,selected).warnings},notes);
+  }
+  if(selected.fallback){
+    const adaptive=plans.adaptiveArrival(route,selected),total=adaptive?.arrival.probability??null;
+    const percent=n=>n>0&&n<0.001?'<0.1%':n<1&&n>0.999?'>99.9%':`${Math.round(n*1000)/10}%`;
+    const branches=adaptiveArrivalRows(adaptive?.branches||[],total).sort((a,b)=>(b.probability??-1)-(a.probability??-1));
+    const manual=adaptive?.playerChoices||[];
+    return withArrivalNotes({label,usable:Number.isFinite(total)&&total>0,probability:total,
+      probabilityText:total>0&&total<1?percent(total):null,
+      value:total===1?'固定到达':total===0?(target==='boss'?'无法抵达 Boss':'无法抵达目标'):Number.isFinite(total)?`到达概率 ${percent(total)}`:'到达率待确认',
+      tone:total===1?'good':'warning',unreachable:total===0,warnings:total===0?plans.routeDiagnostics(route,{...selected,paths:[adaptive.best.nodes]}).warnings:[]},
+      [...branches.map(b=>({nodes:b.nodes,probability:b.probability,value:b.probability===null?'待确认':percent(b.probability)})),
+        ...(manual.length?[{text:`能动分歧：${manual.map(p=>`${p.from} 点选 ${p.to}`).join('，')}`}]:[])]);
   }
   if(selected.paths){
     const grouped=plans.optionPlanning(route,selected),probability=grouped.chance.probability;
@@ -375,7 +453,7 @@ function routeArrivalResult(report,selected,ready,target='boss'){
     // Keep actual blockers and unknown conditions in the warning area.
     const warnings=probability===1?[]:plans.routeDiagnostics(route,selected).points
       .filter(point=>!branches.length||point.status!=='random').map(point=>point.summary);
-    return withArrivalNotes({label,hasOtherBranches:Number.isFinite(total)&&Number.isFinite(probability)&&total-probability>1e-9,
+    return withArrivalNotes({label,usable:Number.isFinite(total)&&total>0,probability:total,probabilityText:total>0&&total<1?percent(total):null,hasOtherBranches:Number.isFinite(total)&&Number.isFinite(probability)&&total-probability>1e-9,
       value:total===1?'固定到达':total===0?(target==='boss'?'无法抵达 Boss':'无法抵达目标'):Number.isFinite(total)?`到达概率 ${percent(total)}`:'到达率待确认',
       tone:total===1?'good':'warning',unreachable:total===0,warnings},
       [{kind:'probabilitySummary',text:probability===0?'当前编成无法走所选路线':selected.fallback?'按当前编成选择一条可达路线':selected.arrivalMode==='boss'?`所选合流路线 ${probability===null?'概率待确认':percent(probability)}`:'分支在后续节点汇合'},
@@ -403,13 +481,13 @@ function routeArrivalResult(report,selected,ready,target='boss'){
     const arrival=plans.bossArrivalChance(route,selected),total=arrival.probability;
     const pathNote=chance.probability===null?'所选路线概率待确认':chance.probability===0?
       '当前编成无法走所选路线':chance.probability>=1-1e-9?'':`所选路线 ${percent(chance.probability)}`;
-    return {label,hasOtherBranches:Number.isFinite(total)&&Number.isFinite(chance.probability)&&total-chance.probability>1e-9,value:total===1?'固定到达':Number.isFinite(total)?
+    return {label,usable:Number.isFinite(total)&&total>0,probability:total,probabilityText:total>0&&total<1?percent(total):null,hasOtherBranches:Number.isFinite(total)&&Number.isFinite(chance.probability)&&total-chance.probability>1e-9,value:total===1?'固定到达':Number.isFinite(total)?
       total===0?'无法抵达 Boss':`到达概率 ${percent(total)}`:'到达率待确认',
       note:[pathNote,...(Number.isFinite(total)&&Number.isFinite(chance.probability)&&total-chance.probability>1e-9?['总到达概率包含其他可抵达目标的分支']:[]),...(arrival.playerChoices.length?[`能动分歧：${arrival.playerChoices.map(p=>`${p.from} 点选 ${p.to}`).join('，')}`]:[])].filter(Boolean).join('\n'),
       tone:total===1?'good':'warning',unreachable:total===0,warnings};
   }
-  if(chance.probability===1)return {label,value:'固定到达',note:playerChoice?'能动分岐请按所选路线选择出口':'',tone:'good',warnings};
-  if(chance.probability!==null)return {label,unreachable:chance.probability===0,value:chance.probability===0?'无法沿此路线到达':`到达概率 ${percent(chance.probability)}`,
+  if(chance.probability===1)return {label,usable:true,probability:1,value:'固定到达',note:playerChoice?'能动分岐请按所选路线选择出口':'',tone:'good',warnings};
+  if(chance.probability!==null)return {label,usable:chance.probability>0,probability:chance.probability,probabilityText:chance.probability>0?percent(chance.probability):null,unreachable:chance.probability===0,value:chance.probability===0?'无法沿此路线到达':`到达概率 ${percent(chance.probability)}`,
     note:chance.probability===0?'当前编成不满足所选路线，请调整舰娘或装备':playerChoice?'能动分岐按所选路线选择；随机出口概率见下方':'存在随机分岐；详细出口概率见下方',tone:'warning',warnings};
   return {label,value:'到达率待确认',note:'下列带路条件尚未明确，请按点位调整编成或补充资料',tone:'warning',warnings};
 }
@@ -497,10 +575,10 @@ function losSummary(report,profile,routeNodes){
     const detail=requirements.map(r=>`${edge(r)}：门槛 ≥ ${r.requiredScore} · 系数 ${r.coefficient} · 当前 ${Number.isFinite(los?.scoresByCoefficient?.[r.coefficient])?los.scoresByCoefficient[r.coefficient].toFixed(1):'待计算'}`).join('\n');
     const compactHint=`${edge(primary)} · 门槛 ≥ ${primary.requiredScore} · 系数 ${coefficient}`;
     return {label,value,coefficient,hint,compactHint,detail,checks:requirements.map(r=>({edge:edge(r),coefficient:r.coefficient,requiredScore:r.requiredScore,score:los?.scoresByCoefficient?.[r.coefficient]})),state:!measured?'待计算':conservative?'索敌达标':
-      fails?'索敌不足':meets?'估算达标':'索敌待确认',bad:fails,uncertain:measured&&!conservative&&!fails};
+      fails?'索敌不足':meets?'估算达标':'索敌待确认',stateCode:!measured?'pending':conservative?'meets':fails?'below':meets?'estimatedMeets':'unknown',bad:fails,uncertain:measured&&!conservative&&!fails};
   }
   if(selected&&area&&(!gates.length||bypassed))return {label:'33 式索敌',value:'—',coefficient:null,
-    hint:bypassed&&gates.length?'当前编成无需索敌判定':'所选路线无索敌门槛',state:'无需索敌',bad:false};
+    hint:bypassed&&gates.length?'当前编成无需索敌判定':'所选路线无索敌门槛',state:'无需索敌',stateCode:'notRequired',bad:false};
   if(routeNodes===undefined&&!area)return {label,value:'—',coefficient:null,
     hint:'未指定海域与路线',state:'未设门槛',bad:false};
   const hint=!selected?'选择路线后显示索敌门槛':gates.length?gates.map(edge).join(' · ')+' · 门槛待确认':'所选路线索敌资料待确认';
@@ -552,18 +630,20 @@ function fleetSummary(report,profile,routeNodes,{store,landBases}={}){
     estimate.margins.supremacy.min>=0?'全程空确':
     estimate.margins.superiority.min>=0?'全程空优':arrival?.before.max<(arrival?.requiredLow?.superiority??arrival?.required.superiority)?`${endpoint}制空不足`:
     arrival?.before.min<arrival?.required.superiority?`${endpoint}空优临界`:estimate.margins.superiority.max<0?'道中制空不足':'道中空优临界';
-  const airState=reference.landBase&&/^全程空(?:优|确)$/.test(airStateRaw)?`预计${airStateRaw}`:airStateRaw;
+  const airStateCode=air?.status==='range'&&base!==null&&!noAirBattle&&estimate.status==='estimated'&&!(base===0&&air.max===0)?
+    estimate.margins.supremacy.min>=0?'supremacy':estimate.margins.superiority.min>=0?'superiority':'below':'unknown';
+  const airState=reference.landBase&&['supremacy','superiority'].includes(airStateCode)?`预计${airStateRaw}`:airStateRaw;
   const lossDetail=estimate.status==='estimated'?(arrival?`${estimate.boss?'抵达 Boss':'抵达终点'}时我方预计制空：${range(arrival.before)}\n`:'')+`${estimate.basis}\n`+estimate.paths.flatMap(p=>p.steps.map(s=>
     `${s.node} 点${s.round>1?`第 ${s.round} 轮`:''}：战前 ${range(s.before)} / 空优 ${s.required.superiority}`+(s.after?` → 战后 ${range(s.after)}`:''))).join('\n'):
     estimate.reason;
   const compactHint=reference.landBase?(adjusted?
     `${adjusted.limitingNodes.join('/')} 点 · 空优 ${range(adjusted.superiority)} · 空确 ${range(adjusted.supremacy)}（参考）`:airHint):
     base===null||base===0?airHint:`${reference.limitingNodes.join('/')} 点 · 空优 ${base} · 空确 ${secure}`;
-  return {air:{value:airValue,state:airState,hint:airHint,compactHint,
+  return {air:{value:airValue,state:airState,stateCode:airStateCode,hint:airHint,compactHint,
     detail:['按所选路线估算，已计道中飞机损耗；全程空优／空确不是实战保证。',lossDetail||reference.reason||reference.basis].filter(Boolean).join('\n'),reference,estimate,
-    bad:/不足|临界|未配/.test(airState)},
+    bad:airStateCode==='below'||air?.status==='range'&&base===0&&air.max===0&&!noAirBattle&&estimate.status==='estimated'},
     los:losSummary(report,profile,routeNodes)};
 }
 const income=require('../../domain/expeditions/expedition_income').missionIncome;
 
-module.exports={TYPES,entry,scheme,resolved,roster,prepareReplacementCandidates,replacementCandidates,changeSummary,equipmentOptions,recommendationHolds,merge,withEquipment,projected,inspect,routeChoices,badges,income,mapOverview,selectedMapProfile,finalStageNotice,routeEdgeProbabilities,mapProgress,displayThreat,displayBossFlagship,fleetSummary,routeArrival,draftRouteIssue,routeSpeedSummary,applicationWarning};
+module.exports={TYPES,entry,importFleet,scheme,resolved,roster,prepareReplacementCandidates,replacementCandidates,changeSummary,equipmentOptions,recommendationHolds,merge,withEquipment,projected,inspect,routeChoices,badges,income,mapOverview,selectedMapProfile,finalStageNotice,routeEdgeProbabilities,mapProgress,displayThreat,displayBossFlagship,fleetSummary,routeArrival,draftRouteIssue,routeSpeedSummary,applicationWarning};

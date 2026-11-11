@@ -37,7 +37,7 @@ function dayExpected(base,reading,attacks){
   for(const group of groups){
     const weight=group.nodes.length||1;let value=base;
     for(const row of reading.rates[group.state]?.rows||[]){
-      const hit=attacks.find(a=>a.label===row.label);
+      const hit=attacks.find(a=>a.id===row.id);
       if(hit?.power!=null)value+=(row.rate??0)*(hit.power*hit.hits-base);
     }
     total+=value*weight;count+=weight;

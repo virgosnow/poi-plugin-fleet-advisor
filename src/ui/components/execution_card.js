@@ -1,4 +1,7 @@
 'use strict';
+const {t,registerCatalog}=require('../../shared/i18n');
+registerCatalog('ja',{'编成进度':'編成の進行状況','等待编入':'編成待ち','已编入 · 等待换装':'編成済み · 装備変更待ち','正在编入':'編成中','已换装完毕':'装備変更完了','等待换装':'装備変更待ち','正在卸下装备':'装備を外しています','正在换装':'装備変更中'});
+registerCatalog('zh-TW',{'编成进度':'編成進度','等待编入':'等待編入','已编入 · 等待换装':'已編入 · 等待換裝','正在编入':'正在編入','已换装完毕':'已換裝完畢','等待换装':'等待換裝','正在卸下装备':'正在卸下裝備','正在换装':'正在換裝'});
 const waiting=()=>({state:'waiting',label:'等待编入',value:0});
 function initial(store,fleet,index,ship){
   return store.info?.fleets?.[fleet-1]?.api_ship?.[index]===ship?
@@ -32,12 +35,12 @@ module.exports=(React,{subscribe,getStore})=>{
     if(!running)return null;
     const current=progress||initial(getStore(),fleet,index,ship);
     return h('div',{className:'paa-wb-execution-card','data-state':current.state,role:'progressbar',
-      'aria-label':'编成进度','aria-valuemin':0,'aria-valuemax':100,'aria-valuenow':current.value,
-      'aria-valuetext':current.label,style:{'--paa-execution-progress':`${current.value}%`}},
+      'aria-label':t('编成进度'),'aria-valuemin':0,'aria-valuemax':100,'aria-valuenow':current.value,
+      'aria-valuetext':t(current.label),style:{'--paa-execution-progress':`${current.value}%`}},
       h('span',{className:'paa-wb-execution-label'},current.state==='active'?
         h('span',{className:'paa-wb-calculation-spinner','aria-hidden':true}):
         current.state==='done'?h('span',{'aria-hidden':true},'✓'):null,
-        stopping&&current.state==='active'?'正在停止…':current.label));
+        t(stopping&&current.state==='active'?'正在停止…':current.label)));
   };
 };
 module.exports.initial=initial;

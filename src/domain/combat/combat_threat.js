@@ -100,7 +100,7 @@ function candidateAttack(enemy,friend,nodeKind,lookup,reading){
       // An upper reference: retain original slot size and the high torpedo
       // bomber modifier. Actual plane losses, target and hit are unknown.
       const raw=(stat*Math.sqrt(aircraft.capacity)+25)*(aircraft.kind==='torpedo'?1.5:1);
-      phases.push({power:cap(raw,170),count:nodeKind==='aerialCombat'?2:1,label:'开幕航空'});
+      phases.push({kind:'openingAir',power:cap(raw,170),count:nodeKind==='aerialCombat'?2:1,label:'开幕航空'});
     }
     if(equipment.aircraft.length)warnings.push('航空按原始搭载及较高威力参考，未计制空与防空损失');
     if(equipment.status!=='known')warnings.push('敌舰装备细节待确认');
@@ -152,7 +152,7 @@ function candidateAttack(enemy,friend,nodeKind,lookup,reading){
   }
   let withoutAir=0,fullAir=0;
   for(const phase of phases){const v=severity(phase.power,friend);if(v===null)return {status:'unknown',score:null};
-    fullAir+=v*phase.count;if(phase.label!=='开幕航空')withoutAir+=v*phase.count;}
+    fullAir+=v*phase.count;if(phase.kind!=='openingAir')withoutAir+=v*phase.count;}
   return {status:warnings.length?'partial':'known',score:withoutAir,scoreRange:{min:withoutAir,max:fullAir},mechanisms:phases.map(p=>p.label),warnings};
 }
 function enemyThreat(enemy,fleet,nodeKind,lookup){

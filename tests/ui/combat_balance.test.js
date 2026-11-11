@@ -3,6 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const render=require('../../src/ui/components/combat_balance');
 const {compare}=require('../../src/domain/combat/combat_balance');
 const h=(type,props,...children)=>({type,props:props||{},children:children.flat()});
+const text=node=>node==null?'':typeof node==='object'?(node.children||[]).map(text).join(''):String(node);
 test('ready route uses a red blue comparison with the requested label',()=>{
   const v=render(h,{status:'ready',balance:compare(2,1),reasons:['对潜已计入']});
   assert.equal(v.props['data-tier'],'明显优势');assert.equal(v.props['data-tooltip'],undefined);
@@ -77,8 +78,10 @@ test('per-node details distinguish simulated losses and unvisited or air raid no
   assert.deepEqual(body.children.map(row=>row.children.map(cellText)),[
     ['A 点','满 / 满','12.5%','40.0%','3 / 32'],['B 点','80% / 80%','1.0%','—','1 / 29'],['C 点','— / 76%','—','—','—'],
     ['D 点','满 / 80%','0.0%','0.0%','0 / 1'],['E 点','100% / 满','0.0%','0.0%','0 / 1']]);
-  assert.match(v.children[0].children.at(-1),/并非实际概率/);
-  assert.match(v.children[0].children.at(-1),/油弹按满补给出发和参考分支估算/);
+  assert.match(text(v.children[0]),/并非实际概率/);
+  assert.match(text(v.children[0]),/我方油弹按满补给与参考分支估算/);
+  assert.match(text(v.children[0]),/逐点损失为各舰新增损伤占最大耐久的平均/);
+  assert.equal(v.children[1].children[0].children[0].children[4].children[0],'我方大破');
   const styles=require('../../src/ui/workbench/workbench_styles');
   assert.match(styles,/\.paa-balance-details table\{[^}]*table-layout:fixed/);
   assert.match(styles,/\.paa-balance-details :is\(th,td\)\{[^}]*text-align:center/);
@@ -96,26 +99,27 @@ test('a newly selected stage prompts for explicit completion instead of claiming
 
 test('route details state why the target is not reached without calling scene counts a probability',()=>{
   const v=render.renderDetails(h,{diagnostics:{journeys:{samples:32,completed:0,stoppedBeforeTarget:32},nodes:[]}});
-  assert.match(v.children[0].children[0],/32 \/ 32 个参考场景在目标前大破停止/);
-  assert.match(v.children[0].children.at(-1),/从当前耐久出发/);
-  assert.match(v.children[0].children.at(-1),/并非实际概率/);
+  assert.match(text(v.children[0]),/道中我方大破32 \/ 32/);
+  assert.match(text(v.children[0]),/从当前耐久计算/);
+  assert.match(text(v.children[0]),/并非实际概率/);
 });
 
 test('target victory details distinguish post-battle repairs from en-route retreat',()=>{
   const v=render.renderDetails(h,{diagnostics:{journeys:{samples:32,completed:32,stoppedBeforeTarget:0},
-    target:{id:'C',visits:32,sVictories:32,severe:32,includeNight:true},nodes:[]}});
-  assert.match(v.children[0].children[0],/道中：0 \/ 32/);
-  assert.match(v.children[0].children[2],/目标战：S 胜参考 32 \/ 32（含夜战）/);
-  assert.match(v.children[0].children[2],/战后大破只计损耗/);
+    target:{id:'C',visits:32,sVictories:32,severe:32,includeNight:true,flagshipDamage:.4},nodes:[]}});
+  assert.match(text(v.children[0]),/道中我方大破0 \/ 32/);
+  assert.match(text(v.children[0]),/目标点 S 胜32 \/ 32（含夜战）/);
+  assert.match(text(v.children[0]),/目标点敌方旗舰平均损伤 40%/);
+  assert.match(text(v.children[0]),/目标战后我方大破仅计损耗/);
 });
 
 test('target result is not presented as an S failure when no scenario reached it',()=>{
   const v=render.renderDetails(h,{diagnostics:{journeys:{samples:32,stoppedBeforeTarget:32},
     target:{id:'C',visits:0,sVictories:0},nodes:[]}});
-  assert.match(v.children[0].children[2],/均未抵达，无法评价战果/);
+  assert.match(text(v.children[0]),/均未抵达，无法评价战果/);
 });
 test('the node table distinguishes weighted branches from incomplete route probabilities',()=>{
   const view=branchUncertain=>render.renderDetails(h,{diagnostics:{representativePath:['A','C'],branchUncertain,nodes:[]}});
-  assert.match(view(false).children[0].children.at(-1),/总评价在所选分支内按参考概率加权/);
-  assert.match(view(true).children[0].children.at(-1),/分支概率不完整，按较危险的 A→C 分支参考/);
+  assert.match(text(view(false).children[0]),/总评价按所选分支概率加权/);
+  assert.match(text(view(true).children[0]),/分支概率不完整.*A→C/);
 });

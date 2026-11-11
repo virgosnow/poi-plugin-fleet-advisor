@@ -78,7 +78,7 @@ test('an incomplete snapshot bypasses the underlying cache for original and cand
 
 test('a transient forecast timeout is not cached by the land-base selector',()=>{
  let calls=0;const selector=createLandBaseCombatSelector({paths,now:()=>0,prioritize:()=>({changed:false}),
-   assess:()=>++calls===1?{status:'unknown',reasons:['战力计算超过时间预算']}:result(5)});
+   assess:()=>++calls===1?{status:'unknown',reasonCode:'timeBudgetExceeded',reasons:['time limit reached']}:result(5)});
  const input=args();assert.equal(selector(input).assessment.status,'unknown');
  assert.equal(selector(input).assessment.status,'estimated');assert.equal(calls,2);
 });
@@ -86,7 +86,7 @@ test('a transient forecast timeout is not cached by combat assessment',()=>{
  const {createCombatAssessment}=require('../../src/application/combat_assessment');let calls=0;
  const plans={optionPaths:()=>[['B','M']],fleetPaths:()=>[['B','M']]};
  const assess=createCombatAssessment({plans,profileForRoute:()=>({status:'known',routePaths:[{nodes:['B','M']}]}),
-   evaluate:()=>++calls===1?{status:'unknown',reasons:['战力计算超过时间预算']}:result(5)});
+   evaluate:()=>++calls===1?{status:'unknown',reasonCode:'timeBudgetExceeded',reasons:['time limit reached']}:result(5)});
  const input={store:require('../helpers/workbench_fixture')(),report:{valid:true,scheme:{ships:[{id:1}]},route:{area:'6-5'}},option:{key:'x'}};
  assert.equal(assess(input).status,'unknown');assert.equal(assess(input).status,'estimated');assert.equal(calls,2);
 });
@@ -103,7 +103,7 @@ test('overwhelming disadvantage commits a whole squadron to reachable en-route t
 test('overwhelming disadvantage keeps a reachable forward plan if its new forecast times out',()=>{
  const original=result(1,0);original.balance={rank:0};let calls=0;
  const selector=createLandBaseCombatSelector({paths,now:()=>0,prioritize:()=>({changed:true,bases:bases(['I','I'])}),
-   assess:()=>++calls===1?original:{status:'unknown',reasons:['战力计算超过时间预算']}});
+   assess:()=>++calls===1?original:{status:'unknown',reasonCode:'timeBudgetExceeded',reasons:['time limit reached']}});
  const input=args();input.proposal.bases=bases(['M','M']);const choice=selector(input);
  assert.deepEqual(choice.proposal.bases[1].targets,['I','I']);assert.equal(choice.assessment.status,'unknown');
 });

@@ -1,5 +1,21 @@
 'use strict';
 const {CLOSE_DELAY}=require('./hover_timing');
+const {t,registerCatalog,subscribe:subscribeLocale}=require('../../shared/i18n');
+const mechanismDisplay=require('../i18n/mechanism_display');
+const metricDisplay=require('../i18n/metric_display');
+registerCatalog('ja',{'位置':'位置','槽位':'スロット','节点':'マス','分岐':'分岐','系数':'係数','速力':'速力','预计结果':'予測結果',
+  '类型':'種類','阵型':'陣形','攻击阶段':'攻撃段階','舰娘':'艦娘','提速装备':'増速装備','战前制空':'戦闘前制空値','敌方制空':'敵制空値',
+  '门槛':'閾値','当前':'現在','属性':'項目','数值':'数値','火力':'火力','雷装':'雷装','爆装':'爆装','对空':'対空','对潜':'対潜','索敌':'索敵',
+  '命中':'命中','对爆':'対爆','迎击':'迎撃','回避':'回避','装甲':'装甲','射程':'射程','航程':'航続距離','制空值':'制空値',
+  '短':'短','中':'中','长':'長','超长':'超長','超超长':'超超長'});
+registerCatalog('zh-TW',{'位置':'位置','槽位':'裝備格','节点':'節點','分岐':'分歧','系数':'係數','速力':'速力','预计结果':'預計結果',
+  '类型':'類型','阵型':'陣形','攻击阶段':'攻擊階段','舰娘':'艦娘','提速装备':'提速裝備','战前制空':'戰前制空','敌方制空':'敵方制空',
+  '门槛':'門檻','当前':'目前','属性':'屬性','数值':'數值','火力':'火力','雷装':'雷裝','爆装':'爆裝','对空':'對空','对潜':'對潛','索敌':'索敵',
+  '命中':'命中','对爆':'對爆','迎击':'迎擊','回避':'迴避','装甲':'裝甲','射程':'射程','航程':'航程','制空值':'制空值',
+  '短':'短','中':'中','长':'長','超长':'超長','超超长':'超超長'});
+registerCatalog('zh-CN',{'tooltip.nightZuiun':'夜瑞×{count}','tooltip.nightZuiunRadar':'夜瑞×{count}＋水上电探','tooltip.hitsUnknown':'（次数待确认）','tooltip.aaType':'{n}型','tooltip.fleetRate':'全队参考发动率'});
+registerCatalog('ja',{'tooltip.nightZuiun':'夜瑞雲×{count}','tooltip.nightZuiunRadar':'夜瑞雲×{count}＋水上電探','tooltip.hitsUnknown':'（回数は要確認）','tooltip.aaType':'{n}型','tooltip.fleetRate':'艦隊全体の参考発動率'});
+registerCatalog('zh-TW',{'tooltip.nightZuiun':'夜瑞雲×{count}','tooltip.nightZuiunRadar':'夜瑞雲×{count}＋水上電探','tooltip.hitsUnknown':'（次數待確認）','tooltip.aaType':'{n}型','tooltip.fleetRate':'全隊參考發動率'});
 let nextId=0;
 // Some labels need help only when their rendered text is actually clipped.
 function tooltipAllowed(node){return !node?.hasAttribute?.('data-tooltip-overflow')||node.scrollWidth>node.clientWidth;}
@@ -11,17 +27,22 @@ function anchorRect(anchor){
     anchor.querySelector('.paa-map-boss-hit,.paa-map-start-hit,.paa-map-node-body'):null;
   return (marker||anchor).getBoundingClientRect();
 }
-function tableColumns(labels,{numeric=[],compact=false,indexed=false}={}){
-  const centered=new Set(['位置','槽位','节点','系数','速力','预计结果','类型','阵型','攻击阶段']);
+// Layout uses stable keys; legacy Chinese-only callers remain supported while
+// all new structured tables can translate labels without changing alignment.
+const legacyColumnKeys={'位置':'position','槽位':'slot','节点':'node','分岐':'branch','系数':'coefficient',
+  '速力':'speed','预计结果':'outcome','类型':'type','阵型':'formation','攻击阶段':'attackPhase'};
+function tableColumns(labels,{numeric=[],compact=false,indexed=false,keys=[]}={}){
+  const semantic=labels.map((label,i)=>keys[i]||legacyColumnKeys[label]||null);
+  const centered=new Set(['position','slot','node','coefficient','speed','outcome','type','formation','attackPhase']);
   let widths=labels.map(()=>100/labels.length);
   if(!compact){
     if(indexed&&labels.length===3)widths=[20,44,36];
     else if(indexed&&labels.length===4)widths=[16,32,26,26];
-    else if(labels[0]==='节点'&&labels.length===4)widths=[18,28,28,26];
-    else if(labels[0]==='分岐'&&labels.length===4)widths=[28,18,27,27];
-    else if(labels[0]==='位置'&&labels.length===4)widths=[16,30,24,30];
+    else if(semantic[0]==='node'&&labels.length===4)widths=[18,28,28,26];
+    else if(semantic[0]==='branch'&&labels.length===4)widths=[28,18,27,27];
+    else if(semantic[0]==='position'&&labels.length===4)widths=[16,30,24,30];
   }
-  return labels.map((label,i)=>({width:widths[i],align:centered.has(label)?'center':numeric.includes(i)?'right':'left'}));
+  return labels.map((label,i)=>({width:widths[i],align:centered.has(semantic[i])?'center':numeric.includes(i)?'right':'left'}));
 }
 function alignCell(cell,column,header=false){
   cell.className+=' paa-tooltip-align-'+column.align;
@@ -30,37 +51,39 @@ function alignCell(cell,column,header=false){
 }
 function renderStructured(doc,tip,raw){
   let content;try{content=JSON.parse(raw);}catch(_){return false;}
+  if(content?.kind==='mechanism')return renderStructuredMechanism(doc,tip,content);
   if(!content||!Array.isArray(content.sections)||content.sections.some(s=>!Array.isArray(s.columns)||!Array.isArray(s.rows)||s.rows.some(r=>!Array.isArray(r))))return false;
   const text=(tag,cls,value)=>{const el=doc.createElement(tag);el.className=cls;el.textContent=String(value??'—');return el;};
   tip.className+=' paa-tooltip-structured'+(content.compact?' paa-tooltip-compact':'')+(content.kind==='equipment'?' paa-tooltip-equipment':'');
-  if(content.title)tip.appendChild(text('div','paa-tooltip-heading',content.title));
+  if(content.title)tip.appendChild(text('div','paa-tooltip-heading',metricDisplay.title(content)));
   for(const s of content.sections){
     if(!s.rows.length)continue;
     const section=doc.createElement('div');section.className='paa-tooltip-section';
-    if(s.title)section.appendChild(text('div','paa-tooltip-subheading',s.title));
+    if(s.title)section.appendChild(text('div','paa-tooltip-subheading',content.displayKind?t(s.title):s.title));
     if(s.layout==='equipment-stats'){
       const list=doc.createElement('dl');list.className='paa-tooltip-equipment-stats';
-      for(const values of s.rows)for(let i=0;i<values.length;i+=2){
+      for(const [rowIndex,values] of s.rows.entries())for(let i=0;i<values.length;i+=2){
         if(!values[i])continue;
         const pair=doc.createElement('div');pair.className='paa-tooltip-equipment-stat';
-        pair.appendChild(text('dt','paa-tooltip-equipment-label',values[i]));
-        const fitTone=values[i]==='命中'&&['positive','negative'].includes(s.fitTone)?s.fitTone:null;
+        pair.appendChild(text('dt','paa-tooltip-equipment-label',t(values[i])));
+        const statKey=s.statKeys?.[rowIndex]?.[i/2]||(values[i]==='命中'?'accuracy':null);
+        const fitTone=statKey==='accuracy'&&['positive','negative'].includes(s.fitTone)?s.fitTone:null;
         const tone=fitTone?' is-fit-'+fitTone:/^[−-]/.test(String(values[i+1]))?' is-negative':'';
-        pair.appendChild(text('dd','paa-tooltip-equipment-value'+tone,values[i+1]));
+        pair.appendChild(text('dd','paa-tooltip-equipment-value'+tone,statKey==='range'?t(values[i+1]):values[i+1]));
         list.appendChild(pair);
       }
       section.appendChild(list);if(s.note)section.appendChild(text('div','paa-tooltip-notes',s.note));tip.appendChild(section);continue;
     }
     const table=doc.createElement('table');table.className='paa-tooltip-data-table';
-    const layout=tableColumns(s.columns,{numeric:s.numeric,compact:content.compact});
+    const layout=tableColumns(s.columns,{numeric:s.numeric,compact:content.compact,keys:s.columnKeys});
     const head=doc.createElement('thead'),header=doc.createElement('tr');
-    s.columns.forEach((label,i)=>{const cell=alignCell(text('th',(s.numeric||[]).includes(i)?'paa-tooltip-numeric':'',label),layout[i],true);cell.scope='col';header.appendChild(cell);});
+    s.columns.forEach((label,i)=>{const cell=alignCell(text('th',(s.numeric||[]).includes(i)?'paa-tooltip-numeric':'',t(label)),layout[i],true);cell.scope='col';header.appendChild(cell);});
     head.appendChild(header);table.appendChild(head);
-    const appendRows=(tag,rows)=>{const body=doc.createElement(tag);for(const values of rows){const row=doc.createElement('tr');s.columns.forEach((_,i)=>row.appendChild(alignCell(text('td',(s.numeric||[]).includes(i)?'paa-tooltip-numeric':'',values[i]),layout[i])));body.appendChild(row);}table.appendChild(body);};
+    const appendRows=(tag,rows)=>{const body=doc.createElement(tag);for(const values of rows){const row=doc.createElement('tr');s.columns.forEach((_,i)=>row.appendChild(alignCell(text('td',(s.numeric||[]).includes(i)?'paa-tooltip-numeric':'',metricDisplay.cell(content,s,i,values[i])),layout[i])));body.appendChild(row);}table.appendChild(body);};
     appendRows('tbody',s.rows);if(s.footer)appendRows('tfoot',[s.footer]);
     section.appendChild(table);if(s.note)section.appendChild(text('div','paa-tooltip-notes',s.note));tip.appendChild(section);
   }
-  if(content.notes?.filter(Boolean).length)tip.appendChild(text('div','paa-tooltip-section paa-tooltip-notes',content.notes.filter(Boolean).join('\n')));
+  if(content.notes?.filter(Boolean).length)tip.appendChild(text('div','paa-tooltip-section paa-tooltip-notes',metricDisplay.notes(content).filter(Boolean).join('\n')));
   return true;
 }
 function position(rect,size,viewport){
@@ -73,7 +96,7 @@ function structuredWidth(content,viewportWidth){
   const stats=content.kind==='equipment'?content.sections.filter(s=>s.layout==='equipment-stats').reduce((sum,s)=>sum+s.rows.reduce((count,row)=>{
     for(let i=0;i<row.length;i+=2)if(row[i])count++;return count;
   },0),0):0;
-  const limit=content.kind==='equipment'?250+35*Math.max(0,Math.min(4,stats)-2):content.compact?360:columns>=5?620:columns>=4?520:360;
+  const limit=content.kind==='equipment'?250+35*Math.max(0,Math.min(4,stats)-2):content.compact?360:columns>=5?560:columns>=4?480:340;
   return Math.max(40,Math.min(limit,viewportWidth-16));
 }
 function renderAttackTable(doc,section,groups,kind,rowHeading){
@@ -85,36 +108,87 @@ function renderAttackTable(doc,section,groups,kind,rowHeading){
   if(columns.length>2||groups.some(g=>new Set(g.rows.map(key)).size!==g.rows.length))return false;
   const aircraft=kind==='opening-air'||kind==='jet-assault';
   const indexUnit=aircraft?'槽':kind?.startsWith('special-')?'位':null;
-  const identities=indexUnit?groups.map(g=>g.title?.match(/^第\s*(\d+)\s*(位|槽)\s+(.+)$/)):[];
+  const identities=indexUnit?groups.map(g=>Number.isInteger(g.index)&&typeof g.name==='string'?[null,String(g.index),indexUnit,g.name]:g.title?.match(/^第\s*(\d+)\s*(位|槽)\s+(.+)$/)):[];
   const indexed=!single&&identities.length>0&&identities.every(match=>match&&match[2]===indexUnit);
   const labels=[...(indexed?[indexUnit==='槽'?'槽位':'位置']:[]),...(!single?[rowHeading||(kind?.startsWith('special-')?'参与舰':aircraft?indexed?'装备':'航空槽位':kind==='ground'?'目标':'攻击方式')]:[]),...columns];
   const layout=tableColumns(labels,{numeric:columns.map((_,i)=>labels.length-columns.length+i),indexed});
   const table=doc.createElement('table');table.className='paa-tooltip-attack-table'+(single?' paa-tooltip-attack-single':columns.length===2?' paa-tooltip-attack-table-two':'')+(indexed?' paa-tooltip-attack-indexed':'');
   const head=doc.createElement('thead'),header=doc.createElement('tr');
-  if(indexed){const index=doc.createElement('th');index.scope='col';index.className='paa-tooltip-attack-label paa-tooltip-attack-index';index.textContent=indexUnit==='槽'?'槽位':'位置';header.appendChild(index);}
+  if(indexed){const index=doc.createElement('th');index.scope='col';index.className='paa-tooltip-attack-label paa-tooltip-attack-index';index.textContent=t(indexUnit==='槽'?'槽位':'位置');header.appendChild(index);}
   if(!single){const heading=doc.createElement('th');heading.scope='col';heading.className='paa-tooltip-attack-label';
-    heading.textContent=rowHeading||(kind?.startsWith('special-')?'参与舰':aircraft?indexed?'装备':'航空槽位':kind==='ground'?'目标':'攻击方式');
+    heading.textContent=t(rowHeading||(kind?.startsWith('special-')?'参与舰':aircraft?indexed?'装备':'航空槽位':kind==='ground'?'目标':'攻击方式'));
     if(indexed)heading.className+=' paa-tooltip-attack-name';header.appendChild(heading);}
-  for(const column of columns){const cell=doc.createElement('th');cell.scope='col';cell.className='paa-tooltip-attack-label paa-tooltip-attack-number';cell.textContent=column;header.appendChild(cell);}
+  for(const column of columns){const cell=doc.createElement('th');cell.scope='col';cell.className='paa-tooltip-attack-label paa-tooltip-attack-number';cell.textContent=t(column);header.appendChild(cell);}
   Array.from(header.children).forEach((cell,i)=>alignCell(cell,layout[i],true));
   head.appendChild(header);table.appendChild(head);
   const body=doc.createElement('tbody');
   for(const [i,g]of groups.entries()){
     const row=doc.createElement('tr');
     if(indexed){const index=doc.createElement('td');index.className='paa-tooltip-attack-index';index.textContent=identities[i][1];row.appendChild(index);}
-    if(!single){const title=doc.createElement('th');title.scope='row';title.className='paa-tooltip-attack-title'+(indexed?' paa-tooltip-attack-name':'');title.textContent=indexed?identities[i][3]:g.title;row.appendChild(title);}
+    if(!single){const title=doc.createElement('th');title.scope='row';title.className='paa-tooltip-attack-title'+(indexed?' paa-tooltip-attack-name':'');title.textContent=indexed?(aircraft?mechanismDisplay.aircraftTitle(identities[i][3]):identities[i][3]):g.semanticTitle?t(g.title):g.title;row.appendChild(title);}
     for(const column of columns){
       const cell=doc.createElement('td');cell.className='paa-tooltip-attack-number';
       const metric=g.rows.find(r=>key(r)===column);
-      const value=doc.createElement('span');value.className='paa-tooltip-attack-value'+(/^\d+(?: 或 \d+)* × \d+击$/.test(metric?.value)?' paa-tooltip-attack-short':'');value.textContent=metric?.value??'—';cell.appendChild(value);
-      if(metric?.label.endsWith('参考')){const reference=doc.createElement('span');reference.className='paa-tooltip-attack-reference';reference.textContent='参考';cell.appendChild(reference);}
+      const value=doc.createElement('span');value.className='paa-tooltip-attack-value'+(/^\d+(?: 或 \d+)* × \d+击$/.test(metric?.value)?' paa-tooltip-attack-short':'');value.textContent=mechanismDisplay.value(metric?.value??'—');cell.appendChild(value);
+      if(metric?.label.endsWith('参考')){const reference=doc.createElement('span');reference.className='paa-tooltip-attack-reference';reference.textContent=t('参考');cell.appendChild(reference);}
       row.appendChild(cell);
     }
     Array.from(row.children).forEach((cell,i)=>alignCell(cell,layout[i]));
     body.appendChild(row);
-    if(g.notes.length){const noteRow=doc.createElement('tr');noteRow.className='paa-tooltip-attack-note-row';const notes=doc.createElement('td');notes.colSpan=columns.length+(single?0:indexed?2:1);notes.className='paa-tooltip-attack-notes';notes.textContent=g.notes.join('\n');noteRow.appendChild(notes);body.appendChild(noteRow);}
+    if(g.notes.length){const noteRow=doc.createElement('tr');noteRow.className='paa-tooltip-attack-note-row';const notes=doc.createElement('td');notes.colSpan=columns.length+(single?0:indexed?2:1);notes.className='paa-tooltip-attack-notes';notes.textContent=mechanismDisplay.text(g.notes.join('\n'));noteRow.appendChild(notes);body.appendChild(noteRow);}
   }
   table.appendChild(body);section.appendChild(table);return true;
+}
+function renderStructuredMechanism(doc,tip,content){
+  if(content.layout==='antiAir'&&Array.isArray(content.cutins)&&content.cutins.length){
+    const pct=n=>n==null?t('待确认'):(n*100).toFixed(1)+'%';
+    const activation=doc.createElement('div');activation.className='paa-tooltip-section';
+    activation.textContent=`${t('参考发动率')}：${pct(content.rate)}${content.showFleetRate?t('（本舰）'):''}`+
+      (content.showFleetRate?`\n${t('tooltip.fleetRate')}：${pct(content.fleetRate)}`:'');tip.appendChild(activation);
+    const section=doc.createElement('div');section.className='paa-tooltip-section paa-tooltip-aaci';
+    const grid=doc.createElement('div');grid.className='paa-tooltip-aa-grid';
+    for(const [i,label] of ['类型','发动率','击落效果'].entries()){
+      const el=doc.createElement('span');el.className=['paa-tooltip-aa-type','paa-tooltip-aa-rate','paa-tooltip-aa-effect'][i]+' paa-tooltip-aa-head';el.textContent=t(label);grid.appendChild(el);
+    }
+    for(const row of content.cutins)for(const [i,text] of [t('tooltip.aaType',{n:row.id}),pct(row.rate),row.multiplier==null?t('击落加成待确认'):t('固定击坠×{multiplier}，保底+{count}机',{multiplier:row.multiplier,count:row.fixed})].entries()){
+      const el=doc.createElement('span');el.className=['paa-tooltip-aa-type','paa-tooltip-aa-rate','paa-tooltip-aa-effect'][i];el.textContent=text;grid.appendChild(el);
+    }
+    section.appendChild(grid);tip.appendChild(section);
+    if(content.notes?.length){const notes=doc.createElement('div');notes.className='paa-tooltip-section';notes.textContent=mechanismDisplay.text(content.notes.filter(Boolean).join('\n'));tip.appendChild(notes);}
+    return true;
+  }
+  if(!['aircraft','special','ground','modes'].includes(content.layout)||!Array.isArray(content.attacks)||!content.attacks.length)return false;
+  const text=(value)=>{const section=doc.createElement('div');section.className='paa-tooltip-section';section.textContent=mechanismDisplay.text(value);tip.appendChild(section);};
+  const value=(power,hits=1)=>{
+    const powers=(Array.isArray(power)?power:[power]).map(n=>n==null?t('待确认'):String(n)).join(` ${t('或')} `);
+    const hitCount=typeof hits==='number'||typeof hits==='string'&&/^[\d–]+$/.test(hits)?hits:t('待确认');
+    return t('{value} × {hits}击',{value:powers,hits:hitCount});
+  };
+  const aircraft=content.layout==='aircraft',ground=content.layout==='ground',modes=content.layout==='modes';
+  const modeName=row=>row.id==='nightZuiun'?t(row.radar?'tooltip.nightZuiunRadar':'tooltip.nightZuiun',{count:row.planeCount}):
+    String(row.label||'').split(' / ').map(part=>t(part)).join(' / ');
+  const groups=content.attacks.map(row=>{
+    const index=ground||modes?null:aircraft?Number(row.slot)+1:Number(row.position);
+    const name=ground?row.label:modes?modeName(row):aircraft?`${row.name}${t('（{n} 架）',{n:row.planes==null?t('待确认'):row.planes})}`:row.name;
+    const powers=aircraft?(Array.isArray(row.powers)?row.powers:[row.power]):null;
+    const unavailable=aircraft&&(row.planes===0||row.legal===false||Array.isArray(row.powers)&&!row.powers.length);
+    const rows=aircraft?[{label:'攻击力',value:unavailable?t('不可用'):value(powers)}]:modes?[{label:'攻击力',value:value(row.power,row.displayHits??row.hits)+(row.hitsUncertain?t('tooltip.hitsUnknown'):'')}]:ground?[
+      {label:row.dayHits===2?'昼战连击':'昼战',value:content.canDay?value(row.day,row.dayHits):t('不可用')},
+      ...(content.surfaceNight?[{label:row.nightReference?'夜战参考':'夜战',value:value(row.night,row.nightHits)}]:[])]:[
+      ...(content.mechanism==='special-night'?[]:[{label:row.reference?'昼战参考':'昼战',value:value(row.day,row.hits)}]),
+      {label:row.reference?'夜战参考':'夜战',value:value(row.night,row.hits)}];
+    return {index,name,title:name,rows,notes:row.reason?[row.reason]:[]};
+  });
+  if(groups.some(group=>!group.name||!ground&&!modes&&(!Number.isInteger(group.index)||group.index<1)))return false;
+  const section=doc.createElement('div');section.className='paa-tooltip-section';
+  if(!renderAttackTable(doc,section,groups,content.mechanism,content.rowHeading))return false;
+  if(content.activationRows?.length){
+    const lines=content.activationRows.map(row=>`${row.key==='rate'?t('发动率'):modeName(row)}：${row.percent==null?t('待确认'):(row.percent*100).toFixed(1)+'%'}`);
+    const part=doc.createElement('div');part.className='paa-tooltip-section';part.textContent=lines.join('\n');tip.appendChild(part);
+  }else if(content.activation)text(content.activation);
+  tip.appendChild(section);
+  if(Array.isArray(content.notes)&&content.notes.filter(Boolean).length)text(content.notes.filter(Boolean).join('\n'));
+  return true;
 }
 function renderAttacks(doc,section,text,kind){
   const lines=text.split('\n'),metric=line=>line.match(/^((?:(?:昼战(?:连击)?|夜战|单横|单纵|航空战|喷式强袭)(?:参考)?)?攻击力)：\s*(.+)$/);
@@ -134,7 +208,7 @@ function renderAttacks(doc,section,text,kind){
     const g=groups[0],labels=g.rows.map(r=>r.label.replace(/参考$/,''));
     if(labels.every(label=>label!=='攻击力')){
       const heading=labels.every(label=>['单横','单纵'].includes(label))?'阵型':labels.every(label=>['昼战','夜战'].includes(label))?'攻击阶段':'攻击方式';
-      const rows=g.rows.map((r,i)=>({title:labels[i],rows:[{label:'攻击力'+(r.label.endsWith('参考')?'参考':''),value:r.value}],notes:i===g.rows.length-1?g.notes:[]}));
+      const rows=g.rows.map((r,i)=>({title:labels[i],semanticTitle:true,rows:[{label:'攻击力'+(r.label.endsWith('参考')?'参考':''),value:r.value}],notes:i===g.rows.length-1?g.notes:[]}));
       return renderAttackTable(doc,section,rows,kind,heading);
     }
   }
@@ -144,12 +218,12 @@ function renderAttacks(doc,section,text,kind){
     if(g.title){const title=doc.createElement('div');title.className='paa-tooltip-attack-title';title.textContent=g.title;item.appendChild(title);}
     const values=doc.createElement('div');values.className='paa-tooltip-attack-values';
     for(const row of g.rows){
-      const label=doc.createElement('span');label.className='paa-tooltip-attack-label';label.textContent=row.label;
-      const value=doc.createElement('span');value.className='paa-tooltip-attack-value';value.textContent=row.value;
+      const label=doc.createElement('span');label.className='paa-tooltip-attack-label';label.textContent=t(row.label);
+      const value=doc.createElement('span');value.className='paa-tooltip-attack-value';value.textContent=mechanismDisplay.value(row.value);
       values.appendChild(label);values.appendChild(value);
     }
     item.appendChild(values);
-    if(g.notes.length){const notes=doc.createElement('div');notes.className='paa-tooltip-attack-notes';notes.textContent=g.notes.join('\n');item.appendChild(notes);}
+    if(g.notes.length){const notes=doc.createElement('div');notes.className='paa-tooltip-attack-notes';notes.textContent=mechanismDisplay.text(g.notes.join('\n'));item.appendChild(notes);}
     section.appendChild(item);
   }
   return true;
@@ -163,22 +237,22 @@ function renderContent(doc,tip,text,kind){
     }
     return;
   }
-  if(kind!=='aaci'){tip.textContent=text;return;}
+  if(kind!=='aaci'){tip.textContent=kind?mechanismDisplay.text(text):text;return;}
   tip.className+=' paa-tooltip-aaci';let rows=null;
   for(const line of text.split('\n')){
     const match=line.match(/^\s*(\d+型)：\s*(\d+(?:\.\d+)?%|待确认)，(.+)$/);
     if(match){
       if(!rows){rows=doc.createElement('div');rows.className='paa-tooltip-aa-grid';
         for(const [i,text]of ['类型','发动率','击落效果'].entries()){
-          const heading=doc.createElement('span');heading.className=['paa-tooltip-aa-type','paa-tooltip-aa-rate','paa-tooltip-aa-effect'][i]+' paa-tooltip-aa-head';heading.textContent=text;rows.appendChild(heading);
+          const heading=doc.createElement('span');heading.className=['paa-tooltip-aa-type','paa-tooltip-aa-rate','paa-tooltip-aa-effect'][i]+' paa-tooltip-aa-head';heading.textContent=t(text);rows.appendChild(heading);
         }
         tip.appendChild(rows);}
       for(const [i,content]of match.slice(1).entries()){
         const cell=doc.createElement('span');cell.className=['paa-tooltip-aa-type','paa-tooltip-aa-rate','paa-tooltip-aa-effect'][i];
-        cell.textContent=content;rows.appendChild(cell);
+        cell.textContent=mechanismDisplay.value(content);rows.appendChild(cell);
       }
     }else{
-      rows=null;const description=doc.createElement('div');description.textContent=line||'\u00a0';tip.appendChild(description);
+      rows=null;const description=doc.createElement('div');description.textContent=mechanismDisplay.line(line)||'\u00a0';tip.appendChild(description);
     }
   }
 }
@@ -194,6 +268,9 @@ module.exports=function useTooltip(React,root,scope){
       if(anchor&&descriptionAdded){if(previousDescription===null)anchor.removeAttribute('aria-describedby');else anchor.setAttribute('aria-describedby',previousDescription);}
       target=null;anchor=null;descriptionAdded=false;
     };
+    // Tooltips can contain cached source text or DOM labels from the previous
+    // locale. Dismiss immediately; the next hover renders the current locale.
+    const unsubscribeLocale=subscribeLocale(hide);
     const cancelLeave=()=>{if(leaveTimer!==null){win.clearTimeout(leaveTimer);leaveTimer=null;}};
     const scheduleLeave=()=>{
       if(!tip){hide();return;}
@@ -250,7 +327,7 @@ module.exports=function useTooltip(React,root,scope){
     observer.observe(page,{subtree:true,childList:true,attributes:true,attributeFilter:['hidden','inert','open','aria-hidden','data-tooltip','data-tooltip-content']});
     for(let node=page.parentElement;node;node=node.parentElement)observer.observe(node,{attributes:true,attributeFilter:['hidden','inert','class','style','aria-hidden']});
     return()=>{
-      observer.disconnect();hide();page.removeEventListener('pointerover',show);page.removeEventListener('pointermove',show);page.removeEventListener('pointerout',leave);
+      unsubscribeLocale();observer.disconnect();hide();page.removeEventListener('pointerover',show);page.removeEventListener('pointermove',show);page.removeEventListener('pointerout',leave);
       page.removeEventListener('focusin',show);page.removeEventListener('focusout',hide);doc.removeEventListener('pointerdown',dismiss,true);doc.removeEventListener('click',dismiss,true);page.removeEventListener('dragstart',hide);doc.removeEventListener('keydown',escape);
       win.removeEventListener('blur',hide);win.removeEventListener('scroll',dismiss,true);win.removeEventListener('resize',hide);win.visualViewport?.removeEventListener('resize',hide);
     };

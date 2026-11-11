@@ -36,7 +36,7 @@ const yamatoTriple=(second,third)=>
 
 // Per-ship equipment multipliers, checked 2026-10-16 against the Wiki
 // SpecialAttack/isseisya/ColoTouch sections. No shared equipment multiplier.
-function specialMultipliers(label,slots){
+function specialMultipliers(kind,slots){
   const [flag,second,third]=slots;
   const gear=(target,{range=false,sg=false}={})=>{
     const items=target?.items||[],radar=items.some(e=>[12,13,93].includes(e.type)&&Number(e.master.api_saku)>=5);
@@ -45,22 +45,22 @@ function specialMultipliers(label,slots){
       (radar&&sg&&items.some(e=>compact(e.master.api_name)==='SGレーダー(後期型)')?1.15:1);
   };
   let positions,hits,bases,references,formation=.75;
-  if(/^(Nelson|Rodney) Touch$/.test(label)){
+  if(kind==='nelsonTouch'){
     positions=[0,2,4];hits=[1,1,1];formation=.8;
     const partner=name(flag).startsWith('Nelson')?'Rodney':'Nelson';
     const together=positions.slice(1).some(p=>name(slots[p]).replace(/改$/,'')===partner);
     bases=positions.map(p=>2*(together?(p===0?1.15:name(slots[p]).replace(/改$/,'')===partner?1.2:1):1));
     return {positions,hits,multipliers:bases,formation};
   }
-  if(label==='大和三舰齐射'){
+  if(kind==='yamatoTriple'){
     positions=[0,1,2];hits=[1,1,1];
     bases=matches(second,'武蔵改二')?[1.65,1.8,1.65]:
       matches(second,'長門改二|陸奥改二')&&matches(third,'長門改二|陸奥改二')?[1.65,1.65,1.65]:
       matches(second,'伊勢改二|日向改二')&&matches(third,'伊勢改二|日向改二')?
         [1.65,1.575,1.65]:[1.5,1.5,1.65];
-  }else if(label==='大和型齐射'||label==='大和双舰齐射'){
-    positions=[0,1];hits=[2,1];bases=label==='大和型齐射'?[1.54,matches(second,'大和改二重')?1.9375:1.86]:[1.4,1.55];
-  }else if(label==='长门型齐射'){
+  }else if(kind==='yamatoPair'||kind==='yamatoDouble'){
+    positions=[0,1];hits=[2,1];bases=kind==='yamatoPair'?[1.54,matches(second,'大和改二重')?1.9375:1.86]:[1.4,1.55];
+  }else if(kind==='nagato'){
     positions=[0,1];hits=[2,1];bases=[1.4,1.2];
     const partner=matches(flag,'長門改二')?'陸奥':'長門';
     if(matches(second,partner+'改二'))bases=[1.68,1.68];
@@ -69,19 +69,19 @@ function specialMultipliers(label,slots){
     else if(matches(flag,'陸奥改二')&&matches(second,'Nelson|Nelson改')){
       bases=[1.54,1.5];references=[true,true];
     }
-  }else if(label==='Colorado级齐射'){
+  }else if(kind==='colorado'){
     positions=[0,1,2];hits=[1,1,1];
     const big7=t=>matches(t,'長門改|長門改二|陸奥改|陸奥改二|Nelson改|Colorado|Colorado改|Maryland|Maryland改');
     bases=[1.5,1.3*(big7(second)?1.15:1),1.3*(big7(third)?1.17:1)];
-  }else if(label==='Queen Elizabeth级齐射'){
+  }else if(kind==='queenElizabeth'){
     positions=[0,1];hits=[2,1];bases=[matches(flag,'Warspite改')?1.24:1.2,1.24];
-  }else if(label==='Richelieu级齐射'){
+  }else if(kind==='richelieu'){
     positions=[0,1];hits=[2,1];formation=.8;
     // Deux uses Kai's same-position multiplier as a reference. Jean Bart's
     // confirmed lack of Richelieu's flagship-only 1.05 remains unchanged.
     bases=[matches(flag,FRENCH_RICHELIEU)?1.24*1.05:1.24,1.24];
     references=positions.map(p=>matches(slots[p],'Richelieu Deux'));
-  }else if(label==='金刚型夜战突击'){
+  }else if(kind==='kongouNight'){
     positions=[0,1];hits=[1,1];formation=1;
     bases=positions.map(p=>{
       const names=(slots[p]?.items||[]).map(e=>compact(e.master.api_name));
@@ -93,16 +93,16 @@ function specialMultipliers(label,slots){
     return {positions,hits,multipliers:bases,formation};
   }else return null;
   return {positions,hits,formation,references,multipliers:positions.map((p,i)=>bases[i]===null?null:bases[i]*gear(slots[p],{
-    range:label.startsWith('大和')&&(label!=='大和三舰齐射'||p<2),sg:label==='Colorado级齐射'}))};
+    range:kind.startsWith('yamato')&&(kind!=='yamatoTriple'||p<2),sg:kind==='colorado'}))};
 }
-function specialAttackPower(label,slots,store){
-  const spec=specialMultipliers(label,slots);if(!spec)return [];
+function specialAttackPower(kind,slots,store){
+  const spec=specialMultipliers(kind,slots);if(!spec)return [];
   return spec.positions.flatMap((p,i)=>{
     const target=slots[p];if(!target)return [];
     const multiplier=spec.multipliers[i],day=attack.fireBase(target,store);
     const night=target.ship?nightPower.surfacePower(target,store):{basePower:null,fit:0};
     return [{id:target.id,position:p+1,name:target.master.api_name,hits:spec.hits[i],multiplier,
-      day:label==='金刚型夜战突击'||multiplier===null?null:day.value===null?null:Math.floor(attack.cap((day.value+5)*spec.formation+day.fit,220)*multiplier),
+      day:kind==='kongouNight'||multiplier===null?null:day.value===null?null:Math.floor(attack.cap((day.value+5)*spec.formation+day.fit,220)*multiplier),
       night:night.basePower===null||multiplier===null?null:attack.cap(night.basePower*multiplier+night.fit,360),
       ...spec.references?.[i]?{reference:true}:{}}];
   });
@@ -138,7 +138,7 @@ function submarineAttack(slots,store){
       night:multiplier===null||fire.value===null||torpedo.value===null?null:Math.floor((fire.value+torpedo.value)*multiplier)}];
   }):[];
   const state=errors.length?'blocked':unknown.length?'unknown':'conditional';
-  const badge={key:'special-submarine',label:'潜水舰队攻击',state,participants,attacks,formation:'梯形阵／单横阵',
+  const badge={key:'special-submarine',attackKind:'submarine',label:'潜水舰队攻击',state,participants,attacks,formation:'梯形阵／单横阵',
     detail:[...errors,...unknown,
       `持有物资：${supplies===null?'待确认':supplies+' 件'}；每节点消耗 1 件。`,
       '同一战斗昼／夜各 1 次；出击内可多次发动。',
@@ -151,12 +151,12 @@ function submarineAttack(slots,store){
 // Fixed, single-check rates. User-selected night reference equals the day rate,
 // never the cumulative chance over multiple turns. Sources: docs/ui.md.
 function specialActivationRate(badge,slots){
-  const triple=badge.label==='大和三舰齐射';
-  const tentative=['Colorado级齐射','潜水舰队攻击'].includes(badge.label);
-  const reference=triple||tentative||['金刚型夜战突击','Richelieu级齐射'].includes(badge.label),context=reference?{reference:true,...tentative?{tentative:true}:{}}:{};
+  const triple=badge.attackKind==='yamatoTriple';
+  const tentative=['colorado','submarine'].includes(badge.attackKind);
+  const reference=triple||tentative||['kongouNight','richelieu'].includes(badge.attackKind),context=reference?{reference:true,...tentative?{tentative:true}:{}}:{};
   if(badge.state==='blocked')return {...context,percent:0,phase:null,reason:badge.key==='special-submarine'?'编成或物资条件未满足':'编成条件未满足'};
   if(badge.state==='unknown')return {...context,percent:null,phase:null,reason:'编成资料不完整'};
-  const {label}=badge,[flag,second]=slots;
+  const {attackKind:kind}=badge,[flag,second]=slots;
   const missing=[];
   const root=(position,field)=>{
     const ship=slots[position]?.ship,value=field==='level'?ship?.api_lv:ship?.api_lucky?.[0];
@@ -166,12 +166,12 @@ function specialActivationRate(badge,slots){
     return Math.sqrt(value);
   };
   let percent,model,phase='day-night';
-  if(/^(Nelson|Rodney) Touch$/.test(label)){
+  if(kind==='nelsonTouch'){
     // Divinity_123, 2024-08-04; only the flagship's luck contributes.
     // User confirmed on 2026-10-16 that Rodney shares Nelson's rate formula.
     percent=1.1*root(0,'level')+root(2,'level')+root(4,'level')+1.4*root(0,'luck')+25;
     model='nelson-202408';
-  }else if(label==='Colorado级齐射'){
+  }else if(kind==='colorado'){
     // English Wiki's framework, fitted to the user's six unmodified-gear samples.
     // Simplified coefficients, not a verified game formula; see docs/ui.md.
     // SG Late: +5 points per participating ship, duplicates on one ship count once.
@@ -183,7 +183,7 @@ function specialActivationRate(badge,slots){
     percent=Math.floor(.5*positions.reduce((sum,p)=>sum+root(p,'level'),0)+
       positions.reduce((sum,p)=>sum+root(p,'luck'),0)+30+5*positions.filter(p=>sg(slots[p])).length);
     model='colorado-csv-20261019-tentative';
-  }else if(label==='潜水舰队攻击'){
+  }else if(kind==='submarine'){
     // Eight sheet records, four of them aggregated: a fitted reference only.
     // Normalize the 2/3 submarines to two equivalent ships; do not change the
     // actual 2/3 or 2/4 firing positions. Radar presence is once per submarine,
@@ -197,12 +197,12 @@ function specialActivationRate(badge,slots){
     }
     percent=Math.floor(.25*(equivalent('level')+equivalent('luck'))+54+10*Math.min(2,radars));
     model='submarine-sheet-20261019-tentative';
-  }else if(label==='长门型齐射'){
+  }else if(kind==='nagato'){
     // Current KC3 implementation cites Divinity_123, 2024-08-04, replacing
     // the older +30 / 1.2*sqrt(luck) approximation still present on the Wiki.
     percent=25+Math.floor(root(0,'level')+root(1,'level')+1.5*(root(0,'luck')+root(1,'luck')));
     model='nagato-202408';
-  }else if(label==='大和型齐射'||label==='大和双舰齐射'||triple){
+  }else if(kind==='yamatoPair'||kind==='yamatoDouble'||triple){
     // KC3 / Divinity_123, 2024-08-04: each qualifying radar contributes;
     // this differs from the per-ship damage multiplier in specialMultipliers.
     for(const p of [0,1])if((slots[p].items||[]).some(e=>!Number.isInteger(e.type)||e.type<=0||
@@ -216,17 +216,17 @@ function specialActivationRate(badge,slots){
     // User-selected reference for the triple: use only the first two ships.
     // The third still participates in eligibility and her own attack power.
     model=triple?'yamato-triple-front-two-reference':'yamato-pair-202408';
-  }else if(label==='Queen Elizabeth级齐射'){
+  }else if(kind==='queenElizabeth'){
     // CC_jabberwock, 2026-02-21: independent QE investigation supports this
     // reference formula and finds no established equipment-rate bonus.
     percent=root(0,'level')+root(1,'level')+1.2*(root(0,'luck')+root(1,'luck'))+30;
     model='qe-202602';
-  }else if(label==='Richelieu级齐射'){
+  }else if(kind==='richelieu'){
     // User-selected English Wiki French Touch reference, not a confirmed rate.
     // Only the two participants' current level/luck; no unverified gun bonus.
     percent=Math.floor(root(0,'level')+root(1,'level')+1.2*(root(0,'luck')+root(1,'luck'))+30);
     model='french-enwiki-reference';
-  }else if(label==='金刚型夜战突击'){
+  }else if(kind==='kongouNight'){
     // User-selected reference: NGA 41784769, post 26 corrects the Haruna
     // coefficients in post 4. Gear presence uses flagship base stats only;
     // a searchlight's random in-battle effect is not a second rate bonus.
@@ -272,10 +272,12 @@ function fleetSpecialAttacks(targets,entries,{store}={}){
     // candidate ranking without inventory observations or a spending policy.
     if(!store)return output;
     const badge=submarineAttack(slots,store),powerText=specialPowerText(badge.attacks);
-    badge.detail=tooltip(specialRateText(badge.activation,badge.formation),powerText,badge.detail);
+    const activationText=specialRateText(badge.activation,badge.formation),notes=[badge.detail];
+    badge.detail=tooltip(activationText,powerText,notes);
+    badge.tooltipData={kind:'special',activation:activationText,notes};
     output.set(flag.id,badge);return output;
   }
-  const evaluate=({label,positions,damage,formation='梯形阵',minimum=6,night=false,composition=true,requirement=''})=>{
+  const evaluate=({attackKind,label,positions,damage,formation='梯形阵',minimum=6,night=false,composition=true,requirement=''})=>{
     const errors=[],unknown=[];
     const check=(value,message)=>{if(value===null)unknown.push(message);else if(!value)errors.push(message);};
     const surfaces=slots.map(surface),count=surfaces.filter(s=>s===true).length;
@@ -292,34 +294,34 @@ function fleetSpecialAttacks(targets,entries,{store}={}){
     const participants=positions.filter(p=>slots[p]).map(p=>({id:slots[p].id,position:p+1,name:slots[p].master.api_name}));
     const context=`每次出击${night?'最多 3 次':' 1 次'}；${damageHint}。`;
     const detail=[...errors,...unknown.map(s=>'待确认：'+s),context].filter(Boolean).join('\n');
-    candidates.push({key:night?'special-night':'special-shelling',label,state,detail,participants,composition,formation});
+    candidates.push({key:night?'special-night':'special-shelling',attackKind,label,state,detail,participants,composition,formation});
   };
   if(yamato(flag)){
-    if(yamatoTriple(second,third))evaluate({label:'大和三舰齐射',positions:[0,1,2],damage:[[0,.5],[1,.5],[2,.5]]});
-    if(matches(second,YAMATO_SOLO))evaluate({label:matches(second,'武蔵改二')?'大和型齐射':'大和双舰齐射',positions:[0,1],damage:[[0,.5],[1,.5]]});
-    if(!candidates.length)evaluate({label:'大和特殊炮击',positions:[0],damage:[[0,.5]],composition:false,
+    if(yamatoTriple(second,third))evaluate({attackKind:'yamatoTriple',label:'大和三舰齐射',positions:[0,1,2],damage:[[0,.5],[1,.5],[2,.5]]});
+    if(matches(second,YAMATO_SOLO))evaluate({attackKind:matches(second,'武蔵改二')?'yamatoPair':'yamatoDouble',label:matches(second,'武蔵改二')?'大和型齐射':'大和双舰齐射',positions:[0,1],damage:[[0,.5],[1,.5]]});
+    if(!candidates.length)evaluate({attackKind:'yamatoUnknown',label:'大和特殊炮击',positions:[0],damage:[[0,.5]],composition:false,
       requirement:'第 2 位需指定战舰（如武藏改二、Iowa改），或第 2、3 位组成指定战舰组合'});
   }else if(matches(flag,'武蔵改二')){
-    evaluate({label:'大和型齐射',positions:[0,1],damage:[[0,.5],[1,.5]],composition:yamato(second),requirement:'第 2 位需大和改二／改二重'});
+    evaluate({attackKind:'yamatoPair',label:'大和型齐射',positions:[0,1],damage:[[0,.5],[1,.5]],composition:yamato(second),requirement:'第 2 位需大和改二／改二重'});
   }else if(matches(flag,'長門改二|陸奥改二')){
-    evaluate({label:'长门型齐射',positions:[0,1],damage:[[0,.5],[1,.25]],composition:battleship(second),requirement:'第 2 位需战舰／航战'});
+    evaluate({attackKind:'nagato',label:'长门型齐射',positions:[0,1],damage:[[0,.5],[1,.25]],composition:battleship(second),requirement:'第 2 位需战舰／航战'});
   }else if(matches(flag,'Nelson|Nelson改|Rodney|Rodney改')){
     const allowed=p=>!slots[p]?false:surface(slots[p])===null?null:surface(slots[p])&&![7,11,18].includes(type(slots[p]));
     const checks=[allowed(2),allowed(4)];
-    evaluate({label:matches(flag,'Nelson|Nelson改')?'Nelson Touch':'Rodney Touch',positions:[0,2,4],damage:[[0,.5]],formation:'复纵阵',
+    evaluate({attackKind:'nelsonTouch',label:matches(flag,'Nelson|Nelson改')?'Nelson Touch':'Rodney Touch',positions:[0,2,4],damage:[[0,.5]],formation:'复纵阵',
       composition:checks.includes(false)?false:checks.includes(null)?null:true,requirement:'第 3、5 位需非空母的水上舰'});
   }else if(matches(flag,'Colorado|Colorado改|Maryland|Maryland改')){
     const checks=[battleship(second),battleship(third)];
-    evaluate({label:'Colorado级齐射',positions:[0,1,2],damage:[[0,.5],[1,.25],[2,.25]],
+    evaluate({attackKind:'colorado',label:'Colorado级齐射',positions:[0,1,2],damage:[[0,.5],[1,.25],[2,.25]],
       composition:checks.includes(false)?false:checks.includes(null)?null:true,requirement:'第 2、3 位需战舰／航战'});
   }else if(matches(flag,'Warspite改|Valiant改')){
-    evaluate({label:'Queen Elizabeth级齐射',positions:[0,1],damage:[[0,.5],[1,.25]],
+    evaluate({attackKind:'queenElizabeth',label:'Queen Elizabeth级齐射',positions:[0,1],damage:[[0,.5],[1,.25]],
       composition:matches(second,name(flag)==='Warspite改'?'Valiant改':'Warspite改'),requirement:'第 1、2 位需 Warspite改与 Valiant改'});
   }else if(matches(flag,FRENCH_RICHELIEU+'|Jean Bart改')){
-    evaluate({label:'Richelieu级齐射',positions:[0,1],damage:[[0,.5],[1,.25]],formation:'复纵阵',
+    evaluate({attackKind:'richelieu',label:'Richelieu级齐射',positions:[0,1],damage:[[0,.5],[1,.25]],formation:'复纵阵',
       composition:matches(second,frenchPartner(flag)),requirement:'第 1、2 位需 Richelieu改／Deux与Jean Bart改'});
   }else if(KONGOU_PARTNERS[name(flag)]){
-    evaluate({label:'金刚型夜战突击',positions:[0,1],damage:[[0,.25],[1,.25]],minimum:5,night:true,formation:'单纵阵／梯形阵',
+    evaluate({attackKind:'kongouNight',label:'金刚型夜战突击',positions:[0,1],damage:[[0,.25],[1,.25]],minimum:5,night:true,formation:'单纵阵／梯形阵',
       composition:matches(second,KONGOU_PARTNERS[name(flag)]),requirement:'第 2 位需 '+KONGOU_PARTNERS[name(flag)].split('|').join('／')});
   }
   // Prefer a matching three-ship combination, then the matching two-ship one.
@@ -328,12 +330,12 @@ function fleetSpecialAttacks(targets,entries,{store}={}){
   const best=candidates[0];if(!best)return output;
   const {composition,...badge}=best;
   // Ranking only needs eligibility; power and rate are UI-draft calculations.
-  let attacks=store&&composition===true?specialAttackPower(badge.label,slots,store):[];
+  let attacks=store&&composition===true?specialAttackPower(badge.attackKind,slots,store):[];
   if(store&&composition===true&&!attacks.length)attacks=badge.participants.map(p=>({...p,hits:p.position===1?2:1,day:null,night:null}));
   const powerText=specialPowerText(attacks,{nightOnly:badge.key==='special-night'});
   const activation=store?specialActivationRate(badge,slots):null;
   const rateText=specialRateText(activation,badge.formation);
-  output.set(flag.id,{...badge,...store?{attacks,activation}:{},detail:tooltip(rateText,powerText,best.detail)});
+  output.set(flag.id,{...badge,...store?{attacks,activation,tooltipData:{kind:'special',activation:rateText,notes:[best.detail]}}:{},detail:tooltip(rateText,powerText,best.detail)});
   return output;
 }
 

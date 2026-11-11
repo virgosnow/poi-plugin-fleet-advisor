@@ -37,7 +37,7 @@ function contract(){return {
     sort:'Default instanceId ascending; ties use instanceId ascending; unknown values sort last.',
     projection:'fields always includes instanceId and name; unavailable fields are null.',
     equipmentOptions:'Grouped legal replacements by masterId/stars/proficiency. One representative instance and available count, not multiple copies of the same ID.'},
-  recommendation:{defaults:{normal:{airGoal:'superiority'},expedition:{fleet:2,goal:'plugin expedition defaultGoal setting'}},
+  recommendation:{defaults:{normal:{airGoal:'superiority'},expedition:{fleet:2,goal:'great'}},
     constraints:'fixedShipIds are required hulls, not fixed positions. heldSlots is position-indexed with null holes; pin or keep retains the hull and its position by default. Set holdPosition=false to allow fleet sorting while retaining the hull and its held equipment. keep keys retain exact equipment instances or an empty -1 slot. All other equipment is refitted from empty.',
     filters:'Uses separate persisted sortie/expedition filters. Fixed manual hulls override soft automatic filters but not busy/repair/duplicate/slot/inventory validation. planningOnly is not executable approval.',
     routes:'Use routeKey from query_normal_map. A full stage search automatically attempts an adaptive route only if all curated routes fail; adaptive routes are not manually selectable. An explicit non-adaptive routeKey searches only that route. A merged route is one strategy with several physical paths.',
