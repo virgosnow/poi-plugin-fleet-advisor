@@ -1,5 +1,6 @@
 'use strict';
 const {CLOSE_DELAY}=require('./hover_timing');
+const {EVENT:POINTER_GUARD}=require('./tooltip_pointer_guard');
 const {t,registerCatalog,subscribe:subscribeLocale}=require('../../shared/i18n');
 const mechanismDisplay=require('../i18n/mechanism_display');
 const metricDisplay=require('../i18n/metric_display');
@@ -260,7 +261,8 @@ module.exports=function useTooltip(React,root,scope){
   React.useEffect(()=>{
     const page=root.current;if(!page)return;
     const doc=page.ownerDocument,win=doc.defaultView;
-    let tip=null,target=null,anchor=null,previousDescription=null,timer=null,leaveTimer=null,descriptionAdded=false,shownText=null,shownContent=null;
+    let tip=null,target=null,anchor=null,previousDescription=null,timer=null,leaveTimer=null,descriptionAdded=false,shownText=null,shownContent=null,pointerGuard=null,pendingPopover=null,lastPointer=null;
+    const popoverTimers=new Set();
     const hide=()=>{
       if(timer!==null){win.clearTimeout(timer);timer=null;}
       if(leaveTimer!==null){win.clearTimeout(leaveTimer);leaveTimer=null;}
@@ -307,6 +309,11 @@ module.exports=function useTooltip(React,root,scope){
       previousDescription=anchor.getAttribute('aria-describedby');anchor.setAttribute('aria-describedby',[previousDescription,tip.id].filter(Boolean).join(' '));descriptionAdded=true;
     };
     const show=event=>{
+      if(pointerGuard&&event.type?.startsWith('pointer')){
+        const dx=event.clientX-pointerGuard.x,dy=event.clientY-pointerGuard.y;
+        if(Number.isFinite(dx)&&Number.isFinite(dy)&&dx*dx+dy*dy>16)pointerGuard=null;
+        else {hide();return;}
+      }
       if(event.buttons){hide();return;}
       const next=event.target.closest?.('[data-tooltip]');
       if(!next||!page.contains(next)||!next.dataset.tooltip||!tooltipAllowed(next)){scheduleLeave();return;}
@@ -319,16 +326,38 @@ module.exports=function useTooltip(React,root,scope){
     };
     const leave=event=>{if(target?.contains(event.relatedTarget)||tip?.contains(event.relatedTarget))return;scheduleLeave();};
     const dismiss=event=>{if(!tip?.contains(event.target))hide();};
+    const guardPointer=event=>{if(Number.isFinite(event.detail?.x)&&Number.isFinite(event.detail?.y)){pointerGuard=event.detail;hide();}};
+    // Track real pointer clicks while a lightweight picker is open. React can
+    // remove the picker after the click, exposing a different tooltip target
+    // under the same pointer without any deliberate hover by the player.
+    const trackPointer=event=>{if(Number.isFinite(event.clientX)&&Number.isFinite(event.clientY))lastPointer={x:event.clientX,y:event.clientY};};
+    const trackPopover=event=>{
+      trackPointer(event);pendingPopover=null;
+      if(!lastPointer)return;
+      const nodes=[...page.querySelectorAll('.paa-area-panel,.paa-fleet-target-menu,.paa-fleet-import-menu,.paa-practice-training-panel,.paa-wb-priority-menu')].filter(visible);
+      if(nodes.length)pendingPopover={nodes,position:{...lastPointer}};
+    };
+    const checkPopover=event=>{
+      const pending=pendingPopover;pendingPopover=null;
+      if(!pending||event.detail===0)return;
+      const id=win.setTimeout(()=>{
+        popoverTimers.delete(id);
+        const dx=(lastPointer?.x??pending.position.x)-pending.position.x,dy=(lastPointer?.y??pending.position.y)-pending.position.y;
+        if(dx*dx+dy*dy<=16&&pending.nodes.some(node=>!visible(node))){pointerGuard=pending.position;hide();}
+      },0);
+      popoverTimers.add(id);
+    };
     const escape=event=>{if(event.key==='Escape')hide();};
     page.addEventListener('pointerover',show);page.addEventListener('pointermove',show);page.addEventListener('pointerout',leave);
-    page.addEventListener('focusin',show);page.addEventListener('focusout',hide);doc.addEventListener('pointerdown',dismiss,true);doc.addEventListener('click',dismiss,true);page.addEventListener('dragstart',hide);doc.addEventListener('keydown',escape);
+    page.addEventListener('focusin',show);page.addEventListener('focusout',hide);page.addEventListener(POINTER_GUARD,guardPointer);doc.addEventListener('pointerdown',dismiss,true);doc.addEventListener('pointerdown',trackPopover,true);doc.addEventListener('pointermove',trackPointer,true);doc.addEventListener('click',dismiss,true);doc.addEventListener('click',checkPopover,true);page.addEventListener('dragstart',hide);doc.addEventListener('keydown',escape);
     win.addEventListener('blur',hide);win.addEventListener('scroll',dismiss,true);win.addEventListener('resize',hide);win.visualViewport?.addEventListener('resize',hide);
     const observer=new win.MutationObserver(()=>{if(target&&(!visible(target)||!visible(anchor)||!target.dataset.tooltip||(tip&&(shownText!==target.dataset.tooltip||shownContent!==target.dataset.tooltipContent))))hide();});
     observer.observe(page,{subtree:true,childList:true,attributes:true,attributeFilter:['hidden','inert','open','aria-hidden','data-tooltip','data-tooltip-content']});
     for(let node=page.parentElement;node;node=node.parentElement)observer.observe(node,{attributes:true,attributeFilter:['hidden','inert','class','style','aria-hidden']});
     return()=>{
       unsubscribeLocale();observer.disconnect();hide();page.removeEventListener('pointerover',show);page.removeEventListener('pointermove',show);page.removeEventListener('pointerout',leave);
-      page.removeEventListener('focusin',show);page.removeEventListener('focusout',hide);doc.removeEventListener('pointerdown',dismiss,true);doc.removeEventListener('click',dismiss,true);page.removeEventListener('dragstart',hide);doc.removeEventListener('keydown',escape);
+      for(const id of popoverTimers)win.clearTimeout(id);popoverTimers.clear();
+      page.removeEventListener('focusin',show);page.removeEventListener('focusout',hide);page.removeEventListener(POINTER_GUARD,guardPointer);doc.removeEventListener('pointerdown',dismiss,true);doc.removeEventListener('pointerdown',trackPopover,true);doc.removeEventListener('pointermove',trackPointer,true);doc.removeEventListener('click',dismiss,true);doc.removeEventListener('click',checkPopover,true);page.removeEventListener('dragstart',hide);doc.removeEventListener('keydown',escape);
       win.removeEventListener('blur',hide);win.removeEventListener('scroll',dismiss,true);win.removeEventListener('resize',hide);win.visualViewport?.removeEventListener('resize',hide);
     };
   },[scope]);
