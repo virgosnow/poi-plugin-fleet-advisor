@@ -105,6 +105,13 @@
   async function restoreDraft(draft) {
     await until(()=>panel(),'Updated panel did not mount');
     if(draft?.workbenches?.length){
+      // Activate the original page first. Its mount/resume effect can choose a
+      // currently idle fleet; run that effect before restoring the user's
+      // saved selection, including an expedition fleet already at sea.
+      const mode=['自定义 JSON','编成方案'].includes(draft.mode)?'当前舰队':draft.mode;
+      const tab=[...panel().querySelectorAll('.paa-tabs button')].find(b=>(b.getAttribute('aria-label')||b.textContent.trim())===mode);
+      if(tab)tab.click();
+      await pause(200);
       const current=workbenchHooks();
       for(const saved of draft.workbenches){
         const target=current.find(w=>w.kind===saved.kind);
@@ -131,9 +138,6 @@
           target.hooks.mapRoute.dispatch(route);
         }
       }
-      const mode=['自定义 JSON','编成方案'].includes(draft.mode)?'当前舰队':draft.mode;
-      const tab=[...panel().querySelectorAll('.paa-tabs button')].find(b=>(b.getAttribute('aria-label')||b.textContent.trim())===mode);
-      if(tab)tab.click();
       await until(()=>workbenchesRestored(draft.workbenches),'Workbench drafts were not fully restored');
       return;
     }

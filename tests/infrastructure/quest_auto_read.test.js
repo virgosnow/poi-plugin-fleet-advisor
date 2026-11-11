@@ -83,6 +83,27 @@ test('temporary failures retry with bounded exponential backoff',async()=>{
   f.time(9999);assert.equal((await f.model.tick()).status,'backoff');assert.equal(calls,2);
 });
 
+test('a task read stops after ten retries without treating the task list as known',async()=>{
+  let calls=0;const f=fixture({stableMs:0,read:async()=>{calls++;throw Error('unavailable');}});
+  f.model.setActive('normal',true);assert.equal((await f.model.tick()).status,'failed');
+  let lastDelay=0,current=0;
+  for(let i=0;i<10;i++){
+    const delay=f.model.retryAt-current;assert(delay>lastDelay);lastDelay=delay;current=f.model.retryAt;
+    f.time(current-1);assert.equal((await f.model.tick()).status,'backoff');
+    f.time(current);assert.equal((await f.model.tick()).status,'failed');
+  }
+  assert.equal(calls,11);f.time(current+3600000);assert.equal((await f.model.tick()).status,'exhausted');
+  assert.deepEqual(f.model.snapshot().consumed,[]);assert.equal(calls,11);
+  f.quest({known:true,tasks:[]});assert.equal((await f.model.tick()).status,'cached');
+  f.quest({known:false});f.context({sessionKey:'new-session'});assert.equal((await f.model.tick()).status,'failed');assert.equal(calls,12);
+});
+
+test('interrupted or deferred reads do not consume the failure retry budget',async()=>{
+  const f=fixture({stableMs:0,read:async()=>({status:'deferred'})});f.model.setActive('normal',true);
+  for(let i=0;i<15;i++){f.time(i*2000);assert.equal((await f.model.tick()).status,'deferred');}
+  assert.equal(f.model.retryCount,0);
+});
+
 test('temporary failure eventually succeeds once the real task data is present',async()=>{
   let f,calls=0;f=fixture({read:async()=>{
     if(++calls===1)throw Error('transient');

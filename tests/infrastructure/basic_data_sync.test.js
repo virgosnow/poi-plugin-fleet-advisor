@@ -10,6 +10,15 @@ function setup(){
   const sync=new BasicDataSync({reader,getStore:()=>store,expedition,now:()=>time});
   return {store,calls,reader,sync,missions:()=>missions,setSession:v=>session=v,setReady:v=>ready=v,advance:ms=>time+=ms};
 }
+test('a basic-data request stops after ten retries and a new session can try again',async()=>{
+  const f=setup(),{retryDelay}=require('../../src/infrastructure/sync/retry_policy');let calls=0;
+  const original=f.reader.read;f.reader.read=async()=>{calls++;throw Error('unavailable');};
+  f.sync.syncAccount(f.store);f.sync.pending=new Set(['mapinfo']);
+  assert.equal((await f.sync.tick()).status,'failed');
+  for(let i=1;i<=10;i++){f.advance(retryDelay(i));assert.equal((await f.sync.tick()).status,'failed');}
+  f.advance(3600000);assert.equal((await f.sync.tick()).status,'exhausted');assert.equal(calls,11);
+  f.setSession('b');f.reader.read=original;assert.equal((await f.sync.tick()).status,'ready');
+});
 test('login startup sync requests each missing dataset once and overlays only the plugin store',async()=>{
   const f=setup();f.setReady(false);assert.equal((await f.sync.tick()).status,'deferred');assert.deepEqual(f.calls,[]);
   f.setReady(true);for(let i=0;i<3;i++)assert.equal((await f.sync.tick()).status,'ready');

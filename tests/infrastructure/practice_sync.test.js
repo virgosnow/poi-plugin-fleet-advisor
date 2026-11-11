@@ -11,6 +11,15 @@ function fixture(){
   const sync=new PracticeSync({reader,observer,getStore:()=>store,now:()=>now});
   return {sync,state,reader,requests,setReady:v=>ready=v,advance:ms=>now+=ms};
 }
+test('a practice data request stops after ten retries until the session changes',async()=>{
+  const f=fixture(),{retryDelay}=require('../../src/infrastructure/sync/retry_policy');let calls=0;
+  const original=f.reader.read;f.reader.read=async()=>{calls++;throw Error('unavailable');};
+  assert.equal((await f.sync.tick()).status,'failed');
+  for(let i=1;i<=10;i++){f.advance(retryDelay(i));assert.equal((await f.sync.tick()).status,'failed');}
+  assert.equal((await f.sync.tick()).status,'exhausted');assert.equal(calls,11);
+  const context=f.reader.context;f.reader.context=async args=>({...await context(args),sessionKey:'new-session'});
+  f.reader.read=original;assert.equal((await f.sync.tick()).status,'ready');
+});
 test('automatic practice synchronization reads list and each fleet once per cycle',async()=>{
   const f=fixture();f.setReady(false);assert.equal((await f.sync.tick()).status,'deferred');assert.equal(f.requests.length,0);
   f.setReady(true);assert.equal((await f.sync.tick()).status,'ready');assert.equal((await f.sync.tick()).status,'ready');

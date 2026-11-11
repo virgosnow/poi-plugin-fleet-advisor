@@ -1,5 +1,6 @@
 'use strict';
 const {cycle}=require('./practice_observer');
+const retry=require('../sync/retry_policy');
 const FLEET_REFRESH_MS=5*60*1000;
 // Share the guarded game-frame reader with task synchronization. Each actual
 // successful data is scoped to a session and rotation. Temporary failures
@@ -14,7 +15,7 @@ class PracticeSync{
     this.session=value.session;this.period=value.period;this.attempted=new Set(value.attempted.filter(x=>x==='list'||/^enemy:[1-9]\d*$/.test(x)));}}
   reset(){this.abort?.abort();this.session=null;this.period=null;this.attempted.clear();this.retries.clear();}
   failure(attempt){const count=(this.retries.get(attempt)?.count||0)+1;
-    this.retries.set(attempt,{count,at:this.now()+Math.min(300000,2000*2**Math.min(count-1,8))});this.attempted.delete(attempt);}
+    this.retries.set(attempt,{count,at:retry.exhausted(count)?Infinity:this.now()+retry.retryDelay(count)});this.attempted.delete(attempt);}
   needsFleet(row){const age=this.now()-row.fleetUpdatedAt;return !row.ships||!Number.isFinite(row.fleetUpdatedAt)||age<0||age>=FLEET_REFRESH_MS;}
   dispose(){this.closed=true;this.abort?.abort();}
   async tick(){
@@ -29,7 +30,8 @@ class PracticeSync{
       const missing=current.known?(current.opponents||[]).filter(row=>this.needsFleet(row)):[];
       const enemy=missing.find(row=>this.now()>=(this.retries.get('enemy:'+row.id)?.at||0));
       attempt=!current.known||current.needsProfileRefresh?'list':enemy?'enemy:'+enemy.id:null;
-      if(!attempt)return {status:missing.length?'backoff':'cached'};
+      if(!attempt)return {status:missing.length?missing.every(row=>retry.exhausted(this.retries.get('enemy:'+row.id)?.count||0))?'exhausted':'backoff':'cached'};
+      if(retry.exhausted(this.retries.get(attempt)?.count||0))return {status:'exhausted'};
       if(this.now()<(this.retries.get(attempt)?.at||0))return {status:'backoff'};
       const ready=await this.reader.context();
       if(this.closed||!ready.idle||!ready.compatible||ready.sessionKey!==session.sessionKey||cycle(this.now())!==period)return {status:'deferred'};
@@ -40,13 +42,16 @@ class PracticeSync{
         kind:attempt==='list'?'practice':'practice-enemy',...(attempt!=='list'?{enemyId:enemy.id}:{})});
       const latest=await this.reader.context({cached:true}),state=this.observer.view(this.getStore());
       if(this.closed||controller.signal.aborted||result?.deferred||latest.sessionKey!==session.sessionKey||cycle(this.now())!==period||state.revision!==revision){
-        if(!this.closed&&this.session===sessionKey&&this.period===period&&state.revision===revision)this.failure(attempt);
+        if(!this.closed&&!controller.signal.aborted&&this.session===sessionKey&&this.period===period&&state.revision===revision){
+          if(result?.attempted)this.failure(attempt);
+          else if(result?.deferred)this.retries.set(attempt,{count:this.retries.get(attempt)?.count||0,at:Number.isFinite(result.retryAt)?result.retryAt:this.now()+2000});
+        }
         return {status:'deferred'};
       }
       const accepted=attempt==='list'?result?.list&&this.observer.acceptList(result.list,this.getStore()):result?.enemy&&this.observer.acceptEnemy(result.enemy,this.getStore());
       if(!accepted){this.failure(attempt);return {status:'failed'};}
       this.attempted.add(attempt);this.retries.delete(attempt);return {status:'ready'};
-    }catch(_){if(attempt&&revision!==null&&!this.closed&&this.session===sessionKey&&this.period===period)this.failure(attempt);return {status:'failed'};}
+    }catch(_){if(attempt&&revision!==null&&!this.closed&&!this.abort?.signal?.aborted&&this.session===sessionKey&&this.period===period)this.failure(attempt);return {status:'failed'};}
     finally{this.abort=null;this.running=false;}
   }
 }

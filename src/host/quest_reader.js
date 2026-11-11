@@ -1,5 +1,6 @@
 'use strict';
 const crypto=require('node:crypto');
+const retry=require('../infrastructure/sync/retry_policy');
 const PORT='/kcsapi/api_port/port';
 const START_DATA='/kcsapi/api_start2/getData';
 const QUIET_MS=2000;
@@ -184,6 +185,7 @@ class QuestReader{
     this.key='__fleetAdvisorQuestRead_'+crypto.randomBytes(12).toString('hex');
     this.portAt=null;this.lastApiAt=Number(now());this.epoch=0;
     this.failed=false;this.closed=false;this.sessionKey=null;this.verifiedSessionKey=null;this.frame=null;this.wc=null;
+    this.pausedSession=null;this.sessionFailures=0;this.sessionRetryAt=0;
     this.identitySession=null;this.identityFailures=0;this.identityRetryAt=0;
     this.frames=new Set();this.documentId=null;this.loginBarrier=null;this.startDataSeen=false;this.loginReady=false;this.ticket=null;this.reading=false;
     // Attach the passive input observer as soon as the game frame exists.
@@ -225,17 +227,18 @@ class QuestReader{
     if(path===START_DATA&&(detail?.body?.api_result==null||Number(detail.body.api_result)===1))this.startDataSeen=true;
     if(path===PORT&&detail?.body&&typeof detail.body==='object'&&
       (detail.body.api_result==null||Number(detail.body.api_result)===1)){
-      this.failed=false;this.portAt=this.lastApiAt;
+      this.failed=false;this.resumeSession();this.portAt=this.lastApiAt;
       if(this.startDataSeen)this.loginReady=true;
     }else if(path===PORT){
-      this.observeFailure();
-    }else if(detail?.body?.api_result!=null&&Number(detail.body.api_result)!==1){this.observeFailure();}
+      this.observeFailure({suspend:true});
+    }else if(detail?.body?.api_result!=null&&Number(detail.body.api_result)!==1){this.observeFailure({suspend:true});}
+    else if(Number(detail?.body?.api_result)===1&&!this.loginBarrier){this.resumeSession();}
   }
-  observeFailure(){
+  observeFailure({suspend=false}={}){
     if(this.closed)return;
     // A recent error invalidates identity and restarts the quiet interval.
-    // Recovery never depends on the user manufacturing another port event.
     this.failed=true;this.verifiedSessionKey=null;this.portAt=null;this.startDataSeen=false;this.loginReady=false;this.lastApiAt=Number(this.now());this.invalidate();
+    if(suspend)this.pauseSession(this.sessionKey);
   }
   observeError(){this.observeFailure();}
   observeStart(){
@@ -257,6 +260,20 @@ class QuestReader{
   }
   resetIdentity(sessionKey){
     this.identitySession=sessionKey;this.identityFailures=0;this.identityRetryAt=0;this.verifiedSessionKey=null;
+  }
+  pauseSession(sessionKey,reason='session_unavailable'){
+    const key=sessionKey||'pending',now=Number(this.now());
+    if(this.pausedSession!==key){this.pausedSession=key;this.sessionFailures=0;this.sessionRetryAt=0;}
+    this.verifiedSessionKey=null;this.ticket=null;
+    // Multiple notifications for the same failure must not consume retries.
+    if(!retry.exhausted(this.sessionFailures)&&now>=this.sessionRetryAt)this.sessionFailures++;
+    const blocked=retry.exhausted(this.sessionFailures);
+    if(!blocked&&now>=this.sessionRetryAt)this.sessionRetryAt=now+retry.retryDelay(this.sessionFailures);
+    this.diagnostic(blocked?'session_paused':'session_backoff');
+    return {deferred:true,attempted:true,blocked,reason,...!blocked?{retryAt:this.sessionRetryAt}:{}};
+  }
+  resumeSession(){
+    if(this.pausedSession!==null){this.pausedSession=null;this.sessionFailures=0;this.sessionRetryAt=0;this.resetIdentity(this.sessionKey);}
   }
   deferIdentity(sessionKey,reason){
     this.diagnostic(reason);
@@ -288,11 +305,15 @@ class QuestReader{
       // Never persist or return the URL, token, member ID or raw document key.
       const sessionKey=crypto.createHash('sha256').update(JSON.stringify([String(member),target.frame.url,frameIdentity])).digest('hex');
       const changed=this.sessionKey&&this.sessionKey!==sessionKey;
-      if(changed){this.observeFailure();this.documentId=null;this.resetIdentity(sessionKey);}
+      if(changed){this.observeFailure();this.resumeSession();this.documentId=null;this.resetIdentity(sessionKey);}
       this.sessionKey=sessionKey;result.sessionKey=sessionKey;result.ready=true;
       result.identityVerified=this.verifiedSessionKey===sessionKey;
       if(!result.compatible)this.diagnostic('transport_unavailable');
       this.documentId=before.documentId;this.frame=target.frame;this.wc=target.wc;
+      if(this.pausedSession===sessionKey||this.pausedSession==='pending'){
+        if(retry.exhausted(this.sessionFailures))return {...result,blocked:true,reason:'session_paused'};
+        if(Number(this.now())<this.sessionRetryAt)return {...result,backoff:true,reason:'session_backoff',retryAt:this.sessionRetryAt};
+      }
       if(cached)return result;
       if(!result.compatible||!this.safeTimeline()||this.reading||
         Number(this.now())-Math.max(before.installedAt,before.lastInputAt)<QUIET_MS){
@@ -310,9 +331,11 @@ class QuestReader{
       result.idle=true;return result;
     }catch(error){this.diagnostic('context_failed');return result;}
   }
-  async read({signal,sessionKey,page,kind='quest',enemyId}={}){
+  async read({signal,sessionKey,page,kind='quest',enemyId,countSuccess=true}={}){
     if(this.closed||this.reading||signal?.aborted)return {deferred:true};
     const context=await this.context();
+    if(context.blocked)return {deferred:true,blocked:true,reason:context.reason};
+    if(context.backoff)return {deferred:true,reason:context.reason,retryAt:context.retryAt};
     const ticket=this.ticket;
     if(signal?.aborted||this.reading||!context.idle||!context.compatible||!ticket||context.sessionKey!==sessionKey||
       this.epoch!==ticket.epoch||!this.safeTimeline())return {deferred:true};
@@ -327,8 +350,9 @@ class QuestReader{
         let identity;
         try{identity=await this.execute(ticket.frame,'read',{documentId:ticket.documentId,inputCount:ticket.inputCount,
           kind:'identity',expectedMember:ticket.member});}
-        catch(error){return this.deferIdentity(sessionKey,'identity_unavailable');}
-        if(identity?.identityMatch===false)return this.deferIdentity(sessionKey,'identity_mismatch');
+        catch(error){return signal?.aborted||this.closed||this.epoch!==ticket.epoch||!this.safeTimeline()?
+          this.deferIdentity(sessionKey,'identity_interrupted'):this.pauseSession(sessionKey,'identity_unavailable');}
+        if(identity?.identityMatch===false)return this.pauseSession(sessionKey,'identity_mismatch');
         if(!identity?.identityMatch||signal?.aborted||this.closed||this.epoch!==ticket.epoch||!this.safeTimeline())
           return identity?.attempted||identity?.identityMatch===true?this.deferIdentity(sessionKey,'identity_interrupted'):{deferred:true};
         const fresh=await this.context({cached:true});
@@ -342,8 +366,11 @@ class QuestReader{
         inputCount:ticket.inputCount,...(page!==undefined?{page}:{}),...(kind!=='quest'?{kind}:{}),...(enemyId!==undefined?{enemyId}:{})});
       if(this.epoch!==ticket.epoch||!this.safeTimeline()||signal?.aborted||this.closed)return {deferred:true};
       const latest=await this.context({cached:true});
-      return latest.sessionKey===sessionKey?result:{deferred:true};
-    }catch(error){this.diagnostic('read_failed');throw new Error('Quest list unavailable');}
+      if(latest.sessionKey!==sessionKey)return {deferred:true};
+      if(countSuccess&&!result?.deferred)this.resumeSession();
+      return result;
+    }catch(error){if(!signal?.aborted&&!this.closed&&this.epoch===ticket.epoch&&this.safeTimeline())this.pauseSession(sessionKey);
+      this.diagnostic('read_failed');throw new Error('Quest list unavailable');}
     finally{signal?.removeEventListener('abort',abort);this.reading=false;this.ticket=null;}
   }
   // Explicit and automatic reads collect every page independently, rechecking the
@@ -354,11 +381,13 @@ class QuestReader{
     this.collecting=true;
     try{
       const context=await this.context();
+      if(context.blocked)return {status:'deferred',blocked:true,reason:context.reason};
+      if(context.backoff)return {status:'deferred',reason:context.reason,retryAt:context.retryAt};
       if(signal?.aborted||!context.idle||!context.compatible||!context.sessionKey||
         sessionKey&&sessionKey!==context.sessionKey)return {status:'deferred'};
       const epoch=this.epoch,rows=[],ids=new Set();let pages=null,count=null;
       for(let page=1;page<=(pages??1);page++){
-        const result=await this.read({signal,sessionKey:context.sessionKey,...(page>1?{page}:{})});
+        const result=await this.read({signal,sessionKey:context.sessionKey,countSuccess:false,...(page>1?{page}:{})});
         if(signal?.aborted||this.epoch!==epoch||result?.deferred||!result?.list)return {status:'deferred',
           ...(result?.attempted?{attempted:true}:{}),...(result?.reason?{reason:result.reason}:{}),
           ...(Number.isFinite(result?.retryAt)?{retryAt:result.retryAt}:{})};
@@ -369,7 +398,7 @@ class QuestReader{
           list.api_list.filter(row=>row!==-1).length===list.api_count){
           const entries=list.api_list.filter(row=>row!==-1);
           if(new Set(entries.map(row=>row.api_no)).size!==entries.length)return {status:'incomplete'};
-          return {status:'ready',tasks:entries,pages:1};
+          this.resumeSession();return {status:'ready',tasks:entries,pages:1};
         }
         if(!Number.isInteger(list.api_page_count)||list.api_page_count<1||list.api_page_count>100||
           !Number.isInteger(list.api_count)||list.api_count<0||list.api_disp_page!==page||
@@ -382,7 +411,7 @@ class QuestReader{
         }
       }
       if(rows.length!==count)return {status:'incomplete'};
-      return {status:'ready',tasks:rows,pages};
+      this.resumeSession();return {status:'ready',tasks:rows,pages};
     }catch(error){return {status:'failed'};}
     finally{this.collecting=false;}
   }

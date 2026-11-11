@@ -1,5 +1,6 @@
 'use strict';
 const crypto=require('crypto');
+const retry=require('../sync/retry_policy');
 const {expeditionPeriod}=require('./expedition_progress');
 const endpoints={mapinfo:'/kcsapi/api_get_member/mapinfo',presets:'/kcsapi/api_get_member/preset_deck',missions:'/kcsapi/api_get_member/mission'};
 const account=store=>store?.info?.basic?.api_member_id==null?null:crypto.createHash('sha256').update(String(store.info.basic.api_member_id)).digest('hex');
@@ -20,7 +21,7 @@ class BasicDataSync{
   request(kind){if(!Object.hasOwn(endpoints,kind))return false;this.pending.add(kind);this.attempted.delete(kind);this.retries.delete(kind);this.revision++;return true;}
   failure(kind){
     const count=(this.retries.get(kind)?.count||0)+1;
-    this.retries.set(kind,{count,at:this.now()+Math.min(300000,2000*2**Math.min(count-1,8))});
+    this.retries.set(kind,{count,at:retry.exhausted(count)?Infinity:this.now()+retry.retryDelay(count)});
     this.attempted.delete(kind);this.pending.add(kind);
   }
   observeRequest(detail,store){
@@ -120,20 +121,23 @@ class BasicDataSync{
       if(this.session&&this.session!==cached.sessionKey){this.pending=new Set(Object.keys(endpoints));this.attempted.clear();this.retries.clear();this.maps=null;this.airbase=null;this.presets=null;this.relocations=null;this.relocationsComplete=false;this.revision++;}
       this.session=cached.sessionKey;sessionKey=cached.sessionKey;
       kind=[...this.pending].find(k=>this.now()>=(this.retries.get(k)?.at||0));
-      if(!kind)return {status:this.pending.size?'backoff':'cached'};
+      if(!kind)return {status:this.pending.size?[...this.pending].every(k=>retry.exhausted(this.retries.get(k)?.count||0))?'exhausted':'backoff':'cached'};
       const ready=await this.reader.context();if(this.closed||!ready.idle||!ready.compatible||ready.sessionKey!==cached.sessionKey)return {status:'deferred'};
       revision=this.revision;key=this.key;const controller=new AbortController();this.abort=controller;
       const result=await this.reader.read({signal:controller.signal,sessionKey:cached.sessionKey,kind});
       const latest=await this.reader.context({cached:true});this.syncAccount(this.getStore());
       if(this.closed||controller.signal.aborted||result?.deferred||latest.sessionKey!==cached.sessionKey||this.key!==key||this.revision!==revision){
-        if(!this.closed&&this.key===key&&this.revision===revision&&this.session===sessionKey)this.failure(kind);
+        if(!this.closed&&!controller.signal.aborted&&this.key===key&&this.revision===revision&&this.session===sessionKey){
+          if(result?.attempted)this.failure(kind);
+          else if(result?.deferred)this.retries.set(kind,{count:this.retries.get(kind)?.count||0,at:Number.isFinite(result.retryAt)?result.retryAt:this.now()+2000});
+        }
         return {status:'deferred'};}
       if(kind==='mapinfo'&&result?.mapinfo){this.maps=Object.fromEntries(result.mapinfo.maps.map(row=>[row.api_id,row]));this.airbase=result.mapinfo.airbase;}
       else if(kind==='presets'&&result?.presets)this.presets=result.presets;
       else if(kind==='missions'&&result?.missions&&this.expedition.acceptMissions(result.missions,this.getStore())){}
       else {this.failure(kind);return {status:'failed',kind};}
       this.pending.delete(kind);this.attempted.add(kind);this.retries.delete(kind);this.revision++;return {status:'ready',kind};
-    }catch(_){if(kind&&revision!==null&&!this.closed&&this.key===key&&this.revision===revision&&this.session===sessionKey)this.failure(kind);return {status:'failed'};}
+    }catch(_){if(kind&&revision!==null&&!this.closed&&!this.abort?.signal?.aborted&&this.key===key&&this.revision===revision&&this.session===sessionKey)this.failure(kind);return {status:'failed'};}
     finally{this.abort=null;this.running=false;}
   }
 }

@@ -85,22 +85,88 @@ test('a failed basic identity response cannot send a business request or expose 
   assert.equal(result.deferred,true);assert.equal(f.requests.length,0);assert(!JSON.stringify(result).includes('private-test-token'));
 });
 
-test('identity failures share one session backoff across all endpoints and recover without a port event',async t=>{
+test('identity failures share backoff across endpoints and natural game recovery resets it',async t=>{
   const f=fixture();t.after(()=>f.reader.dispose());await f.reader.installation;f.time+=2100;
   f.identityFetch=async()=>{throw Error('private-test-token');};
   let context=await f.reader.context();
   const first=await f.reader.read({sessionKey:context.sessionKey,kind:'missions'});
-  assert.equal(first.reason,'identity_unavailable');assert.equal(first.retryAt,f.time+2000);
+  assert.equal(first.reason,'identity_unavailable');assert.equal(first.blocked,false);assert.equal(first.retryAt,f.time+2000);
   for(const kind of ['mapinfo','practice','presets','quest']){
     const deferred=await f.reader.read({sessionKey:context.sessionKey,kind});
-    assert.equal(deferred.reason,'identity_backoff');
+    assert.equal(deferred.reason,'session_backoff');assert.equal(deferred.retryAt,first.retryAt);
   }
   assert.equal(f.identityRequests.length,1);assert.equal(f.requests.length,0);
-  f.time+=2000;const second=await f.reader.read({sessionKey:context.sessionKey,kind:'missions'});
-  assert.equal(second.retryAt,f.time+4000);assert.equal(f.identityRequests.length,2);
-  f.time+=4000;delete f.identityFetch;
+  f.time=first.retryAt;const second=await f.reader.read({sessionKey:context.sessionKey,kind:'missions'});
+  assert.equal(second.reason,'identity_unavailable');assert.equal(second.retryAt,f.time+4000);assert.equal(f.identityRequests.length,2);
+  delete f.identityFetch;f.reader.observeResponse({path:'/kcsapi/api_get_member/basic',body:{api_result:1}});f.time+=2100;
   assert.ok((await f.reader.read({sessionKey:context.sessionKey})).list);
   assert.equal(f.identityRequests.length,3);assert.equal(f.requests.length,1);
+});
+
+test('maintenance or an expired session stops after the initial request and ten spaced retries',async t=>{
+  for(const response of [{ok:false,status:503},{ok:false,status:403},
+    {ok:true,text:async()=> 'svdata={"api_result":0,"api_result_msg":"private"}'},
+    {ok:true,text:async()=> 'svdata={"api_result":100,"api_result_msg":"private-test-token"}'}]){
+    const f=fixture();t.after(()=>f.reader.dispose());await f.reader.installation;f.time+=2100;
+    f.identityFetch=async()=>response;const session=(await f.reader.context()).sessionKey;
+    let result=await f.reader.read({sessionKey:session,kind:'identity'}),previousDelay=0;
+    assert.equal(result.blocked,false);assert(!JSON.stringify(result).includes('private-test-token'));
+    for(let i=0;i<10;i++){
+      const delay=result.retryAt-f.time;assert(delay>previousDelay);previousDelay=delay;
+      for(const kind of ['identity','quest','practice','mapinfo','presets','missions']){
+        const waiting=await f.reader.read({sessionKey:session,kind});assert.equal(waiting.reason,'session_backoff');
+      }
+      f.time=result.retryAt;result=await f.reader.read({sessionKey:session,kind:'identity'});
+    }
+    assert.equal(result.blocked,true);f.time+=3600000;
+    assert.equal((await f.reader.readAll({sessionKey:session})).blocked,true);
+    assert.equal(f.identityRequests.length,11);assert.equal(f.requests.length,0);
+  }
+});
+
+test('a failed business request backs off other reads until genuine game recovery',async t=>{
+  const f=fixture();t.after(()=>f.reader.dispose());await f.port();const session=(await f.reader.context()).sessionKey;
+  f.fetch=async()=>({ok:false,status:503});
+  await assert.rejects(f.reader.read({sessionKey:session,kind:'missions'}),/Quest list unavailable/);
+  f.time+=1000;
+  assert.equal((await f.reader.read({sessionKey:session,kind:'quest'})).reason,'session_backoff');
+  assert.equal(f.identityRequests.length,1);assert.equal(f.requests.length,1);
+  delete f.fetch;f.reader.observeResponse({path:PORT,body:{api_result:1}});f.time+=2100;
+  assert.ok((await f.reader.read({sessionKey:session,kind:'quest'})).list);
+  assert.equal(f.identityRequests.length,2);assert.equal(f.requests.length,2);
+});
+
+test('a passive network error backs off requests even when the previous account was verified',async t=>{
+  const f=fixture();t.after(()=>f.reader.dispose());await f.port();const session=(await f.reader.context()).sessionKey;
+  assert.ok((await f.reader.read({sessionKey:session})).list);
+  f.reader.observeFailure({suspend:true});f.time+=1000;
+  const context=await f.reader.context({cached:true});assert.equal(context.backoff,true);assert.equal(context.identityVerified,false);
+  assert.equal((await f.reader.read({sessionKey:session,kind:'practice'})).reason,'session_backoff');
+  assert.equal(f.identityRequests.length,1);assert.equal(f.requests.length,1);
+});
+
+test('a mismatched account stops after ten retries until the session changes',async t=>{
+  const f=fixture();t.after(()=>f.reader.dispose());await f.port();f.identityMember=456;
+  const session=(await f.reader.context()).sessionKey;
+  let result=await f.reader.read({sessionKey:session,kind:'identity'});
+  assert.equal(result.reason,'identity_mismatch');assert.equal(result.blocked,false);
+  for(let i=0;i<10;i++){f.time=result.retryAt;result=await f.reader.read({sessionKey:session});}
+  assert.equal(result.blocked,true);f.time+=3600000;
+  assert.equal((await f.reader.read({sessionKey:session})).blocked,true);
+  assert.equal(f.identityRequests.length,11);assert.equal(f.requests.length,0);
+  f.state.info.basic.api_member_id=456;const next=await f.reader.context({cached:true});f.time+=2100;
+  assert.notEqual(next.sessionKey,session);assert.ok((await f.reader.read({sessionKey:next.sessionKey})).list);
+  assert.equal(f.identityRequests.length,12);
+});
+
+test('a successful first page cannot reset retries when the complete quest list keeps failing',async t=>{
+  const f=fixture();t.after(()=>f.reader.dispose());await f.port();const session=(await f.reader.context()).sessionKey;
+  f.fetch=async(url,options)=>new URLSearchParams(options.body).get('api_page_no')==='2'?
+    {ok:false,status:503}:{ok:true,text:async()=> 'svdata='+JSON.stringify({api_result:1,api_data:{api_count:2,api_page_count:2,api_disp_page:1,api_list:[{api_no:1}]}})};
+  assert.equal((await f.reader.readAll({sessionKey:session})).status,'failed');
+  for(let i=0;i<10;i++){f.time=f.reader.sessionRetryAt;assert.equal((await f.reader.readAll({sessionKey:session})).status,'failed');}
+  f.time+=3600000;assert.equal((await f.reader.readAll({sessionKey:session})).blocked,true);
+  assert.equal(f.requests.length,22);assert.equal(f.identityRequests.length,11);
 });
 
 test('a new account clears an old identity backoff immediately',async t=>{
@@ -173,7 +239,7 @@ test('poi repeated game.start in the same document recovers after start2 and por
   f.identityMember=456;
   assert.equal((await f.reader.read({sessionKey:context.sessionKey})).reason,'identity_mismatch');
   assert.equal(f.requests.length,0,'account identity is still verified before accessing tasks');
-  f.time+=2000;f.identityMember=123;
+  f.identityMember=123;await f.port();
   assert.ok((await f.reader.read({sessionKey:context.sessionKey})).list);
 });
 
@@ -348,12 +414,14 @@ test('background and non-home game documents remain readable without capture or 
   f.visible=false;assert.equal((await f.reader.context()).idle,false);
 });
 
-test('failed port and game activity recover after quiet and revalidate identity',async t=>{
+test('a failed port backs off reads until a successful game response revalidates identity',async t=>{
   const f=fixture();t.after(()=>f.reader.dispose());await f.port();
-  f.reader.observeRequest({path:PORT});f.reader.observeResponse({path:PORT,body:{api_result:0}});f.time+=2100;
-  assert.equal((await f.reader.context()).idle,true);
+  f.reader.observeRequest({path:PORT});f.reader.observeResponse({path:PORT,body:{api_result:0}});f.time+=1000;
+  assert.equal((await f.reader.context()).backoff,true);
   f.reader.observeRequest({path:'/kcsapi/api_get_member/basic'});f.reader.observeFailure();
-  f.time+=2100;assert.equal((await f.reader.context()).idle,true);assert.equal(f.requests.length,0);
+  assert.equal((await f.reader.context()).backoff,true);assert.equal(f.requests.length,0);
+  f.reader.observeResponse({path:PORT,body:{api_result:1}});f.time+=2100;
+  assert.equal((await f.reader.context()).idle,true);
 });
 
 test('no game webview leaves remote undiscovered and context unready',async()=>{

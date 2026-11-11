@@ -1,4 +1,5 @@
 'use strict';
+const retry=require('../sync/retry_policy');
 
 // Coordinates a single background quest-list read across both workbenches.
 // The host supplies an opaque session key and performs its own final guard
@@ -39,7 +40,7 @@ class QuestAutoRead {
   }
   failure(key){
     if(this.retryKey!==key){this.retryKey=key;this.retryCount=0;}
-    this.retryCount++;this.retryAt=Number(this.now())+Math.min(300000,2000*2**Math.min(this.retryCount-1,8));
+    this.retryCount++;this.retryAt=retry.exhausted(this.retryCount)?Infinity:Number(this.now())+retry.retryDelay(this.retryCount);
     this.consumed.delete(key);this.stable=null;
   }
   dispose(){
@@ -91,6 +92,7 @@ class QuestAutoRead {
       // retain an old ledger without retaining the complete task list.
       this.consumed.delete(key);
       if(this.retryKey!==key){this.retryKey=key;this.retryCount=0;this.retryAt=0;}
+      if(retry.exhausted(this.retryCount)){this.stable=null;return {status:'exhausted'};}
       if(Number(this.now())<this.retryAt){this.stable=null;return {status:'backoff',retryAt:this.retryAt};}
       if(!safe){
         this.stable=null;
@@ -129,7 +131,10 @@ class QuestAutoRead {
       operation.started=true;
       const outcome=await this.read({signal:operation.controller.signal,sessionKey:operation.sessionKey});
       if(outcome?.deferred===true||outcome?.status==='deferred'){
-        if(!operation.cacheCancelled&&this.current(operation.generation))this.failure(operation.sessionKey);
+        if(!operation.cacheCancelled&&!operation.controller.signal.aborted&&this.current(operation.generation)){
+          if(outcome.attempted===true)this.failure(operation.sessionKey);
+          else{this.stable=null;this.retryAt=Math.max(this.retryAt,Number.isFinite(outcome.retryAt)?outcome.retryAt:Number(this.now())+2000);}
+        }
         return this.closed?{status:'disposed'}:{status:'deferred'};
       }
       if(!this.current(operation.generation))return this.cancelled();
@@ -139,7 +144,7 @@ class QuestAutoRead {
       this.consumed.add(operation.sessionKey);this.retryKey=null;this.retryCount=0;this.retryAt=0;
       return {status:'read'};
     }catch(error){
-      if(!operation.cacheCancelled&&this.current(operation.generation))this.failure(operation.sessionKey);
+      if(!operation.cacheCancelled&&!operation.controller.signal.aborted&&this.current(operation.generation))this.failure(operation.sessionKey);
       return this.closed?{status:'disposed'}:{status:'failed'};
     }finally{
       if(this.operation===operation)this.operation=null;
