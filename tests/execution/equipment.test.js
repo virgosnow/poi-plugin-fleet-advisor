@@ -117,7 +117,7 @@ test('concrete projection preserves full planner acceptance across inventory all
 const {restoreEquipment}=require('../../src/execution/equipment');
 function runtime(options={}) {
   const f=fixture(),inputs=[],snapshots=[],observations=[],progress=[],diagnostics=[];let now=0,primary=options.initialCategory??null,activePage=options.initialPage||1,pickerCount=0,menu=false,mode=options.initialMode||'stock',screen='home',filterCleared=!options.filterStuck,selectedShip=1,selectedSlot=0,lastPage,lastTotal;
-  const session={host:{getStore:()=>f.data},now:()=>++now,onProgress(event){progress.push(event);},check(){if(this.validate)this.validate();},
+  const session={controlMode:!!options.controlMode,host:{getStore:()=>f.data},now:()=>++now,onProgress(event){progress.push(event);},check(){if(this.validate)this.validate();},
     onDiagnostic(event){diagnostics.push(event);},
     async observe(kind,arg={}){return this.until(kind,arg);},
     async until(kind,arg={},predicate=r=>r.valid){
@@ -140,7 +140,12 @@ function runtime(options={}) {
       const start=Math.max(1,Math.min(activePage-2,total-4));
       const page=lastPage={valid:true,activePage,labels:Array.from({length:Math.min(5,total)},(_,i)=>start+i),centers:[739,793,847,901,955]};
       if(options.nativeList)page.itemIds=list.map(item=>item.id);
-      const result=kind==='equipmode'?{valid:true,mode}:kind==='borrowconfirm'?{valid:!options.badConfirm,commit:{x:470,y:480}}:kind==='screen'?{valid:true,mode:'home'}:kind==='cells'?{valid:!options.menuCategories,primaries:[0,1,11],categories:options.menuCategories||[0,4,9],centers:[{x:811,y:197},{x:811,y:226},{x:811,y:255}]}:kind==='pageread'?page:kind==='equippicker'?{valid:true,primary,category:({0:0,1:4,11:9,20:10})[primary]??null,page}:kind==='equipremove'?{valid:!options.badRemove,commit:options.badRemove?null:{x:824,y:271+47*arg.slot}}:kind==='equipclear'?{valid:!options.missingClear,tab:{valid:!options.wrongTab},commit:options.missingCommit?null:{x:485,y:245+50*arg.slots}}:{valid:true};
+      if(kind==='equipview'){
+        const empty=options.emptyStock&&mode==='stock'&&selectedSlot===1;
+        return empty?{valid:true,empty:true,mode,picker:{sourceCount:0,visibleRows:0,pageValid:false,modeReady:true}}:
+          {valid:true,empty:false,mode,view:selectedSlot==='ex'?page:{valid:true,primary,category,page}};
+      }
+      const result=kind==='equipmode'?{valid:true,mode}:kind==='rowicon'&&options.invalidRow?{valid:false}:kind==='borrowconfirm'?{valid:!options.badConfirm,commit:{x:470,y:480}}:kind==='screen'?{valid:true,mode:'home'}:kind==='cells'?{valid:!options.menuCategories,primaries:[0,1,11],categories:options.menuCategories||[0,4,9],centers:[{x:811,y:197},{x:811,y:226},{x:811,y:255}]}:kind==='pageread'?page:kind==='equippicker'?{valid:true,primary,category:({0:0,1:4,11:9,20:10})[primary]??null,page}:kind==='equipremove'?{valid:!options.badRemove,commit:options.badRemove?null:{x:824,y:271+47*arg.slot}}:kind==='equipclear'?{valid:!options.missingClear,tab:{valid:!options.wrongTab},commit:options.missingCommit?null:{x:485,y:245+50*arg.slots}}:{valid:true};
       if(!predicate(result))throw new Error('Observation timed out');return result;
     },
     async wait(){now+=10000;this.check();},
@@ -183,6 +188,27 @@ function runtime(options={}) {
     }};
   return {...f,session,inputs,snapshots,observations,progress,diagnostics};
 }
+
+test('empty stock list switches to the exact donor and still checks the selected row before borrowing',async()=>{
+  const f=runtime({controlMode:true,emptyStock:true,initialCategory:1});
+  await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104,201,-1],ex:103}]});
+  assert.deepEqual(f.data.info.ships[1].api_slot,[104,201,-1]);
+  assert(f.diagnostics.some(d=>d.stage==='empty-picker'&&d.mode==='stock'&&d.desiredMode==='others'));
+  assert.equal(f.inputs.filter(i=>i.x===1135&&i.y===168).length,1);
+  assert(f.observations.includes('rowicon'));
+});
+test('empty-source recovery never submits a borrowed item if the row check fails',async()=>{
+  const f=runtime({controlMode:true,emptyStock:true,initialCategory:1,invalidRow:true});
+  f.data.info.ships[1].api_slot=[104,-1,-1];
+  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104,201,-1],ex:103}]}));
+  assert(!f.inputs.some(i=>i.mutation?.path==='api_req_kaisou/slot_deprive'));
+});
+test('empty required source does not blindly switch modes or select an item',async()=>{
+  const f=runtime({controlMode:true,emptyStock:true,initialCategory:1});
+  f.data.info.ships[1].api_slot=[104,-1,-1];
+  await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104,105,-1],ex:103}]}),{code:'PICKER_MODE_UNREADABLE'});
+  assert(!f.inputs.some(i=>i.x===1135&&i.y===168));assert(!f.inputs.some(i=>i.mutation));
+});
 
 test('consecutive normal slots select a category once and reuse the retained selection',async()=>{
   const f=runtime();await restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:[104,105,106]}]});
@@ -421,6 +447,7 @@ test('a diagnostic callback failure cannot interrupt an otherwise successful equ
 test('equipment timeout identifies the target ship, operation and mismatching slot without exposing item IDs',async()=>{
   const f=runtime({noStore:true});
   await assert.rejects(restoreEquipment(f.session,{fleet:1,ships:[{id:1,slots:['any','empty']}]}),error=>{
+    assert.equal(error.code,'EQUIPMENT_CONFIRMATION_TIMEOUT');
     assert.match(error.message,/ship1 第2槽 卸下装备/);
     assert.match(error.message,/目标舰「ship1」第2槽未确认/);
     assert.match(error.message,/已观察到游戏请求，但结果未确认/);

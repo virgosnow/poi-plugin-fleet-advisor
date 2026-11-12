@@ -36,10 +36,11 @@ function equipmentTimeout(store,planner,shipId,op){
   }
   const slot=op.kind==='clear'?'全部普通装备槽':op.kind==='ex'?'增设槽':`第${op.j+1}槽`;
   const action=op.source?'借用装备':op.kind==='clear'?'卸下全部装备':op.id<0?'卸下装备':'安装装备';
-  return new Error(`装备状态确认超时：${shipName(shipId)} ${slot} ${action}；${details.join('；')||'装备状态未确认'}。已观察到游戏请求，但结果未确认；请先在游戏中核对装备状态，未重复提交。`);
+  return Object.assign(new Error(`装备状态确认超时：${shipName(shipId)} ${slot} ${action}；${details.join('；')||'装备状态未确认'}。已观察到游戏请求，但结果未确认；请先在游戏中核对装备状态，未重复提交。`),{code:'EQUIPMENT_CONFIRMATION_TIMEOUT'});
 }
 
 async function restoreEquipment(session,scheme) {
+  try {
   const planner=createEquipmentPlanner(()=>session.host.getStore()), plan=planner.resolvePlan(scheme);
   const completed=plan.fleetShips.filter(id=>!plan.ships.some(s=>s.shipId===id));
   session.onProgress({phase:'equipment-start',fleet:plan.fleet,completed});
@@ -82,6 +83,7 @@ async function restoreEquipment(session,scheme) {
         :{path:'api_req_kaisou/slotset',ship:ship.shipId,j:op.j,item:op.id};
       const slot=op.kind==='clear'?'all':op.kind==='ex'?'ex':op.j+1;
       const diagnosticKey={fleet:plan.fleet,ship:ship.shipId,slot,step:step+1,total:ship.ops.length};
+      session.diagnosticContext={phase:'equipment',...diagnosticKey,operation:op.kind};
       try{
         const store=data();
         equipmentDiagnostic(session,{phase:'equipment',stage:'planned',...diagnosticKey,operation:op.kind,requestPath:mutation.path,
@@ -122,6 +124,16 @@ async function restoreEquipment(session,scheme) {
         const desiredMode=op.source?'others':'stock';
         const pickerKind=op.kind==='ex'?'pageread':'equippicker';
         const readView=async()=>{
+          if(session.controlMode){
+            const observed=await session.until('equipview',{...arg,fleet:plan.fleet});
+            if(observed.empty){
+              equipmentDiagnostic(session,{phase:'equipment',stage:'empty-picker',...diagnosticKey,
+                mode:observed.mode,desiredMode,picker:observed.picker});
+              if(observed.mode===desiredMode){const error=new Error('Equipment picker is empty in the required source mode');error.code='PICKER_MODE_UNREADABLE';throw error;}
+              return [{valid:true,mode:observed.mode},null];
+            }
+            return [{valid:true,mode:observed.mode},observed.view];
+          }
           const result=await session.until('batch',{checks:[{kind:'equipmode'},{kind:pickerKind,arg}]},r=>{
             const [mode,picker]=r.results||[];
             return r.valid||(op.kind!=='ex'&&!mode?.valid&&picker?.valid&&Number.isInteger(picker.category));
@@ -276,6 +288,7 @@ async function restoreEquipment(session,scheme) {
       if(op.source)expected.set(op.source.shipId,op.source.after);
       changing.clear();changes++;
       session.confirmMutation?.();
+      session.diagnosticContext=null;
       await session.until('equipTabs',{fleet:plan.fleet});
       session.onProgress({phase:'equipment-step',fleet:plan.fleet,ship:ship.shipId,completed:step+1,total:ship.ops.length});
     }
@@ -285,5 +298,6 @@ async function restoreEquipment(session,scheme) {
   session.check();
   if(plan.expected.some(e=>!planner.sameState(planner.currentState(e.shipId),e.state)))throw new Error('Final equipment mismatch');
   return {ok:true,done:true,changed:changes};
+  } finally { session.diagnosticContext=null; }
 }
 module.exports={restoreEquipment};

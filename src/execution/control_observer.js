@@ -50,6 +50,27 @@ function observeControls(snapshot,kind,arg={},store){
     &&e.sourceIds.every(id=>Number.isSafeInteger(id)&&id>0&&store?.info.equips[id])
     &&e.rows.filter(r=>r.visible===true).length===Math.min(10,e.sourceCount-(e.page.activePage-1)*10)
     &&e.rows.filter(r=>r.visible===true).every(r=>Number.isSafeInteger(r.itemId)&&r.itemId>0&&r.itemId===r.expectedId);
+  if(kind==='equipview'){
+    const context=!!equipContext(),fleetMatched=s.fleet===arg.fleet,rows=Array.isArray(e?.rows)?e.rows.filter(row=>row.visible===true):null;
+    const sourceCount=Number.isInteger(e?.sourceCount)?e.sourceCount:null;
+    const sourceIdsValid=Array.isArray(e?.sourceIds)&&e.sourceIds.length===sourceCount&&new Set(e.sourceIds).size===e.sourceIds.length&&
+      e.sourceIds.every(id=>Number.isSafeInteger(id)&&id>0&&store?.info.equips[id]);
+    const controls=(s.controls||[]).filter(c=>c.id==='equipment.mode'&&ready(c)&&c.rendered===true&&c.unclipped!==false);
+    const modeReady=e?.modeControl?.id==='equipment.mode'&&ready(e.modeControl)&&e.modeControl.rendered===true&&e.modeControl.unclipped!==false&&controls.length===1&&
+      controls[0].point.x===e.modeControl.point.x&&controls[0].point.y===e.modeControl.point.y;
+    const picker={scene:s.scene,phase:e?.phase??null,contextMatched:context,fleetMatched,sourceCount,
+      visibleRows:rows?.length??null,pageValid:e?.page?.valid===true,activePage:e?.page?.activePage??null,
+      mode:e?.mode===0?'stock':e?.mode===1?'others':null,category:e?.filter??null,
+      filterDetail:e?.filterDetail??null,sourceIdsValid,modeReady};
+    const normal=observeControls(s,'equipmode',arg,store),view=observeControls(s,arg.slot===-1?'pageread':'equippicker',
+      arg.slot===-1?{...arg,layout:'equip'}:arg,store);
+    if(fleetMatched&&normal.valid&&view.valid)return {valid:true,empty:false,mode:normal.mode,view,picker};
+    const empty=context&&fleetMatched&&e.phase==='picker'&&[0,1].includes(e.mode)&&Number.isInteger(e.filter)&&
+      (e.slot===-1||Number.isInteger(e.filterDetail)&&e.filterDetail>=0)&&sourceCount===0&&sourceIdsValid&&rows?.length===0&&
+      e.page?.activePage===1&&modeReady;
+    if(empty)return {valid:true,empty:true,mode:e.mode===0?'stock':'others',picker};
+    return {valid:false,reason:'Equipment picker state not verified',picker};
+  }
   const selection=()=>equipContext()&&e.itemId===arg.itemId&&(e.sourceShip??null)===(arg.sourceShipId??null)&&e.mode===(arg.sourceShipId?1:0)&&ready(e.commit);
   if(kind==='batch'){
     if(!Array.isArray(arg.checks)||!arg.checks.length||arg.checks.length>8||arg.checks.some(c=>!c||c.kind==='batch'||typeof c.kind!=='string'))throw Error('Invalid observation batch');
@@ -272,6 +293,7 @@ class ControlObserver{
     if(result.valid){
       if(arg.targetShip)this.intent.organization={shipId:arg.targetShip,slot:arg.targetSlot,fleet:arg.fleet,mask:arg.mask};
       if(kind==='rowicon'||kind==='pix'||kind==='borrowconfirm')this.intent.equipment=arg;
+      if(kind==='equipview')this.intent.emptyEquipmentMode=result.empty?{...arg,mode:result.mode}:null;
       if(kind==='airbase-action')this.intent.airbaseAction=arg;
       if(kind==='airbase-swap')this.intent.airbaseDrag=arg;
       if(kind==='airbase-slot')this.intent.airbaseSlot=arg;
@@ -298,6 +320,8 @@ class ControlObserver{
           JSON.stringify(o.filters.map(f=>Number(f.state)))===JSON.stringify(a.mask)&&observeControls(s,'picker',{fleet:a.fleet},this.host.getStore()).valid;
       }
       if(c.id.startsWith('equipment.row.')){const a=this.intent.equipment;return a&&c.row===a.row&&observeControls(s,'rowicon',a,this.host.getStore()).valid;}
+      if(c.id==='equipment.mode'&&this.intent.emptyEquipmentMode){const a=this.intent.emptyEquipmentMode;
+        const v=observeControls(s,'equipview',a,this.host.getStore());return v.valid&&v.empty&&v.mode===a.mode;}
       if(c.id==='equipment.confirm'){const a=this.intent.equipment;return a&&observeControls(s,'pix',{...a,purpose:'equipment-confirm'},this.host.getStore()).valid;}
       if(c.id==='airbase.action'){const a=this.intent.airbaseAction;return a&&observeControls(s,'airbase-action',a,this.host.getStore()).valid;}
       if(c.id.startsWith('airbase.slot.')){const a=this.intent.airbaseSlot;return a&&c.slot===a.slot&&observeControls(s,'airbase-slot',a,this.host.getStore()).valid;}
@@ -313,6 +337,7 @@ class ControlObserver{
       throw Error(message);
     }
     const target=targets[0];
+    if(target.id==='equipment.mode')this.intent.emptyEquipmentMode=null;
     if(input.mutation?.path==='api_req_air_corps/set_plane'&&target.id==='airbase.confirm'){
       const a=this.intent.airbaseSelection;
       if(!a||a.itemId!==input.mutation.item||a.slot!==input.mutation.slot||a.area!==input.mutation.area||a.base!==input.mutation.base||

@@ -1,6 +1,6 @@
 'use strict';
 const M=require('../shell/model');
-const i18n=require('../../shared/i18n'),{progress:displayProgress}=require('../i18n/execution');
+const i18n=require('../../shared/i18n'),{progress:displayProgress,failure:displayFailure}=require('../i18n/execution');
 // Clock/progress state lives below the page, never in the workbench's parent.
 module.exports=(React,{subscribe,getStore})=>{
   const h=React.createElement;
@@ -23,7 +23,7 @@ module.exports=(React,{subscribe,getStore})=>{
     i18n.useLocale(React);const t=i18n.t;
     return h('div',{className:'paa-operation-feedback','data-state':status.state},
       h('p',{role:status.state==='error'?'alert':'status'},running&&status.state!=='error'?
-        `${stopping?t('正在停止后续操作'):progress||t('正在执行编成')}${busy?t(' · {seconds} 秒',{seconds:elapsed.toFixed(1)}):''}`:t(status.text)),
+        `${stopping?t('正在停止后续操作'):progress||t('正在执行编成')}${busy?t(' · {seconds} 秒',{seconds:elapsed.toFixed(1)}):''}`:status.state==='error'?displayFailure(status):t(status.text)),
       status.state==='error'&&detail?h('details',null,h('summary',null,t('诊断信息')),
         h('button',{type:'button',onClick:()=>onCopy(detail)},t('复制诊断')),copied?h('span',{className:'paa-muted'},t(copied)):null,
         h('pre',null,detail)):null);

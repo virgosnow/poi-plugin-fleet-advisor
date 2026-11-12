@@ -70,6 +70,8 @@ class Controller {
   }
   fallbackEvent(phase,error){
     this.onProgress({phase:'recognition-fallback',detail:'控件识别不可用，切换图像识别继续'});
+    try{this.onDiagnostic({phase:'recognition-fallback',stage:'switch',executionPhase:phase,
+      code:error.code,...(error.diagnostics?{diagnostics:error.diagnostics}:{})});}catch(_){}
     return {from:'controls',to:'image',phase,code:error.code,kind:error.diagnostics?.kind};
   }
   async startExecutionObserver(mode){

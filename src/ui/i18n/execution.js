@@ -28,6 +28,26 @@ const common={
  '正在返回母港':['母港に戻っています','正在返回母港'],'正在核对游戏状态':['ゲーム状態を確認中','正在核對遊戲狀態']
 };
 for(const [locale,index] of [['ja',0],['zh-TW',1]])i18n.registerCatalog(locale,Object.fromEntries(Object.entries(common).map(([key,value])=>[key,value[index]])));
+// Codes are supplied by execution; diagnostics keep the original message and
+// stack so presentation never changes control flow or discards evidence.
+const errors={
+ EXPEDITION_RETURN_REQUIRED:['遠征の帰投を検出したため編成を停止しました。ゲーム内で帰投結果を確認し、適用済みの編成を確認してから再試行してください。','偵測到遠征歸港，已停止編成。請先在遊戲中處理歸港，並核對可能已生效的部分編成後再重試。'],
+ OBSERVATION_TIMEOUT:['画面の確認がタイムアウトしました。ゲーム内の状態と変更済みの編成・装備を確認し、診断情報をご覧ください。','畫面確認逾時。請核對遊戲狀態與可能已變更的編成、裝備，並查看診斷資訊。'],
+ CONTROL_RECOGNITION_UNAVAILABLE:['ゲーム画面の操作部品を確認できません。ゲーム内の状態と変更済みの編成・装備を確認してください。','無法確認遊戲畫面中的操作元件。請核對遊戲狀態與可能已變更的編成、裝備。'],
+ PICKER_MODE_UNREADABLE:['装備の取得元を確認できません。ゲーム内の装備状態を確認してから再試行してください。','無法確認裝備來源。請在遊戲中核對裝備狀態後再重試。'],
+ EQUIPMENT_CONFIRMATION_TIMEOUT:['ゲームへの操作は確認されましたが、装備の変更結果を確認できませんでした。操作は再送していません。ゲーム内で装備状態を確認してください。','已觀察到遊戲操作，但無法確認裝備變更結果，操作未重複送出。請在遊戲中核對裝備狀態。'],
+ NAV_SCREEN_NOT_RECOGNIZED:['現在の画面または母港への戻るボタンを確認できません。ポップアップを閉じ、非表示の画面を戻してから再試行してください。','無法辨識目前畫面或返回母港的按鈕。請關閉遮擋視窗，或恢復隱藏的畫面後再重試。'],
+ NAV_RETURN_NOT_CONFIRMED:['母港に戻る操作後、母港画面を確認できなかったため停止しました。操作は繰り返していません。','點擊返回母港後無法確認母港畫面，已停止且未重複點擊。'],
+ NAV_UNEXPECTED_SCREEN:['画面遷移後に想定外の画面を検出したため、操作を停止しました。','切換後出現非預期的畫面，已停止操作。'],
+ NAV_SWITCH_FAILED:['画面の切り替えに失敗しました。ゲーム内で母港に戻ってから再試行してください。','畫面切換失敗，請在遊戲中返回母港後再重試。'],
+ BUSY:['編成または装備変更がすでに実行中です。','已有編成或換裝工作正在執行。'],
+ AUTOMATIC_OPERATIONS_DISABLED:['自動操作が無効です。設定の実験機能で自動操作を有効にしてください。','自動操作已關閉，請在設定的實驗功能中開啟。']
+};
+for(const [locale,index] of [['ja',0],['zh-TW',1]])i18n.registerCatalog(locale,Object.fromEntries(Object.entries(errors).map(([code,value])=>[`execution.error.${code}`,value[index]])));
+function failure(status){
+ if(i18n.getLocale()==='zh-CN'||!Object.hasOwn(errors,status?.errorCode||''))return i18n.t(status?.text||'');
+ return i18n.t(`execution.error.${status.errorCode}`);
+}
 function name(state,id){
  if(!id||id<0)return i18n.t('空位');
  const ship=state?.info?.ships?.[id],master=state?.const?.$ships?.[ship?.api_ship_id];
@@ -58,4 +78,4 @@ function progress(p,state){
   default:return t('正在核对游戏状态');
  }
 }
-module.exports={progress};
+module.exports={progress,failure};

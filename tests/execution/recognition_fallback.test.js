@@ -18,7 +18,7 @@ function harness(options={}){
     for(const item of data.info.ships[id].api_slot)data.info.equips[item]={api_slotitem_id:1,api_level:0,api_alv:0};
   }
   for(const item of [501,502])data.info.equips[item]={api_slotitem_id:1,api_level:0,api_alv:0};
-  const planner=createEquipmentPlanner(()=>data),events=[],inputs=[],created=[];
+  const planner=createEquipmentPlanner(()=>data),events=[],diagnostics=[],inputs=[],created=[];
   const ui={screen:'home',picker:false,detail:false,borrow:false,ship:1,slot:0,source:'stock',category:0};
   let host,failed=false,timingOut=false,timeoutReads=0,orgChanges=0,eqChanges=0,imageStarted=false,releaseImage;
   const count=()=>({orgChanges,eqChanges});
@@ -54,6 +54,7 @@ function harness(options={}){
       const xs=list(),page={valid:true,activePage:1,labels:[1],centers:[739],...(native?{itemIds:xs.map(x=>x.id)}:{})};
       return kind==='pageread'?page:{valid:true,category:0,primary:0,page};
     }
+    if(kind==='equipview')return {valid:true,empty:false,mode:ui.source,view:view(arg.slot===-1?'pageread':'equippicker',arg,native)};
     if(kind==='rowicon')return {valid:list()[arg.row]?.id===arg.itemId,actualType:1,expectedType:1};
     if(kind==='pix')return {valid:ui.item===arg.itemId};
     if(kind==='borrowconfirm')return {valid:ui.borrow,commit:{x:470,y:480}};
@@ -69,7 +70,7 @@ function harness(options={}){
     if(name==='../execution/session')return {Session:FastSession};
     return require(path.resolve(path.dirname(entry),name));
   }});
-  const controller=new mod.exports.Controller({getStore:()=>data,onProgress:e=>events.push(e),createHost(){
+  const controller=new mod.exports.Controller({getStore:()=>data,onProgress:e=>events.push(e),onDiagnostic:e=>diagnostics.push(e),createHost(){
     host={monitor:{expected:null,closed:false},check(){if(this.closed)throw Error('Host closed');},
       getStore:()=>data,start:async()=>{},dispose:async function(){this.disposed=true;},cancel(){this.closed=true;},
       capture:async()=>Buffer.from('mock-frame'),async input(i){
@@ -129,7 +130,7 @@ function harness(options={}){
       return observer;
     }});
   const scheme={fleet:1,ships:[{id:3,slots:[101,501]},{id:4,slots:[201,502]}]};
-  return {controller,data,events,inputs,created,count,scheme,host:()=>host,imageStarted:()=>imageStarted,releaseImage:()=>releaseImage?.()};
+  return {controller,data,events,diagnostics,inputs,created,count,scheme,host:()=>host,imageStarted:()=>imageStarted,releaseImage:()=>releaseImage?.()};
 }
 
 for(const failAt of ['organization','equipment','borrow'])test('image fallback resumes '+failAt+' without replaying verified changes',async()=>{
@@ -186,6 +187,13 @@ test('control observation timeout and rejected input preflight resume without an
     assert.equal(r.changed,6);assert.equal(h.inputs.filter(x=>x.mutation).length,6);
     assert.equal(r.metrics.recognitionFallbacks[0].code,options.observationTimeout?'OBSERVATION_TIMEOUT':'CONTROL_RECOGNITION_UNAVAILABLE');
     assert.equal(r.metrics.controlObservationRetries||0,options.observationTimeout?1:0);
+    const fallback=h.diagnostics.find(d=>d.phase==='recognition-fallback');
+    assert.equal(fallback.code,r.metrics.recognitionFallbacks[0].code);
+    if(options.observationTimeout){
+      assert.equal(fallback.diagnostics.kind,'equipTabs');
+      assert.equal(fallback.diagnostics.controlRetry.first.kind,'equipTabs');
+      assert(h.diagnostics.some(d=>d.stage==='retry-timeout'));
+    }
   }
 });
 test('a control timeout that resolves during the second observation stays in control mode',async()=>{

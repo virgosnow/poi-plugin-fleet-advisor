@@ -3,7 +3,8 @@
 // Deliberately exclude screenshots, raw OCR, inventory, URLs and request data.
 const fields=new Set(['valid','reason','mode','category','primary','activePage','labels','selected',
   'level','direction','states','expectedType','actualType','page','sort','filter','tab','results',
-  'border','score','bright','contrast','goldCount','dx','dy']);
+  'border','score','bright','contrast','goldCount','dx','dy','picker','scene','phase','contextMatched','fleetMatched',
+  'sourceCount','visibleRows','pageValid','filterDetail','sourceIdsValid','modeReady','empty']);
 function observationSummary(value,depth=0){
   if(depth>4)return undefined;
   if(value===null||typeof value==='boolean')return value;

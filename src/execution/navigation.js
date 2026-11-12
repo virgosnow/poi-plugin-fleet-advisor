@@ -20,7 +20,7 @@ async function readScreen(session,arg={}) {
     if(session.controlMode&&error.code==='OBSERVATION_TIMEOUT')throw error;
       if(!timedOut(error))throw error;
       // A covered button or the home hide-UI toggle cannot authorize a click.
-      const failure=new Error('无法识别当前画面或可用的返回母港按钮；请关闭遮挡弹窗，或恢复被隐藏的母港界面后重试');
+      const failure=Object.assign(new Error('无法识别当前画面或可用的返回母港按钮；请关闭遮挡弹窗，或恢复被隐藏的母港界面后重试'),{code:'NAV_SCREEN_NOT_RECOGNIZED'});
       if(error.diagnostics){failure.diagnostics=error.diagnostics;failure.stack+='\n'+error.stack;}
       throw failure;
   }
@@ -46,7 +46,7 @@ async function enterScreen(session,target) {
     catch(error){
       if(session.controlMode&&error.code==='OBSERVATION_TIMEOUT')throw error;
       if(!timedOut(error))throw error;
-      const failure=new Error('已点击返回母港，但未确认母港画面；已停止，未重复点击');
+      const failure=Object.assign(new Error('已点击返回母港，但未确认母港画面；已停止，未重复点击'),{code:'NAV_RETURN_NOT_CONFIRMED'});
       failure.diagnostics=error.diagnostics;failure.stack+='\n'+error.stack;throw failure;
     }
   }
@@ -67,9 +67,9 @@ async function enterScreen(session,target) {
       }
       screen=await readScreen(session,arg);
       if(screen.mode===destination)return; // Late arrival: no duplicate click.
-      if(screen.mode!==origin)throw new Error('导航后画面发生意外变化，已停止操作');
+      if(screen.mode!==origin)throw Object.assign(new Error('导航后画面发生意外变化，已停止操作'),{code:'NAV_UNEXPECTED_SCREEN'});
     }
-    throw new Error('画面切换失败（已尝试 3 次），请手动返回母港后重试');
+    throw Object.assign(new Error('画面切换失败（已尝试 3 次），请手动返回母港后重试'),{code:'NAV_SWITCH_FAILED'});
   };
   // The native side menu stays available on the verified organization base
   // screen. Its remodel sprite is at x=0,y=356,size=63x70 (port_sidemenu 9/10).

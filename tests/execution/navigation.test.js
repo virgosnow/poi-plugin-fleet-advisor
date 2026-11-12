@@ -103,7 +103,7 @@ test('overlay appearing after entry is not followed by a home or retry click',as
   const f=harness('home',{onInput:()=> 'unknown'});await assert.rejects(enterScreen(f.session,'equipment'),/无法识别当前画面/);assert.equal(f.inputs.length,1);
 });
 test('unexpected recognized destination stops instead of attempting recovery',async()=>{
-  const f=harness('home',{onInput:()=> 'organization'});await assert.rejects(enterScreen(f.session,'equipment'),/意外变化/);assert.equal(f.inputs.length,1);
+  const f=harness('home',{onInput:()=> 'organization'});await assert.rejects(enterScreen(f.session,'equipment'),error=>error.code==='NAV_UNEXPECTED_SCREEN'&&/意外变化/.test(error.message));assert.equal(f.inputs.length,1);
 });
 test('a single recognized frame amid unknown frames cannot authorize a click',async()=>{
   const f=harness('unknown',{frame:({captures,frame})=>captures===2?{valid:true,mode:'home'}:frame});

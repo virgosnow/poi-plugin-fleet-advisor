@@ -163,6 +163,24 @@ test('progress and elapsed time update only the feedback component and unsubscri
   h.render({running:false,busy:false,status:{state:'success',text:'配置已完成'}});assert.equal(off,1);assert.equal(h.intervals.filter(timer=>timer.active).length,0);assert(text(h.tree).includes('配置已完成'));
 });
 
+test('execution errors use stable codes for Japanese and Traditional Chinese while preserving diagnostics',t=>{
+  const i18n=require('../../src/shared/i18n'),h=harness(t,require('../../src/ui/components/execution_feedback'),{getStore:()=>fixture(),subscribe:()=>()=>{}});
+  const raw='检测到远征归港，已停止编成。请先在游戏中处理归港，并核对可能已生效的部分编成后再重试。';
+  const status={state:'error',text:raw,errorCode:'EXPEDITION_RETURN_REQUIRED'},props={running:false,busy:false,status,detail:'original stack: '+raw};
+  try{
+    i18n.setLocale('ja-JP');h.render(props);assert.match(text(find(h.tree,n=>n.props.role==='alert')),/遠征の帰投/);
+    assert.match(text(find(h.tree,n=>n.type==='pre')),/检测到远征归港/);
+    i18n.setLocale('zh-TW');h.render();assert.match(text(find(h.tree,n=>n.props.role==='alert')),/偵測到遠征歸港/);
+    i18n.setLocale('zh-CN');h.render();assert.equal(text(find(h.tree,n=>n.props.role==='alert')),raw);
+    i18n.setLocale('ja-JP');h.render({status:{state:'error',text:'unmapped detail',errorCode:'UNKNOWN'}});
+    assert.equal(text(find(h.tree,n=>n.props.role==='alert')),'unmapped detail');
+    for(const code of ['OBSERVATION_TIMEOUT','EQUIPMENT_CONFIRMATION_TIMEOUT','NAV_SCREEN_NOT_RECOGNIZED','NAV_RETURN_NOT_CONFIRMED','NAV_UNEXPECTED_SCREEN','NAV_SWITCH_FAILED']){
+      h.render({status:{state:'error',text:'untranslated diagnostic',errorCode:code}});
+      assert.notEqual(text(find(h.tree,n=>n.props.role==='alert')),'untranslated diagnostic',code);
+    }
+  }finally{i18n.setLocale('zh-CN');}
+});
+
 test('execution cards follow confirmed per-ship events and do not recalculate the fleet',t=>{
  const listeners=new Set(),store=fixture(),inspect=t.mock.method(W,'inspect'),summary=t.mock.method(W,'fleetSummary');
  store.info.fleets[0].api_ship=[1,2];

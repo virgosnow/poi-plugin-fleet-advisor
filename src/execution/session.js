@@ -124,6 +124,10 @@ class Session {
   }
   async until(kind, arg, predicate = r => r.valid, timeoutMs = 6000, {stableFrames=2,captureAllowanceMs=0,reuseLastFrame=false} = {}) {
     const options={stableFrames,captureAllowanceMs,reuseLastFrame};
+    const diagnostic=(stage,detail)=>{
+      // A diagnostic sink must never change recognition or operation safety.
+      try{this.onDiagnostic({phase:'control-recognition',stage,context:this.diagnosticContext||null,...detail});}catch(_){}
+    };
     try{return await this.untilOnce(kind,arg,predicate,timeoutMs,options);}
     catch(first){
       if(!this.controlMode||first.code!=='OBSERVATION_TIMEOUT')throw first;
@@ -131,12 +135,17 @@ class Session {
       // never repeat that input or relax the ordinary host/state guards.
       this.check();
       this.metrics.controlObservationRetries=(this.metrics.controlObservationRetries||0)+1;
+      diagnostic('retry',{diagnostics:first.diagnostics});
       this.onProgress({phase:'recognition-retry',detail:'控件识别超时，正在重新识别'});
-      try{return await this.untilOnce(kind,arg,predicate,timeoutMs,{...options,reuseLastFrame:false});}
+      try{
+        const result=await this.untilOnce(kind,arg,predicate,timeoutMs,{...options,reuseLastFrame:false});
+        diagnostic('retry-resolved',{kind});return result;
+      }
       catch(error){
         if(error.code==='OBSERVATION_TIMEOUT'&&error.diagnostics){
           error.diagnostics.controlRetry={attempts:2,first:first.diagnostics};
           error.stack+='\nControl retry diagnostics: '+JSON.stringify(error.diagnostics.controlRetry);
+          diagnostic('retry-timeout',{diagnostics:error.diagnostics});
         }
         throw error;
       }

@@ -122,7 +122,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
       setQuestNavigation(null);setMode('manual');setDraftEpoch(value=>value+1);
       workspace.current?.closest('.paa')?.scrollIntoView({block:'start'});
     };
-    const fail=error=>{setStatus({state:'error',title:'未能完成',text:error.message});setDetail(error.stack||error.message);};
+    const fail=error=>{setStatus({state:'error',title:'未能完成',text:error.message,errorCode:error.code});setDetail(error.stack||error.message);};
     const navigateQuest=destination=>{
       if(running||active.current||!destination?.code||!['normal','expedition','practice'].includes(destination.kind))return;
       setQuestNavigation({...destination,id:++questNavigationId.current});setMode(destination.kind);reset();
@@ -161,7 +161,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
         if(result.ok&&result.done){reportStatus({state:'success',title:result.changed?'配置已完成':'已符合方案，无需变更',text:`已完成 ${result.changed||0} 次变更${result.metrics?` · ${(result.metrics.totalMs/1000).toFixed(1)} 秒`:''}`});}
         else throw Error('执行未返回完成状态，请查看诊断信息。');
         return true;
-      }catch(error){if(mounted.current){if(stopped.current){reportStatus({state:'stopped',title:'已停止后续操作',text:'已发送的变更可能已经生效，请核对当前舰队与装备。'});reportDetail(error.stack||error.message);}else {reportStatus({state:'error',title:'未能完成',text:error.message});reportDetail(error.stack||error.message);}}return false;}
+      }catch(error){if(mounted.current){if(stopped.current){reportStatus({state:'stopped',title:'已停止后续操作',text:'已发送的变更可能已经生效，请核对当前舰队与装备。'});reportDetail(error.stack||error.message);}else {reportStatus({state:'error',title:'未能完成',text:error.message,errorCode:error.code});reportDetail(error.stack||error.message);}}return false;}
       finally{
         active.current=false;if(mounted.current)setBusy(false);
         log({time:new Date().toISOString(),kind:'fleet',scheme:source.slice(0,4000),status:outcome.state+' · '+outcome.title+' · '+outcome.text,detail:diagnostic.slice(0,8000),progress:progressRef.current});

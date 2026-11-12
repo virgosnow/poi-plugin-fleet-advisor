@@ -213,6 +213,30 @@ test('control observations verify exact equipment instance, page, owner and cate
   s.equipment.slot=-1;assert(observeControls(s,'rowicon',{...context,slot:-1},store).valid);
   assert.equal(observeControls(s,'rowicon',context,store).valid,false);
 });
+test('empty equipment list allows only a verified source switch and requires the exact fleet, ship and slot',async()=>{
+  let s=equipment(),toggle=button('equipment.mode');
+  Object.assign(s.equipment,{sourceCount:0,sourceIds:[],rows:[],page:{valid:false,labels:[],activePage:1},modeControl:toggle});s.controls=[toggle];
+  const arg={fleet:1,shipId:11,slot:0},view=observeControls(s,'equipview',arg,store);
+  assert.equal(view.valid,true);assert.equal(view.empty,true);assert.equal(view.mode,'stock');
+  assert.equal(observeControls(s,'equippicker',arg,store).valid,false,'empty list never authorizes a selection');
+  assert.equal(observeControls(s,'rowicon',context,store).valid,false);
+  for(const change of [s=>s.fleet=2,s=>s.shipId=12,s=>s.equipment.slot=1,s=>s.equipment.phase='confirm',
+    s=>s.equipment.sourceCount=1,s=>s.equipment.sourceIds=[7],s=>s.equipment.rows=[{visible:true,itemId:7}],
+    s=>s.equipment.modeControl.enabled=false,s=>s.equipment.modeControl.rendered=false,s=>s.equipment.modeControl.id='wrong',
+    s=>s.controls[0].rendered=false,s=>s.controls.push({...s.controls[0]}),
+    s=>s.equipment.filterDetail=-1,s=>s.equipment.page.activePage=2,s=>s.blocked=true]){
+    const bad=clone(s);change(bad);assert.equal(observeControls(bad,'equipview',arg,store).valid,false);
+  }
+  const observer=new ControlObserver({getStore:()=>store,readControls:async()=>clone(s)});
+  assert((await observer.read('equipview',arg)).valid);
+  s.equipment.slot=1;
+  await assert.rejects(observer.prepareInput({x:100,y:200,kind:'click',controlId:'equipment.mode'}),/not confirmed/);
+  s.equipment.slot=0;assert((await observer.read('equipview',arg)).valid);s.equipment.mode=1;
+  await assert.rejects(observer.prepareInput({x:100,y:200,kind:'click',controlId:'equipment.mode'}),/not confirmed/);
+  s.equipment.mode=0;
+  s.equipment.slot=0;assert((await observer.read('equipview',arg)).valid);
+  assert.deepEqual(await observer.prepareInput({x:100,y:200,kind:'click',controlId:'equipment.mode'}),{x:100,y:200});
+});
 test('equipment details and borrowed confirmation require the selected instance and enabled native button',()=>{
   for(const phase of ['confirm','borrow']){
     const s=equipment(phase);if(phase==='borrow'){s.equipment.mode=1;s.equipment.sourceShip=22;s.equipment.commit.sourceShip=22;}
@@ -299,6 +323,20 @@ function treeFixture(){
   const read=()=>JSON.parse(JSON.stringify(vm.runInNewContext('('+readControlSnapshot.toString()+')()',sandbox)));
   return {node,hit,read,root,stage,port,content,ring,side,row,detail,guard,over,equipment,select};
 }
+test('reader and observer recognize an empty native equipment list without accepting a row',()=>{
+  const f=treeFixture(),mode=f.hit(1100,150,70,35),pager=f.node({focusIndex:0,pageCount:0,textChanges:[],buttonChanges:[]});
+  const filter=f.node({_slotItemFilterButton:f.hit(800,150)},[]);filter.children=[filter._slotItemFilterButton];filter._slotItemFilterButton.parent=filter;
+  const list=f.node({_slotItemFilterView:filter,_pagerView:pager,_listItems:[],_changeListSwitch:mode},[filter,pager,mode]);
+  const task=f.node({_slotitemlist:list,_memory:{mode:0,filter:0,filter_detail:0,slotItemPage:0},
+    _sourceSlotItems:[],_mem_ship_id:11,_slot_index:0},[list]);
+  f.equipment._taskChoiceSlotItem=task;f.equipment.children.push(task);task.parent=f.equipment;
+  const snapshot=f.read(),arg={fleet:1,shipId:11,slot:0};
+  assert.equal(snapshot.equipment.phase,'picker');assert.equal(snapshot.equipment.sourceCount,0);
+  assert.equal(snapshot.equipment.page.valid,false);assert.equal(snapshot.equipment.page.activePage,1);
+  assert.equal(observeControls(snapshot,'equipview',arg,store).empty,true);
+  assert.equal(observeControls(snapshot,'equippicker',arg,store).valid,false);
+  assert.equal(observeControls(snapshot,'rowicon',context,store).valid,false);
+});
 test('frame reader follows reciprocal parents, actual transforms and original detach sprites without executing getters',()=>{
   const f=treeFixture();let getters=0;Object.defineProperty(f.equipment,'unsafe',{get(){getters++;throw Error('No game getters');}});
   const s=f.read();assert(s.valid);assert.equal(s.scene,'equipment');assert.equal(s.equipment.level,50);assert.equal(getters,0);
