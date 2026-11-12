@@ -2,6 +2,20 @@
 // Display-only messages. Business state and rule identifiers are unchanged.
 const {registerCatalog}=require('../../shared/i18n');
 registerCatalog("ja",{
+  "{nodes} 点 · {speed}": "{nodes} マス · {speed}",
+  "所选流派 · {speed}统一": "選択編成 · {speed}統一",
+  "{nodes} 点 · 空优 {superiority} · 空确 {supremacy}{reference}": "{nodes} マス · 優勢 {superiority} · 確保 {supremacy}{reference}",
+  "{edge} · 门槛 ≥ {required} · 系数 {coefficient}": "{edge} · 閾値 ≥ {required} · 係数 {coefficient}",
+  "{edges} · 门槛待确认": "{edges} · 閾値未確認",
+  "（参考）": "（参考）",
+  "敌方全程无制空": "全マス敵制空値 0",
+  "所选路线无索敌门槛": "選択ルートに索敵条件なし",
+  "当前编成无需索敌判定": "現在の編成では索敵判定なし",
+  "选择路线后显示索敌门槛": "ルート選択後に索敵条件を表示",
+  "所选路线索敌资料待确认": "選択ルートの索敵条件は未確認",
+  "所选路线制空资料待确认": "選択ルートの制空情報は未確認",
+  "基地航空后制空门槛待确认": "基地航空後の制空閾値は未確認",
+  "未指定海域与路线": "海域とルートが未選択",
   "制空": "制空",
   "33式索敌": "33式索敵",
   "我方": "味方",
@@ -187,6 +201,20 @@ registerCatalog("ja",{
   "编成不满足路线要求": "編成がルート条件を満たしていません"
 });
 registerCatalog("zh-TW",{
+  "{nodes} 点 · {speed}": "{nodes} 點 · {speed}",
+  "所选流派 · {speed}统一": "所選流派 · {speed}統一",
+  "{nodes} 点 · 空优 {superiority} · 空确 {supremacy}{reference}": "{nodes} 點 · 空優 {superiority} · 空確 {supremacy}{reference}",
+  "{edge} · 门槛 ≥ {required} · 系数 {coefficient}": "{edge} · 門檻 ≥ {required} · 係數 {coefficient}",
+  "{edges} · 门槛待确认": "{edges} · 門檻待確認",
+  "（参考）": "（參考）",
+  "敌方全程无制空": "敵方全程無制空",
+  "所选路线无索敌门槛": "所選路線無索敵門檻",
+  "当前编成无需索敌判定": "目前編成無需索敵判定",
+  "选择路线后显示索敌门槛": "選擇路線後顯示索敵門檻",
+  "所选路线索敌资料待确认": "所選路線索敵資料待確認",
+  "所选路线制空资料待确认": "所選路線制空資料待確認",
+  "基地航空后制空门槛待确认": "基地航空後制空門檻待確認",
+  "未指定海域与路线": "未指定海域與路線",
   "制空": "制空",
   "33式索敌": "33式索敵",
   "我方": "我方",

@@ -7,6 +7,7 @@ const {describeCondition}=require('../models/route_conditions');
 const {formatMissingRoutingShips,formatBlockedRoute}=require('../models/route_warnings');
 const {fleetMechanisms,fleetSpeed,aircraftCapacity}=require('../../domain/combat/ship_mechanisms');
 const routePreview=require('../maps/route_preview'),shipDrag=require('../components/ship_drag');
+const mapLocalization=require('../maps/map_localization'),metricDisplay=require('../i18n/metric_display');
 const airbaseView=require('./airbase_view');
 const airbaseEditor=require('./airbase_editor');
 const {retain,hiddenPage}=require('../components/retained_view');
@@ -90,7 +91,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
       'aria-label':t(kind==='air'?'制空 {value}，{state}':'33式索敌 {value}，{state}',{value:reading.value,state:unselected?t(reading.state):state})},
       h('span',{className:'paa-wb-metric-state'},icon,state),
       h('strong',{'data-label':t(kind==='air'?'我方':'33 式')},reading.value),
-      unselected?null:h('small',null,t(reading.compactHint||reading.hint)));
+      unselected?null:h('small',null,metricDisplay.compactHint(reading.compactHint||reading.hint)));
   };
   const arrivalIcon=tone=>['good','warning','bad'].includes(tone)?h('svg',{className:'paa-wb-arrival-icon','data-kind':tone==='good'?'check':'warning',viewBox:'0 0 16 16',width:14,height:14,fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
     tone==='good'?[h('circle',{key:'outline',cx:8,cy:8,r:6}),h('path',{key:'mark',d:'m5 8 2 2 4-4'})]:h('path',{d:'M8 2 15 14H1ZM8 6v4m0 2v.1'})):null;
@@ -1159,8 +1160,8 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
                 ...(!mapRoute?[{unselected:true}]:targetNonCombat?(threat?.enemies?.length?threat.enemies.slice(0,2).map(enemy=>({enemy,item:threat})):[{item:threat}]):
                   [{enemy:targetThreat?.enemies?.[0],item:targetThreat},{enemy:threat?.enemies?.[0],item:threat}])
                   .map(({enemy,item,unselected},index)=>h('div',{key:index,className:unselected?'paa-threat-empty':'paa-threat-card'},
-                    enemy?h('div',{className:'paa-threat-enemy'},portrait({name:enemy.name,portrait:V.portraitUrl(store,enemy.apiId)}),
-                      h('span',{className:'paa-threat-identity'},h('span',{className:'paa-threat-name','data-tooltip':enemy.name,'data-tooltip-overflow':true,tabIndex:0},enemy.name),
+                    enemy?h('div',{className:'paa-threat-enemy'},portrait({name:mapLocalization.enemyName(enemy),portrait:V.portraitUrl(store,enemy.apiId)}),
+                      h('span',{className:'paa-threat-identity'},h('span',{className:'paa-threat-name','data-tooltip':mapLocalization.enemyName(enemy),'data-tooltip-overflow':true,tabIndex:0},mapLocalization.enemyName(enemy)),
                         h('small',{className:'paa-threat-meta'},h('span',{className:'paa-threat-node'},t('{nodes} 点',{nodes:(enemy.nodes||[]).join(' / ')}))))):
                       h('span',{className:'paa-muted'},unselected?'—':t(item?.status==='none'?'无战斗':'敌情暂不可用')))))))),
           h(QuestSection,{key:navigationIntent?.id||'default',state:store,slots,deckId:fleet,kind,onNavigateQuest,open:questFocusOpen,onOpenChange:changeQuestFocus,mapId:kind==='normal'?area:undefined,
@@ -1179,7 +1180,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
             h('div',{className:'paa-wb-metric speed','data-tier':speedReading.tier,'data-has-requirement':speedRequirement.hint?'true':undefined,...T.attributes(T.speed(speedReading,speedRequirement)),tabIndex:0,'aria-label':t('舰队速力：{speed}',{speed:speedReading.ships.length?t(speedReading.label):'—'})},
               h('svg',{className:'paa-wb-speed-gauge',viewBox:'0 0 19 14','aria-hidden':true},...[1,2,3,4].map(t=>h('rect',{key:t,x:(t-1)*5,y:14-t*3,width:3,height:t*3,rx:0.6,fill:t<=speedReading.tier?'currentColor':'none',stroke:'currentColor',strokeWidth:0.6,opacity:t<=speedReading.tier?1:0.28}))),
               h('strong',null,speedReading.ships.length?t(speedReading.label):'—'),
-              speedRequirement.hint?h('small',null,t(speedRequirement.hint)):null),
+              speedRequirement.hint?h('small',null,metricDisplay.compactHint(speedRequirement.hint)):null),
             summaryMetric(summary.air,'air',{unselected:!mapRoute}),summaryMetric(summary.los,'los',{unselected:!mapRoute}))):null,
           h('div',{className:'paa-wb-ships',ref:grid},...shipCards)),
             resultsPending?h('div',{className:'paa-wb-calculating paa-wb-fleet-overlay',role:'status','data-activity':activity},
