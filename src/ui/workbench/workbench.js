@@ -109,7 +109,7 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
   };
   return function Workbench({kind,busy,automaticFilters,automaticOperations=false,stopping=false,onStop,stopButtonRef,onApply,onActivity,onNavigateQuest,operationFeedback,executionPlan,hidden=false,navigationIntent}){
     const selectionSettings=automaticFilters||getController()?.getRecommendationFilters?.()?.[kind];
-    const defaultGoal='great';
+    const defaultGoal=kind==='expedition'?'success':'great';
     const [slots,setSlots]=React.useState(blank),[fleet,setFleet]=React.useState(kind==='expedition'?2:1);
     const [catalog,setCatalog]=React.useState([]),[area,setArea]=React.useState('1-1');
     const [purpose,setPurpose]=React.useState('clear'),[target,setTarget]=React.useState('boss'),[phase,setPhase]=React.useState('');

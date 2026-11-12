@@ -15,8 +15,7 @@ module.exports=`
 .paa-exp-goal-options{--paa-goal-great-bg:#e8ca8980;--paa-goal-great-fg:#77521b;position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex:1;min-width:0;gap:3px}
 .paa-exp-goal-options::before{content:'';position:absolute;z-index:0;top:0;bottom:0;left:0;width:calc(50% - 1.5px);border-radius:3px;background:var(--paa-soft);opacity:0;pointer-events:none;transition:transform 200ms ease,background-color 200ms ease,opacity 120ms ease}
 .paa-exp-goal-options:is([data-goal=great],[data-goal=success])::before{opacity:1}
-.paa-exp-goal-options[data-goal=great]::before{background:var(--paa-goal-great-bg)}
-.paa-exp-goal-options[data-goal=success]::before{transform:translateX(calc(100% + 3px))}
+.paa-exp-goal-options[data-goal=great]::before{background:var(--paa-goal-great-bg);transform:translateX(calc(100% + 3px))}
 :is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa-exp-goal-options{--paa-goal-great-bg:#b58c4d55;--paa-goal-great-fg:#f0ce88}
 .paa .paa-exp-goal button{position:relative;z-index:1;min-width:0;min-height:30px;padding:3px 4px;border:0;border-radius:3px;box-shadow:none;background:transparent;color:var(--paa-muted);white-space:normal}
 .paa .paa-exp-goal button[aria-pressed=true]{background:transparent;color:var(--paa-text);font-weight:500}

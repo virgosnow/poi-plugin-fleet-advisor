@@ -8,6 +8,7 @@ test('expedition goal heading sits within the segmented control',()=>{
   const group=find(tree,node=>node.props.className==='paa-exp-goal');
   assert(group.children.some(node=>node?.props?.className==='paa-picker-title'&&node.children.includes('目标')));
   const options=find(group,node=>node.props.className==='paa-exp-goal-options');
+  assert.deepEqual(options.children.map(node=>node.props['data-goal']),['success','great']);
   assert.equal(options.props['data-goal'],'great');
   assert.equal(options.children.find(node=>node.props['data-goal']==='great').props['aria-pressed'],true);
   const success=options.children.find(node=>node.children.includes('成功即可'));success.props.onClick();

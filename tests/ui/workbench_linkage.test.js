@@ -28,7 +28,7 @@ test('expedition workbench preserves fixed flagship and separates conditions fro
   for(let id=2;id<=8;id++)h.store.info.ships[id].api_taisen=[60,60];
   h.store.info.ships[2].api_lv=127;
   for(const id of [2,3,4,5])h.store.info.ships[id].api_cond=60;
-  h.set('missionId',101);h.set('catalog',expeditions.listExpeditions(h.store));
+  h.set('missionId',101);h.set('goal','great');h.set('catalog',expeditions.listExpeditions(h.store));
   h.set('slots',[{...W.entry(h.store,2),pin:true},null,null,null,null,null]);
   let query;h.service.recommendExpeditionFleet=args=>{query=args;return require('../../src/recommendation/index').recommendExpeditionFleet(h.store,args);};
   let tree=h.render();await h.find(tree,n=>n.props.className==='paa-wb-complete').props.onClick();
@@ -1696,12 +1696,12 @@ test('task page synchronization does not invalidate fleet previews or recommenda
   assert.equal(fingerprint(state),before);assert.equal(JSON.stringify(businessState(state)),snapshot);
 });
 
-test('expedition uses great as its initial goal and borrowing changes preserve drafts',()=>{
+test('expedition uses success as its initial goal and borrowing changes preserve drafts',()=>{
   const h=harness('expedition',{allowEquipmentBorrowing:true,defaultGoal:'success'});
-  assert.equal(h.get('goal'),'great');
+  assert.equal(h.get('goal'),'success');
   const slots=[W.entry(h.store,2),null,null,null,null,null];h.set('slots',slots);
   h.render({automaticFilters:{allowEquipmentBorrowing:false}});
-  assert.equal(h.get('goal'),'great');assert.deepEqual(h.get('slots'),slots);
+  assert.equal(h.get('goal'),'success');assert.deepEqual(h.get('slots'),slots);
   assert.equal(h.calls.fleet+h.calls.equipment,0);
 });
 
@@ -1782,10 +1782,10 @@ test('switching expeditions resets the goal without starting a search',()=>{
     h.set('goal',manual);h.set('slots',[W.entry(h.store,2),null,null,null,null,null]);
     const before=JSON.stringify(h.store),picker=()=>h.find(h.render(),n=>n.type?.name==='AreaPicker');
     picker().props.onChange('1');assert.equal(h.get('goal'),manual,'reselecting the same expedition preserves the manual goal');
-    picker().props.onChange('2');assert.equal(h.get('missionId'),2);assert.equal(h.get('goal'),'great');
+    picker().props.onChange('2');assert.equal(h.get('missionId'),2);assert.equal(h.get('goal'),'success');
     assert(h.get('slots').every(s=>s===null));
     h.find(h.render({automaticFilters:{allowEquipmentBorrowing:false}}),n=>n.type?.name==='AreaPicker').props.onChange(3);
-    assert.equal(h.get('goal'),'great');
+    assert.equal(h.get('goal'),'success');
     assert.equal(h.calls.fleet+h.calls.equipment,0);assert.equal(JSON.stringify(h.store),before);
   }
 });

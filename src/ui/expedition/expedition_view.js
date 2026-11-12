@@ -161,7 +161,7 @@ module.exports=React=>{
       h('div',{className:'paa-exp-goal',role:'group','aria-label':t('远征目标')},
         h('span',{className:'paa-picker-title'},t('目标')),
         h('div',{className:'paa-exp-goal-options','data-goal':value},
-        ...[['great','优先大成功'],['success','成功即可']].map(([id,label])=>h('button',{
+        ...[['success','成功即可'],['great','优先大成功']].map(([id,label])=>h('button',{
           key:id,type:'button','data-goal':id,'aria-pressed':value===id,disabled,onClick:()=>{if(!disabled&&value!==id)return onChange(id);}},t(label))))));
   }
   return {overview,metrics,goal};
