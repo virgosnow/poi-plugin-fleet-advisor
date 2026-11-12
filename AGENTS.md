@@ -1,4 +1,4 @@
-# Fleet Advisor 1.0 工程约定
+# Fleet Advisor 1.1 工程约定
 
 先读 `README.md`、`docs/ARCHITECTURE.md`、`THIRD_PARTY.md` 和对应功能测试。本文规定工程维护边界；用户当前任务中的明确要求优先。
 

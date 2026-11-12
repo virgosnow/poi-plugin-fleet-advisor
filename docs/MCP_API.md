@@ -1,4 +1,4 @@
-# Fleet Advisor 1.0 — MCP Agent Reference
+# Fleet Advisor 1.1 — MCP Agent Reference
 
 Package: `poi-plugin-fleet-advisor`. Tool namespace: `fleet_advisor_`. Product version, MCP protocol version and contract version are independent identifiers.
 

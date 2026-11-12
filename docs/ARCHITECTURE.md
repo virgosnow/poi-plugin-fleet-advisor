@@ -1,4 +1,4 @@
-# Fleet Advisor 1.0 架构与维护
+# Fleet Advisor 1.1 架构与维护
 
 舰队参谋是 CommonJS poi 插件。UI、本机 MCP 和推荐 Worker 共用规则与应用服务；游戏操作集中在明确的执行链。React、ReactDOM 和 Electron 由 poi 宿主提供。
 
