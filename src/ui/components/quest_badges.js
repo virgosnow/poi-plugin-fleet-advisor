@@ -7,7 +7,10 @@ const PERIODS={
   once:['once','单次'],single:['once','单次'],oneTime:['once','单次'],'one-time':['once','单次'],'单次':['once','单次'],
   daily:['daily','日常'],'日常':['daily','日常'],weekly:['weekly','周常'],'周常':['weekly','周常'],
   monthly:['monthly','月常'],'月常':['monthly','月常'],quarterly:['quarterly','季常'],'季常':['quarterly','季常'],
-  yearly:['yearly','年常'],annual:['yearly','年常'],'年常':['yearly','年常'],limited:['limited','限时'],'限时':['limited','限时']
+  yearly:['yearly','年常'],annual:['yearly','年常'],'年常':['yearly','年常'],
+  '限时单次':['once','单次'],'限时日常':['daily','日常'],
+  '限时周常':['weekly','周常'],'限时月常':['monthly','月常'],
+  '限时季常':['quarterly','季常'],'限时年常':['yearly','年常']
 };
 const STATES={1:['available','可受领'],2:['active','进行中'],3:['complete','已达成']};
 
@@ -15,7 +18,8 @@ module.exports=React=>{
   const h=React.createElement;
   return {
     period(value,number){
-      if(!value)return null;
+      // A time limit alone does not tell us the game's recurrence period.
+      if(!value||value==='limited'||value==='限时')return null;
       const [key,label]=PERIODS[value]||['unknown',String(value)];
       return h('span',{className:'paa-quest-period','data-period':key,...number?{'data-tooltip':t('quest.number',{number}),tabIndex:0}:{}},t(label));
     },

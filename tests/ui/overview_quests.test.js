@@ -77,7 +77,7 @@ test('goal progress is read-only and rewards use the game data',()=>{
   const Component=create(React,{getController:()=>service});
   const tree=Component({state});
   assert.equal(walk(tree,node=>node.type==='input').length,0);
-  assert(walk(tree,node=>node.children?.includes('≥1 / 5')).length);
+  assert(walk(tree,node=>node.children?.includes('1 / 5')).length);
   assert(walk(tree,node=>node.props['aria-label']==='燃料 300').length);
   assert(walk(tree,node=>node.props['aria-label']==='铝土 200').length);
   assert(walk(tree,node=>node.type==='span'&&node.children?.join('').includes('测试装备 ×2')).length);
@@ -145,7 +145,7 @@ test('goal progress distinguishes unknown, observed lower bounds and completed c
   assert.equal(status().children[0],'0 / 5');assert.equal(status().props['data-complete'],false);assert.equal(status().props['data-progress'],'none');
   assert.equal(status().props['aria-label'],'目标进度未确认');
   observed=0;assert.equal(status().children[0],'0 / 5');
-  observed=2;assert.equal(status().children[0],'≥2 / 5');assert.equal(status().props['data-complete'],false);assert.equal(status().props['data-progress'],'partial');
+  observed=2;assert.equal(status().children[0],'2 / 5');assert.equal(status().props['data-complete'],false);assert.equal(status().props['data-progress'],'partial');
   assert.equal(status().props['aria-label'],'已观察目标进度至少 2/5');
   observed=5;assert.equal(status().children[0],'5 / 5');assert.equal(status().props['data-complete'],true);assert.equal(status().props['data-progress'],'complete');
   observed=9;assert.equal(status().children[0],'5 / 5');assert.equal(observed,9);

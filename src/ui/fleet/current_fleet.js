@@ -118,7 +118,7 @@ module.exports=(React,{getStore,setQuestPageActive,getController,subscribe})=>{
               !ship.unknown?h('div',{className:'paa-fleet-ship-state'},
                 collapse(h,{open:shipDetails[ship.id],id:`paa-fleet-stats-${ship.id}`},h('dl',{className:'paa-fleet-ship-stats','aria-label':t('当前面板属性')},...ship.stats.map(s=>h('div',{key:s.label},h('dt',null,statIcon.react(React,s.label),t(s.label)),h('dd',null,show(s.value))))))):null),
             h('div',{className:'paa-wb-mechanisms','aria-label':t('战斗与远征机制')},...badges(ship.badges)),
-            h('div',{className:'paa-wb-gears'},...(ship.equipment||[]).map(eq=>h('div',{key:eq.slot,className:'paa-wb-gear',...eq.id>0&&!eq.item?{'data-tooltip':t('装备资料待同步')}:V.equipmentTooltipProps(eq.item),tabIndex:0},
+            h('div',{className:'paa-wb-gears'},...(ship.equipment||[]).map(eq=>h('div',{key:eq.slot,className:'paa-wb-gear',...V.equipmentTooltipProps(eq.id>0&&!eq.item?{name:t('装备资料待同步')}:eq.item),tabIndex:0},
               h('span',{className:'paa-wb-slot-label'},eq.slot==='ex'?t('增'):eq.slot+1),eq.item?h(EquipmentIcon,{item:eq.item}):h('span',{className:'paa-wb-gear-empty'},eq.id>0?'?':'＋'),
               h('span',{className:'paa-wb-gear-name'},eq.item?eq.item.tooltip.replace(/^.*? · /,''):eq.id>0?t('装备 #{id}',{id:eq.id}):t('空槽')),
               eq.capacity!==undefined?h('span',{className:'paa-wb-aircraft-count','data-tooltip':t('当前搭载 / 最大搭载')},t('{current} / {max} 架',{current:show(eq.planes),max:show(eq.capacity)})):null)),!ship.unknown&&!ship.expansion?h('div',{className:'paa-wb-gear-unopened'},t('增 · 未开启')):null))))))));

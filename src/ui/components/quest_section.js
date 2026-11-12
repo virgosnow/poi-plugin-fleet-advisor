@@ -132,7 +132,8 @@ module.exports=function createQuestSection(React,options={}){
         :readOnly?[{label:t('readability.fleetUnknown')}]:checks.length?checks.filter(check=>check.label!=='请先选择舰娘'):
           task.summary&&text(task.summary)!==goalText(task)?[{label:text(task.summary)}]:[{label:t('readability.fleetUnknown')}];
       const additional=readOnly||!Array.isArray(task.fleetRequirements)?[]:checks.filter(check=>check.code!=='selectShip'&&check.label!=='请先选择舰娘'&&!task.fleetRequirements.some(rule=>typeof rule==='string'?rule===check.label:sameRule(rule,check.rule)));
-      const heading=h('div',{className:'paa-quest-heading'},badges.period(period,number),h('h4',!period&&number?{'data-tooltip':t('quest.number',{number}),tabIndex:0}:null,text(task.title)||text(task.code)||t('任务 {id}',{id:task.id})));
+      const periodBadge=badges.period(period,number);
+      const heading=h('div',{className:'paa-quest-heading'},periodBadge,h('h4',!periodBadge&&number?{'data-tooltip':t('quest.number',{number}),tabIndex:0}:null,text(task.title)||text(task.code)||t('任务 {id}',{id:task.id})));
       const meta=h('div',{className:'paa-quest-meta'},badges.status(taskState));
       return h('article',{key:task.id??task.code,className:'paa-quest-item',style:readOnly?{cursor:'default'}:undefined,...readOnly?{}:{role:'checkbox',tabIndex:disabled||unavailable||!task.code?-1:0,
         'aria-checked':selected,'aria-disabled':disabled||unavailable||!task.code||undefined,'aria-label':t('选择任务：{title}',{title:text(task.title)||text(task.code)})},
@@ -169,7 +170,7 @@ module.exports=function createQuestSection(React,options={}){
             const body=onNavigateQuest&&targets.length===1?link(targets[0],content,0):h('span',{className:'paa-quest-goal-text'},...content,
               onNavigateQuest&&targets.length>1?h('span',{className:'paa-quest-goal-links'},...targets.map((target,i)=>link(target,[questDisplay.destination(target)],i))):null);
             return h('li',{key:index,'data-related':related?'true':'false'},body,
-              amount?h('span',{className:'paa-quest-goal-progress','data-complete':n>=amount,'data-progress':n>=amount?'complete':n>0?'partial':'none','aria-label':n?t('已观察目标进度至少 {count}/{total}',{count:n,total:amount}):t('目标进度未确认'),...!n?{title:t('目标进度未确认')}:{}},n>=amount?`${amount} / ${amount}`:n?`≥${n} / ${amount}`:`0 / ${amount}`):null);
+              amount?h('span',{className:'paa-quest-goal-progress','data-complete':n>=amount,'data-progress':n>=amount?'complete':n>0?'partial':'none','aria-label':n?t('已观察目标进度至少 {count}/{total}',{count:n,total:amount}):t('目标进度未确认'),...!n?{title:t('目标进度未确认')}:{}},`${n} / ${amount}`):null);
           }))),
         rewardView({...task,rewards:rewardData},state,lookup));
     };

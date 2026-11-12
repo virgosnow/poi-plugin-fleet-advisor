@@ -222,11 +222,10 @@ test('each map objective shows its own observed progress and navigates independe
   const card=ui.find(n=>n.type==='article'),order=card.children.map(n=>n?.props?.className);
   assert(order.indexOf('paa-quest-requirements')<order.indexOf('paa-quest-goals'));
   assert(order.indexOf('paa-quest-goals')<order.indexOf('paa-overview-rewards'));
-  assert.equal(ui.find(n=>n.props.className==='paa-quest-goal-progress').children[0],'≥1 / 3');
+  assert.equal(ui.find(n=>n.props.className==='paa-quest-goal-progress').children[0],'1 / 3');
   ui.find(n=>n.props.className==='paa-quest-goal-link').props.onClick();
   assert.equal(visits[0].area,'1-5');assert.equal(visits[0].code,'B141');assert.deepEqual(selected,[]);
 });
-
 test('related objectives use none, partial and complete progress states in every page and language',()=>{
   const {setLocale}=require('../../src/shared/i18n');
   try{for(const locale of ['zh-CN','zh-TW','ja-JP'])for(const kind of ['normal','expedition','practice']){
@@ -237,6 +236,7 @@ test('related objectives use none, partial and complete progress states in every
     for(const [value,expected] of [[0,'none'],[1,'partial'],[3,'complete']]){
       observed=value;ui.render();const progress=ui.find(n=>n.props.className==='paa-quest-goal-progress');
       assert.equal(progress.props['data-progress'],expected,`${locale} ${kind} ${value}`);
+      assert.equal(progress.children[0],`${value} / 3`);
     }
   }}finally{setLocale('zh-CN');}
 });
@@ -420,7 +420,7 @@ test('task cards display the game state instead of coarse progress and keep achi
 });
 
 test('period badges distinguish task types and expose numbers only on hover in all three workbenches',()=>{
-  const periods=[['单次','once'],['日常','daily'],['周常','weekly'],['月常','monthly'],['季常','quarterly'],['年常','yearly'],['limited','limited']];
+  const periods=[['单次','once'],['日常','daily'],['周常','weekly'],['月常','monthly'],['季常','quarterly'],['年常','yearly'],['限时单次','once'],['限时周常','weekly'],['限时月常','monthly']];
   for(const kind of ['normal','expedition','practice']){
     const rows=periods.map(([period],index)=>task({id:1000+index,code:`B${800+index}`,title:`任务${index}`,period,state:index%3+1}));
     const ui=harness({kind,defaultOpen:true},{status:'ready',tasks:rows});
@@ -432,6 +432,20 @@ test('period badges distinguish task types and expose numbers only on hover in a
       assert.equal(meta.children[0].props['data-status'],['available','active','complete'][index%3]);
     }
   }
+});
+
+test('limited tasks show only their localized recurrence and keep unknown periods unlabeled',()=>{
+  const i18n=require('../../src/shared/i18n'),period=require('../../src/ui/components/quest_badges')({createElement:(type,props,...children)=>({type,props,children})}).period;
+  try{for(const [locale,expected] of [['zh-CN','周常'],['ja-JP','週次'],['zh-TW','每週']]){
+    i18n.setLocale(locale);const badge=period('限时周常','2611C1');assert.equal(badge.props['data-period'],'weekly');assert.equal(badge.children[0],expected);
+  }
+    i18n.setLocale('ja-JP');for(const value of ['限时单次','限时日常','限时周常','限时月常','限时季常','限时年常']){
+      const label=period(value).children[0];assert.equal(label.length,2,value);
+    }
+    assert.equal(period('limited','P313'),null);assert.equal(period('限时','P313'),null);
+  }finally{i18n.setLocale('zh-CN');}
+  const ui=harness({defaultOpen:true},{status:'ready',tasks:[task({code:'B141',period:'limited'})]});
+  assert(ui.find(n=>n.type==='h4'&&n.props['data-tooltip']==='任务编号：B141'));
 });
 
 test('opened tasks re-evaluate the current ships, equipment, destination and quest state',()=>{

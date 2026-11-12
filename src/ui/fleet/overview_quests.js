@@ -44,8 +44,7 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
       const gameConfirmed=task.state===2&&task.id===443&&task.code==='D39'&&task.progressFlag===1&&task.goals.length===1&&
         goal.count===2&&choices.length===1&&choices[0].kind==='expedition'&&choices[0].missionId===30&&count<2;
       const hasCount=Number.isSafeInteger(goal.count)&&goal.count>0,complete=hasCount&&count>=goal.count;
-      const progressText=gameConfirmed?'1 / 2':complete?`${count} / ${goal.count}`:
-        count>0?`≥${count} / ${goal.count}`:`0 / ${goal.count}`;
+      const progressText=gameConfirmed?'1 / 2':`${count} / ${goal.count}`;
       const progressDescription=gameConfirmed?t('目标进度 1/2，依据游戏任务进度'):complete?
         t('已观察目标进度 {count}/{total}',{count,total:goal.count}):count>0?t('已观察目标进度至少 {count}/{total}',{count,total:goal.count}):t('目标进度未确认');
       const status=hasCount?h('span',{className:'paa-overview-goal-status','data-complete':complete,'data-progress':complete?'complete':gameConfirmed||count>0?'partial':'none',
@@ -84,10 +83,10 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
           incomplete?h('p',{className:'paa-overview-quests-empty'},t('已观察到部分任务，正在后台核实完整列表')):null,
           service?.getQuestProgressError?.()?h('p',{className:'paa-overview-quests-error',role:'alert'},service.getQuestProgressError()):null,
           h('div',{className:'paa-overview-quests-list',role:'region','aria-label':t('进行中的任务列表'),tabIndex:0},...tasks.filter(task=>task.category===category).map(task=>{
-            const number=questText.number(task,state),requirements=task.fleetRequirements;
+            const number=questText.number(task,state),requirements=task.fleetRequirements,periodBadge=badges.period(task.period,number);
             return h('article',{key:task.id,className:'paa-overview-quest','data-quest-id':task.id},
               h('div',{className:'paa-overview-quest-header'},
-                h('div',{className:'paa-overview-quest-heading'},badges.period(task.period,number),h('h4',!task.period&&number?{'data-tooltip':t('quest.number',{number}),tabIndex:0}:null,task.title)),
+                h('div',{className:'paa-overview-quest-heading'},periodBadge,h('h4',!periodBadge&&number?{'data-tooltip':t('quest.number',{number}),tabIndex:0}:null,task.title)),
                 h('div',{className:'paa-overview-quest-meta'},badges.status(task.state))),
               h('div',{className:'paa-quest-requirements'},h('span',{className:'paa-quest-row-label'},t('编成')),
                 h('ul',null,...(requirements===null?[t('readability.fleetUnknown')]:requirements.length?requirements.map(questDisplay.fleetRule):[t('readability.fleetUnrestricted')]).map((label,index)=>h('li',{key:index},label)))),
