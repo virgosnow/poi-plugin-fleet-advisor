@@ -24,12 +24,15 @@ function harness(props){
   const all=(node,p)=>!node||typeof node!=='object'?[]:[...(p(node)?[node]:[]),...node.children.flatMap(c=>all(c,p))];
   render();return {render,all:p=>all(tree,p),find:p=>all(tree,p)[0],open(){all(tree,n=>n.props['aria-haspopup']==='dialog')[0].props.onClick();render();}};
 }
-test('route popup groups stages, highlights selection, resets preview and closes without confirmation',()=>{
+test('route popup groups stages, highlights selection and keeps clear in the trigger',()=>{
   const options=require('../../src/domain/routes/route_plans').recommendedOptions('7-3'),calls=[];
   const props={options,value:options[0].key,currentPhase:'gauge2',onChange:v=>calls.push(v)},ui=harness(props);
   ui.open();assert(ui.find(n=>n.props.role==='dialog'));assert.equal(ui.all(n=>n.props.role==='group')[0].props['aria-label'],'第 2 阶段');
   assert.equal(ui.all(n=>n.props['aria-selected']===true).length,1);
-  ui.all(n=>n.props.role==='option')[0].props.onClick();ui.render();assert.deepEqual(calls,['']);
+  assert(!ui.find(n=>n.props.className==='paa-area-panel-head'));
+  assert(!ui.find(n=>n.props.className==='paa-route-reset'));
+  const panel=ui.find(n=>n.props.role==='dialog');assert(!panel.children.some(n=>n?.props?.className==='paa-route-clear'));
+  ui.find(n=>n.props.className==='paa-route-clear').props.onClick();ui.render();assert.deepEqual(calls,['']);
   assert(!ui.find(n=>n.props.role==='dialog'));
   ui.open();ui.find(n=>n.props.className==='paa-route-option'&&n.props['aria-selected']===false).props.onClick();ui.render();
   assert.equal(calls.length,2);assert(!ui.find(n=>n.props.role==='dialog'));
@@ -41,6 +44,12 @@ test('route popup stays anchored and Escape never changes the fleet or selected 
   const anchor=ui.find(n=>n.props.className==='paa-area-anchor'),panel=ui.find(n=>n.props.role==='dialog');assert(anchor.children.includes(panel));
   assert.equal(ui.all(n=>n.props.role==='group').length,1);assert.equal(ui.all(n=>n.type==='h4').length,0);
   anchor.props.onKeyDown({key:'Escape',preventDefault(){},stopPropagation(){}});ui.render();assert.deepEqual(calls,[]);assert(!ui.find(n=>n.props.role==='dialog'));
+});
+
+test('route heading is part of the clickable selector',()=>{
+  const ui=harness({options:[],value:'',onChange(){}}),trigger=ui.find(n=>n.props.className==='paa-area-trigger paa-route-trigger');
+  assert(trigger.children.some(n=>n?.props?.className==='paa-picker-title'&&n.children.includes('路线')));
+  assert.equal(ui.all(n=>n.props.className==='paa-area-label').length,0);
 });
 
 test('route picker clicks toggle the panel',()=>{
@@ -67,6 +76,46 @@ test('keyboard route browsing stays open when the pointer leaves',t=>{
   assert(ui.find(n=>n.props.role==='dialog'));assert.deepEqual(calls,[]);
   doc.activeElement={};anchor().props.onPointerLeave({pointerType:'mouse'});t.mock.timers.tick(500);ui.render();
   assert(!ui.find(n=>n.props.role==='dialog'));assert.deepEqual(calls,[]);
+});
+
+test('clearing by mouse cancels pending hover until the pointer leaves, while clicks still work',t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const calls=[],props={options:[{key:'a',name:'路线',nodes:['A']}],value:'a',onChange:key=>{calls.push(key);props.value=key;}},ui=harness(props);
+  const anchor=()=>ui.find(n=>n.props.className==='paa-area-anchor');
+  anchor().props.onPointerEnter({pointerType:'mouse'});t.mock.timers.tick(300);
+  ui.find(n=>n.props.className==='paa-route-clear').props.onClick({detail:1});ui.render();
+  t.mock.timers.tick(600);ui.render();assert(!ui.find(n=>n.props.role==='dialog'));
+  anchor().props.onPointerEnter({pointerType:'mouse'});t.mock.timers.tick(600);ui.render();assert(!ui.find(n=>n.props.role==='dialog'));
+  ui.open();assert(ui.find(n=>n.props.role==='dialog'),'explicit click remains available');
+  ui.open();anchor().props.onPointerLeave({pointerType:'mouse'});anchor().props.onPointerEnter({pointerType:'mouse'});
+  t.mock.timers.tick(600);ui.render();assert(ui.find(n=>n.props.role==='dialog'),'hover works again after leaving');
+  assert.deepEqual(calls,['']);
+});
+
+test('hovering the clear icon does not open routes, and moving back onto the selector does',t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const ui=harness({options:[{key:'a',name:'路线',nodes:['A']}],value:'a',onChange(){}});
+  const anchor=()=>ui.find(n=>n.props.className==='paa-area-anchor'),clear=()=>ui.find(n=>n.props.className==='paa-route-clear');
+  const trigger={};anchor().props.ref.current={contains:node=>node===trigger};
+  anchor().props.onPointerEnter({pointerType:'mouse'});t.mock.timers.tick(300);
+  clear().props.onPointerEnter({pointerType:'mouse'});t.mock.timers.tick(700);ui.render();
+  assert(!ui.find(n=>n.props.role==='dialog'));
+  clear().props.onPointerLeave({pointerType:'mouse',relatedTarget:trigger});t.mock.timers.tick(600);ui.render();
+  assert(ui.find(n=>n.props.role==='dialog'));
+});
+
+test('mouse clear keeps the selector visually idle until the pointer leaves',()=>{
+  const props={options:[{key:'a',name:'路线',nodes:['A']}],value:'a',onChange:key=>{props.value=key;}},ui=harness(props);
+  const anchor=()=>ui.find(n=>n.props.className==='paa-area-anchor');
+  ui.find(n=>n.props.className==='paa-route-clear').props.onClick({detail:1,clientX:120,clientY:50});ui.render();
+  assert.equal(anchor().props['data-mute-hover'],true);
+  assert.equal(anchor().props.onPointerMove,undefined,'movement within the selector does not restore hover');
+  ui.open();assert(ui.find(n=>n.props.role==='dialog'),'click opens even while hover is muted');
+  ui.open();assert.equal(anchor().props['data-mute-hover'],true);
+  anchor().props.onPointerLeave({pointerType:'mouse'});ui.render();
+  assert.equal(anchor().props['data-mute-hover'],undefined);
+  props.value='a';ui.render();ui.find(n=>n.props.className==='paa-route-clear').props.onClick({detail:0});ui.render();
+  assert.equal(anchor().props['data-mute-hover'],undefined,'keyboard activation retains normal focus feedback');
 });
 
 test('battle predictions replace priority labels and rank routes within each phase without changing selections',()=>{
@@ -116,18 +165,19 @@ test('other gauges stay folded and cannot be selected until explicitly expanded;
   assert.deepEqual(toggles().map(n=>n.props['aria-expanded']),[true,false],'expansion from another map cannot leak');
 });
 
-test('reset button clears any selected route and closes the picker without changing gauge',()=>{
+test('clear icon works while closed or open and preserves the current gauge',()=>{
   const options=require('../../src/domain/routes/route_plans').recommendedOptions('5-6'),calls=[];
   const first=options.filter(o=>o.phase==='gauge1'&&!o.fallback);
   const props={area:'5-6',options,value:first.at(-1).key,currentPhase:'gauge3',onChange:key=>calls.push(key)},ui=harness(props);
-  const reset=()=>ui.find(n=>n.props['aria-label']==='重置路线');
-  assert(reset());ui.open();reset().props.onClick();ui.render();assert.deepEqual(calls,['']);
+  assert(!ui.find(n=>n.props.className==='paa-route-reset'));
+  const clear=()=>ui.find(n=>n.props.className==='paa-route-clear');
+  assert(clear());assert.equal(clear().props['aria-label'],'取消路线选择');
+  assert(ui.find(n=>n.props.className==='paa-area-anchor').children.includes(clear()));
+  ui.open();clear().props.onClick();ui.render();assert.deepEqual(calls,['']);
   assert(!ui.find(n=>n.props.role==='dialog'));
-  props.value='';ui.render();assert(reset());assert(reset().props.disabled);
-  reset().props.onClick();assert.deepEqual(calls,['']);
-  props.value=first[0].key;props.disabled=true;ui.render();assert(reset().props.disabled);
-  reset().props.onClick();assert.deepEqual(calls,['']);
-  props.disabled=false;props.hidden=true;ui.render();reset().props.onClick();assert.deepEqual(calls,['']);
+  props.value='';ui.render();ui.open();assert(!clear());
+  props.value=first[0].key;props.disabled=true;ui.render();assert(clear().props.disabled);
+  props.disabled=false;props.hidden=true;ui.render();assert(clear().props.disabled);assert.deepEqual(calls,['']);
 });
 
 test('adaptive result is display-only, cannot be selected, and can be reset',()=>{
@@ -137,14 +187,14 @@ test('adaptive result is display-only, cannot be selected, and can be reset',()=
   assert.match(ui.find(n=>n.props.className==='paa-wb-route-name').children.join(''),/自适应路线/);
   ui.open();assert(!ui.find(n=>n.props.role==='option'&&n.props.key===fallback.key));
   assert(ui.find(n=>n.props.role==='option'&&n.props.key===curated[0].key));
-  const reset=ui.find(n=>n.props['aria-label']==='重置路线');assert(reset);reset.props.onClick();
+  const reset=ui.find(n=>n.props.className==='paa-route-clear');assert(reset);reset.props.onClick();
   assert.deepEqual(calls,['']);assert(!calls.includes(fallback.key));
 });
 
 test('reset remains available for a single route, including an unavailable one',()=>{
   const only={key:'only',name:'唯一路线',nodes:['A','B']},calls=[];
   const props={options:[{...only,status:'notFound'}],value:'only',onChange:key=>calls.push(key)},ui=harness(props);
-  const reset=ui.find(n=>n.props['aria-label']==='重置路线');assert(reset);reset.props.onClick();
+  ui.open();const reset=ui.find(n=>n.props.className==='paa-route-clear');assert(reset);reset.props.onClick();
   assert.deepEqual(calls,['']);
 });
 
@@ -174,14 +224,14 @@ test('popup grid navigation follows its columns and skips folded stages',()=>{
   assert.deepEqual(focused,[2,2,2,1,5]);
 });
 
-test('route popup uses the same region-wide placement as the map picker, including its reset button',()=>{
+test('route popup follows its trigger rather than extending over the reset button',()=>{
   const {pickerPlacement}=require('../../src/ui/components/picker_placement');
   const region={getBoundingClientRect:()=>({left:30,right:500,width:470})};
   const anchor={getBoundingClientRect:()=>({left:70,right:454,width:384,bottom:100}),closest:selector=>selector==='.paa-area-picker'?region:null};
   const placement=pickerPlacement(anchor,1200);
-  assert.equal(placement.width,478);assert.equal(placement.left,-44);
-  assert.equal(placement.rect.left+placement.left,26,'four pixels beyond the region on the left');
-  assert.equal(placement.rect.left+placement.left+placement.width,504,'four pixels beyond the region on the right');
+  assert.equal(placement.width,384);assert.equal(placement.left,0);
+  assert.equal(placement.rect.left+placement.left,70,'panel begins at the trigger left edge');
+  assert.equal(placement.rect.left+placement.left+placement.width,454,'panel ends at the trigger right edge');
   const narrow=pickerPlacement(anchor,400);assert.equal(narrow.width,376);
   assert(narrow.rect.left+narrow.left>=12);assert(narrow.rect.left+narrow.left+narrow.width<=388);
 });

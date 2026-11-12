@@ -38,6 +38,7 @@ module.exports=function createRoutePicker(React){
     useLocale(React);
     const [open,setOpen]=React.useState(false),anchor=React.useRef(null),trigger=React.useRef(null),panel=React.useRef(null),pointerInside=React.useRef(false);
     const [expanded,setExpanded]=React.useState({});
+    const [muteHover,setMuteHover]=React.useState(false);
     const show=()=>{setExpanded({});setOpen(true);};
     const picker=usePickerToggle(React,{enabled:!disabled&&!hidden,open,anchor,onOpen:show,onClose:()=>setOpen(false)});
     const close=()=>{picker.dismiss();setOpen(false);trigger.current?.focus({preventScroll:true});};
@@ -90,19 +91,25 @@ module.exports=function createRoutePicker(React){
     const toggle=group=>setExpanded({context,phases:{...(expanded.context===context?expanded.phases:{}),[group.phase]:!isExpanded(group)}});
     const path=routeFormula;
     return h('div',{className:'paa-area-picker paa-wb-route-picker','data-kind':'route'},
-      h('span',{className:'paa-area-label'},t('路线')),
-      h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:picker.guardClick,onPointerEnter:picker.enter,onPointerLeave:picker.leave},
+      h('div',{className:'paa-area-anchor',ref:anchor,'data-has-selection':!!value,'data-mute-hover':muteHover||undefined,onKeyDown:keys,
+        onClickCapture:e=>{if(!e.target?.closest?.('.paa-route-clear'))picker.guardClick(e);},onPointerEnter:picker.enter,
+        onPointerLeave:e=>{if(e.pointerType==='mouse')setMuteHover(false);picker.leave(e);}},
         h('button',{type:'button',className:'paa-area-trigger paa-route-trigger',ref:trigger,disabled,
           'aria-label':t('路线'),'aria-haspopup':'dialog','aria-expanded':open&&!disabled&&!hidden,
           onClick:()=>{if(!disabled&&!hidden)picker.click();}},
+          h('span',{className:'paa-picker-title'},t('路线')),
           h('span',{className:'paa-wb-route-name'},selected?localized.routeName(selected):t('选择路线')),
           selected?h('span',{className:'paa-wb-route-path'},`${selected.phaseLabel?localized.phaseLabel(selected.phaseLabel)+'　':''}${path(selected)==='无可达分支'?t('map.noRoute'):path(selected)}`):null,
           h('span',{className:'paa-area-chevron','aria-hidden':true})),
+        value?h('button',{className:'paa-route-clear',type:'button',disabled:disabled||hidden,'aria-label':t('取消路线选择'),
+          onPointerEnter:e=>{if(e.pointerType==='mouse')picker.cancelPendingHover();},
+          onPointerLeave:e=>{if(e.pointerType==='mouse'&&anchor.current?.contains(e.relatedTarget))picker.enter(e);},
+          onClick:e=>{if(e?.detail!==0){picker.suppressHoverUntilLeave();setMuteHover(true);}choose('');}},
+          h('svg',{viewBox:'0 0 20 20',width:18,height:18,fill:'none',stroke:'currentColor',strokeWidth:1.3,strokeLinecap:'round','aria-hidden':true},
+            h('circle',{cx:10,cy:10,r:7}),h('path',{d:'M7.5 7.5l5 5m0-5l-5 5'}))):null,
         open&&!disabled&&!hidden?h('section',{className:'paa-area-panel paa-route-panel',ref:panel,role:'dialog','aria-label':t('选择路线'),
           onKeyDownCapture:picker.engageKeyboard,onPointerDownCapture:picker.engageSelect},
-          h('div',{className:'paa-area-panel-head'},h('span',null,t('选择路线')),h('button',{type:'button','aria-label':t('关闭路线选择'),onClick:close},'×')),
           h('div',{className:'paa-area-regions paa-route-list',role:'listbox','aria-label':t('推荐路线')},
-            h('button',{className:'paa-route-clear',type:'button',role:'option','aria-selected':!selected,onClick:()=>choose('')},t('选择路线'),h('small',null,t('取消路线预选'))),
             ...groups.map(group=>{
               const expanded=isExpanded(group),id=`paa-routes-${area}-${group.phase}`;
               const rows=group.options.map(option=>h('button',{key:option.key,type:'button',className:'paa-route-option',role:'option',disabled:routeBlocked(option),tabIndex:expanded&&!routeBlocked(option)?0:-1,'aria-selected':option.key===value,onClick:()=>{if(expanded&&!routeBlocked(option))choose(option.key);}},
@@ -118,12 +125,7 @@ module.exports=function createRoutePicker(React){
                 h('div',{id,className:'paa-collapse','data-open':expanded,'aria-hidden':!expanded,inert:expanded?undefined:''},
                   h('div',{className:'paa-collapse-clip'},h('div',{className:'paa-route-options'},...rows))));
             })),
-          !groups.length?h('p',{className:'paa-muted'},t('当前没有推荐路线')):null):null),
-      h('button',{type:'button',className:'paa-route-reset',disabled:disabled||hidden||!value,
-        'aria-label':t('重置路线'),'data-tooltip':t('取消路线选择'),
-        onClick:()=>{if(disabled||hidden||!value)return;picker.dismiss();setOpen(false);onChange('');}},
-        h('svg',{width:18,height:18,viewBox:'0 0 20 20',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
-          h('path',{d:'M4 7a6 6 0 1 1 0 6M4 3v4h4'}))));
+          !groups.length?h('p',{className:'paa-muted'},t('当前没有推荐路线')):null):null));
   };
 };
 module.exports.routeGroups=routeGroups;

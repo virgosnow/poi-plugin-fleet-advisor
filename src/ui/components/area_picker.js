@@ -124,7 +124,8 @@ module.exports=function createAreaPicker(React){
       }
       return summaries.get(entry.missionId);
     };
-    const visible=expedition?sortMissions(filterMissions(catalog,brief,{query,region,masters:missionMasters}),brief,order):catalog;
+    const visible=expedition?sortMissions(filterMissions(catalog,brief,{query,region,masters:missionMasters}),brief,order):
+      region==='all'?catalog:catalog.filter(map=>map.area.startsWith(`${region}-`));
     const statusText=summary=>[summary.runningFleets.length?t('第 {n} 舰队远征中',{n:summary.runningFleets.join('、')}):'',t(summary.completion==='locked'?'未解锁':summary.completion==='completed'?(summary.monthly?'本期已完成':'已完成'):summary.completion==='incomplete'?(summary.monthly?'本期未完成':'未完成'):'完成状态待同步：登录游戏后自动读取')].filter(Boolean).join(' · ');
     const duration=summary=>{const n=summary.minutes;if(!Number.isFinite(n)||n<=0)return '—';const h=Math.floor(n/60),m=n%60;return h&&m?t('{h}时{m}分',{h,m}):h?t('{h}时',{h}):t('{m}分',{m});};
     const statusIcon=(summary,showFleet=false)=>summary.status==='running'&&showFleet?
@@ -154,23 +155,20 @@ module.exports=function createAreaPicker(React){
             summary.completion==='locked'?h('small',{className:'paa-mission-locked-label'},t('未解锁')):null)]:
           [h('strong',null,id(entry)),entry.name?h('small',null,entry.name):null]));
     };
-    return h('div',{className:'paa-area-picker','data-kind':kind},h('span',{className:'paa-area-label'},t(label)),
+    return h('div',{className:'paa-area-picker','data-kind':kind},
       h('div',{className:'paa-area-anchor',ref:anchor,onKeyDown:keys,onClickCapture:picker.guardClick,onPointerEnter:picker.enter,onPointerLeave:picker.leave},
       h('button',{type:'button',ref:trigger,className:'paa-area-trigger',disabled,
         'aria-label':t(label),'aria-description':selectedBrief?statusText(selectedBrief):undefined,'aria-haspopup':'dialog','aria-expanded':open&&!disabled&&!hidden,onClick:()=>{if(!disabled&&!hidden)picker.click();}},
+        h('span',{className:'paa-picker-title'},t(label)),
         h('strong',null,selectedBrief?.number||value),h('span',{className:'paa-area-name'},selectedBrief?.name||selected?.name||t('选择{label}',{label:t(label)})),
         selectedBrief?h('span',{className:'paa-mission-option-state paa-mission-selected-state'},monthBadge(selectedBrief),statusIcon(selectedBrief)):null,
         h('span',{className:'paa-area-chevron','aria-hidden':true})),
       open&&!disabled&&!hidden?h('section',{ref:dialog,className:'paa-area-panel',role:'dialog','aria-label':t('选择{label}',{label:t(label)}),onKeyDown:keys,
           onKeyDownCapture:picker.engageKeyboard,onPointerDownCapture:picker.engageSelect,'data-kind':kind},
-          h('div',{className:'paa-area-panel-head'},h('span',null,t('选择{label}',{label:t(label)})),
-            expedition&&!Object.keys(missionProgress?.records||{}).length?h('span',null,t('待同步')):null,
-            expedition? h('span',{className:'paa-mission-count'},`${visible.length} / ${catalog.length}${netResource?t(' · 参考净时薪（预设补给）'):''}`):null,
-            expedition&&query?h('button',{type:'button',className:'paa-mission-search-reset',onClick:()=>setQuery('')},t('清空搜索')):null,
-            h('button',{type:'button','aria-label':t('关闭{label}选择',{label:t(label)}),onClick:close},'×')),
-          expedition?h('div',{className:'paa-mission-controls'},h('input',{type:'search','aria-label':t('搜索远征'),placeholder:t('编号 / 名称 / 资源'),value:query,
+          expedition?h('div',{className:'paa-mission-controls'},h('div',{className:'paa-mission-search'},h('input',{type:'search','aria-label':t('搜索远征'),placeholder:t('编号 / 名称 / 资源'),value:query,
             onPointerDown:()=>{editingSearch.current=true;},onCompositionStart:()=>{editingSearch.current=true;},
             onBlur:()=>{editingSearch.current=false;},onChange:e=>{editingSearch.current=true;setQuery(e.target.value);}}),
+            query?h('button',{type:'button',className:'paa-mission-search-reset','aria-label':t('清空搜索'),onClick:()=>setQuery('')},'×'):null),
             h('select',{'aria-label':t('远征排序'),value:order,onChange:e=>setOrder(e.target.value)},
               ...[['number','编号顺序'],['short','时长：短到长'],['long','时长：长到短'],
                 ...Object.entries(INCOME_ORDERS).map(([id,name])=>[id,t('{name}净收益/时',{name:t(name)})])].map(([id,name])=>h('option',{key:id,value:id},t(name))))):null,
@@ -178,10 +176,19 @@ module.exports=function createAreaPicker(React){
             ...[{key:'all',name:'全海域'},...missionRegions(catalog,missionMasters)].map(item=>h('button',{
               type:'button',key:item.key,'aria-pressed':region===item.key,'aria-label':item.key==='all'?t('全海域'):t('{region}海域{startNote}',{region:t(item.name),startNote:item.start?t('，远征从 {n} 号开始',{n:item.start}):''}),
               onClick:()=>setRegion(item.key)},t(item.name),item.start?h('span',{className:'paa-mission-area-number','aria-hidden':true},`（${item.start}~）`):null))):null,
+          !expedition?h('div',{className:'paa-mission-area-tabs paa-map-area-tabs',role:'group','aria-label':t('筛选海域')},
+            h('button',{type:'button','aria-pressed':region==='all','aria-label':t('全海域'),onClick:()=>setRegion('all')},t('全海域')),
+            ...groups(catalog).map(group=>h('button',{type:'button',key:group.world,'aria-pressed':region===String(group.world),
+              'aria-label':REGIONS[group.world]?t(group.name):t('第 {n} 海域',{n:group.world}),onClick:()=>setRegion(String(group.world))},
+              MISSION_REGIONS[group.world]?t(MISSION_REGIONS[group.world]):String(group.world),
+              h('span',{className:'paa-mission-area-number','aria-hidden':true},`（${group.world}-X）`)))):null,
+          expedition&&(netResource||!Object.keys(missionProgress?.records||{}).length)?h('div',{className:'paa-mission-filter-meta','aria-live':'polite'},
+            !Object.keys(missionProgress?.records||{}).length?h('span',null,t('待同步')):null,
+            netResource?h('span',{className:'paa-mission-count'},t('参考净时薪（预设补给）')):null):null,
           h('div',{className:'paa-area-regions'},expedition?h('div',{className:'paa-area-maps paa-mission-list'},...visible.map(option)):groups(visible).map(group=>h('section',{key:group.world,className:'paa-area-region','aria-label':REGIONS[group.world]?t(group.name):t('第 {n} 海域',{n:group.world})},
-            h('h4',null,h('span',null,group.world),REGIONS[group.world]?t(group.name):t('第 {n} 海域',{n:group.world})),
+            region==='all'?h('h4',null,h('span',null,group.world),REGIONS[group.world]?t(group.name):t('第 {n} 海域',{n:group.world})):null,
             h('div',{className:'paa-area-maps'},...group.maps.map(option)))),
-            !catalog.length?h('p',{className:'paa-muted'},t('{label}资料正在载入，请稍后重试。',{label:t(label)})):!visible.length?h('p',{className:'paa-muted'},t('没有符合条件的远征')):null)):null));
+            !catalog.length?h('p',{className:'paa-muted'},t('{label}资料正在载入，请稍后重试。',{label:t(label)})):!visible.length?h('p',{className:'paa-muted'},t(expedition?'没有符合条件的远征':'没有符合条件的海域')):null)):null));
   };
 };
 module.exports.groups=groups;

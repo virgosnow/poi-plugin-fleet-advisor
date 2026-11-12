@@ -31,11 +31,12 @@ module.exports=function usePickerHover(React,{enabled,open,anchor,onOpen,onClose
   const enter=event=>{
     if(event.pointerType!=='mouse'||!state.enabled)return;
     if(state.closeTimer!==null){clearTimeout(state.closeTimer);state.closeTimer=null;}
-    if(state.open||state.openTimer!==null)return;
+    if(state.suppressHover||state.open||state.openTimer!==null)return;
     state.openTimer=setTimeout(()=>{state.openTimer=null;show('hover');},OPEN_DELAY);
   };
   const leave=event=>{
     if(event.pointerType!=='mouse')return;
+    state.suppressHover=false;
     if(state.openTimer!==null){clearTimeout(state.openTimer);state.openTimer=null;}
     if(!state.open||state.closeTimer!==null)return;
     state.closeTimer=setTimeout(()=>{
@@ -49,9 +50,11 @@ module.exports=function usePickerHover(React,{enabled,open,anchor,onOpen,onClose
   const engageKeyboard=event=>{if(state.open&&event.key!=='Escape')state.focusBoundary=event.currentTarget;};
   const engageSelect=event=>{if(state.open)state.focusBoundary=event.target?.tagName==='SELECT'?event.currentTarget:null;};
   const click=()=>{if(!state.enabled)return;cancel();if(state.open)state.close();else show('click');};
+  const cancelPendingHover=()=>{if(state.openTimer!==null){clearTimeout(state.openTimer);state.openTimer=null;}};
+  const suppressHoverUntilLeave=()=>{cancel();state.suppressHover=true;};
   const guardClick=event=>{
     if(state.open&&event.detail!==0&&Date.now()-state.openedAt<CLICK_GUARD){event.preventDefault();event.stopPropagation();}
   };
   React.useEffect(()=>{if(!enabled)dismiss();return dismiss;},[enabled]);
-  return {enter,leave,click,guardClick,dismiss,engageKeyboard,engageSelect,isHover:()=>state.source==='hover'};
+  return {enter,leave,click,guardClick,dismiss,engageKeyboard,engageSelect,cancelPendingHover,suppressHoverUntilLeave,isHover:()=>state.source==='hover'};
 };

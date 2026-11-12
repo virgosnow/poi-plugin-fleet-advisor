@@ -157,10 +157,12 @@ module.exports=React=>{
         bonusKnown&&bonus>0?'income':bonusKnown&&bonus<0?'warning':'neutral',bonusKnown&&bonus>0?'check':bonusKnown&&bonus<0?'warning':'neutral'));
   }
   function goal({value,onChange,disabled=false}){
-    return h('div',{className:'paa-exp-goal-field'},h('span',null,t('目标')),
+    return h('div',{className:'paa-exp-goal-field'},
       h('div',{className:'paa-exp-goal',role:'group','aria-label':t('远征目标')},
+        h('span',{className:'paa-picker-title'},t('目标')),
+        h('div',{className:'paa-exp-goal-options','data-goal':value},
         ...[['great','优先大成功'],['success','成功即可']].map(([id,label])=>h('button',{
-          key:id,type:'button','aria-pressed':value===id,disabled,onClick:()=>{if(!disabled&&value!==id)return onChange(id);}},t(label)))));
+          key:id,type:'button','data-goal':id,'aria-pressed':value===id,disabled,onClick:()=>{if(!disabled&&value!==id)return onChange(id);}},t(label))))));
   }
   return {overview,metrics,goal};
 };

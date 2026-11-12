@@ -36,7 +36,7 @@ test('map, expedition and route panels are positioned in layout effects before p
     assert(positioning,`${kind} must position before paint`);
     assert(!ui.passive.some(fn=>String(fn).includes('pickerPlacement(root')));
     const cleanup=positioning();
-    assert.equal(env.panel.style.width,'408px');assert.equal(env.panel.style.left,'-64px');
+    assert.equal(env.panel.style.width,`${env.root.getBoundingClientRect().width}px`);assert.equal(env.panel.style.left,'0px');
     assert.equal(env.panel.style.maxHeight,kind==='expedition'?'400px':kind==='route'?'350px':'320px');
     assert(env.listeners.has('window:resize'));assert(env.listeners.has('document:scroll'));
     if(kind==='expedition')assert.equal(env.focus.count,1);

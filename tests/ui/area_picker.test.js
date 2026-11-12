@@ -27,11 +27,29 @@ test('unknown future regions follow known regions and maps remain in numeric ord
   assert.deepEqual(rows.find(r=>r.world===9).maps.map(m=>m.area),['9-2','9-10']);
 });
 
+test('map region tabs filter in game order without changing selection or adding search and sorting',()=>{
+  const maps=['4-1','7-1','3-1','2-1','1-2','1-1','6-1','5-1'].map(area=>({area})),calls=[];
+  const ui=harness({maps,value:'1-1',onChange:id=>calls.push(id)});ui.open();
+  const group=ui.find(n=>n.props['aria-label']==='筛选海域');
+  assert(group);assert.deepEqual(group.children.map(n=>n.props['aria-label']),['全海域','镇守府海域','南西诸岛海域','北方海域','南西海域','西方海域','南方海域','中部海域']);
+  assert.equal(ui.all(n=>n.props['aria-current']==='true').length,1);
+  assert(!ui.find(n=>n.type==='input'));assert(!ui.find(n=>n.type==='select'));
+  group.children.find(n=>n.props['aria-label']==='南西海域').props.onClick();ui.render();
+  assert.deepEqual(ui.all(n=>n.type==='button'&&/^\d+-\d+/.test(n.props['aria-label']||'')).map(n=>n.props['aria-label']),['7-1']);
+  assert.equal(ui.all(n=>n.type==='h4').length,0,'the selected region is already named by its tab');
+  assert(ui.find(n=>n.props['aria-label']==='南西海域'&&n.props['aria-pressed']===true));assert.deepEqual(calls,[]);
+  ui.find(n=>n.props['aria-label']==='全海域').props.onClick();ui.render();
+  assert.equal(ui.all(n=>n.type==='button'&&/^\d+-\d+/.test(n.props['aria-label']||'')).length,maps.length);
+  assert.equal(ui.all(n=>n.type==='h4').length,7,'all regions retain their headings');
+});
+
 test('panel selects directly, highlights current map, and closing leaves selection untouched',()=>{
   const calls=[],props={maps:[{area:'1-1',name:'近海'},{area:'3-5',name:'北方海域'}],value:'3-5',onChange:id=>calls.push(id)};
   const ui=harness(props);ui.open();
   assert(ui.find(n=>n.props.role==='dialog'));assert.equal(ui.find(n=>n.props['aria-current']==='true').props['aria-label'],'3-5 北方海域');
-  ui.find(n=>n.props['aria-label']==='关闭海域选择').props.onClick();ui.render();
+  assert(!ui.find(n=>n.props.className==='paa-area-panel-head'));
+  assert(!ui.find(n=>n.props['aria-label']==='关闭海域选择'));
+  ui.open();
   assert(!ui.find(n=>n.props.role==='dialog'));assert.deepEqual(calls,[]);
   ui.open();ui.find(n=>n.props['aria-label']==='1-1 近海').props.onClick();ui.render();
   assert.deepEqual(calls,['1-1']);assert(!ui.find(n=>n.props.role==='dialog'));
@@ -49,6 +67,17 @@ test('map names come from live master data when the routing catalog has only num
   assert.equal(ui.all(n=>n.props['data-tooltip']||n.props.title).length,0);
 });
 
+test('map and expedition headings are inside their selectors',()=>{
+  const map=harness({maps:[{area:'1-1',name:'近海'}],value:'1-1',onChange(){}});
+  const trigger=map.find(n=>n.props.className==='paa-area-trigger');
+  assert(trigger.children.some(n=>n?.props?.className==='paa-picker-title'&&n.children.includes('海域')));
+  assert.equal(map.all(n=>n.props.className==='paa-area-label').length,0);
+  const mission=harness({kind:'expedition',missions:[],value:1,onChange(){}});
+  assert.equal(mission.all(n=>n.props.className==='paa-area-label').length,0);
+  const missionTrigger=mission.find(n=>n.props.className==='paa-area-trigger');
+  assert(missionTrigger.children.some(n=>n?.props?.className==='paa-picker-title'&&n.children.includes('远征')));
+});
+
 test('expeditions share the anchored non-modal panel and select numeric mission ids',()=>{
   const calls=[],missions=[{missionId:101,world:1,name:'兵站强化任务'},{missionId:2,world:1,name:'长距离练习航海'},{missionId:9,world:2,name:'油轮护卫任务'}];
   const before=JSON.stringify(missions),rows=create.sortMissions(missions,()=>({}));
@@ -59,6 +88,20 @@ test('expeditions share the anchored non-modal panel and select numeric mission 
   assert.equal(ui.find(n=>n.props['aria-current']==='true').props['aria-label'],'2 长距离练习航海');
   ui.find(n=>n.props['aria-label']==='101 兵站强化任务').props.onClick();ui.render();
   assert.deepEqual(calls,[101]);assert(!ui.find(n=>n.props.role==='dialog'));
+});
+
+test('expedition panel filters without reserving a row for result counts',()=>{
+  const ui=harness({kind:'expedition',missions:[{missionId:1,world:1,name:'练习航海'},{missionId:2,world:2,name:'海上护卫'}],value:1,onChange(){},missionProgress:{records:{1:{state:1}}}});
+  ui.open();
+  const controls=ui.find(n=>n.props.className==='paa-mission-controls');
+  assert(!controls.children.some(n=>n?.props?.['aria-label']==='关闭远征选择'));
+  assert(!ui.find(n=>n.props.className==='paa-area-panel-head'));
+  assert(!ui.find(n=>n.props.className==='paa-mission-filter-count'));
+  ui.find(n=>n.props['aria-label']==='搜索远征').props.onChange({target:{value:'练习'}});ui.render();
+  assert(!ui.find(n=>n.props.className==='paa-mission-filter-count'));
+  assert(!ui.find(n=>n.props.className==='paa-mission-filter-meta'));
+  assert.equal(ui.all(n=>n.props.className==='paa-mission-option-number').length,1);
+  assert(ui.find(n=>n.props['aria-label']==='清空搜索'));
 });
 
 test('expedition picker clicks toggle without changing the selected mission',()=>{
@@ -163,7 +206,7 @@ test('expedition region tabs filter alongside search and sorting without changin
   ui.find(n=>n.props['aria-label']==='其他海域').props.onClick();ui.render();
   assert.deepEqual(options().map(n=>n.props['aria-label'].split(' ')[0]),['999']);
   assert.deepEqual(calls,[]);assert(ui.find(n=>n.props.role==='dialog'));
-  ui.find(n=>n.props['aria-label']==='关闭远征选择').props.onClick();ui.render();
+  ui.open();
   assert.deepEqual(calls,[]);
 });
 
@@ -351,7 +394,7 @@ test('reopening the plugin or remounting from home resets expedition search and 
   first.find(n=>n.props['aria-label']==='搜索远征').props.onChange({target:{value:'海上'}});
   first.find(n=>n.props['aria-label']==='远征排序').props.onChange({target:{value:'bauxite'}});first.render();
   assert.equal(first.find(n=>n.props['aria-label']==='远征排序').props.value,'bauxite');
-  first.find(n=>n.props['aria-label']==='关闭远征选择').props.onClick();first.render();first.open();
+  first.open();first.open();
   assert.equal(first.find(n=>n.props['aria-label']==='远征排序').props.value,'bauxite');
   assert.equal(first.find(n=>n.props['aria-label']==='搜索远征').props.value,'海上');
   const reopened=harness(props);reopened.open();
