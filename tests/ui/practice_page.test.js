@@ -318,13 +318,14 @@ test('practice training targets can be searched and selected without altering th
  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
    useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
  const ship=W.entry(store,1),service={preview:()=>({}),createSnapshot:()=>({snapshotId:'test'}),recommendPracticeFleet:async args=>{requests.push(args);return {scheme:{ships:[ship]},enemyKnown:true};}};
+  const renderTraining=require('../helpers/training_picker_react')(React);
  const forecast=require('../../src/domain/combat/practice_forecast'),originalRecommend=forecast.recommendFormation,originalEstimate=forecast.estimate;
  forecast.recommendFormation=(s,scheme,enemy)=>enemy.known?'lineAbreast':null;
  forecast.estimate=(s,scheme,enemy,options)=>{estimates.push(options);return {status:'unknown',reason:'测试预测'};};
  try{
    const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>service});
    const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
-   const render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
+   const render=()=>{i=0;return renderTraining(()=>Page({kind:'practice',automaticOperations:false}));};
    const trigger=tree=>walk(tree).find(n=>n.props.className==='paa-practice-training-trigger');
    const option=(tree,id)=>walk(tree).find(n=>n.type==='label'&&n.props.key===id);
    const opponents=tree=>walk(tree).filter(n=>n.type==='button'&&n.props.className==='paa-practice-opponent-select');
@@ -333,7 +334,7 @@ test('practice training targets can be searched and selected without altering th
    assert(!walk(tree).some(n=>['演习目标','演习阵形','舰队规模'].includes(n.props['aria-label'])));
    states[0]=[{...ship,pin:true},null,null,null,null,null];
    trigger(tree).props.onClick();tree=render();
-   walk(walk(tree).find(n=>n.props['aria-label']==='锁定筛选')).find(n=>n.type==='button'&&n.children.includes('全部')).props.onClick();tree=render();
+   walk(tree).find(n=>n.type==='input'&&n.props['aria-label']==='已锁定').props.onChange({target:{checked:false}});tree=render();
    const text=node=>walk(node).flatMap(n=>n.children||[]).filter(x=>typeof x==='string').join(' ');
    assert.match(text(option(tree,1)),/下一改造 Lv\.60/);assert.doesNotMatch(text(option(tree,1)),/已达/);
    assert.match(text(option(tree,2)),/无后续改造/);assert.match(text(option(tree,3)),/下一改造 Lv\.40（已达）/);assert.match(text(option(tree,4)),/改造等级待确认/);
@@ -349,12 +350,8 @@ test('practice training targets can be searched and selected without altering th
    walk(option(tree,8)).find(n=>n.type==='input').props.onChange();tree=render();
    assert.equal(walk(trigger(tree)).filter(n=>n.props.className==='paa-practice-training-portrait').length,6);
    assert.match(trigger(tree).props['aria-label'],/测试舰1/);
-   const clear=walk(tree).find(n=>n.props['aria-label']==='清除培养舰娘');assert.equal(clear.props.disabled,false);
-   let searchFocused=false;
-   walk(tree).find(n=>n.props.className==='paa-practice-training-panel').props.ref.current={querySelector:()=>({focus:()=>{searchFocused=true;}})};
-   clear.props.onClick();tree=render();assert(searchFocused,'清除前将焦点留在面板内');
-   assert(walk(tree).some(n=>n.props.className==='paa-practice-training-panel'),'清除后面板保持打开');
-   assert.equal(walk(tree).find(n=>n.props['aria-label']==='清除培养舰娘').props.disabled,true);
+   for(const id of [1,2,3,4,5,8]){walk(option(tree,id)).find(n=>n.type==='input').props.onChange();tree=render();}
+   assert(walk(tree).some(n=>n.props.className==='paa-practice-training-panel'),'取消选择后面板保持打开');
    assert.match(trigger(tree).props['aria-label'],/无特别指定/);assert.equal(states[0][0].id,ship.id);
    for(const id of [2,3,4,5]){walk(option(tree,id)).find(n=>n.type==='input').props.onChange();tree=render();}
    for(const id of [3,4,5]){walk(option(tree,id)).find(n=>n.type==='input').props.onChange();tree=render();}
@@ -376,34 +373,34 @@ test('practice training targets can be searched and selected without altering th
 
 test('training picker shares hover guard and filters and sorts the full roster without changing selections',()=>{
  const store=fixture(),states=[];let i=0;store.practiceState={known:true,opponents:[],revision:1};store.questState={known:true,tasks:[]};
- store.info.ships={1:store.info.ships[1],2:store.info.ships[2]};store.info.ships[1].api_lv=40;store.info.ships[2].api_lv=90;store.info.fleets[0].api_ship=[1,2,-1,-1,-1,-1];
+ store.info.ships={1:store.info.ships[1],2:store.info.ships[2]};store.info.ships[1].api_lv=1;store.info.ships[2].api_lv=90;store.info.fleets[0].api_ship=[1,2,-1,-1,-1,-1];
  store.const.$ships[2].api_name='翔鶴';store.info.ships[1].api_locked=1;store.info.ships[2].api_locked=0;
  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
    useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const renderTraining=require('../helpers/training_picker_react')(React);
  const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
  const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
- const render=()=>{i=0;return Page({kind:'practice',automaticOperations:false});};
+ const render=()=>{i=0;return renderTraining(()=>Page({kind:'practice',automaticOperations:false}));};
  let tree=render(),anchor=walk(tree).find(n=>n.props.className==='paa-practice-training');
  assert.equal(typeof anchor.props.onPointerEnter,'function');assert.equal(typeof anchor.props.onPointerLeave,'function');assert.equal(typeof anchor.props.onClickCapture,'function');
  walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props.onClick();tree=render();
  const options=()=>walk(tree).filter(n=>n.type==='label'&&n.props.className==='paa-practice-training-option');
- let locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');
- assert.equal(walk(locks).find(n=>n.props.className==='paa-practice-training-filter-label').children[0],'锁定');
- assert.deepEqual(walk(locks).filter(n=>n.type==='button').map(n=>n.children[0]),['全部','已锁定','未锁定']);
- assert.equal(walk(locks).find(n=>n.type==='button'&&n.children.includes('已锁定')).props['aria-pressed'],true);
+ const filter=(label,checked)=>{walk(tree).find(n=>n.type==='input'&&n.props['aria-label']===label).props.onChange({target:{checked}});tree=render();};
+ assert.equal(walk(tree).find(n=>n.type==='input'&&n.props['aria-label']==='已锁定').props.checked,true);
  assert.deepEqual(options().map(n=>n.props.key),[1]);
- walk(locks).find(n=>n.type==='button'&&n.children.includes('全部')).props.onClick();tree=render();
+ filter('已锁定',false);walk(options()[1]).find(n=>n.type==='input').props.onChange();tree=render();
+ filter('已锁定',true);assert.deepEqual(options().map(n=>n.props.key),[1]);
+ assert(walk(tree).some(n=>n.props.className==='paa-practice-training-portrait'),'a filtered-out training target remains selected');
+ filter('已锁定',false);assert.deepEqual(options().map(n=>n.props.key),[1,2]);
+ assert.equal(walk(options()[1]).find(n=>n.type==='input').props.checked,true);walk(options()[1]).find(n=>n.type==='input').props.onChange();tree=render();
  assert(options().every(option=>walk(option).every(n=>!n.props['data-tooltip']&&!n.props.title)));
  assert.deepEqual(options().map(n=>n.props.key),[1,2],'default sort is level ascending');
  assert(!walk(tree).some(n=>n.props['aria-label']==='舰队筛选'),'only ship type is a primary filter');
  assert(options().every(option=>walk(option).some(n=>n.props.className==='paa-wb-portrait')),'list displays ship portraits');
  assert.deepEqual(options().map(option=>walk(option).find(n=>n.props.className==='paa-practice-training-lock')?.props['aria-label']),['已锁定',undefined]);
- locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');
- walk(locks).find(n=>n.type==='button'&&n.children.includes('未锁定')).props.onClick();tree=render();
- assert.deepEqual(options().map(n=>n.props.key),[2]);
- locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');walk(locks).find(n=>n.type==='button'&&n.children.includes('已锁定')).props.onClick();tree=render();
+ filter('已锁定',true);
  assert.deepEqual(options().map(n=>n.props.key),[1]);
- locks=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');walk(locks).find(n=>n.type==='button'&&n.children.includes('全部')).props.onClick();tree=render();
+ filter('已锁定',false);
  let types=walk(tree).find(n=>n.props['aria-label']==='舰种筛选');walk(types).find(n=>n.type==='button'&&n.children.includes('驱逐／海防')).props.onClick();tree=render();
  assert.deepEqual(options().map(n=>n.props.key),[2]);
  walk(tree).find(n=>n.props['aria-label']==='排序方式').props.onChange({target:{value:'level-desc'}});tree=render();
@@ -425,10 +422,11 @@ test('training picker renders a bounded window and resets it when reopened by cl
  const template=store.info.ships[1];store.info.ships={};for(let id=1;id<=100;id++)store.info.ships[id]={...template,api_id:id,api_lv:id,api_locked:id%2};
  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
    useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+ const renderTraining=require('../helpers/training_picker_react')(React);
  const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({})})});
- const walk=n=>n&&typeof n==='object'?[n,...(n.children||[]).flatMap(walk)]:[],render=()=>{i=0;return Page({kind:'practice'});};
+ const walk=n=>n&&typeof n==='object'?[n,...(n.children||[]).flatMap(walk)]:[],render=()=>{i=0;return renderTraining(()=>Page({kind:'practice'}));};
  let tree=render();walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props.onClick();tree=render();
- walk(walk(tree).find(n=>n.props['aria-label']==='锁定筛选')).find(n=>n.type==='button'&&n.children.includes('全部')).props.onClick();tree=render();
+ walk(tree).find(n=>n.type==='input'&&n.props['aria-label']==='已锁定').props.onChange({target:{checked:false}});tree=render();
  let list=walk(tree).find(n=>n.props.className==='paa-practice-training-list'),options=()=>walk(tree).filter(n=>n.props.className==='paa-practice-training-option');
  assert.equal(options().length,16);assert.equal(options()[0].props['data-index'],0);
  assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-training-window').props.style.height,5300);
@@ -446,9 +444,9 @@ test('training picker renders a bounded window and resets it when reopened by cl
  assert.equal(options()[0].props['data-index'],0,'hover opening also resets the virtual window before rendering');
  assert.equal(options().length,16);
  list=walk(tree).find(n=>n.props.className==='paa-practice-training-list');list.props.onScroll({currentTarget:{scrollTop:0}});tree=render();
- const filter=walk(tree).find(n=>n.props['aria-label']==='锁定筛选');walk(filter).find(n=>n.children?.includes('未锁定')).props.onClick();tree=render();
+ walk(tree).find(n=>n.type==='input'&&n.props['aria-label']==='已锁定').props.onChange({target:{checked:true}});tree=render();
  assert.equal(walk(tree).find(n=>n.props.className==='paa-practice-training-window').props.style.height,2650);
- assert(options().every(n=>n.props.key%2===0));
+ assert(options().every(n=>n.props.key%2===1));
 });
 
 test('training picker waits for label focus before dismissing on blur',t=>{

@@ -7,8 +7,9 @@ test('level 99 remains selectable manually as a training target and fleet member
   store.practiceState={known:true,opponents:[],revision:1};store.questState={known:true,tasks:[]};
   const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),useEffect:()=>{},useRef:value=>({current:value}),
     useState(initial){const at=i++;if(!(at in states))states[at]=typeof initial==='function'?initial():initial;return [states[at],value=>{states[at]=typeof value==='function'?value(states[at]):value;}];}};
+  const renderTraining=require('../helpers/training_picker_react')(React);
   const Page=require('../../src/ui/practice/practice_page')(React,{getStore:()=>store,getController:()=>({preview:()=>({valid:true})})});
-  const render=()=>{i=0;return Page({kind:'practice',automaticOperations:true,onApply:()=>{applied++;}});};
+  const render=()=>{i=0;return renderTraining(()=>Page({kind:'practice',automaticOperations:true,onApply:()=>{applied++;}}));};
   const walk=node=>node&&typeof node==='object'?[node,...(node.children||[]).flatMap(walk)]:[];
   let tree=render();walk(tree).find(n=>n.props.className==='paa-practice-training-trigger').props.onClick();tree=render();
   const training=walk(tree).find(n=>n.props.className==='paa-practice-training-option'&&n.props.key===1);
