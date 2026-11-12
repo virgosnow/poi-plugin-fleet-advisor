@@ -122,6 +122,7 @@ test('task reward items have inventory tooltips alongside equipment on all workb
     const items=ui.all(n=>n.props.className==='paa-overview-reward-item');
     assert.deepEqual(items.map(row=>JSON.parse(row.props['data-tooltip-content']).rewardItemId),[1,59,54,3,96]);
     assert(items.every(row=>row.props.tabIndex===0));
+    assert(items.every(row=>row.children.some(child=>typeof child?.type==='function'&&child.props.itemId)),'every known item uses its mapped icon');
   }
 });
 

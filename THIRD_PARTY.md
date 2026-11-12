@@ -74,23 +74,25 @@ MCP 服务采用 Node.js 内置 HTTP 实现，不捆绑协议 SDK 或客户端�
 
 `src/domain/combat/gun_fit.js` 的昼战主炮适重参考[日文 Wiki 命中与回避](https://wikiwiki.jp/kancolle/命中と回避について#fitarms)和[英文 Wiki 适重炮](https://en.kancollewiki.net/Hidden_Fit_Bonuses)独立整理。系数为社区验证与估算；已识别但资料不足的主炮组合及提速状态显示待确认，未确认修正不作为已知零修正计入评分。适重属于舰娘整套配装的昼战命中项修正，不是装备固有的面板命中或实际命中率。
 
-`data/org_clear_escorts.json` 的 `detach` 来自游戏原版 `organize_filter.png` 的 `organize_filter_48/49`（选舰面板「はずす」按钮），按原版 `organize_filter_6` 背景合成，仅保存识别用色彩参考、来源地址、图集 SHA-256 和权利说明。`tools/vision/build-organization-detach.py` 从项目外图集重建参考；`tests/fixtures/org/detach.png` 使用已脱敏选舰页锚点与该按钮合成，不作为真实点击验收证据。原图集不随插件分发，素材权利归游戏权利方。
+`data/org_clear_escorts.json` 的选舰移除按钮模板来自游戏的 `organize_filter.png`，重建脚本位于 `tools/vision/build-organization-detach.py`。
 
-`data/equip_clear_all.json` 的 `normalRemove` 来自游戏原版 `remodel_main.png` 中 `remodel_main_56`（普通槽卸下叉号），保留来源地址、图集 SHA-256 和权利说明。`tools/vision/build-equipment-remove.py` 从项目外图集重建 15×15 掩码，原图集不随插件分发。`tests/fixtures/equip/normal-remove.png`、`normal-remove-3.png`、`normal-remove-4.png` 来自五槽、三槽和四槽的真实改装画面，只保留基础页面锚点、舰队页签及卸装控件区域；其余像素清空，不含账号 HUD 或图片元数据。这些素材验证识别，不代表已执行卸装。游戏素材权利归游戏权利方。
+`data/equip_clear_all.json` 的普通槽卸装按钮模板来自游戏的 `remodel_main.png`，重建脚本位于 `tools/vision/build-equipment-remove.py`。
 
-`data/equip_borrow.json` 中的 `sourceToggleOthers`、`sourceToggleStock` 来自游戏实际 UI 的“ストック装備”和“他艦娘装備中”按钮，`sortFilteredStock` 为库存筛选状态的排序标题校准样本。只保存识别所需像素，不含账号信息；用于确认其他舰娘装备／库存列表。游戏图像权利归游戏权利方，对应回归素材仅保留模式标题、排序标题和切换按钮。
+`data/equip_borrow.json` 的装备来源切换和排序模板来自游戏界面，仅保留识别所需像素。
 
-`data/port_return_button.json` 为游戏原版 `port_skin_1.png` 的母港圆钮负例采样，用于排除隐藏 UI 按钮；返回按钮本身按固定边框识别。来源地址、原图 SHA-256 与权利说明保存在文件中。仅分发识别所需的小尺寸色彩模板，原始图集不随插件分发，素材权利归游戏权利方。`tools/vision/build-port-return.py` 从项目外原图集重建模板。回归素材包括实测按钮、旧角度与实测边框的组合、原图母港图案与实测边框的组合，仅保留左上角圆形按钮区域，其余像素清空。
+`data/port_return_button.json` 的母港按钮负例模板来自游戏的 `port_skin_1.png`，重建脚本位于 `tools/vision/build-port-return.py`。
+
+上述模板的来源如上，原始图集不随插件分发；相关测试画面已脱敏，仅用于识别回归。
 
 | 范围 | 来源与处理 |
 | --- | --- |
-| `data/icons/t3/` | 游戏装备分类图标切片，图集与帧见 `data/equip_icon_index.json` |
-| 机制标签轮廓 | 从游戏装备图标提取，位于 `src/ui/components/mechanism_badges.js`；飞机轮廓包含 AI 辅助重绘 |
-| `data/icons/material/` | poi 安装资源中的游戏资源图标，运行时使用随包文件 |
-| `data/icons/items/59.png` | [游戏静态资源中的伊良湖图标](https://w16s.kancolle-server.com/kcs2/resources/useitem/card/059.png)，SHA-256：`401e1007a1b16d02e00265a4baa916e8b35a102257b5a67024c712e7f381f49c` |
-| 数字与控件 JSON 模板 | 从游戏画面提取，消费者位于 `src/vision/` |
-| `tests/fixtures/` | 只保留 `privacy.json` 允许区域的脱敏游戏画面，不分发完整截图 |
-| `docs/images/` | 通过 npm 安装的 Fleet Advisor 1.0.0 在 poi 中的实际运行截图，裁去窗口边框，仅保留插件界面 |
+| `data/icons/t3/` | 游戏装备分类图标；图集与帧见 `data/equip_icon_index.json` |
+| 机制标签轮廓 | 提取自游戏装备图标；飞机轮廓包含 AI 辅助重绘 |
+| `data/icons/material/` | 来自 poi 安装资源的游戏资源图标 |
+| `data/icons/items/` | [游戏静态资源](https://w16s.kancolle-server.com/kcs2/resources/useitem/card/059.png)中的道具图标；家具币使用游戏的 `card_` 资源 |
+| 数字与控件 JSON 模板 | 从游戏画面提取，用于 `src/vision/` |
+| `tests/fixtures/` | 依据 `privacy.json` 脱敏的识别测试素材 |
+| `docs/images/` | 裁去窗口边框的插件运行截图 |
 
 这些图像、模板和轮廓不构成游戏美术的独立 MIT 授权。识别使用本地像素模板与游戏状态核对，不捆绑 OCR 引擎。
 

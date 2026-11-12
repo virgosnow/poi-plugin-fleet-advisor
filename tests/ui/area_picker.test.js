@@ -264,6 +264,20 @@ test('resource icons bundle original game PNGs without a host path and preserve 
   const missing=Icon({name:'未知道具'});assert.equal(missing.props['data-failed'],true);assert.equal(missing.children[0].children[0],'未');
 });
 
+test('task use-item icons are resolved by ID regardless of localized item names',()=>{
+  const fs=require('fs'),path=require('path'),{fileURLToPath}=require('url');
+  const {resourceSource}=require('../../src/ui/components/resource_icon');
+  for(const id of [44,...Array.from({length:57},(_,i)=>i+49).filter(id=>![50,53,76,103].includes(id))]){
+    const filename=fileURLToPath(resourceSource('localised name',id));
+    assert.equal(filename,path.resolve(__dirname,`../../data/icons/items/${id}.png`));
+    assert.deepEqual([...fs.readFileSync(filename).subarray(0,8)],[137,80,78,71,13,10,26,10]);
+  }
+  assert.equal(fileURLToPath(resourceSource('unknown name',1)),path.resolve(__dirname,'../../data/icons/material/06.png'));
+  assert.equal(fileURLToPath(resourceSource('unknown name',31)),path.resolve(__dirname,'../../data/icons/material/01.png'));
+  for(const id of [50,53,76,103])assert.equal(resourceSource('unknown name',id),null);
+  assert.equal(resourceSource('unknown name',999999),null);
+});
+
 test('locked expeditions differ from available uncompleted rows and never infer locks from missing or stale snapshots',()=>{
   const missions=[{missionId:1,name:'训练航海'},{missionId:103,name:'月度未解锁'},{missionId:104,name:'新远征'}];
   const progress={period:'2026-10',records:{1:{state:0,period:'2026-10'}},list:{period:'2026-10',ids:[1],catalogIds:[1,103]}};

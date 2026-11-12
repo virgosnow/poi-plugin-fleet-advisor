@@ -21,7 +21,7 @@ module.exports=React=>{
       const tooltip=equipment?equipmentTooltipProps(equipment):item.kind===12?equipmentTooltipProps({name:item.name,masterId:item.id}):
         useItemId?{'data-tooltip':questDisplay.reward(item),'data-tooltip-content':JSON.stringify({kind:'reward-item',title:questDisplay.reward(item),rewardItemId:useItemId,sections:[]})}:{};
       const icon=equipmentIconUrl(item.iconType??master?.api_type?.[3]);
-      return h('span',{className:'paa-overview-reward-item',key,...tooltip,...tooltip['data-tooltip']?{tabIndex:0}:{}},icon?h('img',{src:icon,alt:'',draggable:false,onError:event=>{event.currentTarget.style.display='none';}}):resourceIcon.resourceSource(item.name)?h(ResourceIcon,{name:item.name,size:15}):null,
+      return h('span',{className:'paa-overview-reward-item',key,...tooltip,...tooltip['data-tooltip']?{tabIndex:0}:{}},icon?h('img',{src:icon,alt:'',draggable:false,onError:event=>{event.currentTarget.style.display='none';}}):useItemId||resourceIcon.resourceSource(item.name)?h(ResourceIcon,{name:item.name,itemId:useItemId,size:15}):null,
         h('span',null,questDisplay.reward(item),item.level?` ★${item.level}`:'',` ×${item.count}`));};
     const hasDetails=fixed.length>0||choices.length>0||shipBonus||!reference;
     return h('div',{className:'paa-overview-rewards','aria-label':t('报酬')},h('span',{className:'paa-quest-row-label'},t('报酬')),h('div',{className:'paa-overview-reward-summary','data-has-details':Boolean(hasDetails)},
