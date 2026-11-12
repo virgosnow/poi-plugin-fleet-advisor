@@ -169,7 +169,7 @@ module.exports=function createQuestSection(React,options={}){
             const body=onNavigateQuest&&targets.length===1?link(targets[0],content,0):h('span',{className:'paa-quest-goal-text'},...content,
               onNavigateQuest&&targets.length>1?h('span',{className:'paa-quest-goal-links'},...targets.map((target,i)=>link(target,[questDisplay.destination(target)],i))):null);
             return h('li',{key:index,'data-related':related?'true':'false'},body,
-              amount?h('span',{className:'paa-quest-goal-progress','data-complete':n>=amount,'aria-label':n?t('已观察目标进度至少 {count}/{total}',{count:n,total:amount}):t('目标进度未确认'),...!n?{title:t('目标进度未确认')}:{}},n>=amount?`${amount} / ${amount}`:n?`≥${n} / ${amount}`:`0 / ${amount}`):null);
+              amount?h('span',{className:'paa-quest-goal-progress','data-complete':n>=amount,'data-progress':n>=amount?'complete':n>0?'partial':'none','aria-label':n?t('已观察目标进度至少 {count}/{total}',{count:n,total:amount}):t('目标进度未确认'),...!n?{title:t('目标进度未确认')}:{}},n>=amount?`${amount} / ${amount}`:n?`≥${n} / ${amount}`:`0 / ${amount}`):null);
           }))),
         rewardView({...task,rewards:rewardData},state,lookup));
     };

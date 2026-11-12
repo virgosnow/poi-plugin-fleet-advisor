@@ -227,6 +227,20 @@ test('each map objective shows its own observed progress and navigates independe
   assert.equal(visits[0].area,'1-5');assert.equal(visits[0].code,'B141');assert.deepEqual(selected,[]);
 });
 
+test('related objectives use none, partial and complete progress states in every page and language',()=>{
+  const {setLocale}=require('../../src/shared/i18n');
+  try{for(const locale of ['zh-CN','zh-TW','ja-JP'])for(const kind of ['normal','expedition','practice']){
+    setLocale(locale);let observed=0;
+    const goal={key:'goal-one',count:3,label:'任务目标',relatedToCurrent:true};
+    const ui=harness({kind,defaultOpen:true},{status:'ready',tasks:[task({goals:[goal]})]},
+      {getController:()=>({getQuestGoalProgressForTasks:()=>new Map([['1001:goal-one',observed]])})});
+    for(const [value,expected] of [[0,'none'],[1,'partial'],[3,'complete']]){
+      observed=value;ui.render();const progress=ui.find(n=>n.props.className==='paa-quest-goal-progress');
+      assert.equal(progress.props['data-progress'],expected,`${locale} ${kind} ${value}`);
+    }
+  }}finally{setLocale('zh-CN');}
+});
+
 test('choice labels stay concise even for locally sourced reward groups',()=>{
   const rewards={resources:[],fixed:[],choices:[[{name:'装备甲',count:1}],[{name:'装备乙',count:1}]],reference:true,choicesFromGame:false};
   const ui=harness({kind:'normal',defaultOpen:true},{status:'ready',tasks:[task({rewards})]});

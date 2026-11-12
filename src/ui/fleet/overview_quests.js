@@ -48,7 +48,7 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
         count>0?`≥${count} / ${goal.count}`:`0 / ${goal.count}`;
       const progressDescription=gameConfirmed?t('目标进度 1/2，依据游戏任务进度'):complete?
         t('已观察目标进度 {count}/{total}',{count,total:goal.count}):count>0?t('已观察目标进度至少 {count}/{total}',{count,total:goal.count}):t('目标进度未确认');
-      const status=hasCount?h('span',{className:'paa-overview-goal-status','data-complete':complete,
+      const status=hasCount?h('span',{className:'paa-overview-goal-status','data-complete':complete,'data-progress':complete?'complete':gameConfirmed||count>0?'partial':'none',
         'data-progress-source':gameConfirmed?'game':count>0?'observed':'unknown','aria-label':progressDescription,
         ...gameConfirmed?{title:t('依据游戏任务进度')}:count>0&&!complete?{title:t('根据已观察到的记录，实际进度可能更高')}:count===0?{title:t('目标进度未确认')}:{}},progressText):null;
       const button=(destination,label,key,showStatus=false)=>{

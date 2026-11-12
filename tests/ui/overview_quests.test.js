@@ -142,12 +142,12 @@ test('goal progress distinguishes unknown, observed lower bounds and completed c
   const Component=create(React,{getController:()=>({getQuestGoalProgress:()=>observed})});
   const state={questState:{known:true,tasks:[task('Bd7')]}};
   const status=()=>walk(Component({state}),node=>node.props.className==='paa-overview-goal-status')[0];
-  assert.equal(status().children[0],'0 / 5');assert.equal(status().props['data-complete'],false);
+  assert.equal(status().children[0],'0 / 5');assert.equal(status().props['data-complete'],false);assert.equal(status().props['data-progress'],'none');
   assert.equal(status().props['aria-label'],'目标进度未确认');
   observed=0;assert.equal(status().children[0],'0 / 5');
-  observed=2;assert.equal(status().children[0],'≥2 / 5');assert.equal(status().props['data-complete'],false);
+  observed=2;assert.equal(status().children[0],'≥2 / 5');assert.equal(status().props['data-complete'],false);assert.equal(status().props['data-progress'],'partial');
   assert.equal(status().props['aria-label'],'已观察目标进度至少 2/5');
-  observed=5;assert.equal(status().children[0],'5 / 5');assert.equal(status().props['data-complete'],true);
+  observed=5;assert.equal(status().children[0],'5 / 5');assert.equal(status().props['data-complete'],true);assert.equal(status().props['data-progress'],'complete');
   observed=9;assert.equal(status().children[0],'5 / 5');assert.equal(observed,9);
 });
 
@@ -160,7 +160,7 @@ test('D39 game progress verifies its sole 30 expedition goal without inventing c
   const article=id=>ui.find(node=>node.type==='article'&&node.props['data-quest-id']===id);
   const status=node=>walk(node,n=>n.props.className==='paa-overview-goal-status');
   const exact=status(article(443))[0];
-  assert.equal(exact.children[0],'1 / 2');assert.equal(exact.props['data-progress-source'],'game');
+  assert.equal(exact.children[0],'1 / 2');assert.equal(exact.props['data-progress-source'],'game');assert.equal(exact.props['data-progress'],'partial');
   assert.equal(exact.props['aria-label'],'目标进度 1/2，依据游戏任务进度');
   assert(status(article(408)).every(row=>String(row.children[0]).startsWith('0 / ' )),
     'other tasks cannot infer objective counts from a coarse flag');
