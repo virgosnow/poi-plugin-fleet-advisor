@@ -19,6 +19,7 @@ const {SUPPORTED:SUPPORTED_LANGUAGES,normalizeLocale}=require('../shared/i18n');
 const performanceTrace=require('../shared/performance_trace');
 const {PerformanceLogs}=require('../infrastructure/cache/performance_logs');
 const {DiagnosticLogs}=require('../infrastructure/cache/diagnostic_logs');
+const {atomicWriteSync}=require('../infrastructure/persistence/atomic_write');
 const {inspectCache,maintainCache}=require('../infrastructure/cache/recommendation_cache');
 
 const JOB_RETENTION_MS=24*60*60*1000;
@@ -71,39 +72,45 @@ class FleetAdvisorService {
     this.language=normalizeLocale(hostLocale);
     try{fs.mkdirSync(storageDir,{recursive:true,mode:0o700});this.persistenceReady=true;this.load();
       if(!fs.existsSync(this.stateFile))this.persist();}
-    catch(e){this.mcpEnabled=false;this.storageError=e.message;}
+    catch(e){this.mcpEnabled=false;this.persistenceReady=false;this.storageError=e.message;}
     // Reconcile older cache files with the shared budget after loading settings.
     this.cacheReady=this.recommendations.maintain(()=>this.maintainDiskCache()).catch(e=>({error:e.message}));
   }
   load() {
     if(!fs.existsSync(this.stateFile))return;
+    let changed=false;
     try{
       const saved=JSON.parse(fs.readFileSync(this.stateFile,'utf8'));
       this.recommendationFilters=selectionFilters.normalize(saved.recommendationFilters);
       this.computationSettings=computationSettings.normalizePreferences(saved.computationSettings);
       this.experimentalSettings=experimentalSettings.normalize(saved.experimentalSettings);
       if(SUPPORTED_LANGUAGES.includes(saved.language))this.language=saved.language;
+      else changed=true; // Persist the host language once for legacy settings.
       this.mcpEnabled=saved.mcpEnabled===true;
       if(Number.isInteger(saved.httpPort)&&saved.httpPort>=1&&saved.httpPort<=65535)this.httpPort=saved.httpPort;
       for(const job of saved.jobs||[]){
-        if(TERMINAL.has(job.state)&&this.now()-Date.parse(job.createdAt)>JOB_RETENTION_MS)continue;
+        if(TERMINAL.has(job.state)&&this.now()-Date.parse(job.createdAt)>JOB_RETENTION_MS){changed=true;continue;}
         if(!TERMINAL.has(job.state)){
           job.state='interrupted';job.verified=false;job.partialApplied='unknown';
           job.error={code:'INTERRUPTED',message:'插件重载或进程退出，先核对当前账号状态'};
           job.updatedAt=nowIso();
+          changed=true;
         }
         if(job.diagnosticLog){
           const log=this.diagnosticLogs.readJob(job.diagnosticLog);
           if(log?.records)job.diagnostics=log.records;
           if(log?.errorDiagnostics&&job.error)job.error.diagnostics=log.errorDiagnostics;
-        }else if(job.diagnostics||job.error?.diagnostics)this.saveJobDiagnostics(job);
+        }else if(job.diagnostics||job.error?.diagnostics){this.saveJobDiagnostics(job);if(job.diagnosticLog)changed=true;}
         this.jobs.set(job.jobId,job);
       }
-      this.persist();
     }catch(_){
       // Corrupt persistence must never silently grant execution permission.
       this.mcpEnabled=false;this.experimentalSettings=experimentalSettings.normalize();this.jobs.clear();
+      return;
     }
+    // Valid unchanged state need not be rewritten every time poi reloads.
+    // Write failures must not be mistaken for corrupt JSON.
+    if(changed)this.persist();
   }
   persist() {
     if(!this.persistenceReady)return;
@@ -119,7 +126,7 @@ class FleetAdvisorService {
         if(rest.error?.diagnostics){const {diagnostics:ignored,...error}=rest.error;rest.error=error;}
         return rest;
       })};
-    const temp=this.stateFile+'.tmp';fs.writeFileSync(temp,JSON.stringify(record,null,2),{mode:0o600});fs.renameSync(temp,this.stateFile);
+    atomicWriteSync(this.stateFile,JSON.stringify(record,null,2));
   }
   saveJobState(job){
     try{this.persist();return this.persistenceReady;}

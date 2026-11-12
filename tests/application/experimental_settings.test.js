@@ -80,6 +80,16 @@ test('failed setting writes roll back permission, and malformed saved data never
   assert.equal(malformed.getExperimentalSettings().automaticOperations,false);assert.equal(malformed.mcpEnabled,false);
 });
 
+test('reloading unchanged saved settings does not perform another atomic rewrite',async t=>{
+  const {service:s,storageDir}=setup(t);s.setExperimentalSettings({automaticOperations:true});
+  const rename=fs.renameSync;let writes=0,reopened;
+  fs.renameSync=function(from,to){if(to===s.stateFile)writes++;return rename.call(fs,from,to);};
+  try{reopened=new FleetAdvisorService({storageDir,getStore:s.getStore,controller:{dispose(){}}});}
+  finally{fs.renameSync=rename;}
+  try{assert.equal(writes,0);assert.equal(reopened.getExperimentalSettings().automaticOperations,true);}
+  finally{await reopened?.dispose();}
+});
+
 test('performance debug persists independently, writes safe local logs and can be cleared without changing drafts or game state',async t=>{
   const {service:s,data}=setup(t),before=JSON.stringify(data),args={fleet:1,area:'1-1',};
   await s.recommendations.run('recommendNormalFleet',data,args);
