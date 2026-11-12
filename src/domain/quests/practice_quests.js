@@ -2,6 +2,7 @@
 // Practice uses the same reviewed Wiki catalogue and identity matching as
 // sortie and expedition; live quest availability still comes from the game.
 const DATA=require('../../../data/quests/requirements.json');
+const crypto=require('node:crypto');
 const events=require('../../../data/quests/limited');
 const {createFleetRequirementEvaluator,describeFleetRequirements}=require('./fleet_requirements');
 const {findDefinition,goalLabel,taskSnapshot}=require('./quest_requirements');
@@ -26,7 +27,7 @@ function listPracticeQuests({state,slots=[],deckId,questState,now=Date.now()}={}
   const supported=!!(definition?.fleet&&(definition.goals||[]).some(isPracticeGoal));
   const evaluation=supported?evaluate(definition.fleet,slots,deckId):{status:'unknown',checks:[{label:'任务编成资料尚未收录',status:'unknown'}]};
   const label=Number(live.api_label_type),period=definition?.period||(label>=101&&label<=112?'yearly':({1:'once',2:'daily',3:'weekly',6:'monthly',7:'quarterly'})[label]);
-  const goals=definition?(definition.goals||[]).map(goal=>({...goal,afterPractice:goal.stage>1,count:Math.max(1,Number(goal.count)||1),label:`${goal.stage>1?'演习完成后：':''}${goalLabel(goal,{period})}`})):
+  const goals=definition?(definition.goals||[]).map(goal=>({...goal,key:crypto.createHash('sha256').update(JSON.stringify(goal)).digest('hex'),afterPractice:goal.stage>1,count:Math.max(1,Number(goal.count)||1),label:`${goal.stage>1?'演习完成后：':''}${goalLabel(goal,{period})}`})):
     [{label:'目标条件待确认'}];
   tasks.push({id,code:definition?.code||`P-unknown-${id}`,title:plain(live.api_title),gameTitle:typeof live.api_title==='string'?live.api_title:'',description:live.api_detail||'',source:definition?.source,state:Number(live.api_state),progressFlag:live.api_progress_flag==null?null:Number(live.api_progress_flag),period,
     status:evaluation.status,checks:evaluation.checks,fleetRequirements:definition?describeFleetRequirements(definition.fleet):null,goals,supported});

@@ -78,7 +78,7 @@ async function tickQuests(){
       const outcome=await quests.tick().catch(()=>{syncDiagnostics.report('quest_failed');});
       syncDiagnostics.report('quest_'+outcome?.status);
     }
-    const practice=practiceSync;if(practice&&questPages.has('practice')){
+    const practice=practiceSync;if(practice&&(questPages.has('practice')||practice.listDirty)){
       const outcome=await practice.tick().catch(()=>{syncDiagnostics.report('practice_failed');});
       syncDiagnostics.report('practice_'+outcome?.status);
     }
@@ -88,7 +88,7 @@ function setQuestPageActive(owner,active){
   if(!['login','manual','normal','practice','expedition'].includes(owner)||!questAutoRead)return;
   questAutoRead.setActive(owner,active);
   if(active)questPages.add(owner);else questPages.delete(owner);
-  if(owner==='practice'&&!active)practiceSync?.suspend();
+  if(owner==='practice'&&!active&&!practiceSync?.listDirty)practiceSync?.suspend();
   if(questPages.size&&!questTimer){questTimer=setInterval(tickQuests,1500);tickQuests();}
   if(!questPages.size&&questTimer){clearInterval(questTimer);questTimer=null;}
 }
@@ -132,7 +132,7 @@ exports.pluginDidLoad=()=>{
       return require('./src/infrastructure/quests/quest_sync').syncQuests({observer,reader,service,
         isCurrent:()=>questObserver===observer&&questReader===reader,...options});
     }});
-  practiceSync=new (require('./src/infrastructure/practice/practice_sync').PracticeSync)({reader:questReader,observer:practiceObserver,getStore:()=>readStore(window),isActive:()=>questPages.has('practice')});
+  practiceSync=new (require('./src/infrastructure/practice/practice_sync').PracticeSync)({reader:questReader,observer:practiceObserver,getStore:()=>readStore(window),isActive:()=>questPages.has('practice')||practiceSync?.listDirty===true});
   basicDataSync=new (require('./src/infrastructure/persistence/basic_data_sync').BasicDataSync)({reader:questReader,getStore:()=>readStore(window),expedition:expeditionProgress});
   progressListener=event=>{
     if(pendingHandoff&&/\/kcsapi\/(?:api_port\/port|api_req_air_corps\/)/.test(String(event.detail?.path||'')))pendingHandoff.basic=null;
@@ -141,6 +141,7 @@ exports.pluginDidLoad=()=>{
     try{if(rawQuestReader?.sessionKey&&rawQuestReader.verifiedSessionKey===rawQuestReader.sessionKey)service?.observeQuestProgress(event.detail);}catch(error){}
     try{if(rawQuestReader?.sessionKey&&rawQuestReader.verifiedSessionKey===rawQuestReader.sessionKey)questObserver?.observe(event.detail,readStore(window));}catch(error){}
     try{practiceObserver?.observe(event.detail,readStore(window));}catch(error){}
+    try{practiceSync?.observeResult(event.detail);}catch(error){}
     try{basicDataSync?.observe(event.detail,readStore(window));}catch(error){}
   };
   requestListener=event=>{

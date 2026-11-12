@@ -29,6 +29,9 @@ function cycle(period,now){
   }
   return 'claim';
 }
+// Same-day objectives reset independently from the task's own yearly,
+// weekly, or one-time lifecycle. Other goals retain their original cycle.
+const goalCycle=(goal,now)=>goal?.withinDay===true||goal?.within==='sameDay'?cycle('daily',now):null;
 class QuestProgress {
   constructor(storageDir,{now=()=>Date.now(),getCacheLimit=()=>DEFAULTS.cacheLimitMiB*1024**2}={}){
     // Old progress files mix manual and observed values, so preserve them but
@@ -56,7 +59,7 @@ class QuestProgress {
   get(store,task,goal){
     const account=accountKey(store),row=account&&this.records[account]?.[task.code];
     const inferred=account?serverGoalLowerBound(store,task,goal):0;
-    if(!row||row.cycle!==cycle(task.period,this.now())||row.id!==task.id)return inferred;
+    if(!row||row.cycle!==cycle(task.period,this.now())||row.id!==task.id||goalCycle(goal,this.now())&&row.goalCycles?.[goal.key]!==goalCycle(goal,this.now()))return inferred;
     const n=row.goals?.[goal.key];return Math.max(inferred,Number.isSafeInteger(n)&&n>0?Math.min(n,goal.count):0);
   }
   getMany(store,tasks){
@@ -64,7 +67,7 @@ class QuestProgress {
     for(const task of tasks||[]){
       const row=entries[task.code],valid=row&&row.id===task.id&&row.cycle===cycle(task.period,now);
       for(const goal of task.goals||[])if(goal.key){
-        const value=valid&&row.goals?.[goal.key];
+        const day=goalCycle(goal,now),value=valid&&(!day||row.goalCycles?.[goal.key]===day)&&row.goals?.[goal.key];
         result.set(`${task.id}:${goal.key}`,Math.max(account?serverGoalLowerBound(store,task,goal):0,Number.isSafeInteger(value)&&value>0?Math.min(value,goal.count):0));
       }
     }
@@ -84,6 +87,8 @@ class QuestProgress {
       const records=JSON.parse(JSON.stringify(this.records)),tasks=records[account]||{};let changed=false;
       for(const {task,goal,period} of prepared){
         const old=tasks[task.code],row=old?.cycle===period&&old.id===task.id?old:{id:task.id,cycle:period,goals:{}};
+        const day=goalCycle(goal,at);
+        if(day&&row.goalCycles?.[goal.key]!==day){row.goalCycles={...row.goalCycles,[goal.key]:day};row.goals[goal.key]=0;changed=true;}
         if([0,1,2].includes(task.progressFlag)&&(![0,1,2].includes(row.flag)||task.progressFlag>row.flag)){row.flag=task.progressFlag;changed=true;}
         const before=Number(row.goals[goal.key])||0,next=Math.min(goal.count,before+1);
         if(next!==before){row.goals[goal.key]=next;changed=true;}

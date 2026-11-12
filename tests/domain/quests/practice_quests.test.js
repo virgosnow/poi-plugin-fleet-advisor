@@ -11,6 +11,7 @@ test('practice tasks show observed entries, known conditions, periods and unknow
  assert.equal(answer.tasks[0].code,'P342');assert.equal(answer.tasks[0].state,3);
  assert.equal(answer.tasks[1].code,'P330');assert.equal(answer.tasks[1].period,'quarterly');assert.equal(answer.tasks[1].supported,true);
  assert.equal(answer.tasks[1].status,'unmet');assert.match(answer.tasks[1].goals[0].label,/演习胜利 4次/);
+ assert.match(answer.tasks[1].goals[0].key,/^[a-f0-9]{64}$/);
  assert.equal(answer.tasks[2].code,'P-unknown-999999');assert.equal(answer.tasks[2].status,'unknown');assert.equal(answer.tasks[2].supported,false);assert.equal(answer.tasks[2].goals[0].label,'目标条件待确认');
  assert.deepEqual(countPracticeQuests({questState}),{status:'ready',count:3});assert.equal(countPracticeQuests({questState:{...questState,complete:false}}).status,'unknown');
  assert.throws(()=>resolvePracticeCodes(['P-unknown-999999']),/尚未收录/);

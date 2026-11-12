@@ -6,12 +6,12 @@ const {evaluateFleetRequirements}=require('../../domain/quests/fleet_requirement
 const {accountKey,cycle}=require('../persistence/quest_progress');
 const post=(body,key)=>typeof body==='string'?new URLSearchParams(body).get(key):body?.[key];
 const voyageKey=(id,end)=>`${Number(id)}:${Number(end)||0}`;
-const ranks={S:4,A:3,B:2,C:1,D:0,E:-1};
-function sufficient(rank,minimum){return ranks[String(rank).toUpperCase()]!==undefined&&ranks[String(rank).toUpperCase()]>=({win:2,S:4,A:3,B:2,C:1,D:0,E:-1}[minimum]??99);}
+const ranks={SS:4,S:4,A:3,B:2,C:1,D:0,E:-1};
+function sufficient(rank,minimum){return ranks[String(rank).toUpperCase()]!==undefined&&(minimum==='any'||ranks[String(rank).toUpperCase()]>=({win:2,S:4,A:3,B:2,C:1,D:0,E:-1}[minimum]??99));}
 class QuestProgressObserver {
-  constructor({progress,now=()=>Date.now(),onChange=()=>{}}){this.progress=progress;this.now=now;this.onChange=onChange;this.sortie=null;this.departures=new Map();this.consumed=new Map();this.account=null;}
-  sync(store){const key=accountKey(store);if(key!==this.account){this.account=key;this.sortie=null;this.departures.clear();this.consumed.clear();}return key;}
-  resetSession(){this.account=null;this.sortie=null;this.departures.clear();this.consumed.clear();}
+  constructor({progress,now=()=>Date.now(),onChange=()=>{}}){this.progress=progress;this.now=now;this.onChange=onChange;this.sortie=null;this.practice=null;this.departures=new Map();this.consumed=new Map();this.account=null;}
+  sync(store){const key=accountKey(store);if(key!==this.account){this.account=key;this.sortie=null;this.practice=null;this.departures.clear();this.consumed.clear();}return key;}
+  resetSession(){this.account=null;this.sortie=null;this.practice=null;this.departures.clear();this.consumed.clear();}
   // poi retains the active mission ID even when this plugin is enabled after
   // departure. Capture only in-flight voyages; task eligibility is checked
   // when the real result arrives, as tasks can be accepted after departure.
@@ -110,7 +110,7 @@ class QuestProgressObserver {
     for(const {task,definition,period} of prepared){
       if(period!==cycle(task.period,now))continue;
       definition.goals.forEach((goal,index)=>{
-        if(goal.phase||goal.node||goal.within||goal.items||!rules.some(rule=>goal.kind===rule.kind&&rule.match(goal)))return;
+        if(goal.phase||goal.node||goal.within&&goal.within!=='sameDay'||goal.items||!rules.some(rule=>goal.kind===rule.kind&&rule.match(goal)))return;
         const display=task.goals[index];
         if(display?.key&&Number.isSafeInteger(display.count))candidates.push({task,display});
       });
@@ -120,7 +120,7 @@ class QuestProgressObserver {
     if(snapshot.known)for(const live of snapshot.tasks){
       if(Number(live?.api_state)!==2)continue;
       const definition=findDefinition(live,now);
-      if(definition&&['B','D'].includes(definition.category))active.add(`${Number(live.api_no)}:${definition.code}`);
+      if(definition&&['B','C','D'].includes(definition.category))active.add(`${Number(live.api_no)}:${definition.code}`);
     }
     const updates=candidates.filter(({task})=>active.has(`${task.id}:${task.code}`)).map(({task,display})=>({task,goal:display}));
     if(updates.length)void this.progress.incrementMany(store,updates).then(changed=>{if(changed)this.onChange();}).catch(()=>this.onChange());
@@ -134,6 +134,16 @@ class QuestProgressObserver {
         if(Array.isArray(body.api_list))void this.progress.reconcile(store,body.api_list).then(()=>this.onChange()).catch(()=>this.onChange());
       }else if(api==='/kcsapi/api_req_quest/clearitemget'){
         const id=Number(post(detail.postBody,'api_quest_id'));if(id>0)void this.progress.clearTask(store,id).then(()=>this.onChange()).catch(()=>this.onChange());
+      }else if(api==='/kcsapi/api_req_practice/battle'){
+        const deck=Number(post(detail.postBody,'api_deck_id'));
+        this.practice=Number.isInteger(deck)&&deck>=1&&deck<=4?{deck,day:cycle('daily',this.now()),prepared:this.eligible(store,deck)}:null;
+      }else if(api==='/kcsapi/api_req_practice/battle_result'){
+        const practice=this.practice;this.practice=null;
+        if(practice&&practice.day===cycle('daily',this.now())){
+          const rank=String(body.api_win_rank||'').toUpperCase();
+          this.recordMany(store,practice.prepared,[{kind:'practice',match:goal=>(!goal.stage||goal.stage===1)&&sufficient(rank,goal.rankMin||'any')},
+            {kind:'practiceWin',match:goal=>(!goal.stage||goal.stage===1)&&sufficient(rank,goal.rankMin||'win')}]);
+        }
       }else if(api==='/kcsapi/api_req_map/start'){
         const deck=Number(post(detail.postBody,'api_deck_id')),area=Number(post(detail.postBody,'api_maparea_id')),map=Number(post(detail.postBody,'api_mapinfo_no'));
         this.sortie=deck>0&&area>0&&map>0?{deck,map:`${area}-${map}`,prepared:this.eligible(store,deck),node:null,boss:null,eventId:null,consumed:false}:null;

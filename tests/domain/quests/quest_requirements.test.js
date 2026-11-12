@@ -200,6 +200,16 @@ test('expedition tasks include generic success goals and match wiki IDs to game 
   assert.equal(answer.tasks.find(q=>q.code==='D25').status,'met');
 });
 
+test('expedition related count matches full results without accessing fleet or equipment',()=>{
+  const {state}=fixture(),questState={known:true,tasks:[task('Dd1'),task('D25'),task('Dw3')]};
+  for(const missionId of [30,37,38,100]){
+    const expected=listRelatedQuests({state,missionId,questState}).tasks.length,noFleet={questState};
+    Object.defineProperty(noFleet,'const',{get(){throw Error('must not inspect fleet masters');}});
+    Object.defineProperty(noFleet,'info',{get(){throw Error('must not inspect fleet state');}});
+    assert.deepEqual(countRelatedQuests({state:noFleet,missionId,questState}),{status:'ready',count:expected});
+  }
+});
+
 test('resource requirements report missing resources, never silently met',()=>{
   const {state,add}=fixture(),slots=[add(1,1,'甲',2)];
   state.info.resources=[1000,1000,799,100];

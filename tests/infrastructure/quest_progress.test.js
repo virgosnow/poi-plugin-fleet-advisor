@@ -22,6 +22,42 @@ test('observed progress persists by account and goal and clears on claim',async 
   await reopened.clearTask(f.store,task.id);assert.equal(reopened.get(f.store,task,goal),0);
   assert(!fs.readFileSync(reopened.file,'utf8').includes('测试舰'));
 });
+test('practice results credit only the active matching fleet and rank, once per observed battle and day',async t=>{
+  const f=fixture(t,['P348']),live=f.store.questState.tasks[0];live.api_category=3;
+  f.store.info.fleets[0].api_ship=[1,2,3,4,5,-1];
+  for(const [id,type] of [[1,3],[2,3],[3,4],[4,2],[5,2]]){
+    f.store.info.ships[id]={api_id:id,api_ship_id:id,api_lv:80,api_slot:[]};
+    f.store.const.$ships[id]={api_id:id,api_name:'ship'+id,api_stype:type};
+  }
+  let now=f.now(),notices=0;const clock=()=>now,progress=new QuestProgress(f.dir,{now:clock});
+  const observer=new QuestProgressObserver({progress,now:clock,onChange:()=>notices++});
+  const task=()=>listOverviewQuests({state:f.store,now}).tasks.find(row=>row.code==='P348');
+  const initial=task(),count=()=>progress.get(f.store,task()||initial,(task()||initial).goals[0]);
+  const battle=(rank,deck=1)=>{
+    observer.observe({path:'/kcsapi/api_req_practice/battle',postBody:{api_deck_id:deck},body:{}},f.store);
+    observer.observe({path:'/kcsapi/api_req_practice/battle_result',body:{api_win_rank:rank}},f.store);
+  };
+  battle('B');await progress.pending;assert.equal(count(),0);
+  battle('A');await progress.pending;await Promise.resolve();assert.equal(count(),1);assert.equal(notices,1);
+  const practice=require('../../src/domain/quests/practice_quests').listPracticeQuests({state:f.store,questState:f.store.questState,now}).tasks[0];
+  assert.equal(practice.goals[0].key,task().goals[0].key,'practice and overview panels share the same objective');
+  assert.equal(progress.getMany(f.store,[practice]).get(`${practice.id}:${practice.goals[0].key}`),1);
+  observer.observe({path:'/kcsapi/api_req_practice/battle_result',body:{api_win_rank:'S'}},f.store);
+  await progress.pending;assert.equal(count(),1,'duplicate result has no matching start');
+  live.api_state=1;battle('S');await progress.pending;assert.equal(count(),1,'inactive task receives no credit');
+  live.api_state=2;f.store.info.fleets[0].api_ship=[1,2,3,4,-1,-1];battle('S');await progress.pending;assert.equal(count(),1,'unsuitable fleet receives no credit');
+  f.store.info.fleets[0].api_ship=[1,2,3,4,5,-1];battle('SS');await progress.pending;assert.equal(count(),2);
+  const reopened=new QuestProgress(f.dir,{now:clock});assert.equal(reopened.get(f.store,task(),task().goals[0]),2);
+  now+=86400000;assert.equal(count(),0,'same-day requirement resets independently of yearly task');
+  battle('A');await progress.pending;assert.equal(count(),1);
+  observer.observe({path:'/kcsapi/api_req_practice/battle',postBody:{api_deck_id:1},body:{}},f.store);
+  now+=86400000;
+  observer.observe({path:'/kcsapi/api_req_practice/battle_result',body:{api_win_rank:'S'}},f.store);
+  await progress.pending;assert.equal(count(),0,'a battle from the preceding task day is not credited');
+  observer.observe({path:'/kcsapi/api_req_practice/battle',postBody:{},body:{}},f.store);
+  observer.observe({path:'/kcsapi/api_req_practice/battle_result',body:{api_win_rank:'S'}},f.store);
+  await progress.pending;assert.equal(count(),0,'missing deck identity is not guessed');
+});
 test('D39 game 50 percent gives a single exact lower bound without fabricating observed events',async t=>{
   const f=fixture(t,['D39','Dw2']);
   const live=f.store.questState.tasks.find(row=>row.api_no===443);live.api_progress_flag=1;

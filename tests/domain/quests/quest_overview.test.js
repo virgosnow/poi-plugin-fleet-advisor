@@ -159,7 +159,7 @@ test('active practice tasks appear with a safe practice destination and preserve
   assert.equal(task.category,'C');assert.equal(task.code,'P371');assert.equal(task.period,'yearly');
   assert.match(task.goals[0].label,/A胜以上 4次/);
   assert.deepEqual(task.goals[0].destinations,[{kind:'practice',label:'演习'}]);
-  assert.equal(task.goals[0].key,undefined,'do not invent individually tracked progress');
+  assert.match(task.goals[0].key,/^[a-f0-9]{64}$/,'observed practice results use a stable goal identity');
   assert(!result.tasks.some(row=>row.id===303));
   assert.equal(result.tasks.find(row=>row.id===999999).code,null);
 });

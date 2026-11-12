@@ -27,6 +27,24 @@ test('automatic practice synchronization reads list and each fleet once per cycl
   assert.equal((await f.sync.tick()).status,'cached');assert.equal(f.requests.length,2);
   f.state.known=false;f.advance(12*3600000);assert.equal((await f.sync.tick()).status,'ready');assert.equal(f.requests.length,3);
 });
+test('battle result schedules a fresh list once safe, without waiting for the periodic refresh',async()=>{
+  const f=fixture();await f.sync.tick();await f.sync.tick();assert.equal(f.requests.length,2);
+  f.sync.observeResult({path:'/kcsapi/api_req_practice/battle_result',body:{api_result:0,api_data:{api_win_rank:'A'}}});
+  assert.equal(f.sync.listDirty,false,'failed responses do not schedule a refresh');
+  f.sync.observeResult({path:'/kcsapi/api_req_practice/battle_result',body:{api_win_rank:'A'}});
+  f.setReady(false);assert.equal((await f.sync.tick()).status,'deferred');assert.equal(f.requests.length,2);
+  f.setReady(true);assert.equal((await f.sync.tick()).status,'ready');assert.equal(f.requests[2].kind,'practice');
+  assert.equal((await f.sync.tick()).status,'cached');assert.equal(f.requests.length,3);
+});
+test('a battle result during a background read discards the stale response and keeps the refresh pending',async()=>{
+  const f=fixture();let release,started;const starting=new Promise(resolve=>{started=resolve;});
+  f.reader.read=async()=>{started();await new Promise(resolve=>{release=resolve;});return {list:{api_list:[{api_enemy_id:5}]}};};
+  const pending=f.sync.tick();await starting;
+  f.sync.observeResult({path:'/kcsapi/api_req_practice/battle_result',body:{api_win_rank:'S'}});release();
+  assert.equal((await pending).status,'deferred');assert.equal(f.state.known,false);assert.equal(f.sync.listDirty,true);
+  f.reader.read=async()=>({list:{api_list:[{api_enemy_id:6}]}});
+  assert.equal((await f.sync.tick()).status,'ready');assert.equal(f.state.opponents[0].id,6);assert.equal(f.sync.listDirty,false);
+});
 test('expired lists and fleets refresh without clearing the previous lineup',async()=>{
   const f=fixture();await f.sync.tick();await f.sync.tick();const previous=f.state.opponents[0].ships;
   f.advance(5*60*1000-1);assert.equal((await f.sync.tick()).status,'cached');
