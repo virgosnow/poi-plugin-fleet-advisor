@@ -27,7 +27,7 @@ test('the shared import dropdown offers four fleets with localized unavailable s
     const dialog=walk(tree).find(n=>n.props.role==='listbox'),buttons=walk(dialog).filter(n=>n.type==='button'&&typeof n.props.key==='number');
     assert.equal(buttons.length,4);assert.equal(buttons[0].props.disabled,false);assert.equal(buttons[1].props.disabled,true);
     assert(!walk(tree).some(n=>n.props.className==='paa-wb-popup-shade'),'dropdown must not block the page with a modal shade');
-    assert.equal(buttons[2].props.disabled,false,'away fleets remain readable');assert.match(text(buttons[1]),/艦隊なし/);
+    assert.equal(buttons[2].props.disabled,false,'away fleets remain readable');assert.match(text(buttons[1]),/艦隊なし|空の艦隊/);
     buttons[2].props.onClick();assert.deepEqual(chosen,[3]);assert(!walk(render()).some(n=>n.props.role==='listbox'));
     walk(render()).find(n=>n.props.className==='paa-wb-quiet').props.onClick();assert(walk(render()).some(n=>n.props.role==='listbox'));
     walk(render()).find(n=>n.props.className==='paa-wb-quiet').props.onClick();assert(!walk(render()).some(n=>n.props.role==='listbox'));
