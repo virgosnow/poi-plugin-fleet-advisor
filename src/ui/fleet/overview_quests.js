@@ -33,7 +33,7 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
     const result=React.useMemo?React.useMemo(()=>listOverviewQuests({state,questState}),[state,questState]):listOverviewQuests({state,questState}),tasks=result.tasks;
     const counts=tasks.length?service?.getQuestGoalProgressForTasks?.(tasks):null;
     let equipmentByName;
-    const lookup=name=>{if(!equipmentByName){equipmentByName=new Map();for(const row of Object.values(state?.const?.$equips||{}))if(row?.api_name&&!equipmentByName.has(row.api_name))equipmentByName.set(row.api_name,row);}return equipmentByName.get(name);};
+    const lookup=name=>{if(!equipmentByName){equipmentByName=new Map();for(const [id,row] of Object.entries(state?.const?.$equips||{}))if(row?.api_name&&!equipmentByName.has(row.api_name))equipmentByName.set(row.api_name,row.api_id?row:{...row,api_id:Number(id)});}return equipmentByName.get(name);};
     const goalView=(task,goal,index)=>{
       const choices=goal.destinations||[],observed=goal.key?(counts?counts.get(`${task.id}:${goal.key}`):service?.getQuestGoalProgress?.(task,goal)):0;
       const count=task.state===3?goal.count:Number.isSafeInteger(observed)?Math.max(0,Math.min(observed,goal.count)):0;

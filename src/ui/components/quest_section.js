@@ -103,8 +103,8 @@ module.exports=function createQuestSection(React,options={}){
     const liveTasks=needsTasks?new Map(taskSnapshot(state,displayQuestState).tasks.filter(row=>row&&Number.isSafeInteger(Number(row.api_no)))
       .map(row=>[Number(row.api_no),row])):new Map();
     let equipmentByName;
-    const lookup=name=>{if(!equipmentByName){equipmentByName=new Map();for(const row of Object.values(state?.const?.$equips||{}))
-      if(row?.api_name&&!equipmentByName.has(row.api_name))equipmentByName.set(row.api_name,row);}return equipmentByName.get(name);};
+    const lookup=name=>{if(!equipmentByName){equipmentByName=new Map();for(const [id,row] of Object.entries(state?.const?.$equips||{}))
+      if(row?.api_name&&!equipmentByName.has(row.api_name))equipmentByName.set(row.api_name,row.api_id?row:{...row,api_id:Number(id)});}return equipmentByName.get(name);};
     const openWiki=(event,task,keyboard=false)=>{
       if(paused)return;
       event.preventDefault();event.stopPropagation();

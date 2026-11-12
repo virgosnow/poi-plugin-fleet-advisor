@@ -20,7 +20,7 @@ function equipmentTooltipProps(item,notes=[]){
     statKeys.push([keys[i]||null,keys[i+1]||null]);
   }
   return require('./metric_tooltips').attributes({kind:'equipment',title:item.tooltip||item.name,compact:true,
-    equipmentTypeId:item.equipmentTypeId??item.aircraftType??null,equipmentTypeName:item.equipmentTypeName||null,equipmentIcon:item.icon||null,sections:values.length?
+    equipmentMasterId:item.masterId??null,equipmentTypeId:item.equipmentTypeId??item.aircraftType??null,equipmentTypeName:item.equipmentTypeName||null,equipmentIcon:item.icon||null,sections:values.length?
     [{layout:'equipment-stats',columns:['属性','数值','属性','数值'],rows,statKeys,numeric:[1,3],fitTone:roundedFit>0?'positive':roundedFit<0?'negative':null}]:[],notes:[...notes,item.airPowerBasis,item.gunFitNote,
       item.stats?.length?'':item.stats?'无属性加成':'装备属性资料待同步'].filter(Boolean)},
     [equipmentTooltip(item),item.airPowerText!==undefined?`制空值：${item.airPowerText}`:'',...notes].filter(Boolean).join('\n'));
@@ -44,7 +44,8 @@ function equipmentMasterItem(master,item={},id=0,slot=null,typeNames){
   if(Number(master.api_distance)>0){values.push(['航程',String(master.api_distance)]);statKeys.push('flightRange');}
   const stats=values.map(row=>row.join(' '));
   const typeId=Number(master.api_type?.[2]);
-  return {id,slot,extra,name,aircraftType:typeId,equipmentTypeId:Number.isSafeInteger(typeId)&&typeId>0?typeId:null,
+  const masterId=Number(item.api_slotitem_id??master.api_id);
+  return {id,masterId:Number.isSafeInteger(masterId)&&masterId>0?masterId:null,slot,extra,name,aircraftType:typeId,equipmentTypeId:Number.isSafeInteger(typeId)&&typeId>0?typeId:null,
     equipmentTypeName:typeNames?.[typeId]?.api_name||null,stats:values,statKeys,statsSummary:stats.map(s=>s.replace(' ','')).join(' '),statsText:stats.length?'基础属性：'+stats.join(' · '):'',icon:equipmentIconUrl(master.api_type?.[3]),
     tooltip:(slot===null?'':`${extra?'增设':`${Number(slot)+1} 槽`} · `)+name+(item.api_level>0?` ★${item.api_level}`:'')+(item.api_alv>0?` · 熟练度 ${item.api_alv}`:'')};
 }

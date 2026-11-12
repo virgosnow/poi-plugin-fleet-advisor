@@ -34,7 +34,7 @@ module.exports=function createPanel(React,{getController,getStore,subscribe,appe
     const reportSetting=(target,kind,text)=>setSettingsFeedbacks(previous=>({...previous,[target]:{kind,text}}));
     const [resettingSettings,setResettingSettings]=React.useState(false),[resourceBusy,setResourceBusy]=React.useState(false),[resourceEpoch,setResourceEpoch]=React.useState(0);
     const tooltipRoot=React.useRef(null),resetInFlight=React.useRef(false);
-    useTooltip(React,tooltipRoot,mode);
+    useTooltip(React,tooltipRoot,mode,getStore);
     useNavigationMotion(React,tooltipRoot,mode);
     React.useEffect(()=>{
       require('../../host/plugin_title').syncPluginTitle({host:typeof window==='undefined'?null:window,

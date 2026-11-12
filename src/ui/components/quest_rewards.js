@@ -4,6 +4,7 @@ require('../i18n/readability');
 const questDisplay=require('../i18n/quest_display');
 const resourceIcon=require('./resource_icon');
 const {equipmentIconUrl,equipmentMasterItem,equipmentTooltipProps}=require('../models/presentation_model');
+const {rewardItemId}=require('../models/reward_inventory');
 
 // Shared visual presentation; all known rewards are immediately visible.
 module.exports=React=>{
@@ -12,11 +13,13 @@ module.exports=React=>{
     const {resources,fixed,choices,reference,shipBonus}=task.rewards;
     const itemView=(item,key)=>{
       const master=item.kind===12?state?.const?.$equips?.[item.id]:item.kind?null:lookup?.(item.name);
-      let equipment=master?equipmentMasterItem(master,{api_level:item.level||0},0,null,state?.const?.$equipTypes):null;
+      let equipment=master?equipmentMasterItem(master,{api_level:item.level||0,...item.kind===12?{api_slotitem_id:item.id}:{}},0,null,state?.const?.$equipTypes):null;
       // A name-only master record is not evidence that every stat is zero.
       if(equipment&&!['api_houg','api_raig','api_baku','api_tyku','api_tais','api_saku','api_houm','api_houk','api_souk','api_leng','api_distance'].some(key=>master[key]!==undefined&&Number.isFinite(Number(master[key]))))
         equipment={...equipment,stats:undefined};
-      const tooltip=equipment?equipmentTooltipProps(equipment):item.kind===12?equipmentTooltipProps({name:item.name}):{};
+      const useItemId=!equipment?rewardItemId(item,state):null;
+      const tooltip=equipment?equipmentTooltipProps(equipment):item.kind===12?equipmentTooltipProps({name:item.name,masterId:item.id}):
+        useItemId?{'data-tooltip':questDisplay.reward(item),'data-tooltip-content':JSON.stringify({kind:'reward-item',title:questDisplay.reward(item),rewardItemId:useItemId,sections:[]})}:{};
       const icon=equipmentIconUrl(item.iconType??master?.api_type?.[3]);
       return h('span',{className:'paa-overview-reward-item',key,...tooltip,...tooltip['data-tooltip']?{tabIndex:0}:{}},icon?h('img',{src:icon,alt:'',draggable:false,onError:event=>{event.currentTarget.style.display='none';}}):resourceIcon.resourceSource(item.name)?h(ResourceIcon,{name:item.name,size:15}):null,
         h('span',null,questDisplay.reward(item),item.level?` ★${item.level}`:'',` ×${item.count}`));};

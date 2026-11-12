@@ -105,11 +105,23 @@ test('reward equipment attributes resolve by master id or original name without 
     const ui=harness({kind,state,defaultOpen:true},{status:'ready',tasks:[task({rewards})]});
     const items=ui.all(n=>n.props.className==='paa-overview-reward-item');assert.equal(items.length,5,kind);
     for(const row of items.slice(0,2)){const content=JSON.parse(row.props['data-tooltip-content']);assert.equal(content.kind,'equipment');assert.equal(content.equipmentTypeId,7);
+      assert.equal(content.equipmentMasterId,35);
       assert(content.sections[0].rows.flat().includes('火力'));assert(content.sections[0].rows.flat().includes('+5'));assert.equal(row.props.tabIndex,0);}
-    assert.match(items[0].props['data-tooltip'],/★3/);assert.equal(items[2].props['data-tooltip'],undefined);
+    assert.match(items[0].props['data-tooltip'],/★3/);assert.equal(JSON.parse(items[2].props['data-tooltip-content']).kind,'reward-item');
     assert.match(items[3].props['data-tooltip'],/装备类型：待确认/);
     assert.deepEqual(JSON.parse(items[3].props['data-tooltip-content']).notes,['装备属性资料待同步']);
     assert.deepEqual(JSON.parse(items[4].props['data-tooltip-content']).notes,['装备属性资料待同步']);
+  }
+});
+
+test('task reward items have inventory tooltips alongside equipment on all workbenches',()=>{
+  const state={info:{resources:[0,0,0,0,0,25,40,0],useitems:{59:{api_count:3}}},const:{$equips:{},$useitems:{59:{api_name:'給糧艦「伊良湖」'}}}};
+  const rewards={resources:[],fixed:[{kind:13,id:1,name:'高速修复材',count:1},{name:'伊良湖',count:1},{name:'间宫',count:1}],choices:[[{name:'开发资材',count:2},{name:'南瓜',count:2}]],reference:true,shipBonus:false};
+  for(const kind of ['normal','expedition','practice']){
+    const ui=harness({kind,state,defaultOpen:true},{status:'ready',tasks:[task({rewards})]});
+    const items=ui.all(n=>n.props.className==='paa-overview-reward-item');
+    assert.deepEqual(items.map(row=>JSON.parse(row.props['data-tooltip-content']).rewardItemId),[1,59,54,3,96]);
+    assert(items.every(row=>row.props.tabIndex===0));
   }
 });
 

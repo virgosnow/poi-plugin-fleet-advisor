@@ -98,6 +98,51 @@ test('equipment type is localized at render time and missing or new types use sa
  }finally{i18n.setLocale('zh-CN');}
 });
 
+test('equipment tooltip shows current owned copies across improvements and equipped instances in every locale',()=>{
+ const i18n=require('../../src/shared/i18n'),store=fixture();
+ store.info.equips={101:{api_slotitem_id:501,api_level:0},102:{api_slotitem_id:501,api_level:10,api_alv:7},103:{api_slotitem_id:502}};
+ store.info.ships[1].api_slot=[101,-1];store.const.$equips[501]={api_name:'舰爆',api_type:[0,0,7,7]};
+ const item=V.equipmentItem(store,101,0),data=JSON.parse(V.equipmentTooltipProps(item)['data-tooltip-content']);
+ assert.equal(data.equipmentMasterId,501);
+ try{
+  for(const [locale,expected] of [['zh-CN','持有 2 件'],['ja-JP','所持 2 個'],['zh-TW','持有 2 件']]){
+   i18n.setLocale(locale);const tip=doc.createElement('div');assert(renderStructured(doc,tip,JSON.stringify(data),store));
+   assert.equal(all(tip).find(n=>n.className==='paa-tooltip-equipment-owned').textContent,expected);
+  }
+  delete store.info.equips[102];const fresh=doc.createElement('div');renderStructured(doc,fresh,JSON.stringify(data),store);
+  assert.equal(all(fresh).find(n=>n.className==='paa-tooltip-equipment-owned').textContent,'持有 1 件');
+  delete store.info.equips[101];const empty=doc.createElement('div');renderStructured(doc,empty,JSON.stringify(data),store);
+  assert.equal(all(empty).find(n=>n.className==='paa-tooltip-equipment-owned').textContent,'持有 0 件');
+  const unknown=doc.createElement('div');renderStructured(doc,unknown,JSON.stringify(data),{});
+  assert(!all(unknown).some(n=>n.className==='paa-tooltip-equipment-owned'));
+ }finally{i18n.setLocale('zh-CN');}
+});
+
+test('reward item inventory uses materials or use items and localizes unknown values',()=>{
+ const i18n=require('../../src/shared/i18n'),inventory=require('../../src/ui/models/reward_inventory');
+ const store={info:{basic:{api_fcoin:123},resources:[1,2,3,4,50,60,70,80],useitems:{59:{api_count:3},57:{api_count:0}}},
+   const:{$useitems:{59:{api_name:'給糧艦「伊良湖」'},57:{api_name:'勲章'}}}};
+ assert.equal(inventory.rewardItemId({kind:13,id:1},store),1);
+ assert.equal(inventory.rewardItemId({name:'开发资材'},store),3);
+ assert.equal(inventory.rewardItemId({name:'勋章'},store),57);
+ assert.equal(inventory.rewardItemId({name:'給糧艦「伊良湖」'},store),59);
+ assert.equal(inventory.rewardItemId({kind:11,id:59},store),null);
+ assert.deepEqual([1,2,3,4,31,32,33,34,44,57,59,96].map(id=>inventory.rewardOwnedCount(store,id)),[60,50,70,80,1,2,3,4,123,0,3,0]);
+ assert.equal(inventory.rewardOwnedCount({info:{}},59),null);
+ assert.equal(inventory.rewardOwnedCount({info:{resources:[]}},1),null);
+ assert.equal(inventory.rewardOwnedCount({info:{useitems:{59:{api_count:-1}}}},59),null);
+ try{
+  for(const [locale,expected,unknown] of [['zh-CN','持有 3 件','持有数量待确认'],['ja-JP','所持 3 個','所持数は要確認'],['zh-TW','持有 3 件','持有數量待確認']]){
+   i18n.setLocale(locale);const data=JSON.stringify({kind:'reward-item',title:'伊良湖',rewardItemId:59,sections:[]});
+   const tip=doc.createElement('div');renderStructured(doc,tip,data,store);
+   assert.equal(all(tip).find(n=>n.className==='paa-tooltip-reward-owned').textContent,expected);
+   assert.equal(tip.children.length,1,'item tooltip only shows the owned count');
+   const missing=doc.createElement('div');renderStructured(doc,missing,data,{});
+   assert.equal(all(missing).find(n=>n.className==='paa-tooltip-reward-owned').textContent,unknown);
+  }
+ }finally{i18n.setLocale('zh-CN');}
+});
+
 test('equipment tooltip stays compact with no stats without affecting other structured tables',()=>{
  const data=JSON.parse(V.equipmentTooltipProps({name:'没有属性',stats:[]})['data-tooltip-content']);
  const tip=doc.createElement('div');assert(renderStructured(doc,tip,JSON.stringify(data)));

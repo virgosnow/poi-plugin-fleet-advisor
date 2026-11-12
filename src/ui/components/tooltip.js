@@ -5,6 +5,7 @@ const {t,registerCatalog,subscribe:subscribeLocale}=require('../../shared/i18n')
 const mechanismDisplay=require('../i18n/mechanism_display');
 const metricDisplay=require('../i18n/metric_display');
 const equipmentTypes=require('../i18n/equipment_types');
+const {rewardOwnedCount}=require('../models/reward_inventory');
 const statIcon=require('./stat_icon');
 registerCatalog('ja',{'位置':'位置','槽位':'スロット','节点':'マス','分岐':'分岐','系数':'係数','速力':'速力','预计结果':'予測結果',
   '类型':'種類','阵型':'陣形','攻击阶段':'攻撃段階','舰娘':'艦娘','提速装备':'増速装備','战前制空':'戦闘前制空値','敌方制空':'敵制空値',
@@ -19,6 +20,12 @@ registerCatalog('zh-TW',{'位置':'位置','槽位':'裝備格','节点':'節點
 registerCatalog('zh-CN',{'tooltip.nightZuiun':'夜瑞×{count}','tooltip.nightZuiunRadar':'夜瑞×{count}＋水上电探','tooltip.hitsUnknown':'（次数待确认）','tooltip.aaType':'{n}型','tooltip.fleetRate':'全队参考发动率'});
 registerCatalog('ja',{'tooltip.nightZuiun':'夜瑞雲×{count}','tooltip.nightZuiunRadar':'夜瑞雲×{count}＋水上電探','tooltip.hitsUnknown':'（回数は要確認）','tooltip.aaType':'{n}型','tooltip.fleetRate':'艦隊全体の参考発動率'});
 registerCatalog('zh-TW',{'tooltip.nightZuiun':'夜瑞雲×{count}','tooltip.nightZuiunRadar':'夜瑞雲×{count}＋水上電探','tooltip.hitsUnknown':'（次數待確認）','tooltip.aaType':'{n}型','tooltip.fleetRate':'全隊參考發動率'});
+registerCatalog('zh-CN',{'tooltip.equipmentOwned':'持有 {count} 件'});
+registerCatalog('zh-TW',{'tooltip.equipmentOwned':'持有 {count} 件'});
+registerCatalog('ja',{'tooltip.equipmentOwned':'所持 {count} 個'});
+registerCatalog('zh-CN',{'tooltip.itemOwnedUnknown':'持有数量待确认'});
+registerCatalog('zh-TW',{'tooltip.itemOwnedUnknown':'持有數量待確認'});
+registerCatalog('ja',{'tooltip.itemOwnedUnknown':'所持数は要確認'});
 let nextId=0;
 // Some labels need help only when their rendered text is actually clipped.
 function tooltipAllowed(node){return !node?.hasAttribute?.('data-tooltip-overflow')||node.scrollWidth>node.clientWidth;}
@@ -52,13 +59,18 @@ function alignCell(cell,column,header=false){
   if(header&&cell.style)cell.style.width=column.width+'%';
   return cell;
 }
-function renderStructured(doc,tip,raw){
+function equipmentOwnedCount(store,masterId){
+  const inventory=store?.info?.equips,id=Number(masterId);
+  if(!Number.isSafeInteger(id)||id<1||!inventory||typeof inventory!=='object'||Array.isArray(inventory))return null;
+  return Object.values(inventory).reduce((count,item)=>count+(Number(item?.api_slotitem_id)===id?1:0),0);
+}
+function renderStructured(doc,tip,raw,store){
   let content;try{content=JSON.parse(raw);}catch(_){return false;}
   if(content?.kind==='mechanism')return renderStructuredMechanism(doc,tip,content);
   if(!content||!Array.isArray(content.sections)||content.sections.some(s=>!Array.isArray(s.columns)||!Array.isArray(s.rows)||s.rows.some(r=>!Array.isArray(r))))return false;
   const text=(tag,cls,value)=>{const el=doc.createElement(tag);el.className=cls;el.textContent=String(value??'—');return el;};
   tip.className+=' paa-tooltip-structured'+(content.compact?' paa-tooltip-compact':'')+(content.kind==='equipment'?' paa-tooltip-equipment':'');
-  if(content.title){
+  if(content.title&&content.kind!=='reward-item'){
     const heading=text('div','paa-tooltip-heading',metricDisplay.title(content));
     if(content.kind==='equipment'&&content.equipmentIcon){
       const icon=doc.createElement('img');icon.className='paa-tooltip-equipment-icon';icon.src=content.equipmentIcon;icon.alt='';
@@ -66,7 +78,16 @@ function renderStructured(doc,tip,raw){
     }
     tip.appendChild(heading);
   }
-  if(content.kind==='equipment')tip.appendChild(text('div','paa-tooltip-equipment-type',equipmentTypes.line(content.equipmentTypeId,content.equipmentTypeName)));
+  if(content.kind==='equipment'){
+    const line=text('div','paa-tooltip-equipment-type',equipmentTypes.line(content.equipmentTypeId,content.equipmentTypeName));
+    const count=equipmentOwnedCount(store,content.equipmentMasterId);
+    if(count!==null)line.appendChild(text('span','paa-tooltip-equipment-owned',t('tooltip.equipmentOwned',{count})));
+    tip.appendChild(line);
+  }
+  if(content.kind==='reward-item'){
+    const count=rewardOwnedCount(store,content.rewardItemId);
+    tip.appendChild(text('div','paa-tooltip-reward-owned',count===null?t('tooltip.itemOwnedUnknown'):t('tooltip.equipmentOwned',{count})));
+  }
   for(const s of content.sections){
     if(!s.rows.length)continue;
     const section=doc.createElement('div');section.className='paa-tooltip-section';
@@ -268,7 +289,7 @@ function renderContent(doc,tip,text,kind){
     }
   }
 }
-module.exports=function useTooltip(React,root,scope){
+module.exports=function useTooltip(React,root,scope,getStore){
   React.useEffect(()=>{
     const page=root.current;if(!page)return;
     const doc=page.ownerDocument,win=doc.defaultView;
@@ -295,7 +316,8 @@ module.exports=function useTooltip(React,root,scope){
       if(!visible(target)||!visible(anchor)||!target.dataset.tooltip||!tooltipAllowed(target)){hide();return;}
       tip=doc.createElement('div');tip.className='paa-tooltip';tip.id=`paa-tip-${++nextId}`;tip.setAttribute('role','tooltip');
       shownText=target.dataset.tooltip;shownContent=target.dataset.tooltipContent;
-      const structured=shownContent&&renderStructured(doc,tip,shownContent);
+      let store;try{store=getStore?.();}catch(_){/* An unavailable inventory must not block the tooltip. */}
+      const structured=shownContent&&renderStructured(doc,tip,shownContent,store);
       if(!structured)renderContent(doc,tip,shownText,target.dataset.mechanism);
       const theme=win.getComputedStyle(page);
       for(const key of ['--paa-card','--paa-text','--paa-line'])tip.style.setProperty(key,theme.getPropertyValue(key));
@@ -376,6 +398,7 @@ module.exports=function useTooltip(React,root,scope){
 module.exports.position=position;
 module.exports.anchorRect=anchorRect;
 module.exports.tooltipAllowed=tooltipAllowed;
+module.exports.equipmentOwnedCount=equipmentOwnedCount;
 module.exports.renderContent=renderContent;
 module.exports.renderStructured=renderStructured;
 module.exports.structuredWidth=structuredWidth;

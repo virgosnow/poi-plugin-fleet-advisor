@@ -9,7 +9,7 @@ test('enemy-name tooltips activate only when their text is truncated',()=>{
   assert.equal(useTooltip.tooltipAllowed(node(false,60,60)),true);
 });
 
-function harness(structured,tooltipText='测试提示'){
+function harness(structured,tooltipText='测试提示',getStore){
   const events=()=>({listeners:{},addEventListener(type,fn){(this.listeners[type]??=[]).push(fn);},
     removeEventListener(type,fn){this.listeners[type]=(this.listeners[type]||[]).filter(f=>f!==fn);},
     emit(type,event={}){for(const fn of this.listeners[type]||[])fn(event);}});
@@ -26,9 +26,29 @@ function harness(structured,tooltipText='测试提示'){
     remove(){this.isConnected=false;if(currentTip===this)currentTip=null;}});
   Object.assign(win,{innerWidth:1000,innerHeight:800,setTimeout,clearTimeout,getComputedStyle:()=>({getPropertyValue:()=>''}),
     MutationObserver:class{observe(){}disconnect(){}}});doc.defaultView=win;
-  let cleanup;useTooltip({useEffect:fn=>{cleanup=fn();}},{current:page},'test');
+  let cleanup;useTooltip({useEffect:fn=>{cleanup=fn();}},{current:page},'test',getStore);
   return {page,doc,win,target,other,popovers,get tip(){return currentTip;},cleanup};
 }
+
+test('equipment inventory is read when the delayed tooltip opens',t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const store={info:{equips:{1:{api_slotitem_id:35}}}},h=harness(true,'装备',()=>store);
+  h.target.dataset.tooltipContent=JSON.stringify({kind:'equipment',equipmentMasterId:35,sections:[]});
+  h.page.emit('pointerover',{target:h.target,buttons:0});store.info.equips[2]={api_slotitem_id:35};
+  t.mock.timers.tick(350);assert(h.tip);
+  const type=h.tip.children.find(n=>n.className==='paa-tooltip-equipment-type');
+  assert.equal(type.children.find(n=>n.className==='paa-tooltip-equipment-owned').textContent,'持有 2 件');
+  h.cleanup();
+});
+test('reward item inventory is read when the delayed tooltip opens',t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const store={info:{useitems:{59:{api_count:1}}}},h=harness(true,'伊良湖',()=>store);
+  h.target.dataset.tooltipContent=JSON.stringify({kind:'reward-item',title:'伊良湖',rewardItemId:59,sections:[]});
+  h.page.emit('pointerover',{target:h.target,buttons:0});store.info.useitems[59].api_count=2;
+  t.mock.timers.tick(350);assert(h.tip);
+  assert.equal(h.tip.children.find(n=>n.className==='paa-tooltip-reward-owned').textContent,'持有 2 件');
+  h.cleanup();
+});
 
 for(const structured of [false,true])test((structured?'structured':'plain')+' tooltip waits on exit and remains open if the pointer returns',t=>{
   t.mock.timers.enable({apis:['setTimeout']});const h=harness(structured);
