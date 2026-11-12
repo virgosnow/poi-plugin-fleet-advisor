@@ -697,8 +697,34 @@ module.exports=function createWorkbench(React,{getController,getStore,subscribe,
     };
     const changeGoal=value=>{
       if(disabled||value===goal)return;
+      if(expeditionCompleted){
+        // Both goal-specific fleets were produced by the same recommendation.
+        // Reuse them only while the snapshot, constraints and tasks still match.
+        const current=getStore(),signature=JSON.stringify([cacheKey('both'),revision]),cached=routeCache.current?.get(signature);
+        let reusable=false;
+        try{
+          const active=withoutClaimed(selectedQuests,current.questState);
+          const related=active.length?require('../../domain/quests/quest_requirements').listRelatedQuests({state:current,slots,deckId:fleet,
+            missionId,questState:current.questState}):null;
+          reusable=active===selectedQuests&&(!active.length||related.status==='ready'&&active.every(code=>related.tasks.some(task=>task.code===code)))&&
+            cached?.key===signature&&cached.stamp===require('../../application/snapshots').fingerprint(current);
+        }catch(_){reusable=false;}
+        const candidate=reusable?cached.found.goals?.[value]:null;
+        const row=candidate?.recommendations?.[0]||candidate?.closestRecommendation;
+        if(row){
+          const key=JSON.stringify([kind,area,target,phase,'clear',style,missionId,value,filterKey,...(selectedQuests.length?[selectedQuests]:[])]);
+          setGoal(value);setChoices([]);setError('');setNoPlan('');
+          try{
+            choosePlan(row,key);
+            if(!candidate.recommendations?.length)setNoPlan({message:'本轮未找到达标的远征编成。',
+              hint:'已显示最接近的参考编成，请检查任务及未满足的出航条件。'});
+          }catch(error){setError(error.message);}
+          return;
+        }
+        setGoal(value);setChoices([]);
+        return complete(style,false,mapRoute,value);
+      }
       setGoal(value);setChoices([]);
-      if(expeditionCompleted)return complete(style,false,mapRoute,value);
     };
     const refreshEquipment=async(next,{activate=false}={})=>{
       if(!next.some(Boolean))return;

@@ -2966,11 +2966,18 @@ test('expedition goal switches reuse the prepared pair and changed manual constr
   };
   await h.find(h.render(),n=>n.props.className==='paa-wb-complete').props.onClick();assert.equal(calls,1);
   for(const goal of ['success','great','success']){
-    const pending=h.chooseGoal(h.render(),goal);h.render();await pending;
+    const pending=h.chooseGoal(h.render(),goal),immediate=h.render();
+    assert.equal(h.get('working'),false,'a valid paired result switches synchronously');
+    assert(!h.find(immediate,n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay'));
+    assert.equal(h.get('slots')[0].id,goal==='success'?7:1,'the chosen fleet is already visible');
+    await pending;
     assert.equal(calls,1);assert.equal(h.get('slots')[0].id,goal==='success'?7:1);
   }
   h.set('slots',[{...W.entry(h.store,2),pin:true}]);
-  let pending=h.chooseGoal(h.render(),'great');h.render();await pending;
+  let pending=h.chooseGoal(h.render(),'great'),recalculating=h.render();
+  assert.equal(h.get('working'),true,'changed manual constraints require a new search');
+  assert(h.find(recalculating,n=>n.props.className==='paa-wb-calculating paa-wb-fleet-overlay'),'real searches keep their progress overlay');
+  await pending;
   assert.equal(calls,2);assert.equal(h.get('slots')[0].id,2);
   h.set('revision',1);pending=h.chooseGoal(h.render(),'success');h.render();await pending;
   assert.equal(calls,3,'new account revision cannot reuse the pair');
