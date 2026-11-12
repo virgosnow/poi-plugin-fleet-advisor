@@ -166,6 +166,7 @@ ${require('../components/ship_card_styles').layout}.paa-wb-left .paa-wb-section-
 .paa-area-trigger strong{font:inherit;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;flex:none}.paa .paa-wb-route-picker select{appearance:none;width:100%;max-width:none;min-width:0}
 .paa-area-chevron,.paa-wb-route-picker .paa-wb-field::after{position:absolute;right:13px;top:calc(50% - 4px);width:6px;height:6px;border:solid var(--paa-muted);border-width:0 1.5px 1.5px 0;transform:rotate(45deg);pointer-events:none}
 .paa-wb-route-picker .paa-wb-field::after{content:''}.paa-area-trigger[aria-expanded=true] .paa-area-chevron{transform:translateY(3px) rotate(225deg)}
+.paa-wb-route-picker .paa-route-trigger[aria-expanded=true] .paa-area-chevron{transform:translateY(2px) rotate(225deg)}
 .paa-workbench[data-kind=normal] .paa-wb-left>.paa-wb-context-controls{border-bottom:0;padding-bottom:0;margin-bottom:4px}
 /* Match the metric baseline without adding a flex item or another panel gap. */
 .paa-workbench[data-kind=normal] .paa-wb-route-picker{position:relative;padding-bottom:16px}.paa-workbench[data-kind=normal] .paa-wb-route-picker::after{content:'';position:absolute;inset:auto 0 0;height:1px;background:var(--paa-line);pointer-events:none}

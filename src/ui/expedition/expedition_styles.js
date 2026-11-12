@@ -22,6 +22,7 @@ module.exports=`
 .paa .paa-exp-goal button[aria-pressed=true]{background:transparent;color:var(--paa-text);font-weight:500}
 .paa .paa-exp-goal button[data-goal=great][aria-pressed=true]{color:var(--paa-goal-great-fg)}
 .paa .paa-exp-goal button:hover:not(:disabled):not([aria-pressed=true]){background:var(--paa-soft);color:var(--paa-text)}
+.paa .paa-exp-goal button[data-goal=great]:hover:not(:disabled):not([aria-pressed=true]){background:color-mix(in srgb,var(--paa-goal-great-bg) 50%,transparent);color:var(--paa-goal-great-fg)}
 @media(prefers-reduced-motion:reduce){.paa-exp-goal-options::before{transition:none}}
 .paa-exp-condition-groups,.paa-exp-condition-group{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 8px}.paa-exp-condition-part{white-space:nowrap}.paa-exp-condition-or{color:var(--paa-muted);font-weight:400}
 .paa-workbench[data-kind=expedition] .paa-wb-left [data-result-region=expedition]>.paa-wb-calculation-content{display:flex;flex-direction:column;gap:12px}
