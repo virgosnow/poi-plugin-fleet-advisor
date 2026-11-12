@@ -9,7 +9,7 @@ test('equipment hover attributes preserve negative stats and distinguish interce
   assert.equal(item.name,'测试装备');assert(!item.tooltip.includes('火力'));
   assert.equal(item.statsText,'基础属性：火力 +3 · 命中 +1 · 回避 -2 · 射程 中');
   assert.equal(item.statsSummary,'火力+3 命中+1 回避-2 射程中');
-  assert.match(V.equipmentTooltip(item),/★6\n基础属性/);
+  assert.match(V.equipmentTooltip(item),/★6\n装备类型：中口径主炮\n基础属性/);
   Object.assign(master,{api_type:[0,0,48,0],api_houg:0,api_leng:0,api_distance:4});
   item=V.equipmentItem(state,1,'ex');assert.equal(item.statsText,'基础属性：对爆 +1 · 迎击 -2 · 航程 4');
   assert.equal(V.equipmentTooltip(null),'');

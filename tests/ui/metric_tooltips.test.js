@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const T=require('../../src/ui/models/metric_tooltips'),V=require('../../src/ui/models/presentation_model');
 const {renderStructured,structuredWidth}=require('../../src/ui/components/tooltip');
 const fixture=require('../helpers/workbench_fixture');
-const doc={createElement:tag=>({tag,className:'',style:{},children:[],textContent:'',appendChild(child){this.children.push(child);}}),
+const doc={createElement:tag=>({tag,className:'',style:{},children:[],textContent:'',appendChild(child){this.children.push(child);},prepend(child){this.children.unshift(child);}}),
  createElementNS:(_ns,tag)=>({tag,className:'',children:[],setAttribute(name,value){this[name]=value;},appendChild(child){this.children.push(child);}})};
 const all=node=>[node,...node.children.flatMap(all)];
 test('air tooltip only shows the selected route loss table while keeping headline values',()=>{
@@ -65,13 +65,16 @@ test('equipment card rows, picker items and icon tooltips share signed base stat
  const card=V.fleetRows(store,{ships:[{id:1,slots:[101],ex:0}]}).flatMap(s=>s.gearIcons)[0];
  const picker=V.equipmentItem(store,101,0);assert.deepEqual(card,picker);
  const props=V.equipmentTooltipProps(card),data=JSON.parse(props['data-tooltip-content']);
+ assert.equal(data.equipmentTypeId,7);assert.match(props['data-tooltip'],/装备类型：舰上爆击机/);
+ assert.equal(data.equipmentIcon,card.icon);
  assert.deepEqual(data.notes,[],'ordinary equipment does not repeat a generic explanatory paragraph');
  assert.deepEqual(data.sections[0].rows,[['火力','+2','爆装','+11'],['回避','-2','射程','长'],['航程','5','','']]);
  assert(data.compact);assert.equal(data.kind,'equipment');assert.deepEqual(data.sections[0].numeric,[1,3]);
  const tip=doc.createElement('div');renderStructured(doc,tip,JSON.stringify(data));
+ assert.equal(tip.children[1].className,'paa-tooltip-equipment-type');assert.equal(tip.children[1].textContent,'装备类型：舰上爆击机');
  assert.match(tip.className,/paa-tooltip-equipment/);assert.equal(structuredWidth(data,1200),320);assert.equal(structuredWidth(data,210),194);
  const rendered=all(tip);assert.equal(rendered.filter(n=>n.tag==='dt').length,5);
- assert.equal(rendered.filter(n=>n.tag==='svg').length,0);
+ assert.equal(rendered.filter(n=>n.tag==='svg').length,5);assert.equal(rendered.find(n=>n.tag==='img').src,card.icon);
  assert.equal(rendered.filter(n=>n.tag==='dd').length,5);assert(!rendered.some(n=>n.tag==='th'));
  assert.deepEqual(rendered.filter(n=>n.className==='paa-tooltip-equipment-stat').map(n=>n.children.map(c=>[c.tag,c.textContent])),
    [[['dt','火力'],['dd','+2']],[['dt','爆装'],['dd','+11']],[['dt','回避'],['dd','-2']],[['dt','射程'],['dd','长']],[['dt','航程'],['dd','5']]]);
@@ -79,6 +82,20 @@ test('equipment card rows, picker items and icon tooltips share signed base stat
  assert.match(data.title,/★6.*熟练度 7/);assert.match(props['data-tooltip'],/爆装 \+11/);
  const icon=require('../../src/ui/components/equipment_icon')({createElement:(type,props,...children)=>({type,props,children})})({item:card});
  assert.equal(icon.props['data-tooltip-content'],props['data-tooltip-content']);
+});
+
+test('equipment type is localized at render time and missing or new types use safe fallbacks',()=>{
+ const i18n=require('../../src/shared/i18n'),types=require('../../src/ui/i18n/equipment_types');
+ const data=JSON.parse(V.equipmentTooltipProps({name:'test',equipmentTypeId:7,stats:[['火力','+2']]})['data-tooltip-content']);
+ try{
+  for(const [locale,expected] of [['zh-CN','装备类型：舰上爆击机'],['ja-JP','装備種別：艦上爆撃機'],['zh-TW','裝備類型：艦上爆擊機']]){
+   i18n.setLocale(locale);const tip=doc.createElement('div');assert(renderStructured(doc,tip,JSON.stringify(data)));
+   assert.equal(tip.children[1].textContent,expected);
+  }
+  i18n.setLocale('zh-CN');assert.equal(types.label(8),'舰上攻击机');assert.equal(types.label(10),'水上侦察机');
+  assert.equal(types.label(null),'待确认');assert.equal(types.label(777,'新種別'),'新種別');
+  assert.equal(V.equipmentTooltipProps(null)['data-tooltip'],'空槽');
+ }finally{i18n.setLocale('zh-CN');}
 });
 
 test('equipment tooltip stays compact with no stats without affecting other structured tables',()=>{

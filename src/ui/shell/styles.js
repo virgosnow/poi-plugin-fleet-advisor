@@ -69,12 +69,14 @@ module.exports=`
 /* Equipment attributes stay paired; other hover tables retain their own layout. */
 .paa-tooltip-equipment-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 18px;margin:0;white-space:normal}
 .paa-tooltip-equipment-stat{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0;padding:4px 7px;border-radius:4px;background:color-mix(in srgb,currentColor 4%,transparent)}
-.paa-tooltip-equipment-label{display:inline-flex;align-items:center;gap:4px;margin:0;font-weight:400;opacity:.8;white-space:nowrap}
+.paa-tooltip-equipment-label{display:inline-flex;align-items:center;gap:4px;min-width:0;margin:0;font-weight:400;opacity:.8;white-space:normal;overflow-wrap:anywhere}
 .paa-stat-icon{display:inline-block;width:14px;height:14px;flex:none;vertical-align:middle}
 .paa-tooltip-equipment-value{margin:0;min-width:0;text-align:right;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .paa-tooltip-equipment-value.is-negative{color:#e68e99}
 .paa-tooltip-equipment-value.is-fit-positive{color:var(--paa-good,#80d8b4)}.paa-tooltip-equipment-value.is-fit-negative{color:var(--paa-bad,#e68e99)}
-.paa-tooltip-equipment{padding:6px 8px}.paa-tooltip-equipment .paa-tooltip-heading{margin-bottom:4px}.paa-tooltip-equipment .paa-tooltip-equipment-stats{grid-template-columns:repeat(auto-fit,minmax(min(66px,100%),1fr));gap:3px 8px}.paa-tooltip-equipment .paa-tooltip-equipment-stat{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:1px;padding:2px 5px;line-height:1.35}.paa-tooltip-equipment .paa-tooltip-equipment-value{text-align:left}.paa-tooltip-equipment .paa-tooltip-section+.paa-tooltip-section{margin-top:4px;padding-top:4px}
+.paa-tooltip-equipment-type{margin:0 0 4px;font-size:11px;line-height:18px;opacity:.8;overflow-wrap:anywhere}
+.paa-tooltip-equipment .paa-tooltip-heading{display:flex;align-items:center;gap:5px}.paa-tooltip-equipment-icon{width:20px;height:20px;flex:none;object-fit:contain}
+.paa-tooltip-equipment{padding:6px 8px}.paa-tooltip-equipment .paa-tooltip-heading{margin-bottom:4px}.paa-tooltip-equipment .paa-tooltip-equipment-stats{grid-template-columns:repeat(auto-fit,minmax(min(94px,100%),1fr));gap:3px 8px}.paa-tooltip-equipment .paa-tooltip-equipment-stat{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:1px;padding:2px 5px;line-height:1.35}.paa-tooltip-equipment .paa-tooltip-equipment-value{text-align:left}.paa-tooltip-equipment .paa-tooltip-section+.paa-tooltip-section{margin-top:4px;padding-top:4px}
 @media(max-width:320px){.paa-tooltip-equipment-stats{column-gap:10px}.paa-tooltip-equipment-stat{padding-inline:4px;gap:4px}}
 .paa-tooltip-notes{font-size:11px;line-height:1.5;opacity:.75;white-space:pre-line}
 .paa-tooltip-compact .paa-tooltip-data-table th,.paa-tooltip-compact .paa-tooltip-data-table td{padding-top:3px;padding-bottom:3px}
@@ -192,6 +194,7 @@ module.exports+=`
 module.exports+=require('../fleet/current_fleet_styles');
 module.exports+=require('../expedition/expedition_styles');
 module.exports+=require('../practice/practice_styles');
+module.exports+=require('../components/section_heading_styles');
 module.exports+=require('../components/quest_section_styles');
 module.exports+=require('../components/disclosure_styles');
 

@@ -4,6 +4,8 @@ const {EVENT:POINTER_GUARD}=require('./tooltip_pointer_guard');
 const {t,registerCatalog,subscribe:subscribeLocale}=require('../../shared/i18n');
 const mechanismDisplay=require('../i18n/mechanism_display');
 const metricDisplay=require('../i18n/metric_display');
+const equipmentTypes=require('../i18n/equipment_types');
+const statIcon=require('./stat_icon');
 registerCatalog('ja',{'位置':'位置','槽位':'スロット','节点':'マス','分岐':'分岐','系数':'係数','速力':'速力','预计结果':'予測結果',
   '类型':'種類','阵型':'陣形','攻击阶段':'攻撃段階','舰娘':'艦娘','提速装备':'増速装備','战前制空':'戦闘前制空値','敌方制空':'敵制空値',
   '门槛':'閾値','当前':'現在','属性':'項目','数值':'数値','火力':'火力','雷装':'雷装','爆装':'爆装','对空':'対空','对潜':'対潜','索敌':'索敵',
@@ -56,7 +58,15 @@ function renderStructured(doc,tip,raw){
   if(!content||!Array.isArray(content.sections)||content.sections.some(s=>!Array.isArray(s.columns)||!Array.isArray(s.rows)||s.rows.some(r=>!Array.isArray(r))))return false;
   const text=(tag,cls,value)=>{const el=doc.createElement(tag);el.className=cls;el.textContent=String(value??'—');return el;};
   tip.className+=' paa-tooltip-structured'+(content.compact?' paa-tooltip-compact':'')+(content.kind==='equipment'?' paa-tooltip-equipment':'');
-  if(content.title)tip.appendChild(text('div','paa-tooltip-heading',metricDisplay.title(content)));
+  if(content.title){
+    const heading=text('div','paa-tooltip-heading',metricDisplay.title(content));
+    if(content.kind==='equipment'&&content.equipmentIcon){
+      const icon=doc.createElement('img');icon.className='paa-tooltip-equipment-icon';icon.src=content.equipmentIcon;icon.alt='';
+      icon.onerror=()=>icon.remove();heading.prepend(icon);
+    }
+    tip.appendChild(heading);
+  }
+  if(content.kind==='equipment')tip.appendChild(text('div','paa-tooltip-equipment-type',equipmentTypes.line(content.equipmentTypeId,content.equipmentTypeName)));
   for(const s of content.sections){
     if(!s.rows.length)continue;
     const section=doc.createElement('div');section.className='paa-tooltip-section';
@@ -66,7 +76,8 @@ function renderStructured(doc,tip,raw){
       for(const [rowIndex,values] of s.rows.entries())for(let i=0;i<values.length;i+=2){
         if(!values[i])continue;
         const pair=doc.createElement('div');pair.className='paa-tooltip-equipment-stat';
-        pair.appendChild(text('dt','paa-tooltip-equipment-label',t(values[i])));
+        const label=text('dt','paa-tooltip-equipment-label',t(values[i])),icon=statIcon.dom(doc,values[i]);
+        if(icon)label.prepend(icon);pair.appendChild(label);
         const statKey=s.statKeys?.[rowIndex]?.[i/2]||(values[i]==='命中'?'accuracy':null);
         const fitTone=statKey==='accuracy'&&['positive','negative'].includes(s.fitTone)?s.fitTone:null;
         const tone=fitTone?' is-fit-'+fitTone:/^[−-]/.test(String(values[i+1]))?' is-negative':'';

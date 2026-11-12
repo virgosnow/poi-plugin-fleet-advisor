@@ -5,7 +5,8 @@ const equipmentIcons=new Map(require('../../../data/equip_icon_index.json').icon
 const equipmentIconUrl=type=>equipmentIcons.get(Number(type))||null;
 const {shipName}=require('../shell/model');
 const {referenceWeights}=require('../../domain/routes/route_policy');
-function equipmentTooltip(item){return [item?.tooltip,item?.statsText].filter(Boolean).join('\n');}
+const equipmentTypes=require('../i18n/equipment_types');
+function equipmentTooltip(item){return item?[item.tooltip||item.name,equipmentTypes.line(item.equipmentTypeId??item.aircraftType,item.equipmentTypeName),item.statsText].filter(Boolean).join('\n'):'';}
 function equipmentTooltipProps(item,notes=[]){
   if(!item)return {'data-tooltip':'空槽'};
   const values=[...(item.stats||[]),...(item.airPowerText!==undefined?[['制空值',item.airPowerText]]:[])],rows=[],statKeys=[];
@@ -18,7 +19,8 @@ function equipmentTooltipProps(item,notes=[]){
     rows.push([...values[i],...(values[i+1]||['',''])]);
     statKeys.push([keys[i]||null,keys[i+1]||null]);
   }
-  return require('./metric_tooltips').attributes({kind:'equipment',title:item.tooltip||item.name,compact:true,sections:values.length?
+  return require('./metric_tooltips').attributes({kind:'equipment',title:item.tooltip||item.name,compact:true,
+    equipmentTypeId:item.equipmentTypeId??item.aircraftType??null,equipmentTypeName:item.equipmentTypeName||null,equipmentIcon:item.icon||null,sections:values.length?
     [{layout:'equipment-stats',columns:['属性','数值','属性','数值'],rows,statKeys,numeric:[1,3],fitTone:roundedFit>0?'positive':roundedFit<0?'negative':null}]:[],notes:[...notes,item.airPowerBasis,item.gunFitNote,
       item.stats?.length?'':item.stats?'无属性加成':'装备属性资料待同步'].filter(Boolean)},
     [equipmentTooltip(item),item.airPowerText!==undefined?`制空值：${item.airPowerText}`:'',...notes].filter(Boolean).join('\n'));
@@ -31,9 +33,8 @@ function withAirPower(item,reading,shipId,{current=false}={}){
   const text=!participates?'0':!reading?'待计算':!known?'待确认':slot.min===slot.max?String(slot.min):`${slot.min}–${slot.max}`;
   return {...item,airPowerText:text,airPowerBasis:current?'制空按当前搭载':'制空按出击前满载'};
 }
-function equipmentItem(store,id,slot){
-  const item=store.info?.equips?.[id],master=store.const?.$equips?.[item?.api_slotitem_id];
-  if(!master||id<=0)return null;
+function equipmentMasterItem(master,item={},id=0,slot=null,typeNames){
+  if(!master)return null;
   const name=master.api_name||'未知装备',extra=slot==='ex';
   const interceptor=Number(master.api_type?.[2])===48;
   const fields=[['api_houg','火力','firepower'],['api_raig','雷装','torpedo'],['api_baku','爆装','bomber'],['api_tyku','对空','antiAir'],['api_tais','对潜','antiSubmarine'],['api_saku','索敌','lineOfSight'],['api_houm',interceptor?'对爆':'命中',interceptor?'bomberDefense':'accuracy'],['api_houk',interceptor?'迎击':'回避',interceptor?'interception':'evasion'],['api_souk','装甲','armor']];
@@ -42,8 +43,14 @@ function equipmentItem(store,id,slot){
   if(Number(master.api_leng)>0){values.push(['射程',({1:'短',2:'中',3:'长',4:'超长',5:'超超长'}[master.api_leng]||String(master.api_leng))]);statKeys.push('range');}
   if(Number(master.api_distance)>0){values.push(['航程',String(master.api_distance)]);statKeys.push('flightRange');}
   const stats=values.map(row=>row.join(' '));
-  return {id,slot,extra,name,aircraftType:Number(master.api_type?.[2]),stats:values,statKeys,statsSummary:stats.map(s=>s.replace(' ','')).join(' '),statsText:stats.length?'基础属性：'+stats.join(' · '):'',icon:equipmentIconUrl(master.api_type?.[3]),
-    tooltip:`${extra?'增设':`${Number(slot)+1} 槽`} · ${name}`+(item.api_level>0?` ★${item.api_level}`:'')+(item.api_alv>0?` · 熟练度 ${item.api_alv}`:'')};
+  const typeId=Number(master.api_type?.[2]);
+  return {id,slot,extra,name,aircraftType:typeId,equipmentTypeId:Number.isSafeInteger(typeId)&&typeId>0?typeId:null,
+    equipmentTypeName:typeNames?.[typeId]?.api_name||null,stats:values,statKeys,statsSummary:stats.map(s=>s.replace(' ','')).join(' '),statsText:stats.length?'基础属性：'+stats.join(' · '):'',icon:equipmentIconUrl(master.api_type?.[3]),
+    tooltip:(slot===null?'':`${extra?'增设':`${Number(slot)+1} 槽`} · `)+name+(item.api_level>0?` ★${item.api_level}`:'')+(item.api_alv>0?` · 熟练度 ${item.api_alv}`:'')};
+}
+function equipmentItem(store,id,slot){
+  const item=store.info?.equips?.[id],master=store.const?.$equips?.[item?.api_slotitem_id];
+  return id>0?equipmentMasterItem(master,item,id,slot,store.const?.$equipTypes):null;
 }
 function withGunFit(store,entry,item){
   if(!item||![1,2,3].includes(item.aircraftType)||!entry?.id)return item;
@@ -189,4 +196,4 @@ function mapLayout(preview){
     x:28+d*(width-56)/Math.max(1,layers-1),y:height/2+(i-(group.length-1)/2)*66})));
   return {width,height,nodes,edges:(preview.edges||[]).filter(e=>depth.has(e.from)&&depth.has(e.to))};
 }
-module.exports={equipmentIconUrl,equipmentItem,equipmentTooltip,equipmentTooltipProps,withAirPower,withGunFit,rosterRows,nodeKind,portraitUrl,fleetRows,routeReasons,mapLayout};
+module.exports={equipmentIconUrl,equipmentItem,equipmentMasterItem,equipmentTooltip,equipmentTooltipProps,withAirPower,withGunFit,rosterRows,nodeKind,portraitUrl,fleetRows,routeReasons,mapLayout};
