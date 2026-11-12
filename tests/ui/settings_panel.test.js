@@ -70,15 +70,15 @@ test('sortie and expedition exclusion controls autosave separately and propagate
   assert.equal(saved.normal.minLevel,60);assert.equal(saved.expedition.minLevel,0);
   control('远征设置：排除未改造舰').props.onChange({target:{checked:true}});tree=render();
   assert(saved.expedition.excludeUnremodeled);
-  const borrowingButton=label=>find(control('远征装备借用'),n=>n.type==='button'&&n.children.includes(label));
-  assert.equal(borrowingButton('不借用').props['aria-pressed'],true);
-  borrowingButton('允许借用').props.onClick();tree=render();
-  assert.equal(saved.expedition.allowEquipmentBorrowing,true);
-  assert.equal(workbenches(tree).find(n=>n.props.kind==='expedition').props.automaticFilters.allowEquipmentBorrowing,true);
-  borrowingButton('不借用').props.onClick();tree=render();
-  assert.equal(saved.expedition.allowEquipmentBorrowing,false);
-  assert.equal(borrowingButton('不借用').props['aria-pressed'],true);
-  assert.equal(workbenches(tree).find(n=>n.props.kind==='expedition').props.automaticFilters.allowEquipmentBorrowing,false);
+  const borrowing=()=>find(control('远征装备借用'),n=>n.type==='input'&&n.props['aria-label']==='编队舰娘');
+  assert.equal(borrowing().props.checked,false);
+  borrowing().props.onChange({target:{checked:true}});tree=render();
+  assert.equal(saved.expedition.borrowFleetShips,true);
+  assert.equal(workbenches(tree).find(n=>n.props.kind==='expedition').props.automaticFilters.borrowFleetShips,true);
+  borrowing().props.onChange({target:{checked:false}});tree=render();
+  assert.equal(saved.expedition.borrowFleetShips,false);
+  assert.equal(borrowing().props.checked,false);
+  assert.equal(workbenches(tree).find(n=>n.props.kind==='expedition').props.automaticFilters.borrowFleetShips,false);
   assert.equal(workbenches(tree)[0].props.automaticFilters.minLevel,60);
   assert(workbenches(tree).every((n,i)=>n.type===original[i]));
   service.setRecommendationFilters=()=>{throw Error('磁盘不可写');};
@@ -89,7 +89,7 @@ test('sortie and expedition exclusion controls autosave separately and propagate
   assert(!find(tree,n=>n.props.className==='paa-settings-notice'));
   control('回到主页').props.onClick();tree=render();
   assert.equal(saved.normal.minLevel,60);assert(saved.expedition.excludeUnremodeled,'home retains persisted preferences');
-  assert.equal(saved.expedition.allowEquipmentBorrowing,false);
+  assert.equal(saved.expedition.borrowFleetShips,false);
   assert(!find(tree,n=>n.props.role==='alert'),'home clears transient failures');
 });
 test('settings navigation preserves drafts and MCP controls keep their actions after layout changes',async()=>{
@@ -241,6 +241,23 @@ test('home resets all draft instances and inline execution feedback preserves st
   assert.equal(workbenches(tree).find(n=>!n.props.hidden).props.kind,'manual');assert.equal(feedback(tree),null);
   assert(workbenches(tree).every((n,i)=>n.props.key!==original[i]),'all three drafts remount from their initial state');
   assert(find(tree,n=>n.props['aria-label']==='设置面板').props.hidden);
+});
+
+test('panel preserves the execution error code and original stack for localized feedback',async()=>{
+  const state=[],refs=[];let index=0,refIndex=0;
+  const React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat()}),
+    useState(initial){const i=index++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return [state[i],value=>{state[i]=typeof value==='function'?value(state[i]):value;}];},
+    useRef:value=>{const i=refIndex++;return refs[i]||(refs[i]={current:value});},useEffect:()=>{}};
+  const error=Object.assign(new Error('检测到远征归港'),{code:'EXPEDITION_RETURN_REQUIRED'});
+  const controller={getExperimentalSettings:()=>({automaticOperations:true}),preview:()=>({done:false}),run:async()=>{throw error;}};
+  const Panel=require('../../src/ui/shell/panel')(React,{getController:()=>controller,getStore:()=>({}),subscribe:()=>()=>{}});
+  const render=()=>{index=0;refIndex=0;return Panel();};
+  const find=(node,predicate)=>!node||typeof node!=='object'?null:predicate(node)?node:(node.children||[]).map(child=>find(child,predicate)).find(Boolean);
+  let tree=render();find(tree,node=>node.type==='button'&&node.children.includes('常规海域')).props.onClick();tree=render();
+  let normal=workbenches(tree).find(node=>node.props.kind==='normal');
+  await normal.props.onApply({fleet:1,ships:[1]});tree=render();normal=workbenches(tree).find(node=>node.props.kind==='normal');
+  const feedback=normal.props.operationFeedback;assert.equal(feedback.props.status.errorCode,'EXPEDITION_RETURN_REQUIRED');
+  assert.equal(feedback.props.status.text,error.message);assert.equal(feedback.props.detail,error.stack);
 });
 
 test('execution moves focus off the replaced stop button while keeping it keyboard reachable',async()=>{

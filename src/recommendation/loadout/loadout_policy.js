@@ -68,6 +68,7 @@ function buildAvailableEquipment(store){
   const locked=new Set(store.planningUnavailableEquipmentIds||[]);
   for(const [shipId,ship] of Object.entries(store.info.ships))
     for(const id of [...(ship.api_slot||[]),ship.api_slot_ex])if(id>0)sources.set(id,Number(shipId));
+  const assigned=new Set(store.info.fleets.slice(0,4).flatMap(f=>f.api_ship||[]).map(Number));
   const busy=new Set(store.info.fleets.filter(f=>Number(f.api_mission?.[0])!==0)
     .flatMap(f=>f.api_ship||[]));
   const airbase=new Set();
@@ -77,7 +78,7 @@ function buildAvailableEquipment(store){
   return Object.entries(store.info.equips).filter(([id])=>{
     const itemId=Number(id),source=sources.get(itemId);
     return !locked.has(itemId)&&!airbase.has(itemId)&&!unverifiedRelocation(store,itemId,source)&&(!source||!busy.has(source));
-  }).map(([id,item])=>({id:Number(id),sourceShipId:sources.get(Number(id))||null,
+  }).map(([id,item])=>({id:Number(id),sourceShipId:sources.get(Number(id))||null,sourceFleetShip:assigned.has(sources.get(Number(id))),
     master:store.const.$equips[item.api_slotitem_id]}))
     .filter(row=>Array.isArray(row.master?.api_type));
 }

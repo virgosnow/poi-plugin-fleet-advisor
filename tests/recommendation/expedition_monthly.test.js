@@ -68,7 +68,7 @@ test('expedition borrowing follows the candidate fleet for search and equipment 
     assert(searched?.evaluation.eligible);assert(cargo(searched).every(id=>allowEquipmentBorrowing||![4000,4003].includes(id)));
   }
   const heldSlots=[{id:scheme.ships[0].id,slots:[4000],keep:{0:true}}];
-  assert.throws(()=>recommendExpeditionEquipment(store,{missionId:21,scheme,heldSlots,automaticFilters:{allowEquipmentBorrowing:false}}),/不借用.*草稿已保留/);
+  assert.throws(()=>recommendExpeditionEquipment(store,{missionId:21,scheme,heldSlots,automaticFilters:{allowEquipmentBorrowing:false}}),/借用.*草稿已保留/);
   assert.equal(JSON.stringify(store),before);
 });
 
@@ -89,7 +89,7 @@ test('expedition service applies its saved borrowing setting to search and refit
       assert.equal(cargo(fitted).length,allowEquipmentBorrowing?4:0);
       const result=await service.recommendExpeditionFleet({snapshotId,missionId:21,fleet:2,goal:'success',limit:1,excludedShipIds:[99],automaticFilters});
       assert(result.recommendations.length);assert.equal(cargo(result.recommendations[0]).length,allowEquipmentBorrowing?4:0);
-      assert.equal(result.selectionFilters.settings.allowEquipmentBorrowing,allowEquipmentBorrowing);
+      assert.equal(result.selectionFilters.settings.borrowIdleShips,allowEquipmentBorrowing);
     }
   }finally{await service.dispose();}
 });

@@ -1,15 +1,22 @@
 'use strict';
 // Preferences affect automatic selection, never the user's explicit draft.
 const DEFAULTS={
-  normal:{allowEquipmentBorrowing:true,minLevel:30,excludeUnremodeled:true,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeHeavyDamage:true,excludeFatigued:true},
-  practice:{allowEquipmentBorrowing:false,minLevel:0,excludeUnremodeled:false,excludeUnlocked:true,excludeExpedition:true,excludeRepairing:true,excludeHeavyDamage:true,excludeFatigued:true},
-  expedition:{allowEquipmentBorrowing:false,minLevel:0,excludeUnremodeled:false,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeHeavyDamage:true,excludeFirstFleet:true},
+  normal:{borrowIdleShips:true,borrowFleetShips:true,minLevel:30,excludeUnremodeled:true,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeHeavyDamage:true,excludeFatigued:true},
+  practice:{borrowIdleShips:true,borrowFleetShips:false,minLevel:0,excludeUnremodeled:false,excludeUnlocked:true,excludeExpedition:true,excludeRepairing:true,excludeHeavyDamage:true,excludeFatigued:true},
+  expedition:{borrowIdleShips:true,borrowFleetShips:false,minLevel:0,excludeUnremodeled:false,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeHeavyDamage:true,excludeFirstFleet:true},
 };
 function normalizeGroup(kind,value={}){
   const defaults=DEFAULTS[kind],out={};
   for(const [key,fallback]of Object.entries(defaults))out[key]=key==='minLevel'?
     (Number.isInteger(value?.[key])&&value[key]>=0&&value[key]<=999?value[key]:fallback):
     (typeof value?.[key]==='boolean'?value[key]:fallback);
+  // A legacy on/off switch did not express a separate fleet-source choice.
+  // Keep its idle-ship preference; use the new conservative default for
+  // expedition/practice fleet ships unless a new explicit setting exists.
+  if(typeof value?.allowEquipmentBorrowing==='boolean'){
+    if(typeof value.borrowIdleShips!=='boolean')out.borrowIdleShips=value.allowEquipmentBorrowing;
+    if(typeof value.borrowFleetShips!=='boolean')out.borrowFleetShips=kind==='normal'&&value.allowEquipmentBorrowing;
+  }
   return out;
 }
 const normalize=value=>Object.fromEntries(Object.keys(DEFAULTS).map(kind=>[kind,normalizeGroup(kind,value?.[kind])]));

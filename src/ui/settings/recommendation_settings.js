@@ -17,10 +17,12 @@ module.exports=React=>{
       const change=(key,v)=>onChange({...value,[kind]:{...group,[key]:v}},kind+'.'+key);
       const hint='readability.borrowHelp';
       return h('section',{className:'paa-settings-card',key:kind},h('div',{className:'paa-settings-section-head'},h('div',{className:'paa-settings-label'},h('h3',null,t(title)),feedback(React,undefined,{label:t(title),text:t(hint)}))),
-        h('div',{className:'paa-selection-count'},h('span',{className:'paa-settings-label'},h('span',null,t('装备借用'))),h('span',{className:'paa-settings-value'},
-          h('div',{className:'paa-exp-goal paa-settings-goal',role:'group','aria-label':t(kind==='practice'?'演习装备借用':kind==='expedition'?'远征装备借用':'出击装备借用')},
-            ...[[true,'允许借用'],[false,'不借用']].map(([id,label])=>h('button',{key:String(id),type:'button','aria-pressed':group.allowEquipmentBorrowing===id,disabled,
-              onClick:()=>{if(!disabled&&group.allowEquipmentBorrowing!==id)return change('allowEquipmentBorrowing',id);}},t(label)))),feedback(React,feedbacks[kind+'.allowEquipmentBorrowing']))),
+        h('div',{className:'paa-settings-row paa-selection-exclusions'},h('div',{className:'paa-selection-caption'},t('装备借用')),
+          h('div',{className:'paa-selection-options',role:'group','aria-label':t(kind==='practice'?'演习装备借用':kind==='expedition'?'远征装备借用':'出击装备借用')},
+            ...[['borrowIdleShips','borrow.idle'],['borrowFleetShips','borrow.fleet']].map(([key,label])=>
+              h('div',{className:'paa-settings-label',key},h('label',{className:'paa-selection-option'},
+                h('input',{type:'checkbox',checked:group[key],disabled,'aria-label':t(label),onChange:e=>change(key,e.target.checked)}),
+                h('span',null,t(label))),feedback(React,feedbacks[kind+'.'+key]))))),
         h('div',{className:'paa-settings-row paa-selection-exclusions'},h('div',{className:'paa-selection-caption'},t('排除以下舰娘')),
         h('div',{className:'paa-selection-options'},
         h('div',{className:'paa-selection-level'},

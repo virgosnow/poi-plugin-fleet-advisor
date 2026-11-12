@@ -32,12 +32,28 @@ test('scope follows candidate owners including expansion slots, retaining ordina
   assert(!equipmentForFleet(availableEquipment(next),[3],filters).some(i=>i.id===103),'expedition gear remains unavailable');
   assert.equal(JSON.stringify(store),before);
 });
+test('idle and assigned ship sources are independent, while fleet members and stock remain available',()=>{
+  const store=armed();
+  store.info.ships[2].api_slot=[101,-1];store.info.ships[3].api_slot=[103,-1];
+  store.info.ships[8].api_slot=[201,-1];store.info.equips[102]={api_id:102,api_slotitem_id:500,api_level:0};
+  delete store.info.equips[104];delete store.info.equips[202];
+  store.info.fleets=[{api_ship:[2,3],api_mission:[0,0]},{api_ship:[],api_mission:[0,0]}];
+  const inventory=availableEquipment(store),own=[2];
+  for(const [idle,fleet,expected] of [[false,false,[101,102]],[true,false,[101,102,201]],
+    [false,true,[101,102,103]],[true,true,[101,102,103,201]]]){
+    const settings={borrowIdleShips:idle,borrowFleetShips:fleet};
+    assert.deepEqual(equipmentForFleet(inventory,own,settings).map(item=>item.id).sort((a,b)=>a-b),expected);
+  }
+  assert.deepEqual(equipmentForFleet(inventory,[2,3],{borrowIdleShips:false,borrowFleetShips:false}).map(i=>i.id).sort((a,b)=>a-b),[101,102,103]);
+  store.info.fleets.push({api_ship:[8],api_mission:[1,0]});
+  assert(!equipmentForFleet(availableEquipment(store),own,{borrowIdleShips:true,borrowFleetShips:true}).some(i=>i.id===201));
+});
 test('upgrades discard former members equipment, allow internal transfers, and never erase manual holds',()=>{
   const inventory=availableEquipment(armed()),scope=equipmentForFleet(inventory,[3],filters);
   const draft={fleet:1,ships:[{id:3,slots:[101,103],ex:104}]},before=JSON.stringify(draft);
   assert.deepEqual(prepareFleetEquipment(draft,scope,filters).ships[0].slots,[-1,103]);
-  assert.throws(()=>prepareFleetEquipment(draft,scope,filters,[{id:3,keep:{0:true}}]),/不借用.*草稿已保留/);
-  assert.throws(()=>assertFleetEquipment(draft,scope,filters),/不借用/);
+  assert.throws(()=>prepareFleetEquipment(draft,scope,filters,[{id:3,keep:{0:true}}]),/借用.*草稿已保留/);
+  assert.throws(()=>assertFleetEquipment(draft,scope,filters),/借用/);
   assert.equal(JSON.stringify(draft),before);
   assert.doesNotThrow(()=>assertFleetEquipment(draft,equipmentForFleet(inventory,[2,3],filters),filters));
 });
@@ -48,7 +64,7 @@ test('fixed fleet refitting uses warehouse and participating ships only; borrowi
   const restricted=R.recommendNormalEquipment(store,{scheme,area:'1-1',automaticFilters:filters});
   assert(itemIds(restricted.scheme).length);assert(itemIds(restricted.scheme).every(id=>[101,102,104].includes(id)));
   const heldSlots=[{...scheme.ships[0],keep:{0:true}}];
-  assert.throws(()=>R.recommendNormalEquipment(store,{scheme,area:'1-1',heldSlots,automaticFilters:filters}),/不借用.*草稿已保留/);
+  assert.throws(()=>R.recommendNormalEquipment(store,{scheme,area:'1-1',heldSlots,automaticFilters:filters}),/借用.*草稿已保留/);
   assert.equal(JSON.stringify(store),before);
 });
 test('expedition and airbase equipment stay locked even with borrowing and future hull planning enabled',()=>{
@@ -138,7 +154,7 @@ test('shared UI/MCP service injects the saved policy into both searches and sepa
     const restricted=await service.recommendNormalEquipment(args);
     assert(itemIds(restricted.scheme).length);assert(itemIds(restricted.scheme).every(id=>[101,102,104].includes(id)));
     const fleet=await service.recommendNormalFleet({snapshotId,area:'1-1',routeKey:'A>C',fixedShipIds:[2],excludedShipIds:[1,3,4,5,6,7,8],automaticFilters:args.automaticFilters});
-    assert(fleet.recommendations.length);assert.equal(fleet.selectionFilters.settings.allowEquipmentBorrowing,false);
+    assert(fleet.recommendations.length);assert.equal(fleet.selectionFilters.settings.borrowIdleShips,false);assert.equal(fleet.selectionFilters.settings.borrowFleetShips,false);
     assert(fleet.recommendations.every(row=>itemIds(row.scheme).every(id=>[101,102,104].includes(id))));
     service.setRecommendationFilters({normal:{allowEquipmentBorrowing:true}});
     assert.deepEqual((await service.recommendNormalEquipment(args)).scheme,allowed.scheme);

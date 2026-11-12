@@ -5,13 +5,15 @@ const {error}=require('../../shared/errors');
 // retain array identity for downstream equipment pools without growing forever.
 const scopes=new WeakMap(),ids=new WeakMap();
 function equipmentForFleet(inventory,ships,settings){
-  if(settings?.allowEquipmentBorrowing!==false)return inventory;
+  const legacy=settings?.allowEquipmentBorrowing;
+  const idle=settings?.borrowIdleShips??(legacy!==false),fleet=settings?.borrowFleetShips??(legacy!==false);
+  if(idle&&fleet)return inventory;
   const owners=new Set(ships.map(ship=>Number(ship.id??ship)));
-  const key=[...owners].sort((a,b)=>a-b).join(',');
+  const key=[idle,fleet,...[...owners].sort((a,b)=>a-b)].join(',');
   let cache=scopes.get(inventory);
   if(!cache){cache=new Map();scopes.set(inventory,cache);}
   if(cache.has(key))return cache.get(key);
-  const allowed=inventory.filter(item=>!item.sourceShipId||owners.has(item.sourceShipId));
+  const allowed=inventory.filter(item=>!item.sourceShipId||owners.has(item.sourceShipId)||(item.sourceFleetShip?fleet:idle));
   if(cache.size>=128)cache.delete(cache.keys().next().value);
   cache.set(key,allowed);return allowed;
 }
@@ -19,9 +21,8 @@ function allowedIds(inventory){
   if(!ids.has(inventory))ids.set(inventory,new Set(inventory.map(item=>item.id)));
   return ids.get(inventory);
 }
-const conflict=()=>error('INVALID_QUERY','已选择“不借用”，手动保留的装备来自本次编成之外的舰娘；请取消保留该装备，或允许借用。当前草稿已保留');
+const conflict=()=>error('INVALID_QUERY','手动保留的装备不在允许借用的范围内，请调整借用设置或取消保留；当前草稿已保留');
 function prepareFleetEquipment(scheme,inventory,settings,heldSlots=[]){
-  if(settings?.allowEquipmentBorrowing!==false)return scheme;
   const allowed=allowedIds(inventory),held=new Map(heldSlots.filter(Boolean).map(ship=>[ship.id,ship]));
   return {...scheme,ships:scheme.ships.map(ship=>{
     const keep=(id,slot)=>{
@@ -35,7 +36,6 @@ function prepareFleetEquipment(scheme,inventory,settings,heldSlots=[]){
   })};
 }
 function assertFleetEquipment(scheme,inventory,settings){
-  if(settings?.allowEquipmentBorrowing!==false)return;
   const allowed=allowedIds(inventory);
   if(scheme.ships.some(ship=>[...(ship.slots||[]),ship.ex].some(id=>id>0&&!allowed.has(id))))throw conflict();
 }
