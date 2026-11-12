@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 1,
+  "event": "2026 秋刀魚祭り準備演習",
+  "startDate": "2026-11-11",
+  "endDate": null,
+  "timeZone": "Asia/Tokyo",
+  "notes": [
+    "游戏任务 ID 参考 KC3 数据，限时任务须同时匹配 ID 和完整名称；结束日期未公布。",
+    "目标和奖励来自任务资料，显示以游戏实际返回为准。"
+  ],
+  "quests": [
+    {
+      "code": "2611C1",
+      "category": "C",
+      "period": "限时周常",
+      "title": "【期間限定任務】秋月型演習任務2026",
+      "ids": [
+        381
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "shipClass",
+                  "name": "秋月型",
+                  "ctypeIds": [
+                    54
+                  ]
+                },
+                {
+                  "kind": "ship",
+                  "name": "秋雲"
+                },
+                {
+                  "kind": "ship",
+                  "name": "秋霜"
+                },
+                {
+                  "kind": "ship",
+                  "name": "秋津洲"
+                }
+              ]
+            },
+            "min": 3,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practiceWin",
+          "rankMin": "A",
+          "count": 3,
+          "within": "sameDay"
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務#id-2611C1",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json"
+      }
+    },
+    {
+      "code": "2611C2",
+      "category": "C",
+      "period": "限时周常",
+      "title": "【期間限定任務】秋刀魚祭り準備演習！",
+      "ids": [
+        386
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "uniqueShipFamilies": true,
+        "allOf": [
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "曙"
+                },
+                {
+                  "kind": "ship",
+                  "name": "天霧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "村雨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "大潮"
+                },
+                {
+                  "kind": "ship",
+                  "name": "熊野丸"
+                },
+                {
+                  "kind": "ship",
+                  "name": "山汐丸"
+                },
+                {
+                  "kind": "ship",
+                  "name": "第四号海防艦"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Ranger"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Heywood L.E."
+                }
+              ]
+            },
+            "min": 1,
+            "scope": "fleetTotal",
+            "positions": [
+              1
+            ]
+          },
+          {
+            "kind": "count",
+            "selector": {
+              "anyOf": [
+                {
+                  "kind": "ship",
+                  "name": "曙"
+                },
+                {
+                  "kind": "ship",
+                  "name": "天霧"
+                },
+                {
+                  "kind": "ship",
+                  "name": "村雨"
+                },
+                {
+                  "kind": "ship",
+                  "name": "大潮"
+                },
+                {
+                  "kind": "ship",
+                  "name": "熊野丸"
+                },
+                {
+                  "kind": "ship",
+                  "name": "山汐丸"
+                },
+                {
+                  "kind": "ship",
+                  "name": "第四号海防艦"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Ranger"
+                },
+                {
+                  "kind": "ship",
+                  "name": "Heywood L.E."
+                }
+              ]
+            },
+            "min": 4,
+            "scope": "fleetTotal"
+          }
+        ]
+      },
+      "goals": [
+        {
+          "kind": "practiceWin",
+          "rankMin": "S",
+          "count": 3,
+          "within": "sameDay"
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務#id-2611C2",
+        "crossCheckUrl": "https://zh.kcwiki.cn/wiki/任务",
+        "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json"
+      }
+    }
+  ]
+}

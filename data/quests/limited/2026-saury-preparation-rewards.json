@@ -1,0 +1,72 @@
+{
+  "source": "https://wikiwiki.jp/kancolle/任務/新着任務",
+  "reviewedAt": "2026-11-12",
+  "quests": {
+    "2611C1": {
+      "choices": [
+        [
+          {
+            "name": "开发资材",
+            "count": 4
+          },
+          {
+            "name": "25mm単装機銃",
+            "count": 2
+          },
+          {
+            "name": "工厂资源",
+            "count": 1
+          }
+        ],
+        [
+          {
+            "name": "高速修复材",
+            "count": 4
+          },
+          {
+            "name": "改修资材",
+            "count": 2
+          },
+          {
+            "name": "装备栏位",
+            "count": 2
+          }
+        ]
+      ],
+      "id": 381
+    },
+    "2611C2": {
+      "choices": [
+        [
+          {
+            "name": "开发资材",
+            "count": 4
+          },
+          {
+            "name": "三式水中探信儀",
+            "count": 1
+          },
+          {
+            "name": "探照灯",
+            "count": 1
+          }
+        ],
+        [
+          {
+            "name": "熟練見張員",
+            "count": 1
+          },
+          {
+            "name": "装备栏位",
+            "count": 1
+          },
+          {
+            "name": "勋章",
+            "count": 1
+          }
+        ]
+      ],
+      "id": 386
+    }
+  }
+}

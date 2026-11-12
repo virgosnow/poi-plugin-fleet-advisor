@@ -7,7 +7,9 @@ const data=require('../../../data/quests/requirements.json');
 const missions=require('../../../data/expedition_rewards.json').missions;
 const guides=require('../../../data/normal_route_guides.json').maps;
 const rewardCatalog=require('../../../data/quests/rewards.json').quests;
-const eventRewards=require('../../../data/quests/limited/2026-halloween-rewards.json').quests;
+const eventRewards={...require('../../../data/quests/limited/2026-halloween-rewards.json').quests,
+  ...require('../../../data/quests/limited/2026-saury-preparation-rewards.json').quests,
+  ...require('../../../data/quests/factory-rewards.json').quests};
 const itemNames={1:'高速修复材',2:'高速建造材',3:'开发资材',4:'改修资材',10:'家具箱（小）',11:'家具箱（中）',12:'家具箱（大）',59:'伊良湖'};
 // Game text is displayed as text, never inserted as HTML. Preserve its line
 // breaks while removing formatting and decoding common HTML entities.
@@ -96,11 +98,11 @@ function listOverviewQuests({state,questState,now=Date.now()}={}){
     const id=Number(live?.api_no),status=Number(live?.api_state);
     if(!Number.isInteger(id)||id<=0||![2,3].includes(status)||seen.has(id))continue;
     const definition=findDefinition(live,now);
-    const category=definition?.category||({2:'B',3:'C',4:'D'})[Number(live.api_category)];
-    if(!['B','C','D'].includes(category))continue;
+    const category=definition?.category||({2:'B',3:'C',4:'D',6:'F'})[Number(live.api_category)];
+    if(!['B','C','D','F'].includes(category)||category==='F'&&!definition)continue;
     seen.add(id);
     const practiceTask=category==='C'?practice.get(id):null;
-    const goals=practiceTask?practiceTask.goals.map(goal=>({...goal,key:goal.key,count:goal.count,label:goal.label,known:!!goal.kind,destinations:practiceTask.supported&&['practice','practiceWin'].includes(goal.kind)?[{kind:'practice',label:'演习'}]:goal.map||goal.anyTargets?destinations(goal,'B'):[]})):definition?(definition.goals||[]).map(goal=>({...goal,key:crypto.createHash('sha256').update(JSON.stringify(goal)).digest('hex'),count:Math.max(1,Number(goal.count)||1),label:goalLabel(goal,{}),destinations:destinations(goal,category)})):
+    const goals=practiceTask?practiceTask.goals.map(goal=>({...goal,key:goal.key,count:goal.count,label:goal.label,known:!!goal.kind,destinations:practiceTask.supported&&['practice','practiceWin'].includes(goal.kind)?[{kind:'practice',label:'演习'}]:goal.map||goal.anyTargets?destinations(goal,'B'):[]})):definition?(definition.goals||[]).map(goal=>({...goal,...category==='F'?{known:true}:{key:crypto.createHash('sha256').update(JSON.stringify(goal)).digest('hex'),count:Math.max(1,Number(goal.count)||1)},label:goalLabel(goal,{}),destinations:category==='F'?[]:destinations(goal,category)})):
       [{label:'目标条件待确认',destinations:[]}];
     tasks.push({id,code:practiceTask?.supported?practiceTask.code:definition?.code||null,title:live.api_title||definition?.title||`任务 ${id}`,gameTitle:typeof live.api_title==='string'?live.api_title:'',description:gameDescription(live.api_detail),source:definition?.source,
       category,state:status,progressFlag:live.api_progress_flag==null?null:Number(live.api_progress_flag),period:practiceTask?.period||definition?.period||null,fleetRequirements:definition?describeFleetRequirements(definition.fleet):null,goals,rewards:rewards(live,state,definition,lookup)});

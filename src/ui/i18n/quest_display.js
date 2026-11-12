@@ -64,7 +64,13 @@ const rows={
  'quest.item.boxSmall':['家具箱（小）','家具箱（小）'],
  'quest.item.boxMedium':['家具箱（中）','家具箱（中）'],
  'quest.item.boxLarge':['家具箱（大）','家具箱（大）'],
- 'quest.item.ranking':['戦果','戰果']
+ 'quest.item.ranking':['戦果','戰果'],
+ 'quest.item.arsenal':['工廠資源','工廠資源'],'quest.item.slots':['装備枠','裝備欄位'],'quest.item.medal':['勲章','勳章'],
+ 'quest.item.newArmament':['新型兵装資材','新型兵裝資材'],
+ 'quest.factoryCategory':['工廠','工廠'],'quest.factoryEquip':['旗艦の第{slots}スロットに {name}{level}を装備','旗艦第{slots}格裝備 {name}{level}'],
+ 'quest.factoryDiscard':['{name} ×{count}を廃棄','廢棄 {name} ×{count}'],
+ 'quest.factoryPrepare':['{items}を準備（達成時に消費）','準備 {items}（達成時消耗）'],
+ 'quest.factoryConsumed':['（達成時に消費）','（達成時消耗）']
 };
 for(const [key,[ja,tw]] of Object.entries(rows)){registerCatalog('ja',{[key]:ja});registerCatalog('zh-TW',{[key]:tw});}
 // Stable IDs describe task rules; translated words are presentation only.
@@ -153,6 +159,9 @@ function structuredGoal(goal,period){
   let result;
   switch(goal.kind){
     case 'practice':case 'practiceWin':result=t('quest.practiceCount',{when:goal.withinDay||goal.within==='sameDay'?t('quest.today'):period==='weekly'?t('quest.week'):'',rank:rankText,count});break;
+    case 'factoryEquip':result=t('quest.factoryEquip',{slots:goal.slots.join('、'),name:goal.name,level:goal.level?` ★${goal.level}${t('quest.factoryConsumed')}`:''});break;
+    case 'factoryDiscard':result=t('quest.factoryDiscard',{name:goal.name,count:goal.quantity});break;
+    case 'factoryPrepare':result=t('quest.factoryPrepare',{items:goal.items.map(item=>`${t(({dev:'quest.item.dev',newArmament:'quest.item.newArmament',arsenal:'quest.item.arsenal'})[item.key]||item.key)} ×${item.quantity}`).join('、')});break;
     case 'equippedItems':result=t('quest.equipped',{count});break;
     case 'bossWin':result=t('quest.mapGoal',{place,action:t('quest.bossWin',{rank:rankText}),count});break;
     case 'battleWin':result=t('quest.mapGoal',{place,action:t('quest.battleWin',{rank:rankText}),count});break;
@@ -230,7 +239,7 @@ function check(raw){
   return raw;
 }
 function reward(item){
-  const name=item?.name||'',key={'高速修复材':'quest.item.buckets','高速建造材':'quest.item.build','开发资材':'quest.item.dev','改修资材':'quest.item.screw','家具箱（小）':'quest.item.boxSmall','家具箱（中）':'quest.item.boxMedium','家具箱（大）':'quest.item.boxLarge','战果':'quest.item.ranking'}[name];
+  const name=item?.name||'',key={'高速修复材':'quest.item.buckets','高速建造材':'quest.item.build','开发资材':'quest.item.dev','改修资材':'quest.item.screw','家具箱（小）':'quest.item.boxSmall','家具箱（中）':'quest.item.boxMedium','家具箱（大）':'quest.item.boxLarge','战果':'quest.item.ranking','工厂资源':'quest.item.arsenal','装备栏位':'quest.item.slots','勋章':'quest.item.medal'}[name];
   return key&&getLocale()!=='zh-CN'?t(key):name;
 }
 module.exports={goal,structuredGoal,destination,check,reward,fleetRule};

@@ -26,6 +26,30 @@ test('seasonal practice quests match both their recycled IDs and live titles',()
  assert.equal(tasks[0].code,'P313');assert.equal(tasks[0].period,'limited');assert.match(tasks[0].goals[0].label,/胜利 8次/);
  assert.equal(tasks[1].code,'P-unknown-326');assert.equal(tasks[1].supported,false);
 });
+test('new preparation practices match both game IDs and exact titles within their event',()=>{
+ const {findDefinition}=require('../../../src/domain/quests/quest_requirements');
+ const event=require('../../../data/quests/limited/2026-saury-preparation.json');
+ const now=Date.parse('2026-11-12T12:00:00+09:00');
+ for(const quest of event.quests){
+  const live={api_no:quest.ids[0],api_category:3,api_state:2,api_title:quest.title};
+  assert.equal(findDefinition(live,now)?.code,quest.code);
+  assert.equal(findDefinition({...live,api_category:2},now),null);
+  assert.equal(findDefinition({...live,api_no:0},now),null);
+  assert.equal(findDefinition({...live,api_title:quest.title+'其他'},now),null);
+  assert.equal(findDefinition(live,Date.parse('2026-11-10T12:00:00+09:00')),null);
+  assert.equal(resolvePracticeCodes([quest.code],now)[0].code,quest.code);
+ }
+});
+test('new preparation practice requirements enforce the named ships and flagship',()=>{
+ const now=Date.parse('2026-11-12T12:00:00+09:00'),names=['曙改','天霧改二','村雨改二','熊野丸改','秋月改二','照月改','秋雲改二'];
+ const state={const:{$ships:{}},info:{ships:{}}};names.forEach((name,i)=>{const id=i+1;state.const.$ships[id]={api_id:id,api_name:name,api_stype:2,api_ctype:i===4||i===5?54:1};state.info.ships[id]={api_id:id,api_ship_id:id};});
+ const event=require('../../../data/quests/limited/2026-saury-preparation.json'),read=(code,ids)=>{
+  const q=event.quests.find(q=>q.code===code),questState={known:true,tasks:[{api_no:q.ids[0],api_category:3,api_state:2,api_title:q.title}]};
+  return listPracticeQuests({state,slots:ids.map(id=>({id})),questState,now}).tasks[0];};
+ assert.equal(read('2611C1',[5,6,7]).status,'met');assert.equal(read('2611C1',[5,6,1]).status,'unmet');
+ const pass=read('2611C2',[1,2,3,4]);assert.equal(pass.status,'met');assert.equal(pass.goals[0].rankMin,'S');assert.equal(pass.goals[0].count,3);
+ assert.equal(read('2611C2',[5,1,2,3,4]).status,'unmet');assert.equal(read('2611C2',[1,2,3,5]).status,'unmet');
+});
 test('elite destroyer practice requires four eligible hulls at level 70 or above',()=>{
  const state={const:{$ships:{}},info:{ships:{}}};
  [30,38,30,38,18].forEach((ctype,i)=>{const id=i+1;state.const.$ships[id]={api_id:id,api_name:`驱逐${id}`,api_stype:2,api_ctype:ctype};state.info.ships[id]={api_id:id,api_ship_id:id,api_lv:70};});

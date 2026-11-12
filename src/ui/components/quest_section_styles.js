@@ -18,8 +18,10 @@ module.exports=`
 .paa-quest-focus-rows{display:none;flex:none;flex-direction:column;gap:6px;min-width:0}.paa-wb-left[data-quest-focus=true]>.paa-quest-focus-rows{display:flex}
 .paa .paa-quest-focus-row{display:flex;align-items:center;gap:8px;min-width:0;min-height:32px;padding:5px 16px;border:1px solid var(--paa-line);border-radius:7px;background:var(--paa-card);color:var(--paa-text);font-size:14px;line-height:22px;text-align:left}
 .paa .paa-quest-focus-row:hover{background:var(--paa-soft);border-color:var(--paa-accent)}.paa-quest-focus-row>span:first-child{flex:none;font-weight:600}.paa-quest-focus-value{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;color:var(--paa-muted);font-size:12px}.paa-quest-focus-row svg{flex:none;width:16px;height:16px;fill:none;stroke:var(--paa-muted);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.paa .paa-wb-left[data-quest-focus=true]>.paa-quest-section{display:flex;flex:1;flex-direction:column;min-height:0;overflow:hidden;cursor:default}
-.paa .paa-wb-left[data-quest-focus=true]>.paa-quest-section>.paa-quest-content:last-child:not([hidden]){display:flex;flex:1;flex-direction:column;min-height:0;overflow:hidden}
+.paa .paa-wb-left[data-quest-focus=true]>.paa-quest-section{display:flex;flex:1;flex-direction:column;min-height:0;padding-right:4px;overflow:hidden;cursor:default}
+.paa .paa-wb-left[data-quest-focus=true]>.paa-quest-section>.paa-quest-disclosure{margin-right:12px}
+.paa .paa-wb-left[data-quest-focus=true]>.paa-quest-section :is(.paa-quest-selection,.paa-quest-empty){margin-right:12px}
+.paa .paa-wb-left[data-quest-focus=true]>.paa-quest-section>.paa-quest-main-content:not([hidden]){display:flex;flex:1;flex-direction:column;min-height:0;overflow:hidden}
 .paa .paa-wb-left[data-quest-focus=true] .paa-quest-list{flex:1;max-height:none;min-height:0}
 /* Interpolate actual block heights: text stays unscaled while upper sections
    compress and the task card grows into the released space. */
@@ -50,15 +52,18 @@ module.exports=`
 .paa-quest-item:focus-visible{outline:2px solid var(--paa-accent);outline-offset:2px}
 .paa-quest-item[data-selected=true],.paa-quest-item+.paa-quest-item[data-selected=true]{border:1px solid #d6ae50}
 .paa-quest-preselected{position:absolute;top:-8px;right:12px;padding:0 4px;background:var(--paa-card);color:#d6ae50;font-size:12px;font-weight:600;line-height:16px}
-.paa-quest-header,.paa-overview-quest-header{display:flex;flex-wrap:wrap;align-items:flex-start;gap:4px 10px;min-width:0}.paa-quest-heading,.paa-overview-quest-heading{flex:1 1 210px}
-.paa-quest-heading{display:flex;align-items:flex-start;gap:8px;min-width:0;margin-bottom:4px}
-.paa-quest-heading h4{flex:1}
-.paa-quest-number{flex:none;padding:0 5px;border-radius:4px;background:var(--paa-soft);color:var(--paa-accent);font-size:11px;font-weight:600;line-height:18px;font-variant-numeric:tabular-nums}
+.paa-quest-header,.paa-overview-quest-header{display:flex;align-items:flex-start;gap:8px;min-width:0}.paa-quest-heading,.paa-overview-quest-heading{flex:1 1 0;align-items:flex-start;min-width:0}
+.paa-quest-heading,.paa-overview-quest-heading{display:grid;grid-template-columns:48px minmax(0,1fr);column-gap:12px;align-items:start;min-width:0}
+.paa-quest-heading{margin-bottom:4px}
+.paa-quest-heading h4,.paa-overview-quest-heading h4{grid-column:2;min-width:0}
 .paa .paa-workbench .paa-wb-left .paa-quest-heading h4{min-width:0;margin:0;font-size:14px;font-weight:600;line-height:22px;color:var(--paa-text);overflow-wrap:anywhere}
-.paa-quest-meta{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 8px;margin:0 0 4px auto;min-width:0}
-.paa-quest-progress{color:var(--paa-muted);font-size:11px;line-height:16px;white-space:nowrap}.paa-quest-progress[data-complete=true]{color:var(--paa-good)}
-.paa-quest-period,.paa-quest-state{font-size:12px;font-weight:400;line-height:18px;color:var(--paa-muted);white-space:nowrap}
-.paa-quest-state[data-active=true]{color:var(--paa-good)}
+.paa-quest-meta,.paa-overview-quest-meta{display:flex;flex:none;align-items:center;min-height:19px;margin:0;white-space:nowrap}
+.paa .paa-quest-period{--paa-quest-period-color:#606d80;display:inline-flex;flex:none;align-items:center;justify-self:start;margin-top:0;padding:0 4px;border-radius:4px;background:color-mix(in srgb,var(--paa-quest-period-color) 16%,var(--paa-card));color:var(--paa-quest-period-color);font-size:12px;font-weight:600;line-height:20px;white-space:nowrap}
+.paa .paa-quest-period[data-period=daily]{--paa-quest-period-color:#346dae}.paa .paa-quest-period[data-period=weekly]{--paa-quest-period-color:#258263}.paa .paa-quest-period[data-period=monthly]{--paa-quest-period-color:#7758ac}.paa .paa-quest-period[data-period=quarterly]{--paa-quest-period-color:#a85d28}.paa .paa-quest-period[data-period=yearly]{--paa-quest-period-color:#917018}.paa .paa-quest-period[data-period=limited]{--paa-quest-period-color:#ac4c5c}
+:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa .paa-quest-period{--paa-quest-period-color:#aab9cf}
+:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa .paa-quest-period[data-period=daily]{--paa-quest-period-color:#8cbcff}:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa .paa-quest-period[data-period=weekly]{--paa-quest-period-color:#84d4b2}:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa .paa-quest-period[data-period=monthly]{--paa-quest-period-color:#c0a4ef}:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa .paa-quest-period[data-period=quarterly]{--paa-quest-period-color:#e7ae7d}:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa .paa-quest-period[data-period=yearly]{--paa-quest-period-color:#e6ca79}:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa .paa-quest-period[data-period=limited]{--paa-quest-period-color:#f09aaa}
+.paa .paa-quest-state{font-size:11px;font-weight:500;line-height:19px;white-space:nowrap}.paa .paa-quest-state[data-status=available]{color:#a36113}.paa .paa-quest-state[data-status=active]{color:#237b59}.paa .paa-quest-state[data-status=complete]{color:#356eb5}
+:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa .paa-quest-state[data-status=available]{color:#e7b35b}:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa .paa-quest-state[data-status=active]{color:#80d8b4}:is(.bp6-dark,.bp5-dark,.bp4-dark,.bp3-dark,[data-theme=dark]) .paa .paa-quest-state[data-status=complete]{color:#8bb5ff}
 .paa .paa-quest-goals,.paa .paa-quest-requirements{display:grid;grid-template-columns:28px minmax(0,1fr);align-items:start;gap:8px;margin:0;color:var(--paa-text);font-size:13px;line-height:20px;overflow-wrap:anywhere}
 .paa .paa-quest-requirements{margin-top:6px}
 .paa-quest-row-label{color:var(--paa-muted);font-size:12px;line-height:20px;white-space:nowrap}
@@ -67,8 +72,8 @@ module.exports=`
 .paa .paa-quest-goal-link{flex:1;min-width:0;min-height:20px;padding:0;border:0;background:transparent;color:var(--paa-accent);font-size:12px;line-height:20px;text-align:left;white-space:normal;overflow-wrap:anywhere}.paa .paa-quest-goal-link:hover:not(:disabled){text-decoration:underline}.paa .paa-quest-goal-link strong{font-size:13px;font-variant-numeric:tabular-nums}
 .paa-quest-goal-links{display:flex;flex-wrap:wrap;gap:4px 10px}.paa .paa-quest-goal-links .paa-quest-goal-link{flex:none}
 .paa-quest-goals li[data-related=false]{color:var(--paa-muted);font-size:12px;line-height:20px}
-.paa .paa-overview-quest .paa-quest-requirements,.paa .paa-overview-quest .paa-quest-goals,.paa .paa-quest-item .paa-quest-requirements,.paa .paa-quest-item .paa-quest-goals,.paa .paa-overview-quest .paa-overview-rewards,.paa .paa-quest-item .paa-overview-rewards{display:grid;grid-template-columns:40px minmax(0,1fr);align-items:start;gap:8px;margin:6px 0 0;padding:6px 0 0;border:0;border-top:1px solid var(--paa-line);border-radius:0;background:transparent;color:var(--paa-text);font-size:12px;line-height:20px}
-.paa .paa-overview-quest .paa-quest-row-label,.paa .paa-quest-item .paa-quest-row-label{font-size:12px;line-height:20px;color:var(--paa-muted)}
+.paa .paa-overview-quest .paa-quest-requirements,.paa .paa-overview-quest .paa-quest-goals,.paa .paa-quest-item .paa-quest-requirements,.paa .paa-quest-item .paa-quest-goals,.paa .paa-overview-quest .paa-overview-rewards,.paa .paa-quest-item .paa-overview-rewards{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:start;gap:8px 12px;margin:6px 0 0;padding:6px 0 0;border:0;border-top:1px solid var(--paa-line);border-radius:0;background:transparent;color:var(--paa-text);font-size:12px;line-height:20px}
+.paa .paa-overview-quest .paa-quest-row-label,.paa .paa-quest-item .paa-quest-row-label{padding-left:4px;font-size:12px;line-height:20px;color:var(--paa-muted)}
 .paa .paa-overview-quest .paa-overview-task-goals{margin:0!important}
 .paa-quest-checks{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:4px}
 .paa-quest-checks>li{display:grid;grid-template-columns:minmax(0,1fr) fit-content(45%) 12px;align-items:baseline;gap:6px;font-size:13px;line-height:20px;color:var(--paa-muted)}
@@ -80,23 +85,33 @@ module.exports=`
 .paa-quest-check-label{min-width:0;overflow-wrap:anywhere}
 .paa-quest-check-value{min-width:0;max-width:20ch;font-variant-numeric:tabular-nums;white-space:normal;text-align:right;overflow-wrap:anywhere;color:inherit}
 .paa .paa-quest-requirement-summary{margin:0;color:var(--paa-muted);font-size:13px;line-height:20px}
-.paa .paa-quest-condition-status{margin:0 0 0 auto;font-size:12px;line-height:18px;color:var(--paa-muted)}
-.paa-quest-condition-status[data-status=met]{color:var(--paa-good)}
-.paa-quest-condition-status[data-status=unmet]{color:#ce934c}
 .paa .paa-quest-empty{margin:0;color:var(--paa-muted);font-size:12px;line-height:20px}
-/* Normal-map tasks share the overview cards' hierarchy, while the whole card remains selectable. */
-.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-list{gap:12px;padding:10px 3px 2px 2px}
-.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-item,.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-item+.paa-quest-item{padding:10px 11px;border:1px solid var(--paa-line);border-radius:9px;background:color-mix(in srgb,var(--paa-bg) 70%,var(--paa-card))}
-.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-item:hover:not([aria-disabled=true]){border-color:color-mix(in srgb,var(--paa-accent) 45%,var(--paa-line))}
-.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-item[data-selected=true],.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-item[data-selected=true]:hover{border-color:#d6ae50}
-.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-meta{align-items:center;gap:6px;margin-bottom:4px}
-.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-period{padding:0 5px;border-radius:4px;background:var(--paa-soft);font-size:10px;line-height:16px}
-.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-state,.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-condition-status{font-size:11px;line-height:16px}
-.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-heading{margin:0 0 8px}
-.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-heading h4{font-size:13px;line-height:19px}
-.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-goals,.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-requirements{font-size:12px;line-height:18px}
-.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-goals li[data-related=true]>strong{color:var(--paa-accent);font-size:13px;font-variant-numeric:tabular-nums}
-.paa .paa-workbench:is([data-kind=normal],[data-kind=practice]) .paa-quest-checks>li{font-size:12px;line-height:18px}
+/* Workbench task cards share the same hierarchy and selection treatment. */
+.paa .paa-workbench[data-kind] .paa-quest-list{gap:12px;padding:10px 6px 2px 2px;overflow-x:hidden}
+.paa .paa-workbench[data-kind] .paa-quest-list::-webkit-scrollbar{width:9px}
+.paa .paa-workbench[data-kind] .paa-quest-list::-webkit-scrollbar-track{border:3px solid transparent;border-radius:8px;background:color-mix(in srgb,var(--paa-muted) 15%,transparent);background-clip:padding-box}
+.paa .paa-workbench[data-kind] .paa-quest-list::-webkit-scrollbar-thumb{min-height:32px;border:2px solid transparent;border-radius:8px;background:color-mix(in srgb,var(--paa-muted) 65%,transparent);background-clip:padding-box}
+.paa .paa-workbench[data-kind] .paa-quest-list::-webkit-scrollbar-thumb:hover{background-color:var(--paa-muted)}
+.paa .paa-workbench[data-kind] .paa-quest-list::-webkit-scrollbar-button{display:none}
+.paa .paa-workbench[data-kind] .paa-quest-selection button{font-size:11px;line-height:normal}
+.paa .paa-workbench[data-kind] .paa-quest-item,.paa .paa-workbench[data-kind] .paa-quest-item+.paa-quest-item{padding:10px 11px;border:1px solid var(--paa-line);border-radius:9px;background:color-mix(in srgb,var(--paa-bg) 70%,var(--paa-card));font-size:12px;line-height:18px}
+.paa .paa-workbench[data-kind] .paa-quest-item .paa-quest-goal-link{font-size:12px;line-height:20px}
+.paa .paa-workbench[data-kind] .paa-quest-item[role=checkbox]:not([aria-disabled=true]):hover{border-color:var(--paa-accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--paa-accent) 28%,transparent)}
+.paa .paa-workbench[data-kind] .paa-quest-item[data-selected=true]{border-color:#d6ae50}
+.paa .paa-workbench[data-kind] .paa-quest-item[data-selected=true]:not([aria-disabled=true]):hover{border-color:#f0cb6e;box-shadow:0 0 0 1px color-mix(in srgb,#f0cb6e 30%,transparent)}
+.paa .paa-quest-item[role=checkbox]:not([aria-disabled=true]) :not(button):not(a){cursor:pointer}
+.paa .paa-quest-item[aria-disabled=true]{cursor:default}
+.paa .paa-quest-item button:disabled,.paa .paa-quest-item button:disabled *{cursor:default}
+.paa .paa-quest-wiki-menu{position:fixed;inset:auto;margin:0;padding:5px;min-width:144px;max-width:calc(100vw - 16px);border:1px solid var(--paa-line);border-radius:8px;background:var(--paa-card);color:var(--paa-text);box-shadow:0 8px 24px #0006;z-index:10002}
+.paa .paa-quest-wiki-menu a{display:block;padding:6px 10px;border-radius:5px;color:var(--paa-text);font-size:12px;line-height:20px;text-decoration:none;white-space:nowrap;cursor:pointer}
+.paa .paa-quest-wiki-menu a:hover,.paa .paa-quest-wiki-menu a:focus-visible{background:var(--paa-soft);color:var(--paa-accent);outline:none}
+.paa .paa-workbench[data-kind] .paa-quest-meta{align-items:center}
+.paa .paa-workbench[data-kind] .paa-quest-state{font-size:11px;line-height:19px}
+.paa .paa-workbench[data-kind] .paa-quest-heading{margin:0 0 8px}
+.paa .paa-workbench[data-kind] :is(.paa-quest-heading,.paa-overview-quest-heading) h4{font-size:14px;line-height:20px}
+.paa .paa-workbench[data-kind] .paa-quest-goals,.paa .paa-workbench[data-kind] .paa-quest-requirements{font-size:12px;line-height:18px}
+.paa .paa-workbench[data-kind] .paa-quest-goals li[data-related=true]>strong{color:var(--paa-accent);font-size:13px;font-variant-numeric:tabular-nums}
+.paa .paa-workbench[data-kind] .paa-quest-checks>li{font-size:12px;line-height:18px}
 /* Keep the first goal aligned with the section label and make progress easy to scan. */
 .paa .paa-overview-quest .paa-quest-requirements li,.paa .paa-overview-quest .paa-overview-reward-item,.paa .paa-quest-item .paa-overview-reward-item{line-height:20px}
 .paa .paa-overview-quest .paa-overview-goal-content>.paa-overview-quest-target{align-items:center;width:calc(100% + 12px);min-height:24px;margin:-2px -6px 2px;padding:2px 6px;line-height:20px}

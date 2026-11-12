@@ -87,6 +87,19 @@ test('practice rewards use the community-number mapping while retaining internal
   assert.equal(annual.rewards.choicesFromGame,false);
 });
 
+test('new preparation practices and factory task retain requirements and verified rewards',()=>{
+  const event=require('../../../data/quests/limited/2026-saury-preparation.json');
+  const factory=require('../../../data/quests/factory.json').quests[0];
+  const seen=[...event.quests,factory].map(q=>({api_no:q.ids[0],api_title:q.title,api_category:q.category==='C'?3:6,api_state:2,api_get_material:[0,0,0,0]}));
+  const result=listOverviewQuests({state:{},questState:{known:true,tasks:seen},now:Date.parse('2026-11-12T12:00:00+09:00')}).tasks;
+  assert.deepEqual(result.map(t=>t.code).sort(),['2611C1','2611C2','F144']);
+  for(const code of ['2611C1','2611C2']){const row=result.find(t=>t.code===code);assert.equal(row.rewards.choices.length,2);assert.equal(row.goals[0].count,3);}
+  const f=result.find(t=>t.code==='F144');assert.equal(f.category,'F');assert.equal(f.rewards.fixed[0].level,10);assert.equal(f.rewards.fixed[0].count,2);
+  assert.deepEqual(f.goals.map(g=>g.kind),['factoryEquip','factoryEquip','factoryDiscard','factoryPrepare']);
+  assert(f.goals.every(g=>!g.key&&g.count===undefined&&g.destinations.length===0));
+  assert.equal(listOverviewQuests({state:{},questState:{known:true,tasks:[{...seen[2],api_title:'不同任务'}]}}).tasks.length,0);
+});
+
 test('reference rewards are tied to known quest IDs and retain complete choices',()=>{
   const entries=require('../../../data/quests/rewards.json').quests;
   assert(Object.keys(entries).length>300);

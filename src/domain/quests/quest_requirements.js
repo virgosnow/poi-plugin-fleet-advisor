@@ -1,13 +1,14 @@
 'use strict';
 
 const DATA=require('../../../data/quests/requirements.json');
+const FACTORY=require('../../../data/quests/factory.json');
 const LIMITED_EVENTS=require('../../../data/quests/limited');
 const MISSIONS=require('../../../data/expedition_rewards.json').missions;
 const {normalizeName}=require('../../shared/name_matching');
 const {evaluateFleetRequirements,createFleetRequirementEvaluator,describeFleetRequirements}=require('./fleet_requirements');
 const crypto=require('node:crypto');
 const INDEX=new Map();
-for(const [quests,event] of [[DATA.quests,null],...LIMITED_EVENTS.map(event=>[event.quests.filter(q=>['B','C','D'].includes(q.category)),event])])
+for(const [quests,event] of [[DATA.quests,null],[FACTORY.quests,null],...LIMITED_EVENTS.map(event=>[event.quests.filter(q=>['B','C','D'].includes(q.category)),event])])
   for(const quest of quests)for(const id of quest.ids){
     if(!INDEX.has(id))INDEX.set(id,[]);INDEX.get(id).push({quest,event});
   }
@@ -29,7 +30,7 @@ function taskSnapshot(state,provided){
 function findDefinition(task,now){
   const candidates=INDEX.get(Number(task.api_no))||[];
   const title=titleKey(task.api_title);
-  const category=({2:'B',3:'C',4:'D',8:'B',9:'B',10:'B'})[Number(task.api_category)];
+  const category=({2:'B',3:'C',4:'D',6:'F',8:'B',9:'B',10:'B'})[Number(task.api_category)];
   const day=new Date(now+9*60*60*1000).toISOString().slice(0,10);
   const allowed=candidates.filter(({quest,event})=>
     (!category||quest.category===category)&&(!event||day>=event.startDate&&(!event.endDate||day<=event.endDate))&&
@@ -70,6 +71,9 @@ function goalLabel(goal,{mapId,missionId,period}={}){
   const place=goal.node?`${map} ${goal.node}点`:goal.phase?`${map} 第${goal.phase}阶段`:map;
   const rank=goal.rankMin==='win'?'胜利':goal.rankMin==='B'?'B胜以上':goal.rankMin==='A'?'A胜以上':goal.rankMin==='S'?'S胜':goal.rankMin?`${goal.rankMin}胜以上`:'';
   switch(goal.kind){
+    case 'factoryEquip':return `旗舰第${goal.slots.join('、')}槽装备 ${goal.name}${goal.level?` ★${goal.level}（达成时消耗）`:''}`;
+    case 'factoryDiscard':return `废弃 ${goal.name} ×${goal.quantity}`;
+    case 'factoryPrepare':return `准备 ${goal.items.map(item=>`${({dev:'开发资材',newArmament:'新型兵装资材',arsenal:'工厂资源'})[item.key]||item.key} ×${item.quantity}`).join('、')}（达成时消耗）`;
     case 'practice':case 'practiceWin':{
       const when=goal.withinDay||goal.within==='sameDay'?'本日':period==='weekly'?'本周':'';
       return `${when}演习${goal.rankMin==='any'?'':rank} ${count}次`;

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "url": "https://wikiwiki.jp/kancolle/任務/新着任務#id-F144",
+    "idSource": "https://github.com/KC3Kai/kc3-translations/blob/master/data/jp/quests.json",
+    "reviewedAt": "2026-11-12"
+  },
+  "quests": [
+    {
+      "code": "F144",
+      "category": "F",
+      "period": "once",
+      "title": "【雷装強化工廠任務】夜戦突撃装備の強化【I】",
+      "ids": [
+        1172
+      ],
+      "requireTitleMatch": true,
+      "fleet": {
+        "allOf": []
+      },
+      "goals": [
+        {
+          "kind": "factoryEquip",
+          "slots": [
+            1,
+            2
+          ],
+          "name": "61cm五連装(酸素)魚雷"
+        },
+        {
+          "kind": "factoryEquip",
+          "slots": [
+            3
+          ],
+          "name": "61cm四連装(酸素)魚雷",
+          "level": 10
+        },
+        {
+          "kind": "factoryDiscard",
+          "name": "61cm四連装魚雷",
+          "quantity": 10
+        },
+        {
+          "kind": "factoryPrepare",
+          "items": [
+            {
+              "key": "dev",
+              "quantity": 60
+            },
+            {
+              "key": "newArmament",
+              "quantity": 2
+            },
+            {
+              "key": "arsenal",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "source": {
+        "url": "https://wikiwiki.jp/kancolle/任務/新着任務#id-F144"
+      }
+    }
+  ]
+}

@@ -38,11 +38,21 @@ test('practice tab displays accepted tasks and navigates to the matching practic
   assert.deepEqual(calls,[{kind:'practice',label:'演习',code:'P371'}]);
 });
 
-test('overview shows active tasks, progress hints and helpful empty states',()=>{
+test('factory task tab displays structured instructions and rewards in all locales',()=>{
+  const i18n=require('../../src/shared/i18n'),q=require('../../data/quests/factory.json').quests[0];
+  const state={questState:{known:true,tasks:[{api_no:q.ids[0],api_category:6,api_state:2,api_title:q.title,api_get_material:[0,0,0,0]}]}};
+  try{for(const [locale,label,word] of [['zh-CN','工厂','旗舰第1、2槽'],['ja-JP','工廠','旗艦の第1、2スロット'],['zh-TW','工廠','旗艦第1、2格']]){
+    i18n.setLocale(locale);const ui=harness({state});ui.find(n=>n.type==='button'&&strings(n).startsWith(label)).props.onClick();ui.render();
+    const card=ui.find(n=>n.type==='article');assert(card);assert.match(strings(card),new RegExp(word));
+    assert.match(strings(card),/61cm五連装/);assert.match(strings(card),/★10/);assert.equal(ui.all(n=>n.props.className==='paa-overview-goal-status').length,0);
+  }}finally{i18n.setLocale('zh-CN');}
+});
+
+test('overview shows active task status without coarse game progress and retains helpful empty states',()=>{
   const Component=create(React),active={...task('B131'),api_progress_flag:1};
   const tree=Component({state:{questState:{known:true,tasks:[active,{...task('Dw2'),api_state:1}]}}});
   const content=strings(tree);
-  assert.match(content,/进行中的任务/);assert(!content.includes('点击目标'));assert.match(content,/进度 50% 以上/);
+  assert.match(content,/进行中的任务/);assert(!content.includes('点击目标'));assert.doesNotMatch(content,/进度 50% 以上/);
   assert.equal(walk(tree,node=>node.type==='article').length,1);
   assert.match(strings(Component({state:{questState:{known:true,tasks:[]}}})),/暂无进行中的出击任务/);
   assert.match(strings(Component({state:{}})),/任务资料正在后台同步/);
@@ -50,7 +60,7 @@ test('overview shows active tasks, progress hints and helpful empty states',()=>
 
 test('overview allows navigation for a known task even when other tasks are still syncing',()=>{
   const state={questState:{known:true,complete:false,tasks:[task('B131')]}};
-  const view=create(React)({state,onNavigate:()=>{}});assert.match(strings(view),/B131/);
+  const view=create(React)({state,onNavigate:()=>{}});assert(walk(view,node=>node.props['data-tooltip']==='任务编号：B131').length);
   const links=walk(view,node=>node.props.className==='paa-overview-quest-target');assert(links.length);assert(links.every(link=>!link.props.disabled));
 });
 
@@ -102,13 +112,14 @@ test('ship rewards remain marked unknown when only other fixed rewards are known
   assert.match(strings(details),/固定报酬/);assert.doesNotMatch(strings(details),/固定报酬 · 参考/);assert.match(strings(details),/舰娘报酬详情以游戏为准/);
 });
 
-test('practice task shows its community number and localized objective without changing its internal code',()=>{
+test('practice task keeps its community number in the type tooltip and localizes its objective',()=>{
   const i18n=require('../../src/shared/i18n'),state={questState:{known:true,tasks:[{
     api_no:302,api_category:3,api_state:2,api_title:'大規模演習',api_detail:'今週中に「演習」で他の提督の艦隊に対して20回「勝利」しよう！',api_get_material:[200,200,200,200]}]}};
   const calls=[];try{
     i18n.setLocale('zh-TW');const ui=harness({state,onNavigate:item=>calls.push(item)});
     ui.find(n=>n.type==='button'&&strings(n).startsWith('演習')).props.onClick();ui.render();
-    const card=ui.find(n=>n.type==='article');assert.match(strings(card),/Cw1/);assert.match(strings(card),/大規模演習/);
+    const card=ui.find(n=>n.type==='article');assert.doesNotMatch(strings(card),/Cw1/);assert.match(strings(card),/大規模演習/);
+    assert(walk(card,n=>n.props['data-tooltip']==='任務編號：Cw1').length);
     assert.equal(walk(card,n=>n.props.className==='paa-overview-quest-description').length,0);
     assert.match(strings(card),/本週演習勝利/);assert.doesNotMatch(strings(card),/他の提督の艦隊に対して20回/);
     ui.find(n=>n.props.className==='paa-overview-quest-target').props.onClick();assert.equal(calls[0].code,'P302');

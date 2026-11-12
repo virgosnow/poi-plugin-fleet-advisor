@@ -1,0 +1,1948 @@
+{
+  "checkedAt": "2026-11-12",
+  "sources": {
+    "main": {
+      "url": "https://zh.kcwiki.cn/wiki/%E4%BB%BB%E5%8A%A1",
+      "sha256": "82025e320779a1057ef5e640d36b273e5e5239e01876b71926d913aeca037a9d"
+    },
+    "limited": {
+      "url": "https://zh.kcwiki.cn/wiki/%E4%BB%BB%E5%8A%A1/%E6%9C%9F%E9%97%B4%E9%99%90%E5%AE%9A%E4%BB%BB%E5%8A%A1",
+      "sha256": "e12972271e05776b0013d3489a96591129b3c033cc12144085a89dc1246107e6"
+    }
+  },
+  "notes": [
+    "Only anchors whose displayed Japanese task title matches the local definition are included. Unverified tasks must use search."
+  ],
+  "quests": {
+    "B1": {
+      "title": "はじめての「出撃」!",
+      "page": "main",
+      "anchor": "B1"
+    },
+    "B2": {
+      "title": "鎮守府正面海域を護れ!",
+      "page": "main",
+      "anchor": "B2"
+    },
+    "B3": {
+      "title": "第2艦隊、出撃せよ!",
+      "page": "main",
+      "anchor": "B3"
+    },
+    "B4": {
+      "title": "南西諸島沖に出撃せよ!",
+      "page": "main",
+      "anchor": "B4"
+    },
+    "B5": {
+      "title": "接近する「敵前衛艦隊」を迎撃せよ!",
+      "page": "main",
+      "anchor": "B5"
+    },
+    "B6": {
+      "title": "「水雷戦隊」で出撃せよ!",
+      "page": "main",
+      "anchor": "B6"
+    },
+    "B7": {
+      "title": "「重巡洋艦」を出撃させよ!",
+      "page": "main",
+      "anchor": "B7"
+    },
+    "B8": {
+      "title": "「戦艦」を出撃させよ!",
+      "page": "main",
+      "anchor": "B8"
+    },
+    "B9": {
+      "title": "「空母機動部隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B9"
+    },
+    "B10": {
+      "title": "敵空母を撃沈せよ!",
+      "page": "main",
+      "anchor": "B10"
+    },
+    "B11": {
+      "title": "「三川艦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B11"
+    },
+    "B12": {
+      "title": "「第六駆逐隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B12"
+    },
+    "B13": {
+      "title": "「第四戦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B13"
+    },
+    "B14": {
+      "title": "「西村艦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B14"
+    },
+    "B15": {
+      "title": "「第五航空戦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B15"
+    },
+    "B16": {
+      "title": "新「三川艦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B16"
+    },
+    "B17": {
+      "title": "「潜水艦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B17"
+    },
+    "B18": {
+      "title": "「航空水上打撃艦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B18"
+    },
+    "B19": {
+      "title": "「第六戦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B19"
+    },
+    "B20": {
+      "title": "「第八駆逐隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B20"
+    },
+    "B21": {
+      "title": "「第十八駆逐隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B21"
+    },
+    "B22": {
+      "title": "「第三十駆逐隊(第一次)」出撃せよ!",
+      "page": "main",
+      "anchor": "B22"
+    },
+    "B23": {
+      "title": "「航空戦艦」抜錨せよ!",
+      "page": "main",
+      "anchor": "B23"
+    },
+    "B24": {
+      "title": "「第三十駆逐隊」対潜哨戒!",
+      "page": "main",
+      "anchor": "B24"
+    },
+    "B25": {
+      "title": "新編「第二航空戦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B25"
+    },
+    "B26": {
+      "title": "精鋭「第二航空戦隊」抜錨せよ!",
+      "page": "main",
+      "anchor": "B26"
+    },
+    "B27": {
+      "title": "戦艦「榛名」出撃せよ!",
+      "page": "main",
+      "anchor": "B27"
+    },
+    "B28": {
+      "title": "「第六〇一航空隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B28"
+    },
+    "B29": {
+      "title": "「軽空母」戦隊、出撃せよ!",
+      "page": "main",
+      "anchor": "B29"
+    },
+    "B30": {
+      "title": "「水雷戦隊」バシー島沖緊急展開",
+      "page": "main",
+      "anchor": "B30"
+    },
+    "B31": {
+      "title": "「第二戦隊」抜錨!",
+      "page": "main",
+      "anchor": "B31"
+    },
+    "B32": {
+      "title": "「戦艦部隊」北方海域に突入せよ!",
+      "page": "main",
+      "anchor": "B32"
+    },
+    "B33": {
+      "title": "「西村艦隊」南方海域へ進出せよ!",
+      "page": "main",
+      "anchor": "B33"
+    },
+    "B34": {
+      "title": "「第六戦隊」南西海域へ出撃せよ!",
+      "page": "main",
+      "anchor": "B34"
+    },
+    "B35": {
+      "title": "「第十一駆逐隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B35"
+    },
+    "B36": {
+      "title": "「第十一駆逐隊」対潜哨戒!",
+      "page": "main",
+      "anchor": "B36"
+    },
+    "B37": {
+      "title": "「第二一駆逐隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B37"
+    },
+    "B38": {
+      "title": "「那智戦隊」抜錨せよ!",
+      "page": "main",
+      "anchor": "B38"
+    },
+    "B39": {
+      "title": "「第二二駆逐隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B39"
+    },
+    "B40": {
+      "title": "「改装防空重巡」出撃せよ!",
+      "page": "main",
+      "anchor": "B40"
+    },
+    "B41": {
+      "title": "新編「三川艦隊」ソロモン方面へ!",
+      "page": "main",
+      "anchor": "B41"
+    },
+    "B42": {
+      "title": "「第六駆逐隊」対潜哨戒なのです!",
+      "page": "main",
+      "anchor": "B42"
+    },
+    "B43": {
+      "title": "抜錨!「第十八戦隊」",
+      "page": "main",
+      "anchor": "B43"
+    },
+    "B44": {
+      "title": "海上突入部隊、進発せよ!",
+      "page": "main",
+      "anchor": "B44"
+    },
+    "B45": {
+      "title": "「第六駆逐隊」対潜哨戒を徹底なのです!",
+      "page": "main",
+      "anchor": "B45"
+    },
+    "B46": {
+      "title": "「第一水雷戦隊」ケ号作戦、突入せよ!",
+      "page": "main",
+      "anchor": "B46"
+    },
+    "B47": {
+      "title": "「第一水雷戦隊」北方ケ号作戦、再突入!",
+      "page": "main",
+      "anchor": "B47"
+    },
+    "B48": {
+      "title": "鎮守府正面の対潜哨戒を強化せよ!",
+      "page": "main",
+      "anchor": "B48"
+    },
+    "B49": {
+      "title": "「空母機動部隊」北方海域に進出せよ!",
+      "page": "main",
+      "anchor": "B49"
+    },
+    "B50": {
+      "title": "「第五航空戦隊」珊瑚諸島沖に出撃せよ!",
+      "page": "main",
+      "anchor": "B50"
+    },
+    "B51": {
+      "title": "新編「第二一戦隊」北方へ出撃せよ!",
+      "page": "main",
+      "anchor": "B51"
+    },
+    "B52": {
+      "title": "「第十六戦隊(第一次)」出撃せよ!",
+      "page": "main",
+      "anchor": "B52"
+    },
+    "B53": {
+      "title": "「第三航空戦隊」南西諸島防衛線に出撃!",
+      "page": "main",
+      "anchor": "B53"
+    },
+    "B54": {
+      "title": "「小沢艦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B54"
+    },
+    "B55": {
+      "title": "「第十六戦隊(第二次)」出撃せよ!",
+      "page": "main",
+      "anchor": "B55"
+    },
+    "B56": {
+      "title": "新編成航空戦隊、北方へ進出せよ!",
+      "page": "main",
+      "anchor": "B56"
+    },
+    "B57": {
+      "title": "「礼号作戦」実施せよ!",
+      "page": "main",
+      "anchor": "B57"
+    },
+    "B58": {
+      "title": "旗艦「霞」北方海域を哨戒せよ!",
+      "page": "main",
+      "anchor": "B58"
+    },
+    "B59": {
+      "title": "旗艦「霞」出撃!敵艦隊を撃滅せよ!",
+      "page": "main",
+      "anchor": "B59"
+    },
+    "B60": {
+      "title": "「第三十一戦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B60"
+    },
+    "B61": {
+      "title": "「第二七駆逐隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B61"
+    },
+    "B62": {
+      "title": "強襲上陸作戦用戦力を増強せよ!",
+      "page": "main",
+      "anchor": "B62"
+    },
+    "B63": {
+      "title": "製油所地帯を防衛せよ!",
+      "page": "main",
+      "anchor": "B63"
+    },
+    "B64": {
+      "title": "南西諸島防衛線を強化せよ!",
+      "page": "main",
+      "anchor": "B64"
+    },
+    "B65": {
+      "title": "オリョール海の制海権を確保せよ!",
+      "page": "main",
+      "anchor": "B65"
+    },
+    "B66": {
+      "title": "旗艦「大潮」出撃せよ!",
+      "page": "main",
+      "anchor": "B66"
+    },
+    "B67": {
+      "title": "艦隊、三周年!",
+      "page": "main",
+      "anchor": "B67"
+    },
+    "B68": {
+      "title": "強行高速輸送部隊、出撃せよ!",
+      "page": "main",
+      "anchor": "B68"
+    },
+    "B69": {
+      "title": "「第一航空戦隊」西へ!",
+      "page": "main",
+      "anchor": "B69"
+    },
+    "B70": {
+      "title": "新編艦隊、南西諸島防衛線へ急行せよ!",
+      "page": "main",
+      "anchor": "B70"
+    },
+    "B71": {
+      "title": "鎮守府近海航路の安全確保を強化せよ!",
+      "page": "main",
+      "anchor": "B71"
+    },
+    "B72": {
+      "title": "「第三十一戦隊」敵潜を制圧せよ!",
+      "page": "main",
+      "anchor": "B72"
+    },
+    "B73": {
+      "title": "新編「第八駆逐隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B73"
+    },
+    "B74": {
+      "title": "精鋭「八駆第一小隊」対潜哨戒!",
+      "page": "main",
+      "anchor": "B74"
+    },
+    "B75": {
+      "title": "水雷戦隊、南西防衛線に反復出撃せよ!",
+      "page": "main",
+      "anchor": "B75"
+    },
+    "B76": {
+      "title": "製油所地帯沿岸の哨戒を実施せよ!",
+      "page": "main",
+      "anchor": "B76"
+    },
+    "B77": {
+      "title": "水雷戦隊、南西諸島海域を哨戒せよ!",
+      "page": "main",
+      "anchor": "B77"
+    },
+    "B78": {
+      "title": "「第十九駆逐隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B78"
+    },
+    "B79": {
+      "title": "「第十九駆逐隊」敵主力に突入せよ!",
+      "page": "main",
+      "anchor": "B79"
+    },
+    "B80": {
+      "title": "飛行場設営の準備を実施せよ!",
+      "page": "main",
+      "anchor": "B80"
+    },
+    "B81": {
+      "title": "夜間突入!敵上陸部隊を叩け!",
+      "page": "main",
+      "anchor": "B81"
+    },
+    "B82": {
+      "title": "夜の海を照らす「灯り」を入手せよ!",
+      "page": "main",
+      "anchor": "B82"
+    },
+    "B83": {
+      "title": "南西諸島防衛線を増強せよ!",
+      "page": "main",
+      "anchor": "B83"
+    },
+    "B84": {
+      "title": "「第十六戦隊(第三次)」出撃せよ!",
+      "page": "main",
+      "anchor": "B84"
+    },
+    "B85": {
+      "title": "精鋭「第十六戦隊」突入せよ!",
+      "page": "main",
+      "anchor": "B85"
+    },
+    "B86": {
+      "title": "輸送作戦を成功させ、帰還せよ!",
+      "page": "main",
+      "anchor": "B86"
+    },
+    "B87": {
+      "title": "重巡戦隊、抜錨せよ!",
+      "page": "main",
+      "anchor": "B87"
+    },
+    "B88": {
+      "title": "戦艦戦隊、出撃せよ!",
+      "page": "main",
+      "anchor": "B88"
+    },
+    "B89": {
+      "title": "主力戦艦戦隊、抜錨せよ!",
+      "page": "main",
+      "anchor": "B89"
+    },
+    "B90": {
+      "title": "精鋭「第八駆逐隊」突入せよ!",
+      "page": "main",
+      "anchor": "B90"
+    },
+    "B91": {
+      "title": "潜水艦隊、中部海域の哨戒を実施せよ!",
+      "page": "main",
+      "anchor": "B91"
+    },
+    "B92": {
+      "title": "重装甲巡洋艦、鉄底海峡に突入せよ!",
+      "page": "main",
+      "anchor": "B92"
+    },
+    "B93": {
+      "title": "南西諸島方面の敵艦隊を撃破せよ!",
+      "page": "main",
+      "anchor": "B93"
+    },
+    "B94": {
+      "title": "洋上航空戦力を拡充せよ!",
+      "page": "main",
+      "anchor": "B94"
+    },
+    "B95": {
+      "title": "改装航空巡洋艦、出撃!",
+      "page": "main",
+      "anchor": "B95"
+    },
+    "B96": {
+      "title": "改装攻撃型軽空母、前線展開せよ!",
+      "page": "main",
+      "anchor": "B96"
+    },
+    "B97": {
+      "title": "鎮守府海域警戒を厳とせよ!",
+      "page": "main",
+      "anchor": "B97"
+    },
+    "B98": {
+      "title": "海上護衛体制の強化に努めよ!",
+      "page": "main",
+      "anchor": "B98"
+    },
+    "B99": {
+      "title": "新編「第一戦隊」、抜錨せよ!",
+      "page": "main",
+      "anchor": "B99"
+    },
+    "B100": {
+      "title": "増強海上護衛総隊、抜錨せよ!",
+      "page": "main",
+      "anchor": "B100"
+    },
+    "B101": {
+      "title": "新編「第七戦隊」、出撃せよ!",
+      "page": "main",
+      "anchor": "B101"
+    },
+    "B102": {
+      "title": "精鋭「第四航空戦隊」、抜錨せよ!",
+      "page": "main",
+      "anchor": "B102"
+    },
+    "B103": {
+      "title": "旗艦「由良」、抜錨!",
+      "page": "main",
+      "anchor": "B103"
+    },
+    "B104": {
+      "title": "精鋭「第二二駆逐隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B104"
+    },
+    "B105": {
+      "title": "精強大型航空母艦、抜錨!",
+      "page": "main",
+      "anchor": "B105"
+    },
+    "B106": {
+      "title": "夜間作戦空母、前線に出撃せよ!",
+      "page": "main",
+      "anchor": "B106"
+    },
+    "B107": {
+      "title": "補給線の安全を確保せよ!",
+      "page": "main",
+      "anchor": "B107"
+    },
+    "B108": {
+      "title": "「第八駆逐隊」、南西へ!",
+      "page": "main",
+      "anchor": "B108"
+    },
+    "B109": {
+      "title": "最精鋭「第八駆逐隊」、全力出撃!",
+      "page": "main",
+      "anchor": "B109"
+    },
+    "B110": {
+      "title": "北方海域戦闘哨戒を実施せよ!",
+      "page": "main",
+      "anchor": "B110"
+    },
+    "B111": {
+      "title": "松輸送作戦、開始せよ!",
+      "page": "main",
+      "anchor": "B111"
+    },
+    "B112": {
+      "title": "精鋭「四水戦」、南方海域に展開せよ!",
+      "page": "main",
+      "anchor": "B112"
+    },
+    "B113": {
+      "title": "松輸送作戦、継続実施せよ!",
+      "page": "main",
+      "anchor": "B113"
+    },
+    "B114": {
+      "title": "新編「四航戦」、全力出撃!",
+      "page": "main",
+      "anchor": "B114"
+    },
+    "B115": {
+      "title": "精鋭駆逐隊、獅子奮迅!",
+      "page": "main",
+      "anchor": "B115"
+    },
+    "B116": {
+      "title": "「十八駆」、北方海域キス島へ!",
+      "page": "main",
+      "anchor": "B116"
+    },
+    "B117": {
+      "title": "最精鋭甲型駆逐艦、突入!敵中突破!",
+      "page": "main",
+      "anchor": "B117"
+    },
+    "B118": {
+      "title": "戦闘航空母艦、出撃せよ!",
+      "page": "main",
+      "anchor": "B118"
+    },
+    "B119": {
+      "title": "「伊勢改二」、敵機動部隊を迎撃せよ!",
+      "page": "main",
+      "anchor": "B119"
+    },
+    "B120": {
+      "title": "精鋭「第十八戦隊」、展開せよ!",
+      "page": "main",
+      "anchor": "B120"
+    },
+    "B121": {
+      "title": "精鋭「二七駆」第一小隊、出撃せよ!",
+      "page": "main",
+      "anchor": "B121"
+    },
+    "B122": {
+      "title": "精鋭「四戦隊」第二小隊、抜錨せよ!",
+      "page": "main",
+      "anchor": "B122"
+    },
+    "B123": {
+      "title": "精強「十七駆」、北へ、南へ!",
+      "page": "main",
+      "anchor": "B123"
+    },
+    "B124": {
+      "title": "「第七駆逐隊」、南西諸島を駆ける!",
+      "page": "main",
+      "anchor": "B124"
+    },
+    "B125": {
+      "title": "近海の警戒監視と哨戒活動を強化せよ!",
+      "page": "main",
+      "anchor": "B125"
+    },
+    "B126": {
+      "title": "主力オブ主力、抜錨開始!",
+      "page": "main",
+      "anchor": "B126"
+    },
+    "B127": {
+      "title": "冬季北方海域作戦",
+      "page": "main",
+      "anchor": "B127"
+    },
+    "B128": {
+      "title": "「比叡」の出撃",
+      "page": "main",
+      "anchor": "B128"
+    },
+    "B129": {
+      "title": "精鋭無比「第一戦隊」まかり通る!",
+      "page": "main",
+      "anchor": "B129"
+    },
+    "B130": {
+      "title": "精鋭無比「第一戦隊」まかり通る!【拡張作戦】",
+      "page": "main",
+      "anchor": "B130"
+    },
+    "B131": {
+      "title": "航空戦艦戦隊、戦闘哨戒!",
+      "page": "main",
+      "anchor": "B131"
+    },
+    "B132": {
+      "title": "最精鋭「第四航空戦隊」、出撃せよ!",
+      "page": "main",
+      "anchor": "B132"
+    },
+    "B133": {
+      "title": "重改装高速戦艦「金剛改二丙」、南方突入!",
+      "page": "main",
+      "anchor": "B133"
+    },
+    "B134": {
+      "title": "艦隊司令部の強化 【実施段階】",
+      "page": "main",
+      "anchor": "B134"
+    },
+    "B135": {
+      "title": "近海哨戒を実施せよ!",
+      "page": "main",
+      "anchor": "B135"
+    },
+    "B136": {
+      "title": "精鋭「二四駆逐隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B136"
+    },
+    "B137": {
+      "title": "精強!「第一航空戦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "B137"
+    },
+    "B138": {
+      "title": "「羽黒」「神風」、出撃せよ!",
+      "page": "main",
+      "anchor": "B138"
+    },
+    "B139": {
+      "title": "陸戦用装備の艦載運用実戦研究",
+      "page": "main",
+      "anchor": "B139"
+    },
+    "B140": {
+      "title": "「夕張改二」試してみてもいいかしら?",
+      "page": "main",
+      "anchor": "B140"
+    },
+    "B141": {
+      "title": "新編「六水戦」出撃!後で感想、聞かせてね!",
+      "page": "main",
+      "anchor": "B141"
+    },
+    "B142": {
+      "title": "再編「第三一駆逐隊」、抜錨せよ!",
+      "page": "main",
+      "anchor": "B142"
+    },
+    "B143": {
+      "title": "「第五航空戦隊」、縦横無尽!",
+      "page": "main",
+      "anchor": "B143"
+    },
+    "B144": {
+      "title": "「比叡改二丙」見参!第三戦隊、南方突入!",
+      "page": "main",
+      "anchor": "B144"
+    },
+    "B145": {
+      "title": "改装航空軽巡「Gotland andra」、出撃!",
+      "page": "main",
+      "anchor": "B145"
+    },
+    "B146": {
+      "title": "「Gotland」戦隊、進撃せよ!",
+      "page": "main",
+      "anchor": "B146"
+    },
+    "B147": {
+      "title": "南西諸島海域合同哨戒",
+      "page": "main",
+      "anchor": "B147"
+    },
+    "B148": {
+      "title": "合同艦隊旗艦、改装「Fletcher」、抜錨!",
+      "page": "main",
+      "anchor": "B148"
+    },
+    "B149": {
+      "title": "改装護衛駆逐艦「Fletcher Mk.II」作戦開始!",
+      "page": "main",
+      "anchor": "B149"
+    },
+    "B150": {
+      "title": "合同艦隊作戦任務【拡張作戦】",
+      "page": "main",
+      "anchor": "B150"
+    },
+    "B151": {
+      "title": "合同艦隊機動部隊、出撃せよ!",
+      "page": "main",
+      "anchor": "B151"
+    },
+    "B152": {
+      "title": "【航空母艦特別任務】航空戦隊、精鋭無比!",
+      "page": "main",
+      "anchor": "B152"
+    },
+    "B153": {
+      "title": "改加賀型航空母艦「加賀改二」、抜錨!",
+      "page": "main",
+      "anchor": "B153"
+    },
+    "B154": {
+      "title": "最精鋭「第一航空戦隊」、出撃!鎧袖一触!",
+      "page": "main",
+      "anchor": "B154"
+    },
+    "B155": {
+      "title": "重巡「羽黒」、出撃!ペナン沖海戦",
+      "page": "main",
+      "anchor": "B155"
+    },
+    "B156": {
+      "title": "静かな海を護る「鯨」、動き出す!",
+      "page": "main",
+      "anchor": "B156"
+    },
+    "B157": {
+      "title": "主力オブ主力、縦横無尽ッ!",
+      "page": "main",
+      "anchor": "B157"
+    },
+    "B158": {
+      "title": "精鋭「二七駆」、回避運動は気をつけて!",
+      "page": "main",
+      "anchor": "B158"
+    },
+    "B159": {
+      "title": "【艦隊司令部強化】艦隊旗艦、出撃せよ!",
+      "page": "main",
+      "anchor": "B159"
+    },
+    "B160": {
+      "title": "奇跡の駆逐艦「雪風」、再び出撃す!",
+      "page": "main",
+      "anchor": "B160"
+    },
+    "B161": {
+      "title": "最精強!「呉の雪風」「佐世保の時雨」",
+      "page": "main",
+      "anchor": "B161"
+    },
+    "B162": {
+      "title": "北の海から愛をこめて",
+      "page": "main",
+      "anchor": "B162"
+    },
+    "B163": {
+      "title": "球磨型軽巡一番艦、出撃だクマ!",
+      "page": "main",
+      "anchor": "B163"
+    },
+    "B164": {
+      "title": "改装最新鋭軽巡「能代改二」、出撃せよ!",
+      "page": "main",
+      "anchor": "B164"
+    },
+    "B165": {
+      "title": "精鋭「第七駆逐隊」、出撃せよ!",
+      "page": "main",
+      "anchor": "B165"
+    },
+    "B166": {
+      "title": "改装航空巡洋艦「最上」、抜錨せよ!",
+      "page": "main",
+      "anchor": "B166"
+    },
+    "B167": {
+      "title": "西村艦隊、精鋭先行掃討隊、前進せよ!",
+      "page": "main",
+      "anchor": "B167"
+    },
+    "B168": {
+      "title": "二水戦旗艦、この「矢矧」が預かります!",
+      "page": "main",
+      "anchor": "B168"
+    },
+    "B169": {
+      "title": "新しき翼。改装航空母艦「龍鳳」、出撃せよ!",
+      "page": "main",
+      "anchor": "B169"
+    },
+    "B170": {
+      "title": "改装特務空母「Gambier Bay Mk.II」抜錨!",
+      "page": "main",
+      "anchor": "B170"
+    },
+    "B171": {
+      "title": "【作戦準備】第二段階任務(対地/対空整備)",
+      "page": "main",
+      "anchor": "B171"
+    },
+    "B172": {
+      "title": "「山風改二」、抜錨せよ!",
+      "page": "main",
+      "anchor": "B172"
+    },
+    "B173": {
+      "title": "改白露型駆逐艦「山風改二」、奮戦す!",
+      "page": "main",
+      "anchor": "B173"
+    },
+    "B174": {
+      "title": "奮戦!精鋭「第十五駆逐隊」第一小隊",
+      "page": "main",
+      "anchor": "B174"
+    },
+    "B175": {
+      "title": "南西海域「基地航空隊」開設!",
+      "page": "main",
+      "anchor": "B175"
+    },
+    "B176": {
+      "title": "海上護衛!ヒ船団を護り抜け!",
+      "page": "main",
+      "anchor": "B176"
+    },
+    "B177": {
+      "title": "航空母艦「雲鷹」、抜錨せよ!",
+      "page": "main",
+      "anchor": "B177"
+    },
+    "B178": {
+      "title": "改特型駆逐艦「天霧改二」、出撃す!",
+      "page": "main",
+      "anchor": "B178"
+    },
+    "B179": {
+      "title": "第十六戦隊、改装「浦波改二」出撃します!",
+      "page": "main",
+      "anchor": "B179"
+    },
+    "B180": {
+      "title": "「磯波改二」、抜錨せよ!",
+      "page": "main",
+      "anchor": "B180"
+    },
+    "B181": {
+      "title": "改大和型戦艦「大和改二」、出撃せよ!",
+      "page": "main",
+      "anchor": "B181"
+    },
+    "B182": {
+      "title": "見敵必殺!最精鋭大和型「第一戦隊」抜錨!",
+      "page": "main",
+      "anchor": "B182"
+    },
+    "B183": {
+      "title": "【拡張作戦】重改装「大和改二重」、出撃!",
+      "page": "main",
+      "anchor": "B183"
+    },
+    "B184": {
+      "title": "抜錨!精強「第十五駆逐隊」",
+      "page": "main",
+      "anchor": "B184"
+    },
+    "B185": {
+      "title": "米駆逐艦部隊の奮戦",
+      "page": "main",
+      "anchor": "B185"
+    },
+    "B186": {
+      "title": "Samuel B.Roberts Mk.II、抜錨せよ!",
+      "page": "main",
+      "anchor": "B186"
+    },
+    "B187": {
+      "title": "不屈敢闘「Taffy III」、Weigh anchor!",
+      "page": "main",
+      "anchor": "B187"
+    },
+    "B188": {
+      "title": "機動部隊旗艦「鳳翔改二」、前線に出撃せよ!",
+      "page": "main",
+      "anchor": "B188"
+    },
+    "B189": {
+      "title": "改装特I型駆逐艦「深雪改二」、出撃せよ!",
+      "page": "main",
+      "anchor": "B189"
+    },
+    "B190": {
+      "title": "改金剛型高速戦艦「榛名改二乙/丙」、抜錨!",
+      "page": "main",
+      "anchor": "B190"
+    },
+    "B191": {
+      "title": "【海上護衛作戦】海上補給線を確保せよ!",
+      "page": "main",
+      "anchor": "B191"
+    },
+    "B192": {
+      "title": "改装白露型精鋭駆逐艦「時雨改三」出撃す!",
+      "page": "main",
+      "anchor": "B192"
+    },
+    "B193": {
+      "title": "改装駆逐艦「天津風改二」、抜錨せよ!",
+      "page": "main",
+      "anchor": "B193"
+    },
+    "B194": {
+      "title": "主力オブ主力「清霜改二」、出撃せよ!",
+      "page": "main",
+      "anchor": "B194"
+    },
+    "B195": {
+      "title": "【潜水艦任務】潜水艦、戦闘哨戒!",
+      "page": "main",
+      "anchor": "B195"
+    },
+    "B196": {
+      "title": "改装航空巡洋艦「三隈」、進発せよ!",
+      "page": "main",
+      "anchor": "B196"
+    },
+    "B197": {
+      "title": "「第二駆逐隊」抜錨!",
+      "page": "main",
+      "anchor": "B197"
+    },
+    "B198": {
+      "title": "改装白露型「春雨改二」出撃です!",
+      "page": "main",
+      "anchor": "B198"
+    },
+    "B199": {
+      "title": "夕立姉さん!今度は一緒について行きますっ!",
+      "page": "main",
+      "anchor": "B199"
+    },
+    "B200": {
+      "title": "八戸の盾「稲木改二」、抜錨ッ!",
+      "page": "main",
+      "anchor": "B200"
+    },
+    "B201": {
+      "title": "哨戒部隊で近海及び南西諸島を警戒せよ!",
+      "page": "main",
+      "anchor": "B201"
+    },
+    "B202": {
+      "title": "防空水上艦、出撃せよッ!",
+      "page": "main",
+      "anchor": "B202"
+    },
+    "B203": {
+      "title": "防空駆逐艦「初月改二」、推して参る!",
+      "page": "main",
+      "anchor": "B203"
+    },
+    "B204": {
+      "title": "「第二駆逐隊(後期編成)」、出撃せよ!",
+      "page": "main",
+      "anchor": "B204"
+    },
+    "B205": {
+      "title": "激闘!「第三戦隊」精鋭第二小隊!",
+      "page": "main",
+      "anchor": "B205"
+    },
+    "B206": {
+      "title": "「早霜改二」見ているだけでは...ありません!",
+      "page": "main",
+      "anchor": "B206"
+    },
+    "B207": {
+      "title": "三十二駆「藤波改二」、鳥海を護衛せよ!",
+      "page": "main",
+      "anchor": "B207"
+    },
+    "B208": {
+      "title": "精鋭十一駆「白雪改二」、抜錨します!",
+      "page": "main",
+      "anchor": "B208"
+    },
+    "B209": {
+      "title": "三十二駆「浜波改二」抜錨!敵中を突破せよ!",
+      "page": "main",
+      "anchor": "B209"
+    },
+    "B210": {
+      "title": "二等輸送艦の積極運用",
+      "page": "main",
+      "anchor": "B210"
+    },
+    "B211": {
+      "title": "輸送船団護衛部隊、出撃せよ!",
+      "page": "main",
+      "anchor": "B211"
+    },
+    "B212": {
+      "title": "防空駆逐艦「秋月改二」、推参します!",
+      "page": "main",
+      "anchor": "B212"
+    },
+    "B213": {
+      "title": "三十二駆「早波改二」、元気に出撃せよ!",
+      "page": "main",
+      "anchor": "B213"
+    },
+    "B214": {
+      "title": "最新鋭改装空母「飛龍改三」、疾風怒涛!",
+      "page": "main",
+      "anchor": "B214"
+    },
+    "B215": {
+      "title": "三十二駆「玉波改二」、出撃いたします。",
+      "page": "main",
+      "anchor": "B215"
+    },
+    "B216": {
+      "title": "「涼波改二」ラバウルより抜錨せよ!",
+      "page": "main",
+      "anchor": "B216"
+    },
+    "B217": {
+      "title": "改装多目的搭載母艦「北上改三」、出撃ッ!",
+      "page": "main",
+      "anchor": "B217"
+    },
+    "Bd1": {
+      "title": "敵艦隊を撃破せよ!",
+      "page": "main",
+      "anchor": "Bd1"
+    },
+    "Bd2": {
+      "title": "敵艦隊主力を撃滅せよ!",
+      "page": "main",
+      "anchor": "Bd2"
+    },
+    "Bd3": {
+      "title": "敵艦隊を10回邀撃せよ!",
+      "page": "main",
+      "anchor": "Bd3"
+    },
+    "Bd4": {
+      "title": "敵空母を3隻撃沈せよ!",
+      "page": "main",
+      "anchor": "Bd4"
+    },
+    "Bd5": {
+      "title": "敵補給艦を3隻撃沈せよ!",
+      "page": "main",
+      "anchor": "Bd5"
+    },
+    "Bd6": {
+      "title": "敵輸送船団を叩け!",
+      "page": "main",
+      "anchor": "Bd6"
+    },
+    "Bd7": {
+      "title": "南西諸島海域の制海権を握れ!",
+      "page": "main",
+      "anchor": "Bd7"
+    },
+    "Bd8": {
+      "title": "敵潜水艦を制圧せよ!",
+      "page": "main",
+      "anchor": "Bd8"
+    },
+    "Bw1": {
+      "title": "あ号作戦",
+      "page": "main",
+      "anchor": "Bw1"
+    },
+    "Bw2": {
+      "title": "い号作戦",
+      "page": "main",
+      "anchor": "Bw2"
+    },
+    "Bw3": {
+      "title": "海上通商破壊作戦",
+      "page": "main",
+      "anchor": "Bw3"
+    },
+    "Bw4": {
+      "title": "ろ号作戦",
+      "page": "main",
+      "anchor": "Bw4"
+    },
+    "Bw5": {
+      "title": "海上護衛戦",
+      "page": "main",
+      "anchor": "Bw5"
+    },
+    "Bw6": {
+      "title": "敵東方艦隊を撃滅せよ!",
+      "page": "main",
+      "anchor": "Bw6"
+    },
+    "Bw7": {
+      "title": "敵北方艦隊主力を撃滅せよ!",
+      "page": "main",
+      "anchor": "Bw7"
+    },
+    "Bw8": {
+      "title": "敵東方中枢艦隊を撃破せよ!",
+      "page": "main",
+      "anchor": "Bw8"
+    },
+    "Bw9": {
+      "title": "南方海域珊瑚諸島沖の制空権を握れ!",
+      "page": "main",
+      "anchor": "Bw9"
+    },
+    "Bw10": {
+      "title": "海上輸送路の安全確保に努めよ!",
+      "page": "main",
+      "anchor": "Bw10"
+    },
+    "Bm1": {
+      "title": "「第五戦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "Bm1"
+    },
+    "Bm2": {
+      "title": "「潜水艦隊」出撃せよ!",
+      "page": "main",
+      "anchor": "Bm2"
+    },
+    "Bm3": {
+      "title": "「水雷戦隊」南西へ!",
+      "page": "main",
+      "anchor": "Bm3"
+    },
+    "Bm4": {
+      "title": "「水上打撃部隊」南方へ!",
+      "page": "main",
+      "anchor": "Bm4"
+    },
+    "Bm5": {
+      "title": "海上護衛強化月間",
+      "page": "main",
+      "anchor": "Bm5"
+    },
+    "Bm6": {
+      "title": "「空母機動部隊」西へ!",
+      "page": "main",
+      "anchor": "Bm6"
+    },
+    "Bm7": {
+      "title": "「水上反撃部隊」突入せよ!",
+      "page": "main",
+      "anchor": "Bm7"
+    },
+    "Bm8": {
+      "title": "兵站線確保!海上警備を強化実施せよ!",
+      "page": "main",
+      "anchor": "Bm8"
+    },
+    "Bq1": {
+      "title": "沖ノ島海域迎撃戦",
+      "page": "main",
+      "anchor": "Bq1"
+    },
+    "Bq2": {
+      "title": "戦果拡張任務!「Z作戦」前段作戦",
+      "page": "main",
+      "anchor": "Bq2"
+    },
+    "Bq3": {
+      "title": "強行輸送艦隊、抜錨!",
+      "page": "main",
+      "anchor": "Bq3"
+    },
+    "Bq4": {
+      "title": "前線の航空偵察を実施せよ!",
+      "page": "main",
+      "anchor": "Bq4"
+    },
+    "Bq5": {
+      "title": "北方海域警備を実施せよ!",
+      "page": "main",
+      "anchor": "Bq5"
+    },
+    "Bq6": {
+      "title": "精鋭「三一駆」、鉄底海域に突入せよ!",
+      "page": "main",
+      "anchor": "Bq6"
+    },
+    "Bq7": {
+      "title": "新編成「三川艦隊」、鉄底海峡に突入せよ!",
+      "page": "main",
+      "anchor": "Bq7"
+    },
+    "Bq8": {
+      "title": "泊地周辺海域の安全確保を徹底せよ!",
+      "page": "main",
+      "anchor": "Bq8"
+    },
+    "Bq9": {
+      "title": "空母戦力の投入による兵站線戦闘哨戒",
+      "page": "main",
+      "anchor": "Bq9"
+    },
+    "Bq10": {
+      "title": "戦果拡張任務!「Z作戦」後段作戦",
+      "page": "main",
+      "anchor": "Bq10"
+    },
+    "Bq11": {
+      "title": "南西諸島方面「海上警備行動」発令!",
+      "page": "main",
+      "anchor": "Bq11"
+    },
+    "Bq12": {
+      "title": "発令!「西方海域作戦」",
+      "page": "main",
+      "anchor": "Bq12"
+    },
+    "Bq13": {
+      "title": "拡張「六水戦」、最前線へ!",
+      "page": "main",
+      "anchor": "Bq13"
+    },
+    "By13": {
+      "title": "精強「第七駆逐隊」緊急出動!",
+      "page": "main",
+      "anchor": "By13"
+    },
+    "By1": {
+      "title": "精鋭「十九駆」、躍り出る!",
+      "page": "main",
+      "anchor": "By1"
+    },
+    "By2": {
+      "title": "「海防艦」、海を護る!",
+      "page": "main",
+      "anchor": "By2"
+    },
+    "By3": {
+      "title": "工作艦「明石」護衛任務",
+      "page": "main",
+      "anchor": "By3"
+    },
+    "By4": {
+      "title": "重巡戦隊、西へ!",
+      "page": "main",
+      "anchor": "By4"
+    },
+    "By16": {
+      "title": "「吹雪改三」抜錨します!見てくださいっ!",
+      "page": "main",
+      "anchor": "By16"
+    },
+    "By11": {
+      "title": "日英米合同水上艦隊、抜錨せよ!",
+      "page": "main",
+      "anchor": "By11"
+    },
+    "By12": {
+      "title": "精鋭「第十九駆逐隊」、全力出撃!",
+      "page": "main",
+      "anchor": "By12"
+    },
+    "By14": {
+      "title": "鵜来型海防艦、静かな海を防衛せよ!",
+      "page": "main",
+      "anchor": "By14"
+    },
+    "By6": {
+      "title": "鎮守府近海海域の哨戒を実施せよ!",
+      "page": "main",
+      "anchor": "By6"
+    },
+    "By7": {
+      "title": "南西方面の兵站航路の安全を図れ!",
+      "page": "main",
+      "anchor": "By7"
+    },
+    "By8": {
+      "title": "空母機動部隊、出撃!敵艦隊を迎撃せよ!",
+      "page": "main",
+      "anchor": "By8"
+    },
+    "By9": {
+      "title": "AL作戦",
+      "page": "main",
+      "anchor": "By9"
+    },
+    "By10": {
+      "title": "機動部隊決戦",
+      "page": "main",
+      "anchor": "By10"
+    },
+    "By5": {
+      "title": "歴戦「第十方面艦隊」、全力出撃!",
+      "page": "main",
+      "anchor": "By5"
+    },
+    "By15": {
+      "title": "「第三戦隊」第二小隊、鉄底海峡へ!",
+      "page": "main",
+      "anchor": "By15"
+    },
+    "P301": {
+      "title": "はじめての「演習」!",
+      "page": "main",
+      "anchor": "C1"
+    },
+    "P307": {
+      "title": "艦隊の練度向上に努めよ!",
+      "page": "main",
+      "anchor": "C5"
+    },
+    "P308": {
+      "title": "演習を強化、艦隊の練度向上に努めよ!",
+      "page": "main",
+      "anchor": "C6"
+    },
+    "P309": {
+      "title": "北方再突入に備え、練度向上に努めよ!",
+      "page": "main",
+      "anchor": "C7"
+    },
+    "P312": {
+      "title": "上陸部隊演習",
+      "page": "main",
+      "anchor": "C9"
+    },
+    "P316": {
+      "title": "輸送部隊の練度向上に努めよ!",
+      "page": "main",
+      "anchor": "C13"
+    },
+    "P317": {
+      "title": "甲型駆逐艦の戦力整備計画",
+      "page": "main",
+      "anchor": "C15"
+    },
+    "P319": {
+      "title": "精鋭「第二一駆」、猛特訓!",
+      "page": "main",
+      "anchor": "C17"
+    },
+    "P320": {
+      "title": "駆逐隊、特訓始め!",
+      "page": "main",
+      "anchor": "C18"
+    },
+    "P322": {
+      "title": "海防艦、演習始め!",
+      "page": "main",
+      "anchor": "C20"
+    },
+    "P323": {
+      "title": "最精鋭甲型駆逐艦、特訓始め!",
+      "page": "main",
+      "anchor": "C21"
+    },
+    "P324": {
+      "title": "戦闘航空母艦一番艦、演習始め!",
+      "page": "main",
+      "anchor": "C22"
+    },
+    "P325": {
+      "title": "改夕雲型、演習始め!",
+      "page": "main",
+      "anchor": "C23"
+    },
+    "P327": {
+      "title": "朝潮型集合!特訓始め!",
+      "page": "main",
+      "anchor": "C25"
+    },
+    "P328": {
+      "title": "精強「十七駆」、猛特訓!",
+      "page": "main",
+      "anchor": "C27"
+    },
+    "P331": {
+      "title": "艦載機演習",
+      "page": "main",
+      "anchor": "C31"
+    },
+    "P332": {
+      "title": "六周年記念演習",
+      "page": "main",
+      "anchor": "C32"
+    },
+    "P333": {
+      "title": "航空戦隊演習(その壱)",
+      "page": "main",
+      "anchor": "C33"
+    },
+    "P334": {
+      "title": "航空戦隊演習(その弐)",
+      "page": "main",
+      "anchor": "C34"
+    },
+    "P335": {
+      "title": "新しき盾",
+      "page": "main",
+      "anchor": "C35"
+    },
+    "P336": {
+      "title": "輸送船団演習",
+      "page": "main",
+      "anchor": "C37"
+    },
+    "P338": {
+      "title": "睦月型集合!演習始め!",
+      "page": "main",
+      "anchor": "C39"
+    },
+    "P343": {
+      "title": "航空母艦演習",
+      "page": "main",
+      "anchor": "C46"
+    },
+    "P344": {
+      "title": "「第十方面艦隊」演習!",
+      "page": "main",
+      "anchor": "C48"
+    },
+    "P347": {
+      "title": "奇跡の駆逐艦",
+      "page": "main",
+      "anchor": "C51"
+    },
+    "P351": {
+      "title": "改装航空巡洋艦「最上」、進発せよ!",
+      "page": "main",
+      "anchor": "C56"
+    },
+    "P352": {
+      "title": "改装「矢矧」、精鋭水雷戦隊旗艦演習!",
+      "page": "main",
+      "anchor": "C57"
+    },
+    "P358": {
+      "title": "「Taffy III」 This is a drill!",
+      "page": "main",
+      "anchor": "C68"
+    },
+    "P360": {
+      "title": "第一線航空母艦「鳳翔改二」、演習開始!",
+      "page": "main",
+      "anchor": "C70"
+    },
+    "P364": {
+      "title": "精鋭第三戦隊、演習開始!",
+      "page": "main",
+      "anchor": "C73"
+    },
+    "P365": {
+      "title": "「佐世保の時雨」練度向上を図れ!",
+      "page": "main",
+      "anchor": "C75"
+    },
+    "P366": {
+      "title": "最精鋭!改装「時雨」演習開始!",
+      "page": "main",
+      "anchor": "C76"
+    },
+    "P376": {
+      "title": "「第三戦隊」精鋭第二小隊、特別演習!",
+      "page": "main",
+      "anchor": "C77"
+    },
+    "P303": {
+      "title": "「演習」で練度向上!",
+      "page": "main",
+      "anchor": "Cd1"
+    },
+    "P304": {
+      "title": "「演習」で他提督を圧倒せよ!",
+      "page": "main",
+      "anchor": "Cd2"
+    },
+    "P302": {
+      "title": "大規模演習",
+      "page": "main",
+      "anchor": "Cw1"
+    },
+    "P311": {
+      "title": "精鋭艦隊演習",
+      "page": "main",
+      "anchor": "Cm1"
+    },
+    "P318": {
+      "title": "給糧艦「伊良湖」の支援",
+      "page": "main",
+      "anchor": "Cm2"
+    },
+    "P330": {
+      "title": "空母機動部隊、演習始め!",
+      "page": "main",
+      "anchor": "Cq1"
+    },
+    "P337": {
+      "title": "「十八駆」演習!",
+      "page": "main",
+      "anchor": "Cq2"
+    },
+    "P339": {
+      "title": "「十九駆」演習!",
+      "page": "main",
+      "anchor": "Cq3"
+    },
+    "P342": {
+      "title": "小艦艇群演習強化任務",
+      "page": "main",
+      "anchor": "Cq4"
+    },
+    "P348": {
+      "title": "「精鋭軽巡」演習!",
+      "page": "main",
+      "anchor": "Cy3"
+    },
+    "P350": {
+      "title": "精鋭「第七駆逐隊」演習開始!",
+      "page": "main",
+      "anchor": "Cy4"
+    },
+    "P362": {
+      "title": "特型初代「第十一駆逐隊」演習スペシャル!",
+      "page": "main",
+      "anchor": "Cy10"
+    },
+    "P371": {
+      "title": "春です!「春雨」、演習しますっ!",
+      "page": "main",
+      "anchor": "Cy12"
+    },
+    "P356": {
+      "title": "精鋭「第十九駆逐隊」演習!",
+      "page": "main",
+      "anchor": "Cy8"
+    },
+    "P353": {
+      "title": "「巡洋艦戦隊」演習!",
+      "page": "main",
+      "anchor": "Cy5"
+    },
+    "P357": {
+      "title": "「大和型戦艦」第一戦隊演習、始め!",
+      "page": "main",
+      "anchor": "Cy9"
+    },
+    "P372": {
+      "title": "水上艦「艦隊防空演習」を実施せよ!",
+      "page": "main",
+      "anchor": "Cy13"
+    },
+    "P354": {
+      "title": "「改装特務空母」任務部隊演習!",
+      "page": "main",
+      "anchor": "Cy6"
+    },
+    "P368": {
+      "title": "「十六駆」演習!",
+      "page": "main",
+      "anchor": "Cy11"
+    },
+    "P373": {
+      "title": "「フランス艦隊」演習!",
+      "page": "main",
+      "anchor": "Cy14"
+    },
+    "P375": {
+      "title": "「第三戦隊」第二小隊、演習開始!",
+      "page": "main",
+      "anchor": "Cy15"
+    },
+    "P345": {
+      "title": "演習ティータイム!",
+      "page": "main",
+      "anchor": "Cy1"
+    },
+    "P346": {
+      "title": "最精鋭!主力オブ主力、演習開始!",
+      "page": "main",
+      "anchor": "Cy2"
+    },
+    "P355": {
+      "title": "精鋭「第十五駆逐隊」第一小隊演習!",
+      "page": "main",
+      "anchor": "Cy7"
+    },
+    "P377": {
+      "title": "「第二駆逐隊(後期編成)」、練度向上!",
+      "page": "main",
+      "anchor": "Cy16"
+    },
+    "D1": {
+      "title": "はじめての「遠征」!",
+      "page": "main",
+      "anchor": "D1"
+    },
+    "D5": {
+      "title": "第一次潜水艦派遣作戦",
+      "page": "main",
+      "anchor": "D5"
+    },
+    "D6": {
+      "title": "第二次潜水艦派遣作戦",
+      "page": "main",
+      "anchor": "D6"
+    },
+    "D7": {
+      "title": "潜水艦派遣作戦による技術入手の継続!",
+      "page": "main",
+      "anchor": "D7"
+    },
+    "D8": {
+      "title": "潜水艦派遣による海外艦との接触作戦",
+      "page": "main",
+      "anchor": "D8"
+    },
+    "D10": {
+      "title": "航空火力艦の運用を強化せよ!",
+      "page": "main",
+      "anchor": "D10"
+    },
+    "D12": {
+      "title": "(続)航空火力艦の運用を強化せよ!",
+      "page": "main",
+      "anchor": "D12"
+    },
+    "D13": {
+      "title": "遠洋潜水艦作戦を実施せよ!",
+      "page": "main",
+      "anchor": "D13"
+    },
+    "D14": {
+      "title": "遠洋潜水艦作戦の成果を拡大せよ!",
+      "page": "main",
+      "anchor": "D14"
+    },
+    "D15": {
+      "title": "防空射撃演習を実施せよ!",
+      "page": "main",
+      "anchor": "D15"
+    },
+    "D16": {
+      "title": "囮機動部隊支援作戦を実施せよ!",
+      "page": "main",
+      "anchor": "D16"
+    },
+    "D17": {
+      "title": "観艦式予行を実施せよ!",
+      "page": "main",
+      "anchor": "D17"
+    },
+    "D18": {
+      "title": "観艦式を敢行せよ!",
+      "page": "main",
+      "anchor": "D18"
+    },
+    "D19": {
+      "title": "機動部隊の運用を強化せよ!",
+      "page": "main",
+      "anchor": "D19"
+    },
+    "D20": {
+      "title": "潜水艦派遣作戦による航空機技術入手",
+      "page": "main",
+      "anchor": "D20"
+    },
+    "D21": {
+      "title": "潜水艦派遣作戦による噴式技術の入手",
+      "page": "main",
+      "anchor": "D21"
+    },
+    "D23": {
+      "title": "海上護衛総隊、遠征開始!",
+      "page": "main",
+      "anchor": "D23"
+    },
+    "D25": {
+      "title": "遠征「補給」支援体制を強化せよ!",
+      "page": "main",
+      "anchor": "D25"
+    },
+    "D27": {
+      "title": "「捷一号作戦」、発動準備!",
+      "page": "main",
+      "anchor": "D27"
+    },
+    "D28": {
+      "title": "「海防艦」、進発せよ!",
+      "page": "main",
+      "anchor": "D28"
+    },
+    "D29": {
+      "title": "艦隊司令部の強化 【準備段階】",
+      "page": "main",
+      "anchor": "D29"
+    },
+    "D30": {
+      "title": "警備及び哨戒偵察を強化せよ!",
+      "page": "main",
+      "anchor": "D30"
+    },
+    "D31": {
+      "title": "南方戦線遠征を実施せよ!",
+      "page": "main",
+      "anchor": "D31"
+    },
+    "D39": {
+      "title": "西方連絡作戦による航空技術獲得",
+      "page": "main",
+      "anchor": "D39"
+    },
+    "D41": {
+      "title": "航空基地を整備拡張せよ!",
+      "page": "main",
+      "anchor": "D41"
+    },
+    "D42": {
+      "title": "【作戦準備】第一段階任務(対潜整備)",
+      "page": "main",
+      "anchor": "D42"
+    },
+    "D43": {
+      "title": "海上輸送航路の護衛強化",
+      "page": "main",
+      "anchor": "D43"
+    },
+    "Dd1": {
+      "title": "「遠征」を3回成功させよう!",
+      "page": "main",
+      "anchor": "Dd1"
+    },
+    "Dd2": {
+      "title": "「遠征」を10回成功させよう!",
+      "page": "main",
+      "anchor": "Dd2"
+    },
+    "Dw1": {
+      "title": "大規模遠征作戦、発令!",
+      "page": "main",
+      "anchor": "Dw1"
+    },
+    "Dw2": {
+      "title": "南方への輸送作戦を成功させよ!",
+      "page": "main",
+      "anchor": "Dw2"
+    },
+    "Dw3": {
+      "title": "南方への鼠輸送を継続実施せよ!",
+      "page": "main",
+      "anchor": "Dw3"
+    },
+    "Dm1": {
+      "title": "輸送船団護衛を強化せよ!",
+      "page": "main",
+      "anchor": "Dm1"
+    },
+    "Dq1": {
+      "title": "海上通商航路の警戒を厳とせよ!",
+      "page": "main",
+      "anchor": "Dq1"
+    },
+    "Dq2": {
+      "title": "近海に侵入する敵潜を制圧せよ!",
+      "page": "main",
+      "anchor": "Dq2"
+    },
+    "Dy1": {
+      "title": "特設護衛船団司令部、活動開始!",
+      "page": "main",
+      "anchor": "Dy1"
+    },
+    "Dy7": {
+      "title": "西方連絡作戦準備を実施せよ!",
+      "page": "main",
+      "anchor": "Dy7"
+    },
+    "Dy2": {
+      "title": "練習航海及び警備任務を実施せよ!",
+      "page": "main",
+      "anchor": "Dy2"
+    },
+    "Dy8": {
+      "title": "新兵装開発資材輸送を船団護衛せよ!",
+      "page": "main",
+      "anchor": "Dy8"
+    },
+    "Dy3": {
+      "title": "小笠原沖哨戒線の強化を実施せよ!",
+      "page": "main",
+      "anchor": "Dy3"
+    },
+    "Dy4": {
+      "title": "南西諸島方面の海上護衛を強化せよ!",
+      "page": "main",
+      "anchor": "Dy4"
+    },
+    "Dy5": {
+      "title": "兵站強化遠征任務【基本作戦】",
+      "page": "main",
+      "anchor": "Dy5"
+    },
+    "Dy6": {
+      "title": "兵站強化遠征任務【拡張作戦】",
+      "page": "main",
+      "anchor": "Dy6"
+    },
+    "B218": {
+      "title": "再編二十駆「天霧」「狭霧」南方へ展開せよ!",
+      "page": "main",
+      "anchor": "B218"
+    },
+    "2610B1": {
+      "title": "【期間限定任務】14年目実りの秋、南瓜始め！",
+      "page": "limited",
+      "anchor": "2610B1"
+    },
+    "2610B2": {
+      "title": "【期間限定任務】特務護衛戦隊、抜錨せよ！",
+      "page": "limited",
+      "anchor": "2610Bw1"
+    },
+    "2610B3": {
+      "title": "【期間限定任務】USS Trick or Treat！",
+      "page": "limited",
+      "anchor": "2610B2"
+    },
+    "2610B4": {
+      "title": "【期間限定任務】西方南瓜祭り!  Buono!",
+      "page": "limited",
+      "anchor": "2610Bm1"
+    },
+    "2610B5": {
+      "title": "【限定拡張作戦】Halloween、おかわり開始！",
+      "page": "limited",
+      "anchor": "2610B3"
+    },
+    "2610B6": {
+      "title": "【限定拡張作戦】Halloween海上護衛隊出撃！",
+      "page": "limited",
+      "anchor": "2610Bw2"
+    },
+    "2610B7": {
+      "title": "【限定拡張作戦】Halloween狼隊、夜の襲撃！",
+      "page": "limited",
+      "anchor": "2610Bm2"
+    },
+    "2610B8": {
+      "title": "【限定拡張作戦】南瓜祭り2026、北方作戦！",
+      "page": "limited",
+      "anchor": "2610B4"
+    },
+    "2610C1": {
+      "title": "Halloween艦隊 実りの秋、最新演習！",
+      "page": "limited",
+      "anchor": "2610Cw1"
+    },
+    "2610F1": {
+      "title": "【期間限定】Halloweenの南瓜、食べりゅ?",
+      "page": "limited",
+      "anchor": "2610Fm1"
+    },
+    "2610F2": {
+      "title": "【限定拡張作戦】対潜装備の整理整頓！2026",
+      "page": "limited",
+      "anchor": "2610F1"
+    },
+    "F144": {
+      "title": "【雷装強化工廠任務】夜戦突撃装備の強化【I】",
+      "page": "main",
+      "anchor": "F144"
+    }
+  }
+}

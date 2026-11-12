@@ -1,0 +1,33 @@
+{
+  "source": "https://wikiwiki.jp/kancolle/任務/新着任務#id-F144",
+  "reviewedAt": "2026-11-12",
+  "quests": {
+    "F144": {
+      "id": 1172,
+      "fixed": [
+        {
+          "name": "61cm五連装(酸素)魚雷",
+          "level": 10,
+          "count": 2
+        }
+      ],
+      "choices": [
+        [
+          {
+            "name": "装备栏位",
+            "count": 6
+          },
+          {
+            "name": "61cm四連装(酸素)魚雷後期型",
+            "level": 4,
+            "count": 1
+          },
+          {
+            "name": "开发资材",
+            "count": 28
+          }
+        ]
+      ]
+    }
+  }
+}

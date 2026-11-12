@@ -2,6 +2,10 @@
 // Compact, presentation-only copy. Keep identifiers and game names unchanged.
 const {registerCatalog}=require('../../shared/i18n');
 const entries={
+  'quest.wikiMenu': ['查看任务详情','任務の詳細を見る','查看任務詳情'],
+  'quest.wikiJapanese': ['日文 Wiki','日本語 Wiki','日文 Wiki'],
+  'quest.wikiChinese': ['中文 Wiki','中国語 Wiki','中文 Wiki'],
+  'quest.number': ['任务编号：{number}','任務番号：{number}','任務編號：{number}'],
   'readability.and': ['且','かつ','且'],
   'readability.resourceRewards': ['资源报酬','資源報酬','資源報酬'],
   'readability.fixedRewards': ['固定报酬','確定報酬','固定報酬'],

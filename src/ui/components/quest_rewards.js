@@ -3,15 +3,22 @@ const {t}=require('../../shared/i18n');
 require('../i18n/readability');
 const questDisplay=require('../i18n/quest_display');
 const resourceIcon=require('./resource_icon');
-const {equipmentIconUrl}=require('../models/presentation_model');
+const {equipmentIconUrl,equipmentMasterItem,equipmentTooltipProps}=require('../models/presentation_model');
 
 // Shared visual presentation; all known rewards are immediately visible.
 module.exports=React=>{
   const h=React.createElement,ResourceIcon=resourceIcon(React);
-  return function questRewards(task){
+  return function questRewards(task,state,lookup){
     const {resources,fixed,choices,reference,shipBonus}=task.rewards;
-    const itemView=(item,key)=>{const icon=equipmentIconUrl(item.iconType);
-      return h('span',{className:'paa-overview-reward-item',key},icon?h('img',{src:icon,alt:'',draggable:false,onError:event=>{event.currentTarget.style.display='none';}}):resourceIcon.resourceSource(item.name)?h(ResourceIcon,{name:item.name,size:15}):null,
+    const itemView=(item,key)=>{
+      const master=item.kind===12?state?.const?.$equips?.[item.id]:item.kind?null:lookup?.(item.name);
+      let equipment=master?equipmentMasterItem(master,{api_level:item.level||0},0,null,state?.const?.$equipTypes):null;
+      // A name-only master record is not evidence that every stat is zero.
+      if(equipment&&!['api_houg','api_raig','api_baku','api_tyku','api_tais','api_saku','api_houm','api_houk','api_souk','api_leng','api_distance'].some(key=>master[key]!==undefined&&Number.isFinite(Number(master[key]))))
+        equipment={...equipment,stats:undefined};
+      const tooltip=equipment?equipmentTooltipProps(equipment):item.kind===12?equipmentTooltipProps({name:item.name}):{};
+      const icon=equipmentIconUrl(item.iconType??master?.api_type?.[3]);
+      return h('span',{className:'paa-overview-reward-item',key,...tooltip,...tooltip['data-tooltip']?{tabIndex:0}:{}},icon?h('img',{src:icon,alt:'',draggable:false,onError:event=>{event.currentTarget.style.display='none';}}):resourceIcon.resourceSource(item.name)?h(ResourceIcon,{name:item.name,size:15}):null,
         h('span',null,questDisplay.reward(item),item.level?` ★${item.level}`:'',` ×${item.count}`));};
     const hasDetails=fixed.length>0||choices.length>0||shipBonus||!reference;
     return h('div',{className:'paa-overview-rewards','aria-label':t('报酬')},h('span',{className:'paa-quest-row-label'},t('报酬')),h('div',{className:'paa-overview-reward-summary','data-has-details':Boolean(hasDetails)},
