@@ -1590,11 +1590,11 @@ test('left-side calculation veils stay inside result regions and leave related t
 });
 
 test('selected task codes reach both workbench searches and reset on destination changes',async()=>{
-  const catalog=require('../../data/quests/limited/2026-halloween.json').quests;
+  const catalog=require('../../data/quests/requirements.json').quests;
   for(const kind of ['normal','expedition']){
-    const h=harness(kind),quest=kind==='normal'?catalog.find(q=>q.code==='2610B1'):require('../../data/quests/requirements.json').quests.find(q=>q.code==='D1');
+    const h=harness(kind),quest=kind==='normal'?catalog.find(q=>q.code==='B48'):catalog.find(q=>q.code==='D1');
     h.store.questState={known:true,complete:false,tasks:[{api_no:quest.ids[0],api_title:quest.title,api_state:2}]};h.set('questState',h.store.questState);
-    if(kind==='normal')h.set('area','1-3');
+    if(kind==='normal')h.set('area','1-5');
     const section=()=>h.find(h.render(),n=>n.type?.name==='QuestSection');
     section().props.onToggleQuest(quest.code);assert.deepEqual(h.get('selectedQuests'),[quest.code]);
     let args;
@@ -1634,9 +1634,9 @@ test('a claimed selected quest is removed and cannot block immediate completion'
 
 test('a selected achieved quest remains active until its reward is claimed',async()=>{
   for(const kind of ['normal','expedition']){
-    const h=harness(kind),quest=kind==='normal'?require('../../data/quests/limited/2026-halloween.json').quests.find(q=>q.code==='2610B1'):
+    const h=harness(kind),quest=kind==='normal'?require('../../data/quests/requirements.json').quests.find(q=>q.code==='B48'):
       require('../../data/quests/requirements.json').quests.find(q=>q.code==='D1');
-    if(kind==='normal')h.set('area','1-3');
+    if(kind==='normal')h.set('area','1-5');
     h.set('selectedQuests',[quest.code]);h.store.questState={known:true,complete:true,tasks:[{api_no:quest.ids[0],api_title:quest.title,api_state:3}]};
     h.set('questState',h.store.questState);let args;
     h.service[kind==='normal'?'recommendNormalFleet':'recommendExpeditionFleet']=query=>{args=query;throw Error('测试结束');};
