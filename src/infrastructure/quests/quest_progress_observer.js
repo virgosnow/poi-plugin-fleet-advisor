@@ -4,10 +4,58 @@ const {findDefinition,taskSnapshot}=require('../../domain/quests/quest_requireme
 const {listOverviewQuests,missionId}=require('../../domain/quests/quest_overview');
 const {evaluateFleetRequirements}=require('../../domain/quests/fleet_requirements');
 const {accountKey,cycle}=require('../persistence/quest_progress');
+const {normalizeName}=require('../../shared/name_matching');
+const enemyCatalog=require('../../../data/sortie/enemy_catalog.json');
+const enemyTargets=require('../../../data/quests/requirements.json').enemyTargets;
+const enemyGroups=Object.fromEntries(['carrier','submarine','transport'].map(group=>[group,
+  new Set(Object.values(enemyTargets).flatMap(row=>row[group]||[]).map(normalizeName))]));
+const knownEnemies=new Map();
+for(const enemy of enemyCatalog.enemies){
+  if(!Number.isSafeInteger(enemy.apiId)||enemy.apiId<=0||!String(enemy.apiIdStatus).startsWith('verified'))continue;
+  const names=[enemy.name,enemy.kcwikiNameJa,enemy.variantLabel].filter(name=>typeof name==='string'&&name).map(normalizeName);
+  const groups=Object.keys(enemyGroups).filter(group=>names.some(name=>enemyGroups[group].has(name)));
+  if(groups.length)knownEnemies.set(enemy.apiId,{names,groups});
+}
 const post=(body,key)=>typeof body==='string'?new URLSearchParams(body).get(key):body?.[key];
 const voyageKey=(id,end)=>`${Number(id)}:${Number(end)||0}`;
 const ranks={SS:4,S:4,A:3,B:2,C:1,D:0,E:-1};
 function sufficient(rank,minimum){return ranks[String(rank).toUpperCase()]!==undefined&&(minimum==='any'||ranks[String(rank).toUpperCase()]>=({win:2,S:4,A:3,B:2,C:1,D:0,E:-1}[minimum]??99));}
+function matchesBossLocation(goal,sortie){
+  if(goal.map&&goal.map!==sortie.map&&goal.map!=='any')return false;
+  if(!goal.phase&&!goal.node)return true;
+  if(!Number.isInteger(sortie.phase)||sortie.phase<1||goal.phase&&goal.phase!==sortie.phase)return false;
+  if(!Number.isInteger(sortie.boss)||sortie.node!==sortie.boss)return false;
+  // The API's numeric cell ID describes a route segment, not a Wiki letter.
+  // Only match a named boss when the observed phase has exactly that boss.
+  try{
+    if(!/^[1-7]-[1-6]$/.test(sortie.map))return false;
+    const bosses=require(`../../../data/normal_routes/${sortie.map}.json`).bossPhases?.[`gauge${sortie.phase}`];
+    return Array.isArray(bosses)&&bosses.length===1&&(!goal.node||bosses[0]===goal.node);
+  }catch(_){return false;}
+}
+function observeEnemies(sortie,ids,combined){
+  if(combined){sortie.enemyShips=null;return;}
+  if(!Array.isArray(ids)||!ids.length||ids.length>7||!ids.every(Number.isSafeInteger))return;
+  const ships=ids.filter(id=>id>0);if(!ships.length||ships.length>6)return;
+  if(sortie.enemyShips===undefined)sortie.enemyShips=ships;
+  else if(JSON.stringify(sortie.enemyShips)!==JSON.stringify(ships))sortie.enemyShips=null;
+}
+function knownSinks(goal,ships,rank,result){
+  if(!Array.isArray(ships)||ranks[String(rank).toUpperCase()]===undefined)return 0;
+  const exact=Number.isSafeInteger(result?.api_dests)?result.api_dests:null;
+  const allSunk=['S','SS'].includes(String(rank).toUpperCase());
+  if(exact!==null&&(exact<0||exact>ships.length||allSunk&&exact!==ships.length))return 0;
+  const sunk=exact??(allSunk?ships.length:null);if(sunk===null)return 0;
+  const qualifies=id=>{const enemy=knownEnemies.get(id);return !!(enemy?.groups.includes(goal.enemyGroup)&&
+    !(goal.excludedNames||[]).some(name=>enemy.names.some(actual=>actual.startsWith(normalizeName(name)))));};
+  // A flagship kill can be observed even when the rest of the sunk hulls
+  // cannot be identified. Unknown hulls are treated as non-targets, so the
+  // result is a lower bound and can never overstate progress.
+  const flagship=Number(result?.api_destsf)===1&&sunk>0&&qualifies(ships[0]);
+  const remaining=flagship?ships.slice(1):ships;
+  const nonTargets=remaining.filter(id=>!qualifies(id)).length;
+  return (flagship?1:0)+Math.max(0,sunk-(flagship?1:0)-nonTargets);
+}
 class QuestProgressObserver {
   constructor({progress,now=()=>Date.now(),onChange=()=>{}}){this.progress=progress;this.now=now;this.onChange=onChange;this.sortie=null;this.practice=null;this.departures=new Map();this.consumed=new Map();this.account=null;}
   sync(store){const key=accountKey(store);if(key!==this.account){this.account=key;this.sortie=null;this.practice=null;this.departures.clear();this.consumed.clear();}return key;}
@@ -97,11 +145,22 @@ class QuestProgressObserver {
   record(store,prepared,kind,match){
     this.recordMany(store,prepared,[{kind,match}]);
   }
-  battleResult(store,rank,boss){
+  battleResult(store,rank,boss,result){
     const s=this.sortie;if(!s||s.consumed||s.node===null)return;s.consumed=true;
-    const rules=[{kind:'battleWin',match:goal=>!goal.bossOnly&&(goal.map===s.map||goal.map==='any')&&sufficient(rank,goal.rankMin||'win')}];
-    if(boss)rules.push({kind:'bossWin',match:goal=>(goal.map===s.map||goal.map==='any')&&sufficient(rank,goal.rankMin||'win')},
+    const rules=[
+      {kind:'battle',match:goal=>(!goal.bossOnly||boss)&&(goal.map===s.map||goal.map==='any')&&
+        sufficient(rank,goal.defeatAllowed===true?'any':goal.rankMin||'win')},
+      {kind:'battleWin',match:goal=>!goal.bossOnly&&(goal.map===s.map||goal.map==='any')&&sufficient(rank,goal.rankMin||'win')}
+    ];
+    if(Array.isArray(s.enemyShips))rules.push({kind:'sinkEnemy',match:goal=>knownSinks(goal,s.enemyShips,rank,result)});
+    if(boss)rules.push({kind:'bossWin',allowLocation:true,match:goal=>matchesBossLocation(goal,s)&&sufficient(rank,goal.rankMin||'win')},
       {kind:'sortie',match:goal=>goal.anyTargets?.some(target=>target.map===s.map&&!target.phase&&!target.node)&&sufficient(rank,goal.rankMin||'win')});
+    // 7-4 has one kill-count gauge. A previously observed final remaining
+    // kill plus the server's flagship-sunk flag proves this sortie cleared it.
+    if(s.map==='7-4'&&boss&&s.boss===s.node&&ranks[String(rank).toUpperCase()]!==undefined&&
+      result?.api_destsf===1&&s.gauge?.type===1&&Number.isSafeInteger(s.gauge.total)&&s.gauge.total>0&&
+      Number.isSafeInteger(s.gauge.defeated)&&s.gauge.defeated===s.gauge.total-1)
+      rules.push({kind:'mapGaugeClear',match:goal=>goal.map===s.map});
     this.recordMany(store,s.prepared,rules);
   }
   recordMany(store,prepared,rules){
@@ -110,9 +169,16 @@ class QuestProgressObserver {
     for(const {task,definition,period} of prepared){
       if(period!==cycle(task.period,now))continue;
       definition.goals.forEach((goal,index)=>{
-        if(goal.phase||goal.node||goal.within&&goal.within!=='sameDay'||goal.items||!rules.some(rule=>goal.kind===rule.kind&&rule.match(goal)))return;
+        if(goal.within&&goal.within!=='sameDay'||goal.items)return;
+        if(goal.stage>1){
+          const prior=task.goals.filter(item=>Number.isInteger(item.stage)&&item.stage<goal.stage);
+          if(!prior.length||prior.some(item=>this.progress.get(store,task,item)<item.count))return;
+        }
+        const rule=rules.find(rule=>goal.kind===rule.kind&&(!(goal.phase||goal.node)||rule.allowLocation===true)&&rule.match(goal));
+        if(!rule)return;
+        const matched=rule.match(goal),amount=typeof matched==='number'?matched:1;
         const display=task.goals[index];
-        if(display?.key&&Number.isSafeInteger(display.count))candidates.push({task,display});
+        if(display?.key&&Number.isSafeInteger(display.count)&&Number.isSafeInteger(amount)&&amount>0)candidates.push({task,display,amount});
       });
     }
     if(!candidates.length)return;
@@ -122,7 +188,7 @@ class QuestProgressObserver {
       const definition=findDefinition(live,now);
       if(definition&&['B','C','D'].includes(definition.category))active.add(`${Number(live.api_no)}:${definition.code}`);
     }
-    const updates=candidates.filter(({task})=>active.has(`${task.id}:${task.code}`)).map(({task,display})=>({task,goal:display}));
+    const updates=candidates.filter(({task})=>active.has(`${task.id}:${task.code}`)).map(({task,display,amount})=>({task,goal:display,amount}));
     if(updates.length)void this.progress.incrementMany(store,updates).then(changed=>{if(changed)this.onChange();}).catch(()=>this.onChange());
   }
   observe(detail,store){
@@ -146,11 +212,20 @@ class QuestProgressObserver {
         }
       }else if(api==='/kcsapi/api_req_map/start'){
         const deck=Number(post(detail.postBody,'api_deck_id')),area=Number(post(detail.postBody,'api_maparea_id')),map=Number(post(detail.postBody,'api_mapinfo_no'));
-        this.sortie=deck>0&&area>0&&map>0?{deck,map:`${area}-${map}`,prepared:this.eligible(store,deck),node:null,boss:null,eventId:null,consumed:false}:null;
-        if(this.sortie){this.node(body);this.record(store,this.sortie.prepared,'departSortie',goal=>!goal.map||goal.map==='any'||goal.map===this.sortie.map);}
-      }else if(api==='/kcsapi/api_req_map/next')this.node(body);
+        const progress=store?.info?.maps?.[area*10+map],phase=Number(progress?.api_gauge_num);
+        const gauge=progress?{type:progress.api_gauge_type,total:progress.api_required_defeat_count,defeated:progress.api_defeat_count}:null;
+        this.sortie=deck>0&&area>0&&map>0?{deck,map:`${area}-${map}`,phase:Number.isInteger(phase)&&phase>0?phase:null,gauge,prepared:this.eligible(store,deck),node:null,boss:null,eventId:null,consumed:false}:null;
+        if(this.sortie){this.node(body,store);this.record(store,this.sortie.prepared,'departSortie',goal=>!goal.map||goal.map==='any'||goal.map===this.sortie.map);}
+      }else if(api==='/kcsapi/api_req_map/next')this.node(body,store);
+      else if(['/kcsapi/api_req_sortie/battle','/kcsapi/api_req_sortie/airbattle','/kcsapi/api_req_sortie/ld_airbattle','/kcsapi/api_req_sortie/night_to_day','/kcsapi/api_req_battle_midnight/sp_midnight'].includes(api)&&this.sortie&&this.sortie.node!==null&&!this.sortie.consumed){
+        observeEnemies(this.sortie,body.api_ship_ke,Number(store?.sortie?.combinedFlag)>0||Array.isArray(body.api_ship_ke_combined));
+      }
       else if(api==='/kcsapi/api_req_sortie/battleresult'&&this.sortie&&!this.sortie.consumed){
-        const s=this.sortie;this.battleResult(store,body.api_win_rank,s.boss!==null&&s.node===s.boss||s.eventId===5);
+        const s=this.sortie,combined=Number(store?.sortie?.combinedFlag)>0||Array.isArray(body.api_ship_id_combined);
+        // A result's main-fleet IDs alone cannot prove the enemy had no escort.
+        // Require an observed non-combined battle packet first.
+        if(combined||Array.isArray(s.enemyShips))observeEnemies(s,body.api_ship_id,combined);
+        this.battleResult(store,body.api_win_rank,s.boss!==null&&s.node===s.boss||s.eventId===5,body);
       }else if(api==='/kcsapi/api_req_mission/start'){
         const deck=Number(post(detail.postBody,'api_deck_id')),id=Number(post(detail.postBody,'api_mission_id'));
         const mission=store?.info?.fleets?.[deck-1]?.api_mission;
@@ -181,12 +256,26 @@ class QuestProgressObserver {
       if(api!=='/kcsapi/api_req_mission/start'&&api!=='/kcsapi/api_req_mission/result')this.remember(store);
     }catch(e){/* A partial game event must never affect gameplay. */}
   }
-  node(body){if(!this.sortie)return;const node=Number(body?.api_no),boss=Number(body?.api_bosscell_no),event=Number(body?.api_event_id);
+  node(body,store){if(!this.sortie)return;const node=Number(body?.api_no),boss=Number(body?.api_bosscell_no),event=Number(body?.api_event_id);
+    if(Number.isInteger(node)&&node>0&&this.sortie.node===node)return;
     this.sortie.node=Number.isInteger(node)&&node>0?node:null;
     this.sortie.nodeSeenAt=this.now();
     if(Number.isInteger(boss)&&boss>0)this.sortie.boss=boss;
     this.sortie.eventId=Number.isInteger(event)&&event>0?event:null;
     this.sortie.consumed=false;
+    this.sortie.enemyShips=undefined;
+    if(this.sortie.node!==null){
+      const s=this.sortie,isBoss=s.eventId===5||s.boss!==null&&s.node===s.boss;
+      const rules=[];
+      if(isBoss)rules.push({kind:'bossReach',match:goal=>goal.map===s.map||goal.map==='any'});
+      // The only port-coloured node on 1-6 is its destination; on 7-4 it is
+      // O. Numeric API cell IDs are route segments, not reliable Wiki letters.
+      if(Number(body?.api_color_no)===8){
+        if(s.map==='1-6')rules.push({kind:'reachGoal',match:goal=>goal.map===s.map});
+        if(s.map==='7-4')rules.push({kind:'reachNode',allowLocation:true,match:goal=>goal.map===s.map&&goal.node==='O'});
+      }
+      this.recordMany(store,s.prepared,rules);
+    }
   }
 }
 module.exports={QuestProgressObserver,sufficient};

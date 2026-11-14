@@ -272,6 +272,189 @@ test('only observed matching boss victories and expedition results increment, on
   await f.progress.pending;assert.equal(f.progress.get(f.store,mission,mission.goals[0]),1);assert.equal(f.progress.get(f.store,depart,depart.goals[0]),1);
   event('api_req_quest/clearitemget',{api_quest_id:b.id},{});await f.progress.pending;assert.equal(f.progress.get(f.store,b,b.goals[0]),0);
 });
+test('battle objectives count observed victories and defeats once, respecting map and boss requirements',async t=>{
+  const f=fixture(t,['B1','B4','Bd1','Bd2','Bd3']),observer=new QuestProgressObserver({progress:f.progress,now:f.now});
+  const event=(path,postBody,body)=>observer.observe({path:'/kcsapi/'+path,postBody,body},f.store);
+  const tasks=Object.fromEntries(['B1','B4','Bd1','Bd2','Bd3'].map(code=>[code,f.task(code)]));
+  const count=code=>{const task=tasks[code];return f.progress.get(f.store,task,task.goals[0]);};
+  const start=(map,node,boss)=>event('api_req_map/start',{api_deck_id:1,api_maparea_id:1,api_mapinfo_no:map},{api_no:node,api_bosscell_no:boss});
+  const result=rank=>event('api_req_sortie/battleresult',{}, {api_win_rank:rank});
+  start(1,1,3);result('C');result('C');await f.progress.pending;
+  assert.equal(count('B1'),1);assert.equal(count('Bd2'),1);assert.equal(count('Bd3'),1);
+  assert.equal(count('Bd1'),0,'defeat does not satisfy the victory objective');assert.equal(count('B4'),0,'wrong map and non-boss cannot satisfy B4');
+  event('api_req_map/next',{}, {api_no:2});result('D');await f.progress.pending;
+  assert.equal(count('Bd3'),2,'a new battle node counts once');assert.equal(count('Bd2'),1,'completed goals stay capped');
+  start(2,1,3);result('S');await f.progress.pending;
+  assert.equal(count('Bd3'),3);assert.equal(count('Bd1'),1);assert.equal(count('B4'),0,'correct map still requires its boss');
+  event('api_req_map/next',{}, {api_no:3,api_event_id:5});result('E');result('E');await f.progress.pending;
+  assert.equal(count('Bd3'),4);assert.equal(count('B4'),1,'boss battle counts even on defeat');
+  const bd3=f.store.questState.tasks.find(row=>row.api_no===210);bd3.api_state=1;
+  start(1,1,3);result('S');await f.progress.pending;assert.equal(count('Bd3'),4,'unaccepted tasks never gain progress');
+  bd3.api_state=2;start(1,1,3);bd3.api_state=1;result('S');await f.progress.pending;
+  assert.equal(count('Bd3'),4,'tasks cancelled during the sortie are rechecked');
+});
+test('battle objectives require a recognised result and a known battle node',async t=>{
+  const f=fixture(t,['Bd3']),observer=new QuestProgressObserver({progress:f.progress,now:f.now}),task=f.task('Bd3');
+  const start=body=>observer.observe({path:'/kcsapi/api_req_map/start',postBody:{api_deck_id:1,api_maparea_id:1,api_mapinfo_no:1},body},f.store);
+  const result=rank=>observer.observe({path:'/kcsapi/api_req_sortie/battleresult',body:{api_win_rank:rank}},f.store);
+  start({api_no:1});result('unknown');start({});result('S');await f.progress.pending;
+  assert.equal(f.progress.get(f.store,task,task.goals[0]),0);
+});
+test('daily battle counts stop at their goal and reset at the Japanese daily boundary',async t=>{
+  const f=fixture(t,['Bd3']);let now=Date.parse('2026-11-01T19:59:00Z');
+  const clock=()=>now,progress=new QuestProgress(f.dir,{now:clock}),observer=new QuestProgressObserver({progress,now:clock});
+  const task=f.task('Bd3'),goal=task.goals[0];
+  const battle=()=>{
+    observer.observe({path:'/kcsapi/api_req_map/start',postBody:{api_deck_id:1,api_maparea_id:1,api_mapinfo_no:1},body:{api_no:1}},f.store);
+    observer.observe({path:'/kcsapi/api_req_sortie/battleresult',body:{api_win_rank:'S'}},f.store);
+  };
+  for(let i=0;i<11;i++)battle();await progress.pending;assert.equal(progress.get(f.store,task,goal),10);
+  now=Date.parse('2026-11-01T20:00:00Z');assert.equal(progress.get(f.store,task,goal),0);
+  battle();await progress.pending;assert.equal(progress.get(f.store,task,goal),1);
+});
+test('recovered battle during hot reload credits battle objectives only once',async t=>{
+  const f=fixture(t,['Bd3']);let now=f.now();f.store.sortie={sortieMapId:'11',sortieStatus:[true,false],currentNode:1,bossSpot:2,combinedFlag:0};
+  const previous=new QuestProgressObserver({progress:f.progress,now:()=>now});
+  previous.observe({path:'/kcsapi/api_req_map/start',postBody:{api_deck_id:1,api_maparea_id:1,api_mapinfo_no:1},body:{api_no:1,api_bosscell_no:2}},f.store);
+  const snapshot=previous.snapshot(f.store);now+=1000;
+  const resumed={...f.store,battle:{result:{valid:true,combined:false,map:11,mapCell:1,time:now-100,rank:'D',boss:false}}};
+  const observer=new QuestProgressObserver({progress:f.progress,now:()=>now});assert(observer.restore(snapshot,resumed));await f.progress.pending;
+  const task=f.task('Bd3');assert.equal(f.progress.get(f.store,task,task.goals[0]),1);
+  observer.observe({path:'/kcsapi/api_req_sortie/battleresult',body:{api_win_rank:'D'}},resumed);await f.progress.pending;
+  assert.equal(f.progress.get(f.store,task,task.goals[0]),1);
+});
+test('weekly sortie goals count departures, S victories, boss arrival and boss victories independently',async t=>{
+  const f=fixture(t,['Bw1']),observer=new QuestProgressObserver({progress:f.progress,now:f.now}),task=f.task('Bw1');
+  const count=kind=>f.progress.get(f.store,task,task.goals.find(goal=>goal.kind===kind));
+  const send=(path,body,postBody={})=>observer.observe({path:'/kcsapi/'+path,body,postBody},f.store);
+  send('api_req_map/start',{api_no:1,api_bosscell_no:3},{api_deck_id:1,api_maparea_id:1,api_mapinfo_no:1});
+  send('api_req_sortie/battleresult',{api_win_rank:'S'});
+  send('api_req_map/next',{api_no:3,api_bosscell_no:3,api_event_id:5});
+  send('api_req_map/next',{api_no:3,api_bosscell_no:3,api_event_id:5});
+  await f.progress.pending;assert.equal(count('bossReach'),1,'arrival counts before combat and duplicate navigation does not count twice');
+  send('api_req_sortie/battleresult',{api_win_rank:'A'});send('api_req_sortie/battleresult',{api_win_rank:'A'});
+  await f.progress.pending;
+  assert.equal(count('departSortie'),1);assert.equal(count('battleWin'),1);assert.equal(count('bossReach'),1);assert.equal(count('bossWin'),1);
+});
+test('1-6 port arrival credits the matching goal only once without assuming numeric cell letters',async t=>{
+  const f=fixture(t,['B98']);f.store.info.fleets[0].api_ship=[1,2,3];
+  for(const id of [2,3]){f.store.info.ships[id]={api_ship_id:id,api_lv:80,api_slot:[]};f.store.const.$ships[id]={api_id:id,api_name:'fixture'+id,api_stype:2};}
+  const observer=new QuestProgressObserver({progress:f.progress,now:f.now}),task=f.task('B98'),goal=task.goals.find(g=>g.kind==='reachGoal');
+  const send=(path,body,postBody={})=>observer.observe({path:'/kcsapi/'+path,body,postBody},f.store);
+  send('api_req_map/start',{api_no:1},{api_deck_id:1,api_maparea_id:1,api_mapinfo_no:6});
+  send('api_req_map/next',{api_no:14,api_color_no:2});await f.progress.pending;assert.equal(f.progress.get(f.store,task,goal),0);
+  send('api_req_map/next',{api_no:15,api_color_no:8});send('api_req_map/next',{api_no:15,api_color_no:8});await f.progress.pending;
+  assert.equal(f.progress.get(f.store,task,goal),1);
+});
+test('multi-stage boss results use the observed sortie phase and never assume an unknown phase',async t=>{
+  const f=fixture(t,['Bq8']);const task=f.task('Bq8'),first=task.goals.find(g=>g.map==='7-2'&&g.phase===1),second=task.goals.find(g=>g.map==='7-2'&&g.phase===2);
+  const observer=new QuestProgressObserver({progress:f.progress,now:f.now});
+  const run=phase=>{f.store.info.maps=phase?{72:{api_gauge_num:phase}}:{};
+    observer.observe({path:'/kcsapi/api_req_map/start',postBody:{api_deck_id:1,api_maparea_id:7,api_mapinfo_no:2},body:{api_no:8,api_bosscell_no:8,api_event_id:5}},f.store);
+    observer.observe({path:'/kcsapi/api_req_sortie/battleresult',body:{api_win_rank:'S'}},f.store);};
+  run(1);await f.progress.pending;assert.equal(f.progress.get(f.store,task,first),1);assert.equal(f.progress.get(f.store,task,second),0);
+  run(2);await f.progress.pending;assert.equal(f.progress.get(f.store,task,first),1);assert.equal(f.progress.get(f.store,task,second),1);
+  run(null);run(3);await f.progress.pending;assert.equal(f.progress.get(f.store,task,first),1);assert.equal(f.progress.get(f.store,task,second),1);
+  f.store.info.maps={72:{api_gauge_num:2}};
+  observer.observe({path:'/kcsapi/api_req_map/start',postBody:{api_deck_id:1,api_maparea_id:7,api_mapinfo_no:2},body:{api_no:8,api_bosscell_no:9,api_event_id:5}},f.store);
+  observer.observe({path:'/kcsapi/api_req_sortie/battleresult',body:{api_win_rank:'S'}},f.store);await f.progress.pending;
+  assert.equal(f.progress.get(f.store,task,second),1,'a different boss cannot be credited to the selected phase');
+});
+test('7-4 port arrival credits the O-node goal independently of the numeric API segment',async t=>{
+  const f=fixture(t,['B175']),observer=new QuestProgressObserver({progress:f.progress,now:f.now}),task=f.task('B175'),goal=task.goals.find(g=>g.kind==='reachNode');
+  const send=(path,body,postBody={})=>observer.observe({path:'/kcsapi/'+path,body,postBody},f.store);
+  send('api_req_map/start',{api_no:1},{api_deck_id:1,api_maparea_id:7,api_mapinfo_no:4});
+  send('api_req_map/next',{api_no:14,api_color_no:2});await f.progress.pending;assert.equal(f.progress.get(f.store,task,goal),0);
+  send('api_req_map/next',{api_no:27,api_color_no:8});send('api_req_map/next',{api_no:27,api_color_no:8});await f.progress.pending;
+  assert.equal(f.progress.get(f.store,task,goal),1);
+});
+test('7-4 gauge completion requires the observed final kill and a sunk boss flagship',async t=>{
+  const f=fixture(t,['B176']),observer=new QuestProgressObserver({progress:f.progress,now:f.now}),task=f.task('B176'),goal=task.goals[0];
+  const run=(gauge,body)=>{f.store.info.maps=gauge?{74:gauge}:{};
+    observer.observe({path:'/kcsapi/api_req_map/start',postBody:{api_deck_id:1,api_maparea_id:7,api_mapinfo_no:4},body:{api_no:7,api_bosscell_no:7,api_event_id:5}},f.store);
+    observer.observe({path:'/kcsapi/api_req_sortie/battleresult',body:{api_win_rank:'A',...body}},f.store);};
+  run({api_gauge_type:1,api_required_defeat_count:5,api_defeat_count:3},{api_destsf:1});
+  run({api_gauge_type:1,api_required_defeat_count:5,api_defeat_count:4},{api_destsf:0});
+  run(null,{api_destsf:1});await f.progress.pending;assert.equal(f.progress.get(f.store,task,goal),0);
+  run({api_gauge_type:1,api_required_defeat_count:5,api_defeat_count:4},{api_destsf:1});await f.progress.pending;
+  assert.equal(f.progress.get(f.store,task,goal),1);
+});
+test('S victories count only verifiable enemy groups and exclude nonqualifying named enemies',async t=>{
+  const f=fixture(t,['Bd4','Bd5','Bd8','Bw2','Bw3','Bw5']),observer=new QuestProgressObserver({progress:f.progress,now:f.now});
+  const task=code=>f.task(code),count=code=>f.progress.get(f.store,task(code),task(code).goals[0]);
+  const send=(path,body,postBody={})=>observer.observe({path:'/kcsapi/'+path,body,postBody},f.store);
+  send('api_req_map/start',{api_no:1},{api_deck_id:1,api_maparea_id:2,api_mapinfo_no:2});
+  send('api_req_sortie/battle',{api_ship_ke:[1512,1513,1513,1530,1545,999999]});
+  send('api_req_sortie/battleresult',{api_win_rank:'S'});send('api_req_sortie/battleresult',{api_win_rank:'S'});await f.progress.pending;
+  for(const code of ['Bd4','Bw2','Bd8','Bw5'])assert.equal(count(code),1,code);
+  for(const code of ['Bd5','Bw3'])assert.equal(count(code),2,code);
+  send('api_req_map/next',{api_no:2});send('api_req_sortie/battle',{api_ship_ke:[1512,1513,1530]});
+  send('api_req_sortie/battleresult',{api_win_rank:'A'});await f.progress.pending;
+  assert.equal(count('Bd4'),1);assert.equal(count('Bd5'),2);assert.equal(count('Bd8'),1);
+  send('api_req_map/next',{api_no:3});send('api_req_sortie/battleresult',{api_win_rank:'S'});await f.progress.pending;
+  assert.equal(count('Bd5'),2,'missing enemy identity cannot invent sink counts');
+});
+test('partial victories record only the provable minimum of matching sunk enemies',async t=>{
+  const f=fixture(t,['Bd5']),observer=new QuestProgressObserver({progress:f.progress,now:f.now}),task=f.task('Bd5'),goal=task.goals[0];
+  const send=(path,body,postBody={})=>observer.observe({path:'/kcsapi/'+path,body,postBody},f.store);
+  const start=node=>send('api_req_map/start',{api_no:node},{api_deck_id:1,api_maparea_id:2,api_mapinfo_no:2});
+  // Four sunk out of five, of which two are non-transports, proves at least
+  // two transports sunk. The battle packet confirms no enemy escort.
+  start(1);send('api_req_sortie/battle',{api_ship_ke:[1513,1513,1513,1512,1530]});
+  send('api_req_sortie/battleresult',{api_win_rank:'A',api_ship_id:[1513,1513,1513,1512,1530],api_dests:4});await f.progress.pending;
+  assert.equal(f.progress.get(f.store,task,goal),2);
+  // A sunk target flagship is known even if the other kill identities are not.
+  start(1);send('api_req_sortie/battle',{api_ship_ke:[1513,1512,1530]});
+  send('api_req_sortie/battleresult',{api_win_rank:'B',api_ship_id:[1513,1512,1530],api_dests:1,api_destsf:1});await f.progress.pending;
+  assert.equal(f.progress.get(f.store,task,goal),3);
+});
+test('inconsistent or combined enemy observations never infer sink progress',async t=>{
+  const f=fixture(t,['Bd5']),observer=new QuestProgressObserver({progress:f.progress,now:f.now}),task=f.task('Bd5'),goal=task.goals[0];
+  const send=(path,body,postBody={})=>observer.observe({path:'/kcsapi/'+path,body,postBody},f.store);
+  const start=()=>send('api_req_map/start',{api_no:1},{api_deck_id:1,api_maparea_id:2,api_mapinfo_no:2});
+  start();send('api_req_sortie/battle',{api_ship_ke:[1513],api_ship_ke_combined:[1513]});send('api_req_sortie/battleresult',{api_win_rank:'S',api_ship_id:[1513]});
+  start();send('api_req_sortie/battle',{api_ship_ke:[1513]});send('api_req_sortie/battleresult',{api_win_rank:'S',api_ship_id:[1512]});
+  start();send('api_req_sortie/battleresult',{api_win_rank:'S',api_ship_id:[1513],api_dests:0});
+  start();send('api_req_sortie/battleresult',{api_win_rank:'unknown',api_ship_id:[1513],api_dests:1});
+  await f.progress.pending;assert.equal(f.progress.get(f.store,task,goal),0);
+});
+test('a staged practice task credits later sorties only after the observed practice stage',async t=>{
+  const f=fixture(t,['P317']);f.store.questState.tasks[0].api_category=3;
+  f.store.info.fleets[0].api_ship=[1,2,-1,-1,-1,-1];
+  for(const id of [1,2]){f.store.info.ships[id]={api_ship_id:id,api_lv:80,api_slot:[]};f.store.const.$ships[id]={api_id:id,api_name:'test'+id,api_stype:2,api_ctype:38};}
+  const observer=new QuestProgressObserver({progress:f.progress,now:f.now}),task=f.task('P317'),practice=task.goals.find(g=>g.kind==='practice'),boss=task.goals.find(g=>g.map==='2-2');
+  const send=(path,body,postBody={})=>observer.observe({path:'/kcsapi/'+path,body,postBody},f.store);
+  const sortie=()=>{send('api_req_map/start',{api_no:3,api_bosscell_no:3},{api_deck_id:1,api_maparea_id:2,api_mapinfo_no:2});send('api_req_sortie/battleresult',{api_win_rank:'A'});};
+  const exercise=()=>{send('api_req_practice/battle',{}, {api_deck_id:1});send('api_req_practice/battle_result',{api_win_rank:'S'});};
+  sortie();await f.progress.pending;assert.equal(f.progress.get(f.store,task,boss),0,'sorties before the practice stage are not credited');
+  for(let i=0;i<3;i++)exercise();await f.progress.pending;assert.equal(f.progress.get(f.store,task,practice),3);
+  sortie();await f.progress.pending;assert.equal(f.progress.get(f.store,task,boss),1);
+});
+test('monthly latched practice objectives survive a day change only when fully achieved',async t=>{
+  const f=fixture(t,['P318']);f.store.questState.tasks[0].api_category=3;
+  let now=Date.parse('2026-11-02T10:00:00Z');const clock=()=>now,progress=new QuestProgress(f.dir,{now:clock});
+  const task=f.task('P318'),goal=task.goals.find(g=>g.kind==='practice');
+  await progress.increment(f.store,task,goal);await progress.increment(f.store,task,goal);
+  now+=86400000;assert.equal(progress.get(f.store,task,goal),0,'unfinished daily attempts expire');
+  for(let i=0;i<3;i++)await progress.increment(f.store,task,goal);
+  now+=86400000;assert.equal(progress.get(f.store,task,goal),3);
+  assert.equal(progress.getMany(f.store,[task]).get(`${task.id}:${goal.key}`),3);
+  await progress.increment(f.store,task,goal);assert.equal(progress.get(f.store,task,goal),3,'later events do not reset a completed latch');
+  now=Date.parse('2026-12-01T00:00:00Z');assert.equal(progress.get(f.store,task,goal),0,'the monthly task cycle still resets');
+});
+test('P318 equipment objective follows currently equipped unlocked instances',t=>{
+  const f=fixture(t,['P318']);f.store.questState.tasks[0].api_category=3;
+  const task=f.task('P318'),goal=task.goals.find(g=>g.kind==='equippedItems');
+  f.store.info.equips={10:{api_slotitem_id:145,api_locked:0},11:{api_slotitem_id:145,api_locked:0},12:{api_slotitem_id:145,api_locked:1},13:{api_slotitem_id:145}};
+  f.store.info.ships[1].api_slot=[10,12,13];f.store.info.ships[2]={api_slot:[11]};
+  const count=()=>f.progress.get(f.store,task,goal);
+  assert.equal(count(),2);assert.equal(f.progress.getMany(f.store,[task]).get(`${task.id}:${goal.key}`),2);
+  f.store.info.equips[11].api_locked=1;assert.equal(count(),1,'locking an item immediately removes it');
+  f.store.info.ships[1].api_slot=[];assert.equal(count(),0,'inventory alone is not an equipped instance');
+  f.store.info.ships[2].api_slot_ex=10;assert.equal(count(),1,'expansion slots are included');
+  delete f.store.info.equips;assert.equal(count(),0,'missing inventory is never treated as a match');
+  assert.deepEqual(f.progress.records,{},'claim-time conditions are not persisted as historical progress');
+});
 test('missing evidence, unmet fleet requirements and unavailable tasks never mark progress',async t=>{
   const f=fixture(t,['B131','B2']),observer=new QuestProgressObserver({progress:f.progress,now:f.now});
   const b=f.task('B2'),restricted=f.task('B131');

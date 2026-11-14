@@ -15,6 +15,20 @@ function serverGoalLowerBound(store,task,goal){
   const live=snapshot?.known===true&&Array.isArray(snapshot.tasks)?snapshot.tasks.find(row=>Number(row?.api_no)===443):null;
   return Number(live?.api_state)===2&&Number(live?.api_progress_flag)===1?1:0;
 }
+// P318's second objective is a current, claim-time equipment condition, not
+// an accumulated event. Only unlocked instances actually carried by owned
+// ships are counted; missing inventory/lock data never invents a match.
+function equippedGoalCount(store,task,goal){
+  if(task?.code!=='P318'||goal?.kind!=='equippedItems'||goal.ownerScope!=='anyShip'||
+    goal.unlockedAtClaim!==true||!Array.isArray(goal.masterIds)||!Number.isSafeInteger(goal.count)||
+    !task.goals?.some(item=>item.key===goal.key))return null;
+  const ships=store?.info?.ships,items=store?.info?.equips;
+  if(!ships||!items||typeof ships!=='object'||typeof items!=='object')return 0;
+  const worn=new Set(Object.values(ships).flatMap(ship=>[...(Array.isArray(ship.api_slot)?ship.api_slot:[]),ship.api_slot_ex]).filter(id=>Number.isSafeInteger(id)&&id>0));
+  let count=0;for(const id of worn){const item=items[id];
+    if(item?.api_locked===0&&goal.masterIds.includes(Number(item.api_slotitem_id)))count++;}
+  return Math.min(goal.count,count);
+}
 // Quest resets use 05:00 JST; quarterly resets start in March, June,
 // September and December. Annual reset dates differ by quest, so they are
 // cleared when a claim is observed rather than guessed from the calendar.
@@ -57,9 +71,12 @@ class QuestProgress {
     });
   }
   get(store,task,goal){
+    const equipped=equippedGoalCount(store,task,goal);if(equipped!==null)return equipped;
     const account=accountKey(store),row=account&&this.records[account]?.[task.code];
     const inferred=account?serverGoalLowerBound(store,task,goal):0;
-    if(!row||row.cycle!==cycle(task.period,this.now())||row.id!==task.id||goalCycle(goal,this.now())&&row.goalCycles?.[goal.key]!==goalCycle(goal,this.now()))return inferred;
+    if(!row||row.cycle!==cycle(task.period,this.now())||row.id!==task.id)return inferred;
+    const day=goalCycle(goal,this.now()),latched=goal.latchUntilMonthlyReset===true&&Number(row.goals?.[goal.key])>=goal.count;
+    if(day&&row.goalCycles?.[goal.key]!==day&&!latched)return inferred;
     const n=row.goals?.[goal.key];return Math.max(inferred,Number.isSafeInteger(n)&&n>0?Math.min(n,goal.count):0);
   }
   getMany(store,tasks){
@@ -67,7 +84,9 @@ class QuestProgress {
     for(const task of tasks||[]){
       const row=entries[task.code],valid=row&&row.id===task.id&&row.cycle===cycle(task.period,now);
       for(const goal of task.goals||[])if(goal.key){
-        const day=goalCycle(goal,now),value=valid&&(!day||row.goalCycles?.[goal.key]===day)&&row.goals?.[goal.key];
+        const equipped=equippedGoalCount(store,task,goal);if(equipped!==null){result.set(`${task.id}:${goal.key}`,equipped);continue;}
+        const day=goalCycle(goal,now),latched=valid&&goal.latchUntilMonthlyReset===true&&Number(row.goals?.[goal.key])>=goal.count;
+        const value=valid&&(!day||row.goalCycles?.[goal.key]===day||latched)&&row.goals?.[goal.key];
         result.set(`${task.id}:${goal.key}`,Math.max(account?serverGoalLowerBound(store,task,goal):0,Number.isSafeInteger(value)&&value>0?Math.min(value,goal.count):0));
       }
     }
@@ -81,16 +100,18 @@ class QuestProgress {
     // reconciliation and explicit cache clearing.
     const account=accountKey(store),at=this.now();
     if(!account||!updates.length)return Promise.resolve(false);
-    const prepared=updates.map(({task,goal})=>({task,goal,period:cycle(task.period,at)}));
+    const prepared=updates.map(({task,goal,amount=1})=>({task,goal,amount:Number.isSafeInteger(amount)&&amount>0?amount:0,period:cycle(task.period,at)}));
     return this.enqueue(async()=>{
       if(this.error)throw Error(this.error);
       const records=JSON.parse(JSON.stringify(this.records)),tasks=records[account]||{};let changed=false;
-      for(const {task,goal,period} of prepared){
+      for(const {task,goal,amount,period} of prepared){
+        if(!amount)continue;
         const old=tasks[task.code],row=old?.cycle===period&&old.id===task.id?old:{id:task.id,cycle:period,goals:{}};
         const day=goalCycle(goal,at);
-        if(day&&row.goalCycles?.[goal.key]!==day){row.goalCycles={...row.goalCycles,[goal.key]:day};row.goals[goal.key]=0;changed=true;}
+        const latched=goal.latchUntilMonthlyReset===true&&Number(row.goals?.[goal.key])>=goal.count;
+        if(day&&row.goalCycles?.[goal.key]!==day&&!latched){row.goalCycles={...row.goalCycles,[goal.key]:day};row.goals[goal.key]=0;changed=true;}
         if([0,1,2].includes(task.progressFlag)&&(![0,1,2].includes(row.flag)||task.progressFlag>row.flag)){row.flag=task.progressFlag;changed=true;}
-        const before=Number(row.goals[goal.key])||0,next=Math.min(goal.count,before+1);
+        const before=Number(row.goals[goal.key])||0,next=Math.min(goal.count,before+amount);
         if(next!==before){row.goals[goal.key]=next;changed=true;}
         tasks[task.code]=row;
       }
