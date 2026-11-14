@@ -91,7 +91,7 @@ function renderStructured(doc,tip,raw,store){
   for(const s of content.sections){
     if(!s.rows.length)continue;
     const section=doc.createElement('div');section.className='paa-tooltip-section';
-    if(s.title)section.appendChild(text('div','paa-tooltip-subheading',content.displayKind?t(s.title):s.title));
+    if(s.title)section.appendChild(text('div','paa-tooltip-subheading',t(s.title)));
     if(s.layout==='equipment-stats'){
       const list=doc.createElement('dl');list.className='paa-tooltip-equipment-stats';
       for(const [rowIndex,values] of s.rows.entries())for(let i=0;i<values.length;i+=2){
@@ -102,10 +102,11 @@ function renderStructured(doc,tip,raw,store){
         const statKey=s.statKeys?.[rowIndex]?.[i/2]||(values[i]==='命中'?'accuracy':null);
         const fitTone=statKey==='accuracy'&&['positive','negative'].includes(s.fitTone)?s.fitTone:null;
         const tone=fitTone?' is-fit-'+fitTone:/^[−-]/.test(String(values[i+1]))?' is-negative':'';
-        pair.appendChild(text('dd','paa-tooltip-equipment-value'+tone,statKey==='range'?t(values[i+1]):values[i+1]));
+        const statValue=typeof values[i+1]==='string'?values[i+1].replace(/（待确认）$/,`（${t('待确认')}）`):values[i+1];
+        pair.appendChild(text('dd','paa-tooltip-equipment-value'+tone,typeof statValue==='string'?t(statValue):statValue));
         list.appendChild(pair);
       }
-      section.appendChild(list);if(s.note)section.appendChild(text('div','paa-tooltip-notes',s.note));tip.appendChild(section);continue;
+      section.appendChild(list);if(s.note)section.appendChild(text('div','paa-tooltip-notes',mechanismDisplay.text(s.note)));tip.appendChild(section);continue;
     }
     const table=doc.createElement('table');table.className='paa-tooltip-data-table';
     const layout=tableColumns(s.columns,{numeric:s.numeric,compact:content.compact,keys:s.columnKeys});
@@ -114,7 +115,7 @@ function renderStructured(doc,tip,raw,store){
     head.appendChild(header);table.appendChild(head);
     const appendRows=(tag,rows)=>{const body=doc.createElement(tag);for(const values of rows){const row=doc.createElement('tr');s.columns.forEach((_,i)=>row.appendChild(alignCell(text('td',(s.numeric||[]).includes(i)?'paa-tooltip-numeric':'',metricDisplay.cell(content,s,i,values[i])),layout[i])));body.appendChild(row);}table.appendChild(body);};
     appendRows('tbody',s.rows);if(s.footer)appendRows('tfoot',[s.footer]);
-    section.appendChild(table);if(s.note)section.appendChild(text('div','paa-tooltip-notes',s.note));tip.appendChild(section);
+    section.appendChild(table);if(s.note)section.appendChild(text('div','paa-tooltip-notes',mechanismDisplay.text(s.note)));tip.appendChild(section);
   }
   if(content.notes?.filter(Boolean).length)tip.appendChild(text('div','paa-tooltip-section paa-tooltip-notes',metricDisplay.notes(content).filter(Boolean).join('\n')));
   return true;

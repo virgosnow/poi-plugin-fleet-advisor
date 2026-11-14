@@ -5,10 +5,12 @@ const equipmentIcons=new Map(require('../../../data/equip_icon_index.json').icon
 const equipmentIconUrl=type=>equipmentIcons.get(Number(type))||null;
 const {shipName}=require('../shell/model');
 const {referenceWeights}=require('../../domain/routes/route_policy');
+const {t}=require('../../shared/i18n');
+require('../i18n/workbench_catalog');
 const equipmentTypes=require('../i18n/equipment_types');
 function equipmentTooltip(item){return item?[item.tooltip||item.name,equipmentTypes.line(item.equipmentTypeId??item.aircraftType,item.equipmentTypeName),item.statsText].filter(Boolean).join('\n'):'';}
 function equipmentTooltipProps(item,notes=[]){
-  if(!item)return {'data-tooltip':'空槽'};
+  if(!item)return {'data-tooltip':t('空槽')};
   const values=[...(item.stats||[]),...(item.airPowerText!==undefined?[['制空值',item.airPowerText]]:[])],rows=[],statKeys=[];
   // Older callers can provide plain label/value pairs. New equipment models
   // carry stable stat IDs so translation never controls fit highlighting.
@@ -20,6 +22,7 @@ function equipmentTooltipProps(item,notes=[]){
     statKeys.push([keys[i]||null,keys[i+1]||null]);
   }
   return require('./metric_tooltips').attributes({kind:'equipment',title:item.tooltip||item.name,compact:true,
+    equipmentTitle:item.displayTitle||null,
     equipmentMasterId:item.masterId??null,equipmentTypeId:item.equipmentTypeId??item.aircraftType??null,equipmentTypeName:item.equipmentTypeName||null,equipmentIcon:item.icon||null,sections:values.length?
     [{layout:'equipment-stats',columns:['属性','数值','属性','数值'],rows,statKeys,numeric:[1,3],fitTone:roundedFit>0?'positive':roundedFit<0?'negative':null}]:[],notes:[...notes,item.airPowerBasis,item.gunFitNote,
       item.stats?.length?'':item.stats?'无属性加成':'装备属性资料待同步'].filter(Boolean)},
@@ -47,6 +50,7 @@ function equipmentMasterItem(master,item={},id=0,slot=null,typeNames){
   const masterId=Number(item.api_slotitem_id??master.api_id);
   return {id,masterId:Number.isSafeInteger(masterId)&&masterId>0?masterId:null,slot,extra,name,aircraftType:typeId,equipmentTypeId:Number.isSafeInteger(typeId)&&typeId>0?typeId:null,
     equipmentTypeName:typeNames?.[typeId]?.api_name||null,stats:values,statKeys,statsSummary:stats.map(s=>s.replace(' ','')).join(' '),statsText:stats.length?'基础属性：'+stats.join(' · '):'',icon:equipmentIconUrl(master.api_type?.[3]),
+    displayTitle:{name,slot,extra,improvement:Number(item.api_level)||0,proficiency:Number(item.api_alv)||0},
     tooltip:(slot===null?'':`${extra?'增设':`${Number(slot)+1} 槽`} · `)+name+(item.api_level>0?` ★${item.api_level}`:'')+(item.api_alv>0?` · 熟练度 ${item.api_alv}`:'')};
 }
 function equipmentItem(store,id,slot){

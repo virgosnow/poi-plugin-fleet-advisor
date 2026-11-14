@@ -6,6 +6,30 @@ const fixture=require('../helpers/workbench_fixture');
 const doc={createElement:tag=>({tag,className:'',style:{},children:[],textContent:'',appendChild(child){this.children.push(child);},prepend(child){this.children.unshift(child);}}),
  createElementNS:(_ns,tag)=>({tag,className:'',children:[],setAttribute(name,value){this[name]=value;},appendChild(child){this.children.push(child);}})};
 const all=node=>[node,...node.children.flatMap(all)];
+test('equipment and route metric hover text follows locale without translating game names',()=>{
+ const i18n=require('../../src/shared/i18n'),display=require('../../src/ui/i18n/metric_display'),store=fixture();
+ store.info.equips[101]={api_id:101,api_slotitem_id:501,api_level:6,api_alv:7};
+ store.const.$equips[501]={api_id:501,api_name:'零式水上偵察機',api_type:[0,0,10,10]};
+ const item={...V.equipmentItem(store,101,1),airPowerBasis:'制空按当前搭载',gunFitNote:'适重预估'};
+ const data=JSON.parse(V.equipmentTooltipProps(item)['data-tooltip-content']);
+ const speed=T.speed({valueLabel:'高速',ships:[]},{detail:'C/E/G 点 · 高速+以上'});
+ const los=T.los({}, {state:'索敌达标',hint:'门槛 ≥ 29 · G→H · 共 2 处'});
+ const render=x=>{const tip=doc.createElement('div');assert(renderStructured(doc,tip,JSON.stringify(x),store));return tip;};
+ try{
+  i18n.setLocale('ja-JP');let tip=render(data);
+  assert.equal(V.equipmentTooltipProps(null)['data-tooltip'],'空きスロット');
+  assert.equal(all(tip).find(n=>n.className==='paa-tooltip-heading').textContent,'2 スロット · 零式水上偵察機 ★6 · 熟練度 7');
+  assert.match(all(tip).find(n=>n.className.includes('paa-tooltip-notes')).textContent,/現在の搭載数/);
+  assert.deepEqual(display.notes(speed),['C/E/G マス · 高速+以上','編成後に各艦の速力を表示します。']);
+  assert.match(display.notes(los)[0],/閾値 ≥ 29 · G→H · 全 2 箇所/);
+  assert.equal(display.cell({displayKind:'fleet-air'},{columnKeys:['node']},0,'A（第 2 轮）'),'A（第2回）');
+  i18n.setLocale('zh-TW');tip=render(data);
+  assert.equal(all(tip).find(n=>n.className==='paa-tooltip-heading').textContent,'第 2 格 · 零式水上偵察機 ★6 · 熟練度 7');
+  assert.match(all(tip).find(n=>n.className.includes('paa-tooltip-notes')).textContent,/適重為預估/);
+  assert.match(display.notes(los)[0],/門檻 ≥ 29 · G→H · 共 2 處/);
+  assert.equal(display.cell({displayKind:'fleet-air'},{columnKeys:['node']},0,'A（第 2 轮）'),'A（第 2 輪）');
+ }finally{i18n.setLocale('zh-CN');}
+});
 test('air tooltip only shows the selected route loss table while keeping headline values',()=>{
  const store=fixture();store.info.equips[101]={api_slotitem_id:501,api_level:10};store.const.$equips[501]={api_name:'测试舰战'};
  const reading={status:'range',min:45,max:48,slots:[{shipId:1,slot:2,itemId:101,planes:[18,18],min:30,max:31},{shipId:2,slot:0,itemId:101,planes:[3,4],min:5,max:6},{shipId:1,slot:0,itemId:101,planes:[3,3],min:10,max:11},{shipId:3,slot:0,min:0,max:0}]};

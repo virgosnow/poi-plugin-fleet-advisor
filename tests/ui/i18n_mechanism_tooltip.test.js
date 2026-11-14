@@ -140,3 +140,49 @@ test('mechanism display keeps game equipment names even when they match translat
     assert.match(display.text('本舰钢材消耗：待确认／次'),/要確認／回/);
   }finally{locale.setLocale('zh-CN');}
 });
+
+test('spotting rates and sonar combinations localize their dynamic text',()=>{
+  const display=require('../../src/ui/i18n/mechanism_display');
+  const rates='参考发动率（空优）：35.4%\n昼战连击（空确）：25.4%';
+  const synergy='提高对潜伤害。\n小型声呐＋投射机＋爆雷';
+  try{
+    locale.setLocale('ja-JP');
+    assert.equal(display.text(rates),'参考発動率（航空優勢）：35.4%\n昼戦連撃（制空権確保）：25.4%');
+    assert.match(display.text(synergy),/小型ソナー＋爆雷投射機＋爆雷/);
+    locale.setLocale('zh-TW');
+    assert.equal(display.text(rates),'參考發動率（空優）：35.4%\n晝戰連擊（空確）：25.4%');
+    assert.match(display.text(synergy),/小型聲吶＋投射機＋爆雷/);
+  }finally{locale.setLocale('zh-CN');}
+});
+
+test('real route-dependent daytime spotting renders node-specific rates in each locale',()=>{
+  const store=require('../helpers/workbench_fixture')();
+  Object.assign(store.const.$ships[1],{api_stype:9,api_slot_num:4,api_maxeq:[4,4,4,4]});
+  Object.assign(store.info.ships[1],{api_slot:[101,102,103,104],api_lucky:[25,99],api_sakuteki:[65,90],api_karyoku:[100,100],api_kyouka:[0,0,0,0,0]});
+  [3,3,10,19].forEach((type,i)=>{const id=101+i,mid=300+i;store.info.equips[id]={api_id:id,api_slotitem_id:mid,api_level:0};
+    store.const.$equips[mid]={api_id:mid,api_name:'瑞雲',api_type:[0,0,type,type],api_saku:type===10?5:0};});
+  const [target]=require('../../src/domain/fleet/fleet_metrics').projectFleet(store,{organization:{targets:[1]},equipment:{expected:[]}});
+  const result=require('../../src/domain/combat/day_spotting').read(target,store,true,{fleetTerm:21,reason:'',route:()=>({groups:[{state:'superiority',nodes:['B','D']},{state:'none',nodes:['M']}]})});
+  const content=JSON.stringify({...result.tooltipData,kind:'mechanism',layout:'modes',mechanism:'spotting',attacks:result.attacks});
+  try{
+    for(const [language,expected] of [['ja-JP','B／D マス、航空優勢'],['zh-TW','B／D 點，空優']]){
+      locale.setLocale(language);const tip=doc.createElement();assert(tooltip.renderStructured(doc,tip,content));
+      const output=all(tip).map(n=>n.textContent).join('\n');
+      assert(output.includes(expected),output);assert(!/点，|昼战|主彻/.test(output),output);
+      assert.match(output,/126.*2/);
+    }
+  }finally{locale.setLocale('zh-CN');}
+});
+
+test('night and special-attack dynamic guidance translates without altering game names',()=>{
+  const d=require('../../src/ui/i18n/mechanism_display');
+  const input=['不要求空优。需夜间飞机＋夜间要员。','可分散目标并提供照明效果；需未中破。照明弹／探照灯会降低该 CI 的发动率（未计入）。',
+    '要求阵型：梯形阵／单横阵','需至少 6 艘水上舰','第 2 位需潜水舰／潜水空母','每次出击 1 次；第 1、2 位需未中破；第 3 位需未大破。',
+    '持有物资：3 件；每节点消耗 1 件。','攻击力待确认：属性或改修资料不完整。','参考发动率：43.3%（待验证）'].join('\n');
+  try{
+    locale.setLocale('ja-JP');const ja=d.text(input);assert.match(ja,/必要な陣形：梯形陣／単横陣/);assert.match(ja,/保有物資：3 個/);
+    assert.match(ja,/43\.3%（要検証）/);assert(!/空优|夜间|需未|每次出击|待验证/.test(ja),ja);
+    locale.setLocale('zh-TW');const tw=d.text(input);assert.match(tw,/需要陣形：梯形陣／單橫陣/);assert.match(tw,/持有物資：3 件/);
+    assert(!/空优|夜间|每次出击|待验证/.test(tw),tw);
+  }finally{locale.setLocale('zh-CN');}
+});
