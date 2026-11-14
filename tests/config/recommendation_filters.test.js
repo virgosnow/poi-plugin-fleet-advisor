@@ -16,17 +16,17 @@ test('independent defaults, remodel graph, inclusive level boundary and sortie-s
   assert.deepEqual(normal(1),['未改造']);assert.deepEqual(normal(2),[]);assert.deepEqual(normal(3),[]);
   assert.deepEqual(normal(4),['等级低于 30']);s.info.ships[4].api_lv=30;assert.deepEqual(normal(4),[]);
   assert.deepEqual(normal(5),['士气低于 40']);assert.deepEqual(normal(6),['大破']);assert.deepEqual(normal(7),['未锁定']);
-  assert.deepEqual(exp(1),[]);assert.deepEqual(exp(5),[]);assert.deepEqual(exp(6),['大破']);
+  assert.deepEqual(exp(1),[]);assert.deepEqual(exp(5),['士气低于 40']);assert.deepEqual(exp(6),['大破']);
   assert.deepEqual(F.evaluator(s,'expedition',{excludeHeavyDamage:false})(6),[]);
   assert.equal(F.normalizeGroup('expedition',{minLevel:5}).excludeHeavyDamage,true,'older saved settings adopt the new default');
   s.info.ships[6].api_nowhp=6;assert.deepEqual(F.evaluator(s,'expedition')(6),[]);s.info.ships[6].api_nowhp=5;
   assert.deepEqual(normal(8),[],'no remodel available is eligible');
-  s.info.fleets[0].api_ship=[8];assert.deepEqual(F.evaluator(s,'expedition')(8),['第一舰队成员']);
+  s.info.fleets[0].api_ship=[8];assert.deepEqual(F.evaluator(s,'expedition')(8),['编队内的舰娘']);
   assert.deepEqual(F.evaluator(s,'normal')(8),[]);
   s.info.fleets[2]={api_ship:[8],api_mission:[1,1]};s.info.repairs=[{api_ship_id:2}];s.info.ships[3].api_situation=2;
   for(const kind of ['normal','expedition']){
     assert(F.evaluator(s,kind)(8).includes('远征中'));assert(F.evaluator(s,kind)(2).includes('入渠中'));assert(F.evaluator(s,kind)(3).includes('入渠中'));
-    const relaxed=F.evaluator(s,kind,{...F.DEFAULTS[kind],excludeExpedition:false,excludeRepairing:false,excludeFirstFleet:false});
+    const relaxed=F.evaluator(s,kind,{...F.DEFAULTS[kind],excludeExpedition:false,excludeRepairing:false,excludeFleetShips:false});
     assert.deepEqual(relaxed(8),[]);assert.deepEqual(relaxed(2),[]);
   }
 });
@@ -69,6 +69,8 @@ test('preferences persist independently, migrate old settings, and roll back on 
     assert.deepEqual(restored.getRecommendationFilters().expedition,{...F.DEFAULTS.expedition,borrowIdleShips:false,excludeHeavyDamage:false});
     for(const allowEquipmentBorrowing of [0,1,null,'false'])assert.throws(()=>restored.setRecommendationFilters({expedition:{allowEquipmentBorrowing}}),/无效/);
     assert.equal(F.normalizeGroup('expedition',{defaultGoal:'success'}).borrowIdleShips,true);
+    assert.equal(F.normalizeGroup('expedition',{excludeFirstFleet:true}).excludeFatigued,true);
+    assert.equal(F.normalizeGroup('expedition',{excludeFirstFleet:false}).excludeFleetShips,false);
     assert.equal(F.normalizeGroup('practice',{}).borrowFleetShips,false);
     for(const kind of ['expedition','practice']){
       assert.equal(F.normalizeGroup(kind,{allowEquipmentBorrowing:true}).borrowFleetShips,false,'legacy choice does not enable borrowing from fleet ships');
@@ -207,8 +209,32 @@ test('snapshot worker searches only the observed phase while the UI retains the 
   assert(inputs(disabledBorrowing).every(n=>n.props.disabled));
   const strings=nodes(tree).flatMap(n=>n.children.filter(c=>typeof c==='string'));
   assert.equal(strings.filter(s=>s==='排除以下舰娘').length,3);
-  assert(!strings.some(s=>/^排除.*舰$/.test(s)));assert(strings.includes('第一舰队成员'));
+  assert(!strings.some(s=>/^排除.*舰$/.test(s)));assert.equal(strings.filter(s=>s==='编队内的舰娘').length,3);
+  assert.equal(strings.filter(s=>s==='疲劳（士气 < 40）').length,3);
+  for(const [title,checked] of [['出击设置',false],['远征设置',true],['演习设置',true]]){
+    const filter=nodes(tree).find(n=>n.props['aria-label']===title+'：排除编队内的舰娘');
+    assert.equal(filter.props.checked,checked);
+  }
+  assert.equal(nodes(tree).filter(n=>n.props.className?.includes('paa-selection-ship-filter')).length,3);
  });
+
+test('fleet exclusion covers four fleets, leaves manual ships intact, and never changes borrowing permissions',()=>{
+  const s=source();s.info.fleets.forEach((fleet,i)=>{fleet.api_ship=[i+1];fleet.api_mission=[0,0];});
+  const {context}=require('../../src/recommendation/context');
+  for(const kind of ['normal','expedition','practice']){
+    const settings={...F.DEFAULTS[kind],minLevel:0,excludeUnremodeled:false,excludeFatigued:false,excludeHeavyDamage:false,excludeUnlocked:false};
+    const evalShip=F.evaluator(s,kind,settings);
+    for(let id=1;id<=4;id++)assert.equal(evalShip(id).includes('编队内的舰娘'),kind!=='normal');
+    assert(!evalShip(8).includes('编队内的舰娘'));
+    const selection=context(s,{fleet:kind==='expedition'?2:1,automaticFilters:settings,fixedShipIds:[2]},kind==='expedition'?2:1);
+    assert(selection.byId.get(2).available,'explicitly selected ships bypass the automatic filter');
+    if(kind!=='normal')assert.equal(selection.byId.get(3).available,false);
+    assert.equal(F.normalizeGroup(kind,{...settings,borrowFleetShips:true}).excludeFleetShips,settings.excludeFleetShips);
+    assert.equal(F.normalizeGroup(kind,{...settings,excludeFleetShips:!settings.excludeFleetShips}).borrowFleetShips,settings.borrowFleetShips);
+  }
+  assert.equal(F.normalizeGroup('expedition',{excludeFirstFleet:false}).excludeFleetShips,false);
+  assert.equal(F.normalizeGroup('expedition',{excludeFirstFleet:false,excludeFleetShips:true}).excludeFleetShips,true);
+});
 
 test('routing ship warnings distinguish ownership, filters, alternatives and manual overrides',()=>{
   const s=source(),settings=F.DEFAULTS.normal;

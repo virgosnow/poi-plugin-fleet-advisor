@@ -127,6 +127,7 @@ module.exports+=`
 .paa-settings-page .paa-resource-control+.paa-resource-control{margin-top:var(--paa-setting-gap)}
 .paa-selection-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--paa-setting-gap,16px)}.paa-computation-settings{display:flex;flex-direction:column;gap:var(--paa-setting-gap,16px)}
 .paa-selection-exclusions{align-items:start}.paa-selection-caption{padding-top:6px;font-size:14px;line-height:22px}
+.paa-selection-ship-filter{margin-top:12px;padding-top:12px;border-top:1px solid var(--paa-line)}
 .paa-selection-options{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,160px),1fr));align-items:center;gap:var(--paa-setting-subgap) 16px}
 .paa-selection-option,.paa-selection-level,.paa-selection-level label{display:flex;align-items:center;gap:8px;margin:0;min-height:34px;font-size:14px;line-height:22px}
 .paa-selection-options :is(.paa-selection-option,.paa-selection-level,.paa-selection-level label){gap:6px}

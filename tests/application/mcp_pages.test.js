@@ -177,7 +177,8 @@ test('all read-only MCP tools have a reproducible complete Markdown parameter re
 test('two independent HTTP clients query, recommend and refit without write tools',async t=>{
   const data=store(),s=service(t,data);s.httpPort=0;s.setMcpEnabled(true);await s.startMcpServer();
   s.setExperimentalSettings({automaticOperations:true});
-  s.setRecommendationFilters({normal:{excludeUnremodeled:false}});
+  // The small fixture has too few unassigned ships for the expedition.
+  s.setRecommendationFilters({normal:{excludeUnremodeled:false},expedition:{excludeFleetShips:false}});
   const {address}=s.getStatus().mcpHttp;
   const client=()=>{
     let id=0;

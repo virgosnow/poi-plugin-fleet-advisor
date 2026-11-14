@@ -2,6 +2,13 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {setLocale}=require('../../src/shared/i18n');
 const {recommendationError,practiceError,formatError}=require('../../src/ui/models/recommendation_error');
+test('fleet-membership exclusion in recommendation errors is translated',()=>{
+  const failure=recommendationError({reason:'没有找到合适的编成',selectionFilters:{details:[{code:'fleetShips',count:3}]}});
+  try{
+    setLocale('ja');assert.match(formatError(failure),/艦隊所属艦 3隻/);
+    setLocale('zh-TW');assert.match(formatError(failure),/編隊內的艦娘 3 艘/);
+  }finally{setLocale('zh-CN');}
+});
 
 test('recommendation failure and dynamic exclusions follow the selected language',()=>{
   const failure=recommendationError({reasonBase:'本轮未找到同时满足攻略舰种、练度、关键装备和可达路线的编成；可调整固定舰娘、装备或制空目标',

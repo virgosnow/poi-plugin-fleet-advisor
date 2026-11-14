@@ -12,7 +12,7 @@ registerCatalog('ja',{
  'route.missing.setting':'出撃設定「{reason}」','route.missing.manual':'手動で除外','route.missing.busy':'{reason}、現在は編成不可',
  'route.missing.unavailable':'現在は編成不可','route.missing.missingShip':'艦娘が存在しません','route.missing.minimumLevel':'レベル {minimum} 未満',
  'route.missing.unremodeled':'未改装','route.missing.expedition':'遠征中','route.missing.repairing':'入渠中','route.missing.unlocked':'未ロック',
- 'route.missing.heavyDamage':'大破','route.missing.fatigued':'疲労度 40 未満','route.missing.firstFleet':'第1艦隊所属'
+ 'route.missing.heavyDamage':'大破','route.missing.fatigued':'疲労度 40 未満','route.missing.firstFleet':'第1艦隊所属','route.missing.fleetShips':'艦隊所属艦'
 });
 registerCatalog('zh-TW',{
  'route.missing.start':'出發點','route.missing.fullSuffix':' 缺少可用導航艦：',
@@ -23,7 +23,7 @@ registerCatalog('zh-TW',{
  'route.missing.setting':'出擊設定「{reason}」','route.missing.manual':'手動排除','route.missing.busy':'{reason}，目前無法編入',
  'route.missing.unavailable':'目前無法編入','route.missing.missingShip':'艦娘不存在','route.missing.minimumLevel':'等級低於 {minimum}',
  'route.missing.unremodeled':'未改造','route.missing.expedition':'遠征中','route.missing.repairing':'入渠中','route.missing.unlocked':'未上鎖',
- 'route.missing.heavyDamage':'大破','route.missing.fatigued':'士氣低於 40','route.missing.firstFleet':'第一艦隊成員'
+ 'route.missing.heavyDamage':'大破','route.missing.fatigued':'士氣低於 40','route.missing.firstFleet':'第一艦隊成員','route.missing.fleetShips':'編隊內的艦娘'
 });
 registerCatalog('ja',{
  'route.blocked.stageNotOpen':'この段階では該当マスは未開放','route.blocked.stageUnknown':'この段階で該当マスが開放済みかは未確認',
@@ -61,7 +61,7 @@ const incompatible={
  '7-4:start>C>E>G':{ja:'E→Gは補給艦・揚陸艦と海防艦または練習巡洋艦による護衛6隻編成に限られ、この編成は出撃地点からAに固定されます。',tw:'E→G 限定補給艦／揚陸艦與海防艦或練巡護航的 6 艦編成，此編成出發後固定前往 A。'},
  '7-4:start>C>E>J>P':{ja:'J→Pを通れる海防艦・駆逐艦・大鷹型・練習巡洋艦の編成は、出撃地点→CとC→Eを同時に満たせません。CからJへはL/Kを経由します。',tw:'J→P 允許的海防艦／驅逐艦／大鷹型／練巡編成，無法同時滿足出發到 C 和 C→E；經 C 到 J 需走 L/K。'}
 };
-const codes=new Set(['missingShip','minimumLevel','unremodeled','expedition','repairing','unlocked','heavyDamage','fatigued','firstFleet']);
+const codes=new Set(['missingShip','minimumLevel','unremodeled','expedition','repairing','unlocked','heavyDamage','fatigued','firstFleet','fleetShips']);
 function formatReason(entry,compact){
  if(entry?.origin==='manual')return t('route.missing.manual');
  const reason=entry?.reason;if(!reason||!codes.has(reason.code))return null;

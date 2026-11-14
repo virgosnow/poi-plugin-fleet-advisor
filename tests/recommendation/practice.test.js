@@ -17,6 +17,19 @@ function openingRoleFixture(){
  s.const.$ships[101]={api_id:101,api_name:'敌战舰',api_stype:9,api_souk:[50,100]};
  return s;
 }
+test('practice auto selection excludes all fleet members but keeps explicit training and manually chosen ships',()=>{
+ const s=openingRoleFixture(),forecast=require('../../src/domain/combat/practice_forecast'),original=forecast.estimate;
+ s.info.fleets[0].api_ship=[1];s.info.fleets[1].api_ship=[3];s.info.fleets[2].api_ship=[4];s.info.fleets[3].api_ship=[5];
+ try{
+  forecast.estimate=()=>({status:'unknown'});
+  const opponent={ships:[{masterId:100},{masterId:101}]};
+  const automatic=recommendPractice(s,{capacity:3,trainingShipIds:[1],opponent}).scheme.ships.map(ship=>ship.id);
+  assert(automatic.includes(1),'explicit target is retained even in a fleet');
+  assert(automatic.every(id=>![3,4,5].includes(id)),'other fleet members are excluded');
+  const manual={id:4,pin:true,slots:[-1,-1,-1],ex:-1,keep:{}};
+  assert(recommendPractice(s,{capacity:2,trainingShipIds:[1],slots:[null,manual],opponent}).scheme.ships.some(ship=>ship.id===4));
+ }finally{forecast.estimate=original;}
+});
 test('mixed practice selects a truly equipped opening ASW escort and opening torpedo ship',()=>{
  const s=openingRoleFixture(),forecast=require('../../src/domain/combat/practice_forecast'),original=forecast.estimate;
  const {openingASW}=require('../../src/domain/combat/opening_asw');

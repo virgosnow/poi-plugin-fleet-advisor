@@ -1,15 +1,18 @@
 'use strict';
 // Preferences affect automatic selection, never the user's explicit draft.
 const DEFAULTS={
-  normal:{borrowIdleShips:true,borrowFleetShips:true,minLevel:30,excludeUnremodeled:true,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeHeavyDamage:true,excludeFatigued:true},
-  practice:{borrowIdleShips:true,borrowFleetShips:false,minLevel:0,excludeUnremodeled:false,excludeUnlocked:true,excludeExpedition:true,excludeRepairing:true,excludeHeavyDamage:true,excludeFatigued:true},
-  expedition:{borrowIdleShips:true,borrowFleetShips:false,minLevel:0,excludeUnremodeled:false,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeHeavyDamage:true,excludeFirstFleet:true},
+  normal:{borrowIdleShips:true,borrowFleetShips:true,minLevel:30,excludeUnremodeled:true,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeHeavyDamage:true,excludeFatigued:true,excludeFleetShips:false},
+  practice:{borrowIdleShips:true,borrowFleetShips:false,minLevel:0,excludeUnremodeled:false,excludeUnlocked:true,excludeExpedition:true,excludeRepairing:true,excludeHeavyDamage:true,excludeFatigued:true,excludeFleetShips:true},
+  expedition:{borrowIdleShips:true,borrowFleetShips:false,minLevel:0,excludeUnremodeled:false,excludeExpedition:true,excludeRepairing:true,excludeUnlocked:true,excludeHeavyDamage:true,excludeFatigued:true,excludeFleetShips:true},
 };
 function normalizeGroup(kind,value={}){
   const defaults=DEFAULTS[kind],out={};
   for(const [key,fallback]of Object.entries(defaults))out[key]=key==='minLevel'?
     (Number.isInteger(value?.[key])&&value[key]>=0&&value[key]<=999?value[key]:fallback):
     (typeof value?.[key]==='boolean'?value[key]:fallback);
+  // Carry forward an explicit old expedition preference; new installations
+  // use the fleet-wide default and an explicit new option always wins.
+  if(kind==='expedition'&&typeof value?.excludeFleetShips!=='boolean'&&typeof value?.excludeFirstFleet==='boolean')out.excludeFleetShips=value.excludeFirstFleet;
   // A legacy on/off switch did not express a separate fleet-source choice.
   // Keep its idle-ship preference; use the new conservative default for
   // expedition/practice fleet ships unless a new explicit setting exists.
@@ -33,6 +36,7 @@ function reasonText(reason){
     case 'heavyDamage':return '大破';
     case 'fatigued':return '士气低于 40';
     case 'firstFleet':return '第一舰队成员';
+    case 'fleetShips':return '编队内的舰娘';
     default:return '';
   }
 }
@@ -43,7 +47,7 @@ function structuredEvaluator(store,kind,value){
   const remodeled=new Set(Object.values(masters).map(m=>Number(m.api_aftershipid)).filter(id=>id>0));
   const repairing=new Set((store.info.repairs||[]).map(d=>Number(typeof d==='object'?d.api_ship_id:d)));
   const away=new Set((store.info.fleets||[]).filter(f=>Number(f.api_mission?.[0]||0)!==0).flatMap(f=>f.api_ship||[]));
-  const first=new Set(store.info.fleets?.[0]?.api_ship||[]);
+  const fleetShips=new Set((store.info.fleets||[]).flatMap(f=>f.api_ship||[]).map(Number).filter(id=>id>0));
   return id=>{
     const ship=store.info.ships[id],master=masters[ship?.api_ship_id];if(!ship||!master)return [{code:'missingShip'}];
     const reasons=[];
@@ -55,7 +59,7 @@ function structuredEvaluator(store,kind,value){
     if(settings.excludeUnlocked&&Number(ship.api_locked)===0)reasons.push({code:'unlocked'});
     if(settings.excludeHeavyDamage&&Number(ship.api_maxhp)>0&&Number(ship.api_nowhp)/Number(ship.api_maxhp)<=.25)reasons.push({code:'heavyDamage'});
     if(settings.excludeFatigued&&Number(ship.api_cond)<40)reasons.push({code:'fatigued'});
-    if(settings.excludeFirstFleet&&first.has(Number(id)))reasons.push({code:'firstFleet'});
+    if(settings.excludeFleetShips&&fleetShips.has(Number(id)))reasons.push({code:'fleetShips'});
     return reasons;
   };
 }

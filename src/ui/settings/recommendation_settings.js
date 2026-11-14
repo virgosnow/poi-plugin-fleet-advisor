@@ -8,7 +8,7 @@ module.exports=React=>{
     ['excludeRepairing','排除入渠中的舰']];
   const specific={normal:[['excludeHeavyDamage','排除大破舰'],['excludeFatigued','排除疲劳舰']],
     practice:[['excludeHeavyDamage','排除大破舰'],['excludeFatigued','排除疲劳舰']],
-    expedition:[['excludeHeavyDamage','排除大破舰'],['excludeFirstFleet','保留第一舰队成员']]};
+    expedition:[['excludeHeavyDamage','排除大破舰'],['excludeFatigued','排除疲劳舰']]};
   return ({value,onChange,disabled,feedbacks={}})=>{
     const locale=i18n.getLocale(),t=i18n.t;
     return h('section',{className:'paa-selection-settings','aria-label':t('全局推荐排除')},
@@ -23,13 +23,13 @@ module.exports=React=>{
               h('div',{className:'paa-settings-label',key},h('label',{className:'paa-selection-option'},
                 h('input',{type:'checkbox',checked:group[key],disabled,'aria-label':t(label),onChange:e=>change(key,e.target.checked)}),
                 h('span',null,t(label))),feedback(React,feedbacks[kind+'.'+key]))))),
-        h('div',{className:'paa-settings-row paa-selection-exclusions'},h('div',{className:'paa-selection-caption'},t('排除以下舰娘')),
+        h('div',{className:'paa-settings-row paa-selection-exclusions paa-selection-ship-filter'},h('div',{className:'paa-selection-caption'},t('排除以下舰娘')),
         h('div',{className:'paa-selection-options'},
         h('div',{className:'paa-selection-level'},
           h('label',null,h('input',{type:'checkbox',checked:group.minLevel>0,disabled,'aria-label':t(title)+t('等级限制'),onChange:e=>change('minLevel',e.target.checked?30:0)}),locale==='ja-JP'?'Lv.':t('低于')),
           h('input',{type:'number',min:1,max:999,step:1,value:group.minLevel||30,disabled:disabled||group.minLevel===0,'aria-label':t(title)+t('最低等级'),onChange:e=>{const v=Number(e.target.value);if(Number.isInteger(v)&&v>=1&&v<=999)change('minLevel',v);}}),h('span',null,locale==='ja-JP'?'未満':t('级')),feedback(React,feedbacks[kind+'.minLevel'])),
-        ...[...common,...specific[kind]].map(([key,label])=>h('div',{className:'paa-settings-label',key},h('label',{className:'paa-selection-option'},
-          h('input',{type:'checkbox',checked:group[key],disabled,'aria-label':t(title)+'：'+t(label),onChange:e=>change(key,e.target.checked)}),h('span',null,t(({excludeUnremodeled:'未改造',excludeExpedition:'远征中',excludeRepairing:'入渠中',excludeUnlocked:'未锁定',excludeHeavyDamage:'大破',excludeFatigued:'疲劳（士气 < 40）',excludeFirstFleet:'第一舰队成员'})[key]))),feedback(React,feedbacks[kind+'.'+key]))))));
+        ...[...common,...specific[kind],['excludeFleetShips','排除编队内的舰娘']].map(([key,label])=>h('div',{className:'paa-settings-label',key},h('label',{className:'paa-selection-option'},
+          h('input',{type:'checkbox',checked:group[key],disabled,'aria-label':t(title)+'：'+t(label),onChange:e=>change(key,e.target.checked)}),h('span',null,t(({excludeUnremodeled:'未改造',excludeExpedition:'远征中',excludeRepairing:'入渠中',excludeUnlocked:'未锁定',excludeHeavyDamage:'大破',excludeFatigued:'疲劳（士气 < 40）',excludeFleetShips:'编队内的舰娘'})[key]))),feedback(React,feedbacks[kind+'.'+key]))))));
     })));
   };
 };

@@ -276,14 +276,15 @@ class FleetAdvisorService {
     for(const [kind,group]of Object.entries(value||{})){
       if(!selectionFilters.DEFAULTS[kind]||!group||typeof group!=='object')throw error('INVALID_QUERY','无效的推荐设置');
       for(const [key,v]of Object.entries(group)){
-        if(!(key in selectionFilters.DEFAULTS[kind])&&key!=='allowEquipmentBorrowing'||(key==='minLevel'?(!Number.isInteger(v)||v<0||v>999):typeof v!=='boolean'))
+        if(!(key in selectionFilters.DEFAULTS[kind])&&key!=='allowEquipmentBorrowing'&&!(kind==='expedition'&&key==='excludeFirstFleet')||(key==='minLevel'?(!Number.isInteger(v)||v<0||v>999):typeof v!=='boolean'))
           throw error('INVALID_QUERY','无效的排除选项：'+key);
       }
     }
     const previous=this.recommendationFilters;
     this.recommendationFilters=selectionFilters.normalize(Object.fromEntries(Object.keys(selectionFilters.DEFAULTS).map(k=>{
       const update=value?.[k]||{},legacy=update.allowEquipmentBorrowing;
-      const mapped=typeof legacy==='boolean'?{borrowIdleShips:legacy,borrowFleetShips:legacy}:{};
+      const mapped={...(typeof legacy==='boolean'?{borrowIdleShips:legacy,borrowFleetShips:legacy}:{}),
+        ...(k==='expedition'&&typeof update.excludeFirstFleet==='boolean'&&typeof update.excludeFleetShips!=='boolean'?{excludeFleetShips:update.excludeFirstFleet}:{})};
       return [k,{...previous[k],...mapped,...update}];
     })));
     try{this.persist();}catch(e){this.recommendationFilters=previous;throw error('PERSISTENCE_UNAVAILABLE','推荐设置保存失败：'+e.message);}
