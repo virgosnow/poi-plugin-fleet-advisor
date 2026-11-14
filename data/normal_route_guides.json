@@ -1485,58 +1485,6 @@
           "key": "guide:1-5-07"
         },
         {
-          "id": "1-5-02",
-          "name": "中路三海防流",
-          "nodes": [
-            "A",
-            "D",
-            "E",
-            "J"
-          ],
-          "paths": [
-            [
-              "A",
-              "D",
-              "E",
-              "J"
-            ]
-          ],
-          "pathLabel": "A→D→E→J",
-          "templates": [
-            [
-              [
-                1
-              ],
-              [
-                1
-              ],
-              [
-                1
-              ]
-            ]
-          ],
-          "fleetRequirement": {
-            "all": [
-              {
-                "shipCount": {
-                  "exact": 3
-                }
-              },
-              {
-                "count": {
-                  "stypes": [
-                    1
-                  ],
-                  "exact": 3
-                }
-              }
-            ]
-          },
-          "summary": "三海防少一舰消耗，却只有三次开幕对付最多四潜艇，不作为通用首选。",
-          "priority": "备用",
-          "key": "guide:1-5-02"
-        },
-        {
           "id": "1-5-destroyers",
           "name": "右路驱逐流",
           "nodes": [

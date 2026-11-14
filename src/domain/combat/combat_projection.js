@@ -91,7 +91,7 @@ function attackFor(ship,enemy,phase,context={}){
     if(!ship.asw||ship.asw.status!=='known')return null;
     if(phase==='openingAsw'&&!ship.asw.opening||phase==='shelling'&&!ship.asw.normal)return 0;
     if(!['openingAsw','shelling'].includes(phase))return 0;
-    const damage=aswDamage(ship.asw,enemy,{formation:'lineAbreast'});
+    const damage=aswDamage(ship.asw,enemy,{formation:context.formation||'lineAbreast'});
     return damage.status==='unknown'?null:damage.mean;
   }
   // Land target effects and carrier eligibility require target-specific
@@ -131,7 +131,8 @@ function coverage(attackers,targets,phases,attackValue){
   for(const phase of phases)for(const actor of attackers){
     for(let i=0;i<targets.length;i++){
       const hasLiveSubmarines=kinds.has('submarine');
-      const value=attackValue(actor,targets[i],phase,{hasLiveSubmarines});
+      const value=attackValue(actor,targets[i],phase,{hasLiveSubmarines,
+        formation:attackers.length<4?'lineAhead':'lineAbreast'});
       if(value===null||!finite(value)){unknown=true;continue;}
       damage[i]+=Math.min(hp[i],value)/targets.length;
     }

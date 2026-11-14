@@ -126,6 +126,22 @@ test('distinct roles cannot reuse flagship as a companion',()=>{
   assert.equal(evaluateFleetRequirements(fleet,state,[ship,add(2,2,'其他舰',2)],1).status,'met');
 });
 
+test('By14 counts only escort sea-defense ships and prohibits other hull types',()=>{
+  const {state,add}=fixture(),q=byCode.get('By14');
+  const ukuru=add(1,1,'稲木改二',1,{api_ctype:117}),a=add(2,2,'択捉改',1),b=add(3,3,'松輪改',1),c=add(4,4,'国後改',1),d=add(5,5,'占守改',1),dd=add(6,6,'吹雪改',2);
+  for(const ships of [[ukuru,a],[ukuru,a,b],[ukuru,a,b,c]])assert.equal(evaluateFleetRequirements(q.fleet,state,ships,1).status,'met');
+  for(const ships of [[ukuru],[ukuru,a,b,dd],[ukuru,a,b,c,d],[a,ukuru,b,c]])assert.equal(evaluateFleetRequirements(q.fleet,state,ships,1).status,'unmet');
+});
+
+test('other capped flagship tasks count the flagship in fleet totals',()=>{
+  const {state,add}=fixture(),cl=add(1,1,'軽巡甲',3),cl2=add(2,2,'軽巡乙',3),cl3=add(3,3,'軽巡丙',3),
+    dd=[4,5,6].map(id=>add(id,id,`駆逐${id}`,2));
+  assert.equal(evaluateFleetRequirements(byCode.get('B30').fleet,state,[cl,...dd],1).status,'met');
+  assert.equal(evaluateFleetRequirements(byCode.get('B30').fleet,state,[cl,cl2,cl3,...dd],1).status,'unmet');
+  assert.equal(evaluateFleetRequirements(byCode.get('Bm3').fleet,state,[cl,...dd],1).status,'met');
+  assert.equal(evaluateFleetRequirements(byCode.get('Bm3').fleet,state,[cl,cl2,cl3,...dd],1).status,'met');
+});
+
 test('fleet-total predicates can share a flagship, unlike distinct composition roles',()=>{
   const {state,add}=fixture();const ship=add(1,1,'舰娘',2);
   const role={kind:'count',selector:{kind:'shipType',stypeIds:[2]},min:1,scope:'fleetTotal'};

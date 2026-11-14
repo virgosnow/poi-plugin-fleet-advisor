@@ -143,13 +143,15 @@ test('ASW package fitting preserves manual slots, real stock, the snapshot and a
 
 test('light road escorts keep two guns once one sonar supplies effective damage',()=>{
   const f=fixture({name:'Jervis改',stype:2});
+  for(let id=2;id<=4;id++)f.store.info.ships[id]={...f.target.ship};
   const sonar=f.gear(149,14,12,'四式水中聴音機'),projector=f.gear(287,15,12,'三式爆雷投射機 集中配備'),depth=f.gear(227,15,7,'二式爆雷');
   const guns=[f.gear(500,1,0,'主炮甲'),f.gear(501,1,0,'主炮乙')];
   for(const id of guns)f.store.const.$equips[id].api_houg=5;
-  const scheme={fleet:1,ships:[{id:1,slots:[...guns,sonar],ex:0}]};
+  const escorts=[2,3,4].map(id=>({id,slots:[],ex:0}));
+  const scheme={fleet:1,ships:[{id:1,slots:[...guns,sonar],ex:0},...escorts]};
   const p=previewForMap('4-2',{paths:[['B','D','C','L']]}),base=assessAsw(f.store,scheme,p,{limit:1});
   assert.equal(base.readiness,1);
-  const heavy={fleet:1,ships:[{id:1,slots:[sonar,projector,depth],ex:0}]};
+  const heavy={fleet:1,ships:[{id:1,slots:[sonar,projector,depth],ex:0},...escorts]};
   assert.equal(assessAsw(f.store,heavy,p,{limit:1}).score,base.score,'overkill has no extra escort credit');
   const inventory=Object.values(f.store.info.equips).map(e=>({id:e.api_id,master:f.store.const.$equips[e.api_slotitem_id]}));
   for(const r of fitAswLoadouts(f.store,scheme,inventory,{profile:p,escorts:new Set([1])})){
@@ -160,8 +162,9 @@ test('light road escorts keep two guns once one sonar supplies effective damage'
 
 test('armored enemy cannot be hidden by weak escorts; mixed battle formation changes effective damage',()=>{
   const f=fixture({name:'Jervis改',stype:2});
+  for(let id=2;id<=4;id++)f.store.info.ships[id]={...f.target.ship};
   const sonar=f.gear(149,14,12,'四式水中聴音機');
-  const scheme={fleet:1,ships:[{id:1,slots:[sonar,-1,-1],ex:0}]};
+  const scheme={fleet:1,ships:[{id:1,slots:[sonar,-1,-1],ex:0},...[2,3,4].map(id=>({id,slots:[],ex:0}))]};
   const p=previewForMap('7-4',{paths:[['A','B','E','J','L','P']]});
   const line=assessAsw(f.store,scheme,p,{limit:1,formation:'lineAhead',details:true});
   const abreast=assessAsw(f.store,scheme,p,{limit:1,formation:'lineAbreast'});
@@ -170,14 +173,26 @@ test('armored enemy cannot be hidden by weak escorts; mixed battle formation cha
   assert.equal(triple.enemyCount,3);assert(triple.hardTargetCapacity<.1);
 });
 
-test('4-4 pure submarine node and surface boss use different own formations',()=>{
+test('4-4 single-ship route uses line ahead at both submarine and surface battles',()=>{
   const f=fixture({name:'Jervis改',stype:2});
   const p=previewForMap('4-4',{paths:[['A','E','I','K']]}),scheme={fleet:1,ships:[{id:1,slots:[],ex:0}]};
   const report=assessAsw(f.store,scheme,p,{limit:2});
-  assert.deepEqual(report.nodes.map(n=>[n.id,n.formation]),[['E','lineAbreast'],['K','lineAhead']]);
+  assert.deepEqual(report.nodes.map(n=>[n.id,n.formation]),[['E','lineAhead'],['K','lineAhead']]);
   assert.equal(submarineEncounters(p)[0].kind,'asw');
   const early=report.nodes.find(n=>n.id==='E');
   assert(early.readiness<1,'bare native OASW may clear weak subs but cannot hide the armored flagship');
+});
+
+test('ASW assessment uses line ahead for three ships and line abreast for four',()=>{
+  const f=fixture({name:'Jervis改',stype:2}),p=previewForMap('1-5',{paths:[['A','D','E','J']]});
+  for(let id=2;id<=4;id++)f.store.info.ships[id]={...f.target.ship};
+  const ships=[1,2,3,4].map(id=>({id,slots:[],ex:0}));
+  for(const size of [1,2,3]){
+    const report=assessAsw(f.store,{fleet:1,ships:ships.slice(0,size)},p,{formation:'lineAbreast'});
+    assert(report.nodes.length);assert(report.nodes.every(n=>n.formation==='lineAhead'));
+  }
+  const report=assessAsw(f.store,{fleet:1,ships},p);
+  assert(report.nodes.length);assert(report.nodes.every(n=>n.formation==='lineAbreast'));
 });
 
 test('multi-stage submarine objectives and bypasses are isolated by the selected path',()=>{

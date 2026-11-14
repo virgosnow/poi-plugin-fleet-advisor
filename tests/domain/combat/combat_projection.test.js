@@ -16,6 +16,17 @@ test('a surface gun cannot replace an actual anti-submarine package',()=>{
   assert.equal(attackFor(gun,sub,'openingAsw'),0);assert.equal(attackFor(gun,sub,'shelling'),0);
   assert.equal(attackFor({...gun,asw:{status:'unknown'}},sub,'openingAsw'),null);
 });
+test('submarine coverage references the formation available to the fleet size',()=>{
+  const escort={...gun,asw:{status:'known',power:50,normal:true,opening:true,penetration:0}};
+  const target={kind:'submarine',hp:200,armor:5};
+  for(const count of [1,2,3,4]){
+    const formation=count<4?'lineAhead':'lineAbreast';
+    const value=attackFor(escort,target,'openingAsw',{formation});
+    const result=coverage(Array(count).fill(escort),[target],['openingAsw'],attackFor);
+    assert.equal(result.status,'known');
+    assert(Math.abs(result.coverage-Math.min(1,count*value/target.hp))<1e-9);
+  }
+});
 test('normal torpedo and opening torpedo follow distinct eligibility',()=>{
   assert.equal(attackFor(gun,surface,'openingTorpedo'),0);
   assert(attackFor(gun,surface,'torpedo')>0);

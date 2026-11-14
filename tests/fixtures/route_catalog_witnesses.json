@@ -431,29 +431,6 @@
     ]
   },
   {
-    "catalog": "1-5",
-    "id": "1-5-02",
-    "types": [
-      1,
-      1,
-      1
-    ],
-    "names": {},
-    "speed": "fast",
-    "los": 30,
-    "radars": 0,
-    "drums": 0,
-    "probability": 1,
-    "paths": [
-      [
-        "A",
-        "D",
-        "E",
-        "J"
-      ]
-    ]
-  },
-  {
     "catalog": "1-6",
     "id": "1-6-01",
     "types": [

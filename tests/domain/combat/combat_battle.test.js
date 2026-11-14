@@ -9,6 +9,18 @@ const enemy=id=>enemyRecord({apiId:id,apiIdStatus:'verified'});
 const ship={status:'known',stype:2,hp:30,initialHp:30,armor:10,fire:40,torpedo:35,
   intrinsicTorpedo:30,openingTorpedo:false,range:1,condition:49,submarine:false,hasAircraft:false,
   asw:{status:'known',normal:true,opening:true,power:90,penetration:0}};
+test('three-ship fleets are forced to line ahead at all battle types',()=>{
+  for(const kind of ['asw','battle','aerialRaid','nightBattle']){
+    for(const size of [1,2,3]){
+      const squad=Array.from({length:size},()=>({...ship}));
+      assert.equal(prepareBattle(squad,[enemy(1532)],{kind}).ownFormation,'lineAhead');
+      assert.equal(prepareBattle(squad,[enemy(1532)],{kind,ownFormation:'lineAbreast'}).ownFormation,'lineAhead');
+    }
+  }
+  const squad=Array.from({length:4},()=>({...ship}));
+  assert.equal(prepareBattle(squad,[enemy(1532)],{kind:'asw'}).ownFormation,'lineAbreast');
+  assert.equal(prepareBattle(squad,[enemy(1532)],{kind:'asw',ownFormation:'doubleLine'}).ownFormation,'doubleLine');
+});
 test('day spotting adds its documented two-hit attack without changing other battle modes',()=>{
   const target={...enemy(1501),hp:{min:1000,max:1000},armor:{min:0,max:0}};
   const gun={...ship,fire:100,torpedo:0,intrinsicTorpedo:0,asw:{...ship.asw,opening:false}};
@@ -100,7 +112,7 @@ test('route torpedoes use enemy formation and friendly evasion in complete scena
   const hull={...ship,hp:80,initialHp:80,armor:40,evasion:60,luck:0,torpedoEvasionBonus:0,
     fire:0,torpedo:0,intrinsicTorpedo:0,asw:{status:'known',normal:false,opening:false,power:0}};
   const result=(enemyFormation,ownFormation)=>{
-    const p=prepareBattle([hull],[enemy(1572)],{kind:'asw',enemyFormation,ownFormation,hitModel:'route'});
+    const p=prepareBattle([hull,hull,hull,hull],[enemy(1572)],{kind:'asw',enemyFormation,ownFormation,hitModel:'route'});
     return Array.from({length:256},(_,i)=>runScenario(p,random(i*997+1))).reduce((n,v)=>n+80-v.ownHp[0],0);
   };
   assert(result('echelon','lineAbreast')>result('lineAbreast','lineAbreast'));

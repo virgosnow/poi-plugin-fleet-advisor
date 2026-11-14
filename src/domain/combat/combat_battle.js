@@ -263,7 +263,8 @@ function prepareBattle(friendly,enemies,{kind='battle',ownFormation,enemyFormati
     const participating=combined?mainCount:foes.length;
     for(let i=0;i<participating;i++)if(foes[i].aircraft>0&&(!enemyAir?.[i]||enemyAir[i].status!=='known'))reasons.add('敌方航空攻击或载机损耗待确认');
   }
-  const own=ownFormation||((kind==='asw'||foes.every(s=>s.submarine))?'lineAbreast':'lineAhead');
+  // A normal fleet of at most three ships never gets a formation selection.
+  const own=allies.length<4?'lineAhead':ownFormation||((kind==='asw'||foes.every(s=>s.submarine))?'lineAbreast':'lineAhead');
   const enemy=LABEL[enemyFormation]||enemyFormation||'lineAhead';
   if(!FORMATION[own]||!FORMATION[enemy])return {status:'unknown',reasons:['阵形资料未支持']};
   const specialValid=special?.available===true&&['known','partial'].includes(special.status)&&

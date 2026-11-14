@@ -140,7 +140,7 @@ function assessAsw(store,scheme,profile,{limit=6,formation,details=false}={}){
   const nodes=encounters.map(node=>{
     if(node.ammo===null)unknown=true;
     const primary=node.kind==='asw'||node.boss&&profile.mapPreview?.nodes.find(n=>n.id===node.id)?.submarineFlagship;
-    const chosen=formation||(primary?'lineAbreast':'lineAhead');
+    const chosen=scheme.ships.length<4?'lineAhead':formation||(primary?'lineAbreast':'lineAhead');
     let worst=null;
     for(const enemies of node.formations){
       const known=enemies.every(e=>Number.isFinite(e.hp)&&Number.isFinite(e.armor));

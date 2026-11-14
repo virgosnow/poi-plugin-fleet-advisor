@@ -13,6 +13,22 @@ function storeWithShips(){
   return store;
 }
 
+test('By14 on 1-5 offers four coastal defense ships with Ukuru class flagship',()=>{
+  const store=fixture();
+  for(const [id,name,ctype] of [[1,'稲木改二',117],[2,'択捉改',1],[3,'松輪改',1],[4,'国後改',1]]){
+    Object.assign(store.const.$ships[id],{api_name:name,api_stype:1,api_ctype:ctype,api_aftershipid:'0'});
+    store.info.ships[id].api_taisen=[90,90];
+  }
+  const args={area:'1-5',fleet:1,questCodes:['By14'],airGoal:'ignore',
+    automaticFilters:{minLevel:0,excludeUnremodeled:false,excludeFatigued:false}};
+  const result=recommendNormalFleet(store,args),row=result.recommendations.find(item=>item.routeKey==='guide:1-5-01');
+  assert(row,result.reason);assert.equal(row.scheme.ships.length,4);
+  assert(result.routeResults.some(route=>route.key==='guide:1-5-01'&&route.recommendationIndex!==null));
+  assert.equal(store.const.$ships[store.info.ships[row.scheme.ships[0].id].api_ship_id].api_ctype,117);
+  assert(satisfiesQuests(store,row.scheme,questRequirements(['By14'])));
+  assert(row.scheme.ships.every(ship=>store.const.$ships[store.info.ships[ship.id].api_ship_id].api_stype===1));
+});
+
 test('static quest precheck prunes only definite failures, preserving equipment-dependent and unknown alternatives',()=>{
   const store=storeWithShips(),scheme=(...ids)=>({fleet:1,ships:ids.map(id=>({id}))});
   const count=(selector,min=1,extra={})=>({kind:'count',selector,min,...extra});
