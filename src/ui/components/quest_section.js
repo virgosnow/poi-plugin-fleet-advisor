@@ -6,7 +6,6 @@ const questDisplay=require('../i18n/quest_display');
 const questText=require('../i18n/quest_localization');
 const {taskSnapshot,findDefinition}=require('../../domain/quests/quest_requirements');
 const {rewards}=require('../../domain/quests/quest_overview');
-const questWiki=require('./quest_wiki_links');
 
 const status=value=>['met','unmet','unknown'].includes(value)?value:'unknown';
 const text=value=>typeof value==='string'?value:typeof value==='number'&&Number.isFinite(value)?String(value):'';
@@ -45,7 +44,7 @@ function displayGoalRows(task){
 }
 
 module.exports=function createQuestSection(React,options={}){
-  const h=React.createElement,rewardView=require('./quest_rewards')(React),badges=require('./quest_badges')(React);let nextContentId=0;
+  const h=React.createElement,rewardView=require('./quest_rewards')(React),badges=require('./quest_badges')(React),useWikiMenu=require('./quest_wiki_menu')(React);let nextContentId=0;
   const toggleCardSpace=event=>{
     if(event.defaultPrevented||event.button!==undefined&&event.button!==0)return;
     const card=event.currentTarget,target=event.target?.nodeType===3?event.target.parentElement:event.target;
@@ -60,25 +59,7 @@ module.exports=function createQuestSection(React,options={}){
   const countRelatedQuests=options.countRelatedQuests||((input)=>require('../../domain/quests/quest_requirements').countRelatedQuests(input));
   return function QuestSection({state,slots,deckId,kind='normal',mapId,missionId,questState,selectedQuests=[],onToggleQuest,onClearQuests,onNavigateQuest,disabled=false,paused=false,defaultOpen=false,open:controlledOpen,onOpenChange,readOnly=false,listTasks,countTasks}){
     const [internalOpen,setOpen]=React.useState(!!defaultOpen),open=controlledOpen===undefined?internalOpen:!!controlledOpen;
-    const [wikiMenu,setWikiMenu]=React.useState(null),wikiMenuRef=React.useRef(null);
-    const layoutEffect=React.useLayoutEffect||React.useEffect;
-    if(layoutEffect)layoutEffect(()=>{
-      if(!wikiMenu||paused||!open)return;
-      const node=wikiMenuRef.current;if(!node)return;
-      const doc=node.ownerDocument,win=doc.defaultView;
-      if(typeof node.showPopover==='function'&&!node.matches(':popover-open'))node.showPopover();
-      const rect=node.getBoundingClientRect(),width=doc.documentElement.clientWidth,height=doc.documentElement.clientHeight;
-      node.style.left=`${Math.max(8,Math.min(wikiMenu.x,width-rect.width-8))}px`;
-      node.style.top=`${Math.max(8,Math.min(wikiMenu.y,height-rect.height-8))}px`;
-      node.style.visibility='visible';node.querySelector('[role=menuitem]')?.focus({preventScroll:true});
-      const outside=event=>{if(!node.contains(event.target))setWikiMenu(null);};
-      const escape=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();setWikiMenu(null);wikiMenu.anchor?.focus?.({preventScroll:true});}};
-      const close=()=>setWikiMenu(null);
-      doc.addEventListener('pointerdown',outside,true);doc.addEventListener('focusin',outside,true);doc.addEventListener('keydown',escape,true);
-      doc.addEventListener('scroll',close,true);win.addEventListener('resize',close);win.addEventListener('blur',close);
-      return()=>{doc.removeEventListener('pointerdown',outside,true);doc.removeEventListener('focusin',outside,true);doc.removeEventListener('keydown',escape,true);doc.removeEventListener('scroll',close,true);win.removeEventListener('resize',close);win.removeEventListener('blur',close);if(typeof node.hidePopover==='function'&&node.matches(':popover-open'))node.hidePopover();};
-    },[wikiMenu,paused,open]);
-    if(React.useEffect)React.useEffect(()=>{if(paused||!open)setWikiMenu(null);},[paused,open]);
+    const wiki=useWikiMenu({enabled:open&&!paused,openExternal:options.openExternal});
     const last=React.useRef(null),lastCount=React.useRef(null);
     const displayQuestState=questState??state?.questState;
     const contentId=React.useRef(null);if(!contentId.current)contentId.current=`paa-quest-content-${++nextContentId}`;
@@ -105,21 +86,6 @@ module.exports=function createQuestSection(React,options={}){
     let equipmentByName;
     const lookup=name=>{if(!equipmentByName){equipmentByName=new Map();for(const [id,row] of Object.entries(state?.const?.$equips||{}))
       if(row?.api_name&&!equipmentByName.has(row.api_name))equipmentByName.set(row.api_name,row.api_id?row:{...row,api_id:Number(id)});}return equipmentByName.get(name);};
-    const openWiki=(event,task,keyboard=false)=>{
-      if(paused)return;
-      event.preventDefault();event.stopPropagation();
-      const anchor=event.currentTarget,rect=anchor.getBoundingClientRect();
-      const x=keyboard?rect.left+Math.min(24,rect.width):event.clientX;
-      const y=keyboard?rect.top+Math.min(24,rect.height):event.clientY;
-      const win=anchor.ownerDocument?.defaultView;
-      if(win?.CustomEvent&&Number.isFinite(x)&&Number.isFinite(y))anchor.dispatchEvent(new win.CustomEvent('paa-tooltip-pointer-guard',{bubbles:true,detail:{x,y}}));
-      setWikiMenu({x,y,anchor,links:questWiki.links(task)});
-    };
-    const openWikiLink=(event,url)=>{
-      event.preventDefault();setWikiMenu(null);
-      Promise.resolve().then(()=>questWiki.openExternal(url,options.openExternal))
-        .catch(error=>console.error('Could not open quest wiki in the default browser:',error));
-    };
     const taskView=task=>{
       const localizedGoals={...task,goals:(Array.isArray(task.goals)?task.goals:[]).map(goal=>typeof goal==='object'&&goal?.kind?{...goal,label:questDisplay.structuredGoal(goal,task.period)}:goal)};
       const conditionStatus=status(task.status),checks=Array.isArray(task.checks)?task.checks:[],period=text(task.period),selected=selectedQuests.includes(task.code),taskState=Number(task.state);
@@ -140,9 +106,9 @@ module.exports=function createQuestSection(React,options={}){
         'data-quest-id':task.id,'data-condition-status':readOnly?undefined:conditionStatus,'data-selected':selected||undefined,'aria-haspopup':'menu',
         onClick:readOnly?undefined:event=>{if(event.defaultPrevented||event.button!==undefined&&event.button!==0||event.target?.closest?.('button,a'))return;
           if(event.currentTarget.ownerDocument?.getSelection?.()?.isCollapsed===false)return;toggle();},
-        onContextMenu:event=>openWiki(event,task),
+        onContextMenu:event=>wiki.open(event,task),
         onKeyDown:readOnly?undefined:event=>{if(event.target?.closest?.('button,a,input,select,textarea,summary'))return;
-          if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10'){openWiki(event,task,true);return;}
+          if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10'){wiki.open(event,task,true);return;}
           if(event.target?.closest?.('[data-tooltip]'))return;
           if((event.key===' '||event.key==='Enter')&&!event.repeat){event.preventDefault();toggle();}}},
         selected?h('span',{className:'paa-quest-preselected'},t('预选')):null,
@@ -201,14 +167,6 @@ module.exports=function createQuestSection(React,options={}){
         !ready||incomplete&&!tasks.length?h('p',{className:'paa-quest-empty'},t('任务资料正在后台同步')):
           !tasks.length?h('p',{className:'paa-quest-empty'},t('暂无可受领或进行中的相关任务')):
             h('div',{className:'paa-quest-list',role:'region','aria-label':t('相关任务要求'),tabIndex:0},...tasks.map(taskView))):null),
-      wikiMenu&&open&&!paused?h('div',{className:'paa-quest-wiki-menu',role:'menu','aria-label':t('quest.wikiMenu'),popover:'manual',ref:wikiMenuRef,style:{visibility:'hidden'},
-        onClick:event=>event.stopPropagation(),onKeyDown:event=>{
-          if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;
-          const items=[...event.currentTarget.querySelectorAll('[role=menuitem]')],index=items.indexOf(event.target);if(!items.length)return;
-          event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?items.length-1:(index+(event.key==='ArrowDown'?1:-1)+items.length)%items.length;
-          items[next].focus({preventScroll:true});}},
-        ...[['japanese','quest.wikiJapanese'],['chinese','quest.wikiChinese']].map(([key,label])=>h('a',{
-          key,role:'menuitem',href:wikiMenu.links[key],target:'_blank',rel:'noopener noreferrer',
-          onClick:event=>openWikiLink(event,wikiMenu.links[key]),onAuxClick:event=>{if(event.button===1)openWikiLink(event,wikiMenu.links[key]);}},t(label)))):null);
+      wiki.element);
   };
 };

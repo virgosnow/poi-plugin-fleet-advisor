@@ -6,8 +6,8 @@ const questDisplay=require('../i18n/quest_display');
 const questText=require('../i18n/quest_localization');
 const {listOverviewQuests}=require('../../domain/quests/quest_overview');
 const collapse=require('../components/collapse');
-module.exports=function createOverviewQuests(React,{getController=()=>null,subscribe=()=>()=>{}}={}){
-  const h=React.createElement,rewardView=require('../components/quest_rewards')(React),badges=require('../components/quest_badges')(React);
+module.exports=function createOverviewQuests(React,{getController=()=>null,subscribe=()=>()=>{},openExternal}={}){
+  const h=React.createElement,rewardView=require('../components/quest_rewards')(React),badges=require('../components/quest_badges')(React),useWikiMenu=require('../components/quest_wiki_menu')(React);
   function OverviewQuests({state,questState,onNavigate,disabled=false}){
     i18n.useLocale(React);const t=i18n.t;
     const incomplete=(questState??state?.questState)?.complete===false;
@@ -28,6 +28,7 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
       if(observer)observer.observe(container);else win.addEventListener('resize',update);
       return()=>{if(observer)observer.disconnect();else win.removeEventListener('resize',update);};
     },[]);
+    const wiki=useWikiMenu({enabled:expanded&&!disabled,openExternal});
     if(React.useEffect)React.useEffect(()=>subscribe(event=>{if(event?.type==='questProgress')setRevision(n=>n+1);}),[]);
     const service=getController();void revision;
     const result=React.useMemo?React.useMemo(()=>listOverviewQuests({state,questState}),[state,questState]):listOverviewQuests({state,questState}),tasks=result.tasks;
@@ -84,7 +85,10 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
           service?.getQuestProgressError?.()?h('p',{className:'paa-overview-quests-error',role:'alert'},service.getQuestProgressError()):null,
           h('div',{className:'paa-overview-quests-list',role:'region','aria-label':t('进行中的任务列表'),tabIndex:0},...tasks.filter(task=>task.category===category).map(task=>{
             const number=questText.number(task,state),requirements=task.fleetRequirements,periodBadge=badges.period(task.period,number);
-            return h('article',{key:task.id,className:'paa-overview-quest','data-quest-id':task.id},
+            return h('article',{key:task.id,className:'paa-overview-quest','data-quest-id':task.id,tabIndex:disabled?-1:0,'aria-haspopup':'menu',
+              onContextMenu:event=>wiki.open(event,task),
+              onKeyDown:event=>{if(event.target?.closest?.('button,a,input,select,textarea'))return;
+                if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10')wiki.open(event,task,true);}},
               h('div',{className:'paa-overview-quest-header'},
                 h('div',{className:'paa-overview-quest-heading'},periodBadge,h('h4',!periodBadge&&number?{'data-tooltip':t('quest.number',{number}),tabIndex:0}:null,task.title)),
                 h('div',{className:'paa-overview-quest-meta'},badges.status(task.state))),
@@ -92,7 +96,7 @@ module.exports=function createOverviewQuests(React,{getController=()=>null,subsc
                 h('ul',null,...(requirements===null?[t('readability.fleetUnknown')]:requirements.length?requirements.map(questDisplay.fleetRule):[t('readability.fleetUnrestricted')]).map((label,index)=>h('li',{key:index},label)))),
               h('div',{className:'paa-quest-goals'},h('span',{className:'paa-quest-row-label'},t('目标')),
                 h('ul',{className:'paa-overview-task-goals','aria-label':t('任务行动目标')},...task.goals.map((goal,index)=>goalView(task,goal,index)))),
-              rewardView(task,state,lookup));})))));
+              rewardView(task,state,lookup));})))),wiki.element);
   };
   return React.memo?React.memo(OverviewQuests):OverviewQuests;
 };

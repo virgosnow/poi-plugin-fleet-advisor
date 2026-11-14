@@ -14,6 +14,26 @@ function harness(props,options){
   render();return {render,find:p=>walk(tree,p)[0],all:p=>walk(tree,p)};
 }
 
+test('overview task context menu opens both reviewed wiki links in the default browser',async()=>{
+  const i18n=require('../../src/shared/i18n'),opened=[],navigated=[];
+  const state={questState:{known:true,tasks:[task('B131')]}};
+  try{for(const [language,menuName] of [['zh-CN','查看任务详情'],['ja-JP','任務の詳細を見る'],['zh-TW','查看任務詳情']]){
+    i18n.setLocale(language);const ui=harness({state,onNavigate:d=>navigated.push(d)},{openExternal:url=>opened.push(url)});
+    const card=()=>ui.find(n=>n.type==='article');assert.equal(card().props['aria-haspopup'],'menu');assert.equal(card().props.tabIndex,0);
+    let prevented=0,stopped=0;const anchor={getBoundingClientRect:()=>({left:10,top:20,width:200,height:100}),ownerDocument:{defaultView:{}}};
+    card().props.onContextMenu({currentTarget:anchor,clientX:75,clientY:85,preventDefault(){prevented++;},stopPropagation(){stopped++;}});ui.render();
+    assert.equal(prevented,1);assert.equal(stopped,1);assert.equal(ui.find(n=>n.props.role==='menu').props['aria-label'],menuName);
+    const links=ui.all(n=>n.props.role==='menuitem');assert.equal(links.length,2);
+    assert.match(links[0].props.href,/^https:\/\/wikiwiki\.jp\/kancolle\/.*#id-B131$/);
+    assert.equal(new URL(links[1].props.href).hash,'#B131');
+    links[1].props.onClick({preventDefault(){prevented++;}});await Promise.resolve();ui.render();
+    assert.equal(opened.at(-1),links[1].props.href);assert.equal(ui.find(n=>n.props.role==='menu'),undefined);
+    assert.deepEqual(navigated,[],'opening a wiki does not navigate or preselect a task');
+    card().props.onKeyDown({key:'F10',shiftKey:true,target:{closest:()=>null},currentTarget:anchor,preventDefault(){prevented++;},stopPropagation(){stopped++;}});ui.render();
+    assert(ui.find(n=>n.props.role==='menu'),'keyboard context menu is also available');
+  }}finally{i18n.setLocale('zh-CN');}
+});
+
 test('overview task goals navigate separately without changing game state',()=>{
   const Component=create(React),calls=[],state={questState:{known:true,tasks:[task('B131'),task('Dw2')]}};
   const before=JSON.stringify(state),ui=harness({state,onNavigate:destination=>calls.push(destination)}),tree=ui.render();
